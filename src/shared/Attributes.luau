@@ -15,6 +15,8 @@ module = {
 	SHADOW_TYPE = "ShadowType",
 	-- GameMetadata
 	PLACE_KIND = "PlaceKind",
+	-- on each helicopter pad model; GameData/Pads (Phase 3) holds everything else
+	PAD_INDEX = "PadIndex",
 	-- CurrentPlayer (private)
 	CASH = "Cash",
 	LOADOUT_WEAPON = "LoadoutWeapon",

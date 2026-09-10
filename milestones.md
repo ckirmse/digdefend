@@ -19,9 +19,6 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 
 ## Phase 2: Player Lifecycle, Persistence, and Lobby Shell
 
-**M8 — Lobby map skeleton and spawn**
-Workspace folders `SpawnZone`, `HelicopterPads`, `Store`, `EventArea`, `HoldingArea` with placeholder geometry. Players spawn in `SpawnZone`, third-person camera. Event Area closed with a "coming soon" sign.
-
 **M9 — Arrival loading screen and feedback text**
 Arrival loading screen with title image and progress bar that fills as assets load and data is set up, then tweens off. `PlayerFeedback` ScreenGui listening on the M4 events with timed display.
 
@@ -31,10 +28,10 @@ Cash balance display with green/red flash and sounds on change, loadout slot str
 ## Phase 3: Queues and Teleporting
 
 **M11 — Helicopter pad models and config**
-Pad model structure per the GDD (`MapNumber`, `DifficultyNumber`, `MaxPlayers`, `Boarding`, `HelicopterModel.PlayerSpawns`, `HelicopterSpawn`, `CameraPositionPart`, `GuiPart.PadGui`, `JoinCollision`, `ExitSpawn`). Six pads defined in a GameData module with map, difficulty, max players, and unlock requirements. Global `FullTime` and `CapacityTime`.
+Pad models (built in M8 with `PadIndex` attribute, `HelicopterSpawn`, `CameraPositionPart`, `GuiPart.PadGui`, `JoinCollision`, `ExitSpawn`; helicopter template in `GameAssets` with `PlayerSpawns`). Decided 2026-09-10: the pad model carries only `PadIndex`; the GDD's `MapNumber`/`DifficultyNumber`/`MaxPlayers` IntValues are replaced by a `GameData/Pads` module defining map, difficulty, max players, and unlock requirements per pad index. `Boarding` becomes server Lua state replicated as an attribute. Global `FullTime` and `CapacityTime` in GameData.
 
 **M12 — Queue join, leave, and timer**
-Touching `JoinCollision` checks requirements, seats the player in the helicopter, moves their camera, shows the Queue Menu with its exit button. Timer logic: starts at `FullTime` on first join, drops to `CapacityTime` when full, resets when empty. Pad billboard shows status, count, and seconds.
+Touching `JoinCollision` checks requirements, seats the player in the helicopter, moves their camera, shows the Queue Menu with its exit button. Timer logic: starts at `FullTime` on first join, drops to `CapacityTime` when full, resets when empty. Pad billboard (`GuiPart.PadGui`, authored by the designer in M8 with `MapName`, `Difficulty`, `Status`, `PlayerCount` labels) shows status, count, and seconds. Designer rules (2026-09-10): `Difficulty` background is dark green for Normal, orange for Hard, red for Nightmare; `Status` reads "NOW BOARDING" in green or "DEPARTING" in red; label text comes from `Enums` public names.
 
 **M13 — Departure and teleport**
 On timer expiry: status "Departing", helicopter takes off, departure loading screen fades in, characters moved to `HoldingArea` spawns, group teleport to a fresh reserved gameplay server with `playerNumber`, map, and difficulty in join data. Retry handling; failure respawns the player in `SpawnZone` with a "Teleport failed" message. New helicopter cloned and pad reopened. Gameplay server rejects players not in the reserved group.
@@ -200,3 +197,6 @@ Finished 2026-09-10. ProfileStore vendored in `ServerLibs/` (mounted `Server/Lib
 
 **M7 — Client data folders** ✅
 Finished 2026-09-10. `SplendidReplicationManager` builds the `SplendidGames` ScreenGui at Ready (first entry of the ready sequence): `GameMetadata` (ServerStartTime, SchemaVersion, PlaceKind), `AllPlayers` (UserId, DisplayName, IsReady per Ready player; balances and flags private by decision), `CurrentPlayer` (Cash, IsAdmin, five loadout slot attributes, daily reward progress, `OwnedUnlocks` and `Completions` marker folders). Attribute sets come from shared `PlayerPublicSchema` (unit tested). `replicate*` methods are the only write path after a PlayerData mutation; reset rewrites the tree in place. `ClientDataManager` (awaitReady, typed reads, attribute/marker/AllPlayers listeners) gates `main.client`; dev tools read IsAdmin and the Players window from the tree. Verified: live Cash listener, reset in place, and a 3-client Test-tab run where every client's AllPlayers showed all three entries with only public fields and dropped a leaving player. 11 suites / 94 tests.
+
+**M8 — Lobby map skeleton and spawn** ✅
+Finished 2026-09-10. Studio-authored (via MCP) Workspace folders `SpawnZone` (platform, four SpawnLocations, sign), `HelicopterPads` (six `Pad<n>` models with `PadIndex` attribute, `JoinCollision`, `ExitSpawn`, `HelicopterSpawn`, `CameraPositionPart`, `GuiPart.PadGui`; the designer rebuilt Pad1's slab as a `Pad` model and authored the four-label `PadGui`, then pads 2–6 were cloned from it), `Store` (shell + empty `Items`), `EventArea` (fenced, "Coming Soon" sign), `HoldingArea` (sealed room at y=-120 with six `Spawns`). `ReplicatedStorage.GameAssets` created with a placeholder `Helicopter` template (`PlayerSpawns` x6). Third-person camera via StarterPlayer. Lobby-only `LobbyMapManager` (`src/lobby/server`, started by the lobby `main.server`) validates the whole tree at startup and warns per missing piece; names in `Constants`. Decisions recorded on M11 (pad config in GameData, `PadIndex` only on the model) and M12 (billboard colors). Place published by the designer.

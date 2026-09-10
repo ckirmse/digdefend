@@ -26,6 +26,26 @@ Constants.ADMIN_MIN_RANK = 254
 -- the one central ReplicatedStorage folder every clonable asset lives under
 Constants.GAME_ASSETS_FOLDER = "GameAssets"
 
+-- lobby Workspace layout (Studio-authored; LobbyMapManager checks it at startup)
+Constants.SPAWN_ZONE_FOLDER = "SpawnZone"
+Constants.HELICOPTER_PADS_FOLDER = "HelicopterPads"
+Constants.STORE_FOLDER = "Store"
+Constants.STORE_ITEMS_FOLDER = "Items"
+Constants.EVENT_AREA_FOLDER = "EventArea"
+Constants.HOLDING_AREA_FOLDER = "HoldingArea"
+Constants.HOLDING_AREA_SPAWNS_FOLDER = "Spawns"
+Constants.PAD_COUNT = 6
+-- parts every helicopter pad model must contain
+Constants.PAD_JOIN_COLLISION_PART = "JoinCollision"
+Constants.PAD_EXIT_SPAWN_PART = "ExitSpawn"
+Constants.PAD_HELICOPTER_SPAWN_PART = "HelicopterSpawn"
+Constants.PAD_CAMERA_POSITION_PART = "CameraPositionPart"
+Constants.PAD_GUI_PART = "GuiPart"
+Constants.PAD_GUI_NAME = "PadGui"
+-- helicopter template under GameAssets
+Constants.HELICOPTER_TEMPLATE = "Helicopter"
+Constants.HELICOPTER_PLAYER_SPAWNS_FOLDER = "PlayerSpawns"
+
 Constants.SHADOWS_FOLDER = "Shadows"
 Constants.CASTERS_FOLDER = "Casters"
 
