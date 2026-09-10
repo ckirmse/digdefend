@@ -55,26 +55,27 @@ Toolchain: **Foreman** (tool versions, `foreman.toml`), **Rojo** (Studio sync), 
 Common code decides which place it is in with `Constants.getPlaceKind()`. Code that exists only for one place lives in that place's folders, never behind a place check in common code.
 
 ### Path aliases
-Use `@game/ReplicatedStorage/Shared/...` for shared imports from server or client code. Never use relative `../` paths across the server/client boundary. The alias resolves through the gitignored `game/` tree, which `scripts/analyze.sh` regenerates from `src/shared` (`scripts/regen_shared_stubs.py`). Rerun it after adding modules or `export type`s to `src/shared`.
+Use `@game/ReplicatedStorage/Shared/...` for shared imports from server or client code. Never use relative `../` paths across the server/client boundary. Modules inside `src/shared` require their siblings by instance path (`require(script.Parent.Enums)`) because jest-runtime cannot resolve the string alias; everything else uses `@game`. The alias resolves through the gitignored `game/` tree, which `scripts/analyze.sh` regenerates from `src/shared` and `src/server/GameData` (`scripts/regen_shared_stubs.py`). Rerun it after adding modules or `export type`s there.
 
 ## Key architectural decisions
 
 Most of these are implemented in later milestones; the milestone number is noted so the intent is fixed now.
 
-### GameData (M2 onward)
-Every gameplay number lives in a **GameData** data-only ModuleScript **checked into git** (unlike the reference games, where GameData was Studio-only). Rules:
+### GameData
+Every gameplay number lives in a **GameData** data-only ModuleScript **checked into git** (unlike the reference games, where GameData was Studio-only). They live in `src/server/GameData`, mounted at `ServerScriptService/GameData` in both places, in subfolders by domain (`Control/` for tuning tables; later `Rocks/`, `Waves/`, `Store/`, `Pads/`). Rules:
 - Each module exports **raw data only** (a plain table, no logic).
 - Constants are `SCREAMING_SNAKE_CASE`.
-- Require into a variable with a `Data` suffix: `local RockData = require(...GameData/Rocks)`.
+- Require with the `@game` alias into a variable with a `Data` suffix: `local DifficultyData = require("@game/ServerScriptService/GameData/Control/Difficulty")`.
 - Enum-valued fields require shared `Enums` at the top and use real references, never raw numbers.
 - New tunable constants go in GameData, not `Constants.luau`.
-The exact folder location is decided in M2.
+- The client never requires GameData. Whatever the client needs is replicated by the server through the SplendidGames folders or the message bus.
+- `scripts/analyze.sh` regenerates the LSP stubs for GameData along with the shared ones.
 
 ### Central asset location
 Every clonable asset (rocks, monsters, weapons, tools, posts, defenses) lives in one central `ReplicatedStorage` location. Templates are cloned in one place in code, never ad hoc.
 
 ### Player lifecycle (M6)
-`Enums.PlayerLifecycle`: `Loading` → `Ready` → `Leaving` → `Gone`, held in a single authoritative table. **No system may act on a player that is not `Ready`** (except the lifecycle manager itself).
+`Enums.PlayerLifecycle`: `LOADING` → `READY` → `LEAVING` → `GONE`, held in a single authoritative table. **No system may act on a player that is not `READY`** (except the lifecycle manager itself).
 
 ### PlayerData (M6)
 `PlayerData` is the **sole owner** of all persistent player state and the only code path that reads from or writes to ProfileStore. Managers implement business logic; PlayerData is the record of truth. `Validate` runs on every load.
@@ -123,7 +124,7 @@ return Foo
 - Client-side modules are prefixed `Client` and mirror server names exactly apart from the prefix (`NetManager` ↔ `ClientNetManager`).
 
 ### Enums
-Integer-valued enums with optional `PublicNames` sub-table; helpers (`getCount`, `getAllValues`, `isValidValue`, `getName`, `getValueByName`, `getPublicName`, `validateValue`) live on the enum module.
+All enums live in `src/shared/Enums.luau`. Keys are `SCREAMING_SNAKE_CASE` (including `PlayerLifecycle`, where square used PascalCase), values are integers, and anything user-facing carries a `PublicNames` sub-table. Helpers (`getCount`, `getAllValues`, `isValidValue`, `getName`, `getValueByName`, `getPublicName`) live on the enum module and skip non-number entries, so `PublicNames` is never matched as a value.
 
 ### Validate
 Every RemoteEvent handler validates its inputs before doing anything. Table payloads are validated against a `*_SHAPE` constant defined near the top of the owning manager.
@@ -181,4 +182,14 @@ Listed so the choice is visible; revisit if it turns out wrong.
 - **Studio-authored RemoteEvents, one per message** (md): one code-created RemoteEvent instead.
 - **Committed `.rbxl` place file** (md): places live on Roblox; `.rbxl` files are gitignored.
 - **TopBarPlus** (md): not needed yet.
-- **Object/Item hierarchy** (`BaseObject` → `Object` → `Item`, both games): pending the M2 recommendation on whether it is worth porting given how little persists between runs.
+- **`BigNumber`** (square): this game's numbers stay well inside double precision. `utils.abbreviateNumber` stops at trillions.
+- **Object/Item hierarchy** (`BaseObject` → `Object` → `Item` with `ObjectType`/`ObjectDataStore`, both games): see the recommendation below.
+
+## Object/item system recommendation (M2)
+
+The reference system has two halves. The definition half (`ObjectType` = raw data + template + validation hooks, `ObjectDataStore` = name → type registry) and the instance half (`Object` = owner, generated id, cloned template; `Item` = a persistent player-owned `Object` with rarity/level/traits, inventory placement and slots, and `getSaveData`/`loadSaveData` into PlayerData).
+
+Decision: **do not port `Item` or the persistence half. Port the definition/registry half later, renamed, when M25 needs it.**
+- Persistent state here is flat: Cash, a set of owned unlock names, a loadout of names, completion flags, level. Nothing is instanced, rolled, or slot-tracked, so `Item` would carry no information.
+- In-run entities are short-lived. Rocks are grid data (M17), enemies are server Lua state with shadows (M29). Only placed defenses, traps (M26/M27), and claimed posts (M25) look like `Object`: a definition, a shadow part, a position, HP.
+- At M25/M26 introduce `EntityType` + `EntityTypeRegistry` (the `ObjectType`/`ObjectDataStore` pattern, definitions from GameData, templates from the central `ReplicatedStorage` asset folder) and an `Entity` base (id, definition, one shadow part, `destroy`) without `userId` baked in. Definitions declare a `dataTableShape` validated by `Validate.isTableShape`, and registration is two-pass (data at load, then `validateInstances`/`processInstances` once Studio assets exist) so content errors name the offending file at startup. One registry serves everything GameData-defined: weapons, posts, defenses, enemies, rocks, store items. md's `ItemMover` motion strategies are a candidate for enemy movement at M29.

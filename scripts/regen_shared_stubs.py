@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Regenerate game/ReplicatedStorage/Shared LSP stubs as re-export shims.
+"""Regenerate the gitignored game/ tree of LSP stubs as re-export shims.
 
-Each stub requires the real module in src/shared and forwards its exported
-types, so luau-lsp sees a single module identity whether code requires
-@game/ReplicatedStorage/Shared/X or the sourcemap path. Run after adding,
-removing, or changing `export type` declarations in src/shared modules.
+The .luaurc alias `@game` resolves to game/, so each stub requires the real
+module under src/ and forwards its exported types. luau-lsp then sees a single
+module identity whether code requires @game/ReplicatedStorage/Shared/X or the
+sourcemap path. Run after adding or removing modules or `export type`
+declarations under any of the mapped source dirs (scripts/analyze.sh runs it).
 
 Usage: python3 scripts/regen_shared_stubs.py
 """
@@ -14,13 +15,18 @@ import re
 import shutil
 import sys
 
+# (alias subpath under game/, source dir under the repo)
+MAPPINGS = [
+    ("ReplicatedStorage/Shared", "src/shared"),
+    ("ServerScriptService/GameData", "src/server/GameData"),
+]
+
 EXPORT_TYPE_RE = re.compile(r"^export type ([A-Za-z0-9_]+)(<[^=]+>)?\s*=", re.MULTILINE)
 
 
-def main() -> None:
-    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    src = os.path.join(repo, "src", "shared")
-    dest = os.path.join(repo, "game", "ReplicatedStorage", "Shared")
+def regen(repo: str, alias_subpath: str, source_dir: str) -> int:
+    src = os.path.join(repo, source_dir)
+    dest = os.path.join(repo, "game", alias_subpath)
 
     if os.path.islink(dest):
         os.remove(dest)
@@ -37,9 +43,9 @@ def main() -> None:
             module = os.path.splitext(rel)[0]
             text = open(src_file).read()
 
-            depth = len(rel.split(os.sep)) + 2  # game/ReplicatedStorage/Shared
+            depth = len(rel.split(os.sep)) + alias_subpath.count("/") + 1 + 1  # game/ + alias segments
             back = "/".join([".."] * depth)
-            lines = [f'local Inner = require("{back}/src/shared/{module}")']
+            lines = [f'local Inner = require("{back}/{source_dir}/{module}")']
             for type_name, generics in EXPORT_TYPE_RE.findall(text):
                 if generics:
                     sys.exit(f"generic export type {type_name}{generics} in {rel}: teach this script to forward generics")
@@ -51,7 +57,14 @@ def main() -> None:
             with open(out, "w") as f:
                 f.write("\n".join(lines) + "\n")
             count += 1
-    print(f"{count} shared stubs written to {dest}")
+    print(f"{count} stubs written to {dest}")
+    return count
+
+
+def main() -> None:
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for alias_subpath, source_dir in MAPPINGS:
+        regen(repo, alias_subpath, source_dir)
 
 
 if __name__ == "__main__":

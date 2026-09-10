@@ -19,9 +19,6 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 
 ## Phase 1: Infrastructure and Project Scaffold
 
-**M2 — Core shared libraries and coding standards**
-Port `utils`, `Validate`, `Constants`, `Enums`, `Tags` from the reference games, stripped of game content. Decide and document: no abbreviations in names, colon methods for object methods, Luau types where the LSP copes, `GameData` module conventions (raw data, `SCREAMING_SNAKE_CASE`, `Data` suffix on requires). Decide whether the dragons/lights object/item system is worth porting given how little persists between runs; write the recommendation down.
-
 **M3 — Test suite runnable from Studio**
 Jest (via Wally, as in lights) plus a Studio test runner. A few tests against shared utilities so the pipeline is proven green before any game code exists.
 
@@ -202,3 +199,6 @@ Full balance pass on both maps and three difficulties using playtest and telemet
 
 **M1 — Toolchain and two-place project** ✅
 Finished 2026-09-10. Foreman/Rojo/Wally/luau-lsp toolchain mirroring `~/square`. Two Rojo projects (`lobby.project.json` on port 34872, `gameplay.project.json` on port 34873, each pinned to its place id) sharing `src/shared`, `src/server`, `src/client`, with per-place `src/lobby` and `src/gameplay` folders. `analysis.project.json` feeds `scripts/analyze.sh`. Both places synced into Studio and played with boot lines and no errors. `.gitignore`, `README.md`, and `CLAUDE.md` seeded; non-adopted reference standards listed at the bottom of `CLAUDE.md`.
+
+**M2 — Core shared libraries and coding standards** ✅
+Finished 2026-09-10. Ported `Enums` (with GDD-seeded enums), `utils`, `Validate`, `Tags`, `Attributes`, `NetEventNames`, and an extended `Constants`, all generic and `--!strict`. GameData lives in `src/server/GameData` (server-only, in git), seeded with `Control/Difficulty`; LSP stubs cover it. Conventions and the object/item recommendation (skip `Item`, port the definition registry at M25 as `EntityType`) are in `CLAUDE.md`. Flagged: GDD says both "Brutal" and "Nightmare" for the top difficulty.

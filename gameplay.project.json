@@ -18,6 +18,9 @@
       "Server": {
         "$path": "src/server"
       },
+      "GameData": {
+        "$path": "src/server/GameData"
+      },
       "Gameplay": {
         "$path": "src/gameplay/server"
       }
