@@ -19,9 +19,6 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 
 ## Phase 1: Infrastructure and Project Scaffold
 
-**M4 — Single RemoteEvent message bus**
-One `RemoteEvent` for all client/server traffic, dispatched by message name, with loud failure on a missing handler. Copy the lights pattern. Includes the `GivePlayerFeedback` remote and `GivePlayerFeedbackLocal` bindable so the feedback text system has a channel.
-
 **M5 — Dev tools and group-gated access**
 Iris dev tool panel, access locked to members of the company group. Reset-player-state dev tool contract established (any new per-player state must be covered by it). Screenshot-to-image-asset capture tool ported from lights if it still applies.
 
@@ -202,3 +199,6 @@ Finished 2026-09-10. Ported `Enums` (with GDD-seeded enums), `utils`, `Validate`
 
 **M3 — Test suite runnable from Studio** ✅
 Finished 2026-09-10. jest-roblox 3.10.0 via Wally dev-dependencies, committed in `DevPackages/`. `src/tests/TestRunner.luau` (square's Edit-mode workarounds) and `src/tests/shared/*.spec.luau` are mounted at `ServerScriptService/Tests` in both places and in `analysis.project.json`. Four specs (`utils`, `Validate`, `Enums`, `Constants`), 56 tests, green from the Studio Command Bar; Claude runs them through the Studio MCP and reads the Output. Run line documented in `CLAUDE.md` and `README.md`.
+
+**M4 — Single RemoteEvent message bus** ✅
+Finished 2026-09-10. `NetManager` creates the one `RemoteEvent` in code and runs the receive pipeline (rate limit → Ready check → known name → `Validate.isTableShape` → pcall handler) with throttled rejection warnings; per-player `TokenBucket` (unit tested) tuned by `GameData/Control/Network`. `ClientNetManager` mirrors it with loud unhandled-name warnings. `GameController` assembles handlers from `getNetHandlers()` owners. Feedback channel kept inside the one-RemoteEvent rule: `PlayerFeedbackManager:give()` sends `NotifyPlayerFeedback`; `ClientPlayerFeedbackManager` also owns the `GivePlayerFeedbackLocal` BindableEvent and prints until the M9 ScreenGui listens. Verified in Play: good/bad/unknown messages in both directions. Analyzer now reports only colon-method self-inference errors (ignored by decision); consider filtering that class in `scripts/analyze.sh`.

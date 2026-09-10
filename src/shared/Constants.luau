@@ -13,6 +13,8 @@ Constants.ALL_PLAYERS_FOLDER = "AllPlayers"
 Constants.CURRENT_PLAYER_FOLDER = "CurrentPlayer"
 
 Constants.REMOTE_EVENT_NAME = "GameRemoteEvent"
+-- client-only BindableEvent; server feedback travels as NotifyPlayerFeedback on the RemoteEvent
+Constants.PLAYER_FEEDBACK_LOCAL_EVENT_NAME = "GivePlayerFeedbackLocal"
 
 Constants.SHADOWS_FOLDER = "Shadows"
 Constants.CASTERS_FOLDER = "Casters"

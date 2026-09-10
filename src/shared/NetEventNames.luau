@@ -5,6 +5,8 @@
 -- reminder that clients request and the server decides.
 local module
 
-module = {}
+module = {
+	NOTIFY_PLAYER_FEEDBACK = "NotifyPlayerFeedback",
+}
 
 return module
