@@ -22,3 +22,6 @@ trace.json
 .#*
 
 .DS_Store
+
+# Machine-specific MCP server config (Studio bridge path contains a version hash)
+.mcp.json
