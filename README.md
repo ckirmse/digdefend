@@ -38,4 +38,12 @@ Runs luau-lsp with the new solver over a sourcemap built from `analysis.project.
 
 ## Tests
 
-Set up in milestone M3 (jest-roblox from the Studio command bar).
+jest-roblox, installed by `wally install` into the committed `DevPackages/` and mounted at `ServerScriptService/Tests` in both places. Specs live in `src/tests/shared/*.spec.luau`.
+
+With a place open in Studio in Edit mode and Rojo connected, paste into the Command Bar:
+
+```lua
+task.spawn(function() loadstring(game.ServerScriptService.Tests.TestRunner.Source)():run() end) return "running"
+```
+
+Results print to the Output window. `scripts/analyze.sh` type-checks the specs along with the rest of `src/`.

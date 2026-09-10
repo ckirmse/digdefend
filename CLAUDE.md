@@ -170,7 +170,13 @@ Defined in M10 and recorded here when decided: font choices, capitalization, cen
 
 ## Testing
 
-jest-roblox (jsdotlua Jest via Wally dev-dependencies), run from the Studio command bar in Edit mode through a `TestRunner`; set up in M3. Tests live under `src/tests/`. Every formula and every pure data transform (rock weights, mine generation, wave scaling) must have unit tests.
+jest-roblox (jsdotlua Jest via Wally dev-dependencies, installed to the committed `DevPackages/`). Tests live under `src/tests/`, mounted at `ServerScriptService/Tests` in both places and in `analysis.project.json` so `scripts/analyze.sh` type-checks them. Specs are `*.spec.luau` under `src/tests/shared`, matched by `src/tests/shared/jest.config.luau`. Specs require code by instance path (`game:GetService("ReplicatedStorage").Shared.utils`), never the `@game` alias, because jest-runtime cannot resolve it, and import `JestGlobals` explicitly because `debug.loadmodule` is unavailable in Edit mode.
+
+Run from the Studio Command Bar in **Edit mode** (Claude runs this through the Studio MCP `execute_luau` tool and reads the Output):
+```lua
+task.spawn(function() loadstring(game.ServerScriptService.Tests.TestRunner.Source)():run() end) return "running"
+```
+Every formula and every pure data transform (rock weights, mine generation, wave scaling) must have unit tests.
 
 ## Not adopted from the reference projects
 

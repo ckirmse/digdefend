@@ -19,9 +19,6 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 
 ## Phase 1: Infrastructure and Project Scaffold
 
-**M3 — Test suite runnable from Studio**
-Jest (via Wally, as in lights) plus a Studio test runner. A few tests against shared utilities so the pipeline is proven green before any game code exists.
-
 **M4 — Single RemoteEvent message bus**
 One `RemoteEvent` for all client/server traffic, dispatched by message name, with loud failure on a missing handler. Copy the lights pattern. Includes the `GivePlayerFeedback` remote and `GivePlayerFeedbackLocal` bindable so the feedback text system has a channel.
 
@@ -202,3 +199,6 @@ Finished 2026-09-10. Foreman/Rojo/Wally/luau-lsp toolchain mirroring `~/square`.
 
 **M2 — Core shared libraries and coding standards** ✅
 Finished 2026-09-10. Ported `Enums` (with GDD-seeded enums), `utils`, `Validate`, `Tags`, `Attributes`, `NetEventNames`, and an extended `Constants`, all generic and `--!strict`. GameData lives in `src/server/GameData` (server-only, in git), seeded with `Control/Difficulty`; LSP stubs cover it. Conventions and the object/item recommendation (skip `Item`, port the definition registry at M25 as `EntityType`) are in `CLAUDE.md`. Flagged: GDD says both "Brutal" and "Nightmare" for the top difficulty.
+
+**M3 — Test suite runnable from Studio** ✅
+Finished 2026-09-10. jest-roblox 3.10.0 via Wally dev-dependencies, committed in `DevPackages/`. `src/tests/TestRunner.luau` (square's Edit-mode workarounds) and `src/tests/shared/*.spec.luau` are mounted at `ServerScriptService/Tests` in both places and in `analysis.project.json`. Four specs (`utils`, `Validate`, `Enums`, `Constants`), 56 tests, green from the Studio Command Bar; Claude runs them through the Studio MCP and reads the Output. Run line documented in `CLAUDE.md` and `README.md`.

@@ -1,19 +1,21 @@
 {
   "name": "DigDefendGameplay",
-  "servePlaceIds": [72646464251078],
+  "servePlaceIds": [
+    72646464251078
+  ],
   "servePort": 34873,
   "tree": {
     "$className": "DataModel",
-
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
       },
       "Packages": {
-        "$path": { "optional": "Packages" }
+        "$path": {
+          "optional": "Packages"
+        }
       }
     },
-
     "ServerScriptService": {
       "Server": {
         "$path": "src/server"
@@ -23,9 +25,20 @@
       },
       "Gameplay": {
         "$path": "src/gameplay/server"
+      },
+      "Tests": {
+        "$className": "Folder",
+        "TestRunner": {
+          "$path": "src/tests/TestRunner.luau"
+        },
+        "Shared": {
+          "$path": "src/tests/shared"
+        },
+        "DevPackages": {
+          "$path": "DevPackages"
+        }
       }
     },
-
     "StarterPlayer": {
       "StarterPlayerScripts": {
         "Client": {

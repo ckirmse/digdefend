@@ -1,19 +1,21 @@
 {
   "name": "DigDefendLobby",
-  "servePlaceIds": [133996405589098],
+  "servePlaceIds": [
+    133996405589098
+  ],
   "servePort": 34872,
   "tree": {
     "$className": "DataModel",
-
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
       },
       "Packages": {
-        "$path": { "optional": "Packages" }
+        "$path": {
+          "optional": "Packages"
+        }
       }
     },
-
     "ServerScriptService": {
       "Server": {
         "$path": "src/server"
@@ -23,9 +25,20 @@
       },
       "Lobby": {
         "$path": "src/lobby/server"
+      },
+      "Tests": {
+        "$className": "Folder",
+        "TestRunner": {
+          "$path": "src/tests/TestRunner.luau"
+        },
+        "Shared": {
+          "$path": "src/tests/shared"
+        },
+        "DevPackages": {
+          "$path": "DevPackages"
+        }
       }
     },
-
     "StarterPlayer": {
       "StarterPlayerScripts": {
         "Client": {
