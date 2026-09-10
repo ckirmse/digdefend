@@ -1,0 +1,41 @@
+{
+  "name": "DigDefendAnalysis",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      },
+      "Packages": {
+        "$path": { "optional": "Packages" }
+      }
+    },
+
+    "ServerScriptService": {
+      "Server": {
+        "$path": "src/server"
+      },
+      "Lobby": {
+        "$path": "src/lobby/server"
+      },
+      "Gameplay": {
+        "$path": "src/gameplay/server"
+      }
+    },
+
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/client"
+        },
+        "Lobby": {
+          "$path": "src/lobby/client"
+        },
+        "Gameplay": {
+          "$path": "src/gameplay/client"
+        }
+      }
+    }
+  }
+}

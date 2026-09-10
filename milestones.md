@@ -19,9 +19,6 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 
 ## Phase 1: Infrastructure and Project Scaffold
 
-**M1 — Toolchain and two-place project**
-Foreman/Rojo/Wally/luau-lsp setup mirroring `~/square`. Two Rojo projects (or one project with two place roots) for the Lobby place and the Gameplay place, sharing `src/shared`. Both places sync into Studio and run with an empty baseplate. `.gitignore`, `README.md`, and a `CLAUDE.md` seeded from the reference projects' standards. Flag anything from those standards that seems contradictory or inapplicable here before adopting it.
-
 **M2 — Core shared libraries and coding standards**
 Port `utils`, `Validate`, `Constants`, `Enums`, `Tags` from the reference games, stripped of game content. Decide and document: no abbreviations in names, colon methods for object methods, Luau types where the LSP copes, `GameData` module conventions (raw data, `SCREAMING_SNAKE_CASE`, `Data` suffix on requires). Decide whether the dragons/lights object/item system is worth porting given how little persists between runs; write the recommendation down.
 
@@ -203,4 +200,5 @@ Full balance pass on both maps and three difficulties using playtest and telemet
 
 # Done
 
-(none yet)
+**M1 — Toolchain and two-place project** ✅
+Finished 2026-09-10. Foreman/Rojo/Wally/luau-lsp toolchain mirroring `~/square`. Two Rojo projects (`lobby.project.json` on port 34872, `gameplay.project.json` on port 34873, each pinned to its place id) sharing `src/shared`, `src/server`, `src/client`, with per-place `src/lobby` and `src/gameplay` folders. `analysis.project.json` feeds `scripts/analyze.sh`. Both places synced into Studio and played with boot lines and no errors. `.gitignore`, `README.md`, and `CLAUDE.md` seeded; non-adopted reference standards listed at the bottom of `CLAUDE.md`.
