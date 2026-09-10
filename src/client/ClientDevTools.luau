@@ -10,6 +10,7 @@ local BakedIconUtil = require("@game/ReplicatedStorage/Shared/BakedIconUtil")
 local IconFramingFormat = require("@game/ReplicatedStorage/Shared/IconFramingFormat")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local Iris = require(script.Parent.Iris)
+local ClientDataManager = require(script.Parent.ClientDataManager)
 local ClientNetManager = require(script.Parent.ClientNetManager)
 local ClientPlayerFeedbackManager = require(script.Parent.ClientPlayerFeedbackManager)
 
@@ -91,20 +92,26 @@ function ClientDevTools:renderPlayersWindow()
 	Iris.NextColumn()
 	Iris.Text({ "UserId" })
 	Iris.NextColumn()
-	Iris.Text({ "Admin" })
+	Iris.Text({ "Ready" })
 	Iris.NextColumn()
 
-	local localPlayer = Players.LocalPlayer
-	for _, player in Players:GetPlayers() do
-		local name = player.DisplayName
-		if player == localPlayer then
+	-- read from AllPlayers, not the Players service: this window is the
+	-- interactive check that replication is right
+	local localUserId = Players.LocalPlayer.UserId
+	for _, userId in ClientDataManager:getAllPlayerIds() do
+		local data = ClientDataManager:getPlayerPublicData(userId)
+		if not data then
+			continue
+		end
+		local name = data.displayName
+		if userId == localUserId then
 			name ..= " (you)"
 		end
 		Iris.Text({ name })
 		Iris.NextColumn()
-		Iris.Text({ tostring(player.UserId) })
+		Iris.Text({ tostring(userId) })
 		Iris.NextColumn()
-		Iris.Text({ formatBool(player:GetAttribute(Attributes.IS_ADMIN) == true) })
+		Iris.Text({ formatBool(data.isReady) })
 		Iris.NextColumn()
 	end
 
@@ -314,6 +321,8 @@ end
 function ClientDevTools:renderMenuWindow()
 	Iris.Window({ "Dev Tools" }, { size = self.menuSize, isOpened = self.showMenu })
 
+	Iris.Text({ "Cash: " .. tostring(ClientDataManager:getCash()) })
+	Iris.Text({ "Owned unlocks: " .. tostring(#ClientDataManager:getOwnedUnlockNames()) })
 	if Iris.Button({ "Players in Server" }).clicked() then
 		self:toggleWindow(self.showPlayers, self.playersSize)
 	end
@@ -450,19 +459,6 @@ function ClientDevTools:init()
 		end
 	)
 	print("ClientDevTools: ready (RightShift or triple-tap bottom-right)")
-end
-
--- the server stamps IsAdmin after an async group lookup, so the attribute may
--- arrive after the client script starts
-function ClientDevTools:initWhenAdmin()
-	local localPlayer = Players.LocalPlayer
-	local function checkIfNeeded()
-		if localPlayer:GetAttribute(Attributes.IS_ADMIN) == true then
-			self:init()
-		end
-	end
-	localPlayer:GetAttributeChangedSignal(Attributes.IS_ADMIN):Connect(checkIfNeeded)
-	checkIfNeeded()
 end
 
 function ClientDevTools.new(): ClientDevTools

@@ -14,6 +14,7 @@ DevTools.__index = DevTools
 export type DevTools = typeof(setmetatable({} :: {}, DevTools))
 
 local gameController: any -- prevent circular reference by not initializing here
+local splendidReplicationManager: any
 
 local TRY_DEV_TOOL_SHAPE = {
 	command = "string",
@@ -88,11 +89,13 @@ function DevTools:setCash(player: Player, args: { [string]: any })
 		return
 	end
 	playerData:setCash(args.cash)
+	splendidReplicationManager:replicateCash(player)
 	PlayerFeedbackManager:give(player, "Cash set to " .. tostring(playerData:getCash()))
 end
 
-function DevTools:init(gameControllerIn: any)
+function DevTools:init(gameControllerIn: any, splendidReplicationManagerIn: any)
 	gameController = gameControllerIn
+	splendidReplicationManager = splendidReplicationManagerIn
 	for _, name in DevToolCommands.NAMES do
 		if typeof((DevTools :: any)[name]) ~= "function" then
 			error("DevTools: allowlisted command has no method: " .. name)

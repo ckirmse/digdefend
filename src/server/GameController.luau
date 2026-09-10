@@ -14,6 +14,7 @@ local DevTools = require(script.Parent.DevTools)
 local NetManager = require(script.Parent.NetManager)
 local PlayerData = require(script.Parent.PlayerData)
 local PlayerFeedbackManager = require(script.Parent.PlayerFeedbackManager)
+local SplendidReplicationManager = require(script.Parent.SplendidReplicationManager)
 
 local GameController = {}
 GameController.__index = GameController
@@ -28,6 +29,7 @@ export type GameController = typeof(setmetatable(
 		netManager: typeof(NetManager),
 		devTools: typeof(DevTools),
 		playerFeedbackManager: typeof(PlayerFeedbackManager),
+		splendidReplicationManager: typeof(SplendidReplicationManager),
 	},
 	GameController
 ))
@@ -47,11 +49,18 @@ type SequenceEntry = {
 -- choosing its onReset behavior explicitly.
 --
 -- Ordered setup sequence for a player reaching Ready; order is load-bearing.
-local PLAYER_READY_SEQUENCE: { SequenceEntry } = {}
+local PLAYER_READY_SEQUENCE: { SequenceEntry } = {
+	-- first: every later entry may replicate into the tree it builds; reset
+	-- rewrites the tree in place via resetPlayerTree instead
+	{ manager = SplendidReplicationManager, onReset = false },
+}
 
 -- Ordered teardown sequence for a leaving player; order is load-bearing.
 -- onReset = false skips the entry during a dev-tool reset.
-local PLAYER_TEARDOWN_SEQUENCE: { SequenceEntry } = {}
+local PLAYER_TEARDOWN_SEQUENCE: { SequenceEntry } = {
+	-- last: the tree is reset in place, never destroyed
+	{ manager = SplendidReplicationManager, onReset = false },
+}
 
 local function runReadySequence(player: Player, isReset: boolean)
 	for _, entry in PLAYER_READY_SEQUENCE do
@@ -198,9 +207,6 @@ function GameController:processPlayerAdd(player: Player)
 		return
 	end
 
-	-- the client reads this to decide whether to load the dev tools; the server
-	-- re-checks isPlayerAdmin on every command so the attribute is not the gate
-	player:SetAttribute(Attributes.IS_ADMIN, playerData:getIsAdmin())
 	playerData:setLifecycle(Enums.PlayerLifecycle.READY)
 	player:SetAttribute(Attributes.LOAD_STATUS, Enums.LoadStatus.READY)
 	runReadySequence(player, false)
@@ -267,14 +273,18 @@ function GameController:resetPlayerState(player: Player)
 	end
 
 	playerData:setLifecycle(Enums.PlayerLifecycle.READY)
+	SplendidReplicationManager:resetPlayerTree(player)
 	runReadySequence(player, true)
 
 	print("[GameController] Reset complete:", player.Name)
 end
 
 function GameController:init()
+	self.splendidReplicationManager = SplendidReplicationManager
+	SplendidReplicationManager:init(self)
+
 	self.devTools = DevTools
-	DevTools:init(self)
+	DevTools:init(self, SplendidReplicationManager)
 
 	self.playerFeedbackManager = PlayerFeedbackManager
 
@@ -357,6 +367,7 @@ function GameController.new(): GameController
 	self.netManager = NetManager
 	self.devTools = DevTools
 	self.playerFeedbackManager = PlayerFeedbackManager
+	self.splendidReplicationManager = SplendidReplicationManager
 	return self
 end
 

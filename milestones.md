@@ -19,9 +19,6 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 
 ## Phase 2: Player Lifecycle, Persistence, and Lobby Shell
 
-**M7 — Client data folders**
-Server-created `SplendidGames` ScreenGui with `GameMetadata`, `AllPlayers`, `CurrentPlayer` folders; `CurrentPlayer` appearing is the client's ready signal. `ClientDataManager` with typed accessors and listeners. Both places use this.
-
 **M8 — Lobby map skeleton and spawn**
 Workspace folders `SpawnZone`, `HelicopterPads`, `Store`, `EventArea`, `HoldingArea` with placeholder geometry. Players spawn in `SpawnZone`, third-person camera. Event Area closed with a "coming soon" sign.
 
@@ -200,3 +197,6 @@ Finished 2026-09-10. Iris 2.5.1 via Wally (`Packages/`, committed). Server `DevT
 
 **M6 — Player lifecycle and PlayerData** ✅
 Finished 2026-09-10. ProfileStore vendored in `ServerLibs/` (mounted `Server/Libs`, excluded from analysis). `GameController.playerDatas` is the single lifecycle table (LOADING → READY → LEAVING → GONE); `getPlayerData` returns nil unless READY and fences NetManager and DevTools. `PlayerData` owns the live record and profile; the save shape, defaults, and repair rules are the pure shared `PlayerSaveSchema` (cash, ownedUnlocks set, loadout by `Enums.LoadoutSlot` name with WEAPON/POST/DEFENSE_1..3, completions keyed by `CompletionKeys` "MAP/DIFFICULTY", dailyReward, sessionMeta). XP/level dropped from the design. Tuning in `GameData/Control/Player` (store `DigDefendPlayerData_v1`, starting Cash 0, 30 s load timeout). Reset dev tool now wipes the save and overwrites the live profile; `setCash` dev command added. Verified against the real DataStore (Studio API access enabled): Cash survived a rejoin, sessions and playtime accumulate, reset wrote defaults; 3-client Test-tab stress run saved all three fake players on leave with no session locks left and no errors. 10 suites / 89 tests.
+
+**M7 — Client data folders** ✅
+Finished 2026-09-10. `SplendidReplicationManager` builds the `SplendidGames` ScreenGui at Ready (first entry of the ready sequence): `GameMetadata` (ServerStartTime, SchemaVersion, PlaceKind), `AllPlayers` (UserId, DisplayName, IsReady per Ready player; balances and flags private by decision), `CurrentPlayer` (Cash, IsAdmin, five loadout slot attributes, daily reward progress, `OwnedUnlocks` and `Completions` marker folders). Attribute sets come from shared `PlayerPublicSchema` (unit tested). `replicate*` methods are the only write path after a PlayerData mutation; reset rewrites the tree in place. `ClientDataManager` (awaitReady, typed reads, attribute/marker/AllPlayers listeners) gates `main.client`; dev tools read IsAdmin and the Players window from the tree. Verified: live Cash listener, reset in place, and a 3-client Test-tab run where every client's AllPlayers showed all three entries with only public fields and dropped a leaving player. 11 suites / 94 tests.

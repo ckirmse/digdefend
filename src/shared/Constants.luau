@@ -11,6 +11,9 @@ Constants.SPLENDID_GAMES_NAME = "SplendidGames"
 Constants.GAME_METADATA_FOLDER = "GameMetadata"
 Constants.ALL_PLAYERS_FOLDER = "AllPlayers"
 Constants.CURRENT_PLAYER_FOLDER = "CurrentPlayer"
+-- CurrentPlayer sub-folders whose children are name-only marker folders
+Constants.OWNED_UNLOCKS_FOLDER = "OwnedUnlocks"
+Constants.COMPLETIONS_FOLDER = "Completions"
 
 Constants.REMOTE_EVENT_NAME = "GameRemoteEvent"
 -- client-only BindableEvent; server feedback travels as NotifyPlayerFeedback on the RemoteEvent
