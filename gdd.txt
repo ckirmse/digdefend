@@ -1,0 +1,1010 @@
+﻿Tab 1
+…
+Let’s build a Roblox game. Connect to Roblox Studio using MCP.
+Overview
+
+
+* The apocalypse has arrived and the world’s most valuable resource is Uranium 
+* Apocalyptic Mining Co has decided to send its crews to remote and dangerous mining locations to extract Uranium
+* For each run, a group of 1-6 players are dropped off at one of these remote mining camps
+* Every mining camp has a mine, a processing machine, a segmented wall, 6 mannable posts, a gate, a mining supplies building, a defense building, and a helicopter landing pad.
+* The team’s ultimate goal is to collect x amount of Uranium, hidden within different chambers of the mine
+* The challenge is that every night a wave of enemies descends on the camp, bent on destroying it, with each wave getting progressively harder
+* Players must use the ores and materials they find mining to build and upgrade their camp defenses to keep the enemy hordes at bay at night, so they can mine in the day
+* To win, players will need to extract the required amount of Uranium and survive long enough to be airlifted out by the company’s rescue helicopter
+* Players lose by dying or having their processing machine destroyed
+* In addition to in run currency, players receive Cash for reaching certain milestones during each run, which they can use outside the run to unlock new weapons, post upgrades, and defensive placements
+* As players level up their skills, they’ll be able to embark on more challenging missions in different locations 
+Place Structure
+* The game will have two separate places: a lobby place and a gameplay place. 
+* Everyone will join the lobby when they launch the game (start place). This is where players group up, buy upgrades/unlocks/consumables/classes and check event status. 
+* The gameplay server is where gameplay takes place and can only be reached via teleports from the lobby
+* Players will join queues inside the lobby, that will teleport them as a group to a fresh gameplay server where they will play the main game
+* Only players in a specific queue should be able to access the specific gameplay server they’re teleported to. Friends and other players should not be able to join an existing gameplay server. 
+
+
+The Lobby 
+
+
+* The lobby will be the Apocalyptic Mining Co. headquarters, a high security base in the middle of a post-apocalyptic wasteland
+* The lobby will have a few map locations. Each zone will have its own folder under workspace (Workspace.SpawnZone, Workspace.HelicopterPads, etc.) 
+   * SpawnZone - a central area in the map where players spawn in 
+   * 6 Helicopter Pads (queues – teleports to the gameplay server) 
+   * 3D Store (shows featured items, gives secondary access to store menu)
+   * Event Area - an area reserved for future events 
+   * HoldingArea - a room under the map where teleporting player characters can be placed during the teleport process. 
+* Players will have access to different menus/guis:
+   * HUD
+   * Store Menu
+   * Loadout Menu
+   * Queue Menu
+   * Daily Rewards Menu  
+   * Player Feedback Text
+   * Arrival Loading Screen
+   * Departure Loading Screen 
+Lobby Map Areas
+SpawnZone
+* This will be a central area in the lobby that contains all SpawnLocations. Players will spawn here when they join or if they have teleport issues. 
+Helicopter Pads – Queues/Teleports
+* Helicopter Pads teleport groups of players to a new, private instance of the gameplay place
+* At launch, each helicopter pad will take players to one of two maps at one of three difficulties
+   * Helicopter Pad #1: Map 1 - Normal
+   * Helicopter Pad #2: Map 1 - Hard (Unlocked @ Map #1 - Normal completion)
+   * Helicopter Pad #3: Map 1 - Nightmare (Unlocked @ Map #1 - Hard completion)
+   * Helicopter Pad #4: Map 2 - Normal  (Unlocked @ Map #1 - Normal completion)
+   * Helicopter Pad #5: Map 2 - Hard (Unlocked @ Map #2 - Normal completion)
+   * Helicopter Pad #6: Map 2 - Nightmare  (Unlocked @ Map #2 - Hard completion)
+* Every Helicopter Pad has a Helicopter sitting on it when the server initializes 
+* Every Helicopter Pad has a billboard gui at its entrance. It shows:
+   * Status:  Boarding or Departing (Players can join or teleport in progress/can’t join)
+   * Number of current players in queue / max number of players in queue
+   * Seconds until departure
+* Each Helicopter Pad will have a TeleportTimer and use a universal FullTime and Capacity Time to set wait times. 
+   * TeleportTimer: Number of seconds until queued players are teleported
+   * FullTime: The full wait time for a non full queue
+   * CapacityTime: The adjusted wait time for a full queue
+   * If no players are in the queue, no timer is active. 
+   * The first player to enter the queue triggers the TeleportTimer, starting at FullTime
+   * If a player joins the queue and number of queued players == max players and the TeleportTimer is greater than CapacityTime, then the timer is set to CapacityTime to cut down on wasted time waiting
+   * If all players leave before the TeleportTimer completes, the timer is reset and turned off until another player joins. 
+* To join a helicopter, players simply walk onto the helicopter pad 
+   * Touching JoinCollision checks if they meet the requirements then puts them in the queue if they are eligible and there is an open spot and the queue is boarding)
+   * If the player meets the requirements, their character is placed inside the helicopter at one of six spawn points (invisible parts placed inside the helicopter)
+   * The current players in queue number is updated (and reflected on that pad’s GUI)
+   * The player’s camera is placed at a specific spot outside of the helicopter looking in (again, an invisible part inside the helicopter pad model will be used for CFrame)
+   * Once joined, the Queue HUD appears:
+      * A leave button: when pressed removes player from the queue, places their character outside of the helicopter, and returns default camera control
+   * If there are no other players, the departure timer begins at FullTime (30 seconds)
+   * If there amount of queued players == max players, the departure timer is reduced to CapacityTime (3 seconds) 
+   * Once the timer reaches 0, the status should change to “Departing” and the Helicopter should take off into the air as the loading screen fades in for queued players
+   * At this point, teleporting player characters can be moved to random spawn inside the a HoldingArea.Spawns folder (there will be multiple invisible parts). This will remove their avatar from the view of other players in case they have teleport issues. 
+   * All players inside the queue should be teleported to the game place. The lobby should send playerNumber, map, and difficulty via join data. 
+   * Ensure there is handling/retries for a failed teleport. A failed teleport should respawn the player in the main SpawnZone along with a “Teleport failed” message. 
+   * A fresh helicopter model should be cloned from ReplicatedStorage, placed at the HelicopterSpawn and parented to the HelicopterPad model. 
+   * Boarding should be set to true, timer reset, and new players should be able to join. 
+* Every Helicopter Pad will be a Model, located inside Workspace.HelicopterPads. Inside each model will be:
+   * MapNumber (IntValue): Value corresponds to the map it is going to
+   * DifficultyNumber (IntValue): Value corresponds to the difficulty 
+   * MaxPlayers (IntValue): Value corresponds to the max number of players allowed
+   * Boarding (BoolValue): Value corresponds to whether the pad is currently teleporting queued players/accepting players into queue
+   * HelicopterModel
+      * In the HelicopterModel will be a PlayerSpawns folder that contains invisible parts to spawn queued players into. They will be on seats, so the player should be spawned into a sitting position. 
+   * HelicopterSpawn: An invisible part used to place newly spawned HelicopterModels
+   * CameraPositionPart: Invisible part that will be used to position the player’s camera
+   * GuiPart.PadGui: GuiPart is an invisible part that PadGui (BillboardGui) will be parented to. PadGui will display all the necessary info. 
+   * JoinCollision: An invisible part, that when touched by a player character adds that player to the queue if available
+   * ExitSpawn: an invisible part outside the helicopter pad, where players exiting the queue will be moved to 
+   * Other decorations (not needed by code) 
+* For each pad, I need to be able to specify:
+   * Map
+   * Difficulty
+   * Max Players
+   * Requirements 
+      * Map Completion
+      * Difficulty Completion
+* For all pads, I need to be able to easily change the FullTime and CapacityTime. It will be the same for all pads. 
+3D Store
+* In addition to the Store Menu, there will be a physical store present in the lobby showcasing featured items and giving players another entry point for the store menu. 
+* Inside Workspace.Store.Items will be a series of “showcase” models
+   * Each has a StoreItem (string) attribute, listing the product associated with that model
+   * Each StoreItem string will be associated with a StoreConfig file that lists each product by StoreName and contains all info needed for that product. 
+   * Each model will have a part called Prompt with a Proximity Prompt child. 
+      * When the proximity prompt is triggered:
+         * If the StoreItem is a Robux purchase, it should instantly trigger the marketplace purchase flow for that item
+         * If the StoreItem is an in-game currency purchase, it should open the store menu to that item 
+Event Area
+* This section of the map will be reserved for future events
+* The idea is to have one place that showcases event rewards and allows players to check progress
+* At launch the area will be closed off with a “coming soon” sign
+Holding Area
+* This is an empty room under the map, meant to hold player characters during the teleport process so teleports don’t get clogged when teleports fail or take a long time (see Helicopter Pads section) 
+* Workspace.HoldingRoom.Spawns:GetChildren() will return a list of spawn points for characters
+
+
+Lobby Menus
+HUD
+* The HUD will show the player state and have buttons to access the various other menus
+   * Player State/Balance 
+      * Cash Balance (the game’s permanent currency)
+         * Displays the user’s current Cash balance
+         * When pressed, opens the store menu to the currency section
+         * After the initial value is loaded, if the value increases the text should turn green and play a coinDrop sound and update the value. If the value decreases, the text should red and it should play a ChaChingSound before updating the value (cash was spent). 
+      * Loadout Slots
+         * Shows the players current load out slots 
+            * 1 Weapon Slot
+            * 3 Placement Slots
+            * 1 Bonus Slot (unlocks at level 10)
+   * Menu Buttons
+      * Store Menu Button
+         * When pressed, opens the store menu to the featured section
+      * Loadout Menu Button
+         * When pressed, opens the loadout menu
+      * Daily Rewards Menu Button
+         * When pressed, opens the Daily Rewards Menu
+* When either the Store, Daily Rewards or Loadout Menu is opened, the HUD should hide off screen 
+
+
+Store Menu
+* The store menu can be accessed from the Store Button in the HUD or via a proximity prompt in the 3D Store
+* The Store Menu will have 5 different sections:
+   * Featured
+   * Weapons
+   * Posts
+   * Placements
+   * Currency
+* The menu will have 3 panels:
+   * Section Tabs:
+      * On the left side of the menu
+      * A vertical row of buttons for each section. 
+      * When a button is pressed, the inventory jumps to that section of the store. 
+   * Inventory Panel: 
+      * Shows all items in the store in one scrolling frame, that scrolls up/down vertically. 
+      * The section tab for the section currently being viewed is highlighted. 
+      * Every item should display a name, an image, and a price (either Cash or Robux)
+      * When pressed, an item appears in the Item Panel
+   * Item Panel: 
+      * The Item Panel is on the right side of the screen and shows item details/buy option
+      * When an item is selected in the inventory panel, the Item Panel is populated with that item’s data
+      * It shows the item’s displayName, its image, a brief description, and buy button that says “BUY” along with the price in the appropriate currency (cash or Robux)
+      * If a player presses the buy button:
+         * If it is for Cash and the player has the currency, the cost should be deducted from their account and the item should be awarded
+         * If it is for Cash and they don’t have the required currency, find the minimum currency pack needed to complete the purchase, and show the Robux purchase prompt for that item along with a Feedback message “You don’t have enough Cash”
+         * If it is Robux, open the marketplace purchase prompt
+* If the player owns an item and that item is not a repeatable purchase, that items should not be shown to that player, so only items they can actually buy are shown in the store.
+* Everything else can be dealt with in the Loadout Menu
+* The store menu should have a high level config file where items can be easily added and maintained. It should store all the information needed to generate a store listing for each item and complete the purchase process. That way there is only one file where all store data is added/maintained. 
+
+
+Loadout Menu
+* This menu allows players to view their current inventory and select their loadout
+* Players have a total of 5 slots per loadout
+   * 1 for a handheld weapon
+   * 1 for a Post 
+   * 3 for defenses
+* This menu should follow a similar format as the store
+   * Sections Tabs on the left
+      * Buttons for each category (Weapons, Posts, Defenses)
+      * When the button is pressed it jumps to that section in the inventory panel
+   * Inventory in the middle
+      * Show all loadout items owned and not owned, divided into sections (Weapons, Posts, Defenses)
+      * One big scrolling frame that scrolls vertically 
+      * Equipped items have a green square with a white checkmark in the top right corner of that item card
+      * Unowned items have a red square with a white lock icon in the top right corner of that item card
+      * Unequipped items that are owned have nothing in the top right
+      * When an item card is pressed, it appears in the Selected Item Panel
+   * Selected Item panel on the right + current equipped loadout
+      * Like the store, when an item is selected from the inventory panel, its data populates the Selected Item Panel on the right side of the menu
+      * It shows the item display name, its icon, a brief description and available actions for that item
+      * If it is an owned item there should be a button to “Equip” if it’s not currently equipped and “Unequip” if it is currently equipped. 
+      * If it is an unowned item, there should be a button to “Buy” with the cost on the buy button
+         * If the player buys in this menu, the actions buttons update to “Equip”
+         * Like the store, if they don’t have enough currency the proper currency dev product purchase should be prompted
+         * If it is a robux purchase, the robux prompt should automatically be prompted after pressing buy 
+      * If the player equips an item when their slots are all full, the existing item is replaced. If there are multiple items of the same type already equipped (and full), then the last item in that set is replaced. 
+      * At the bottom of the selection panel, there should be 5 slots displaying the player’s current loadout
+         * If you tap a filled slot, it should bring that item to the Selected Item Panel
+         * There should also be text under the slots explaining what goes there
+            * Weapon (under 1 slot)
+            * Post (under 1 slot)
+            * Defenses (under 3 slots)
+
+
+Queue Menu
+* The Queue Menu appears when a player is actively in a teleport queue (see Helicopter Pad section)
+* It has an ExitButton at the bottom center of the screen
+   * When pressed, the player is removed from the queue and their character is moved to the ExitSpawn part of the HelicopterPad model they’re queued for
+Daily Rewards Menu
+* This menu can only be accessed from the DailyRewardsButton in the HUD
+* It displays all the daily login rewards by day and the players current progress
+* Copy the format used in Lucky Lights
+* The designer should be able to easily the number of days and rewards for each day
+
+
+Player Feedback Text
+* This will be a simple ScreenGui containing a frame called FeedbackBox, with a TextLabel child. 
+* There should be a remote event in ReplicatedStorage.Events called “GivePlayerFeedback” and a bindable event called “GivePlayerFeebackLocal”
+* The server can fire the remote event (or the client can call the bindable event) with the below variables
+   * Player
+   * Message
+   * TimeDisplay
+* The PlayerFeedback gui listens for the events, takes the message, puts in TextLabel.Text, enables the gui, waits the TimeDisplay amount, and then disables the gui
+* It’s an easy system to route player feedback through for all systems
+Arrival Loading Screen
+* This loading screen is shown when players first enter the experience
+* It will have a title image and a loading bar
+* The loading bar should fill as assets are loaded/data is set up
+* Once loading is finished, the arrival loading screen should tween off screen
+Departure Loading Screen
+* This loading screen is shown when players are teleporting to the gameplay server
+* Once the helicopter takes off from the helicopter pad with the local player, this loading screen should appear
+* It will have a title image, subtext, and a spinning icon in the bottom right corner
+* It will match the initial load screen of the gameplay server, so the teleport isn’t super obvious (it should just look like a menu flicker) 
+
+
+
+
+Gameplay
+Gameplay Overview
+* All gameplay in the gameplay server is in first person (lobby is default third person)
+* The core game consists of repeating the same core loop until the required uranium has been mined or until all players are dead or the mine grinder is destroyed 
+* During the day (5 minutes), players harvest resources, upgrade abilities, and place defenses
+* Players earn resources by mining raw ore and bringing it to the refinery to be refined into currency (Iron Bars, Gold Bars, Diamonds, and Uranium)
+* The deeper players get into the mine, the harder the rock becomes and the more valuable the ore becomes
+* After being refined, players can spend their currency on upgrading their mining abilities, upgrading their defense posts, buying/placing defenses, or repairing existing damage
+* Gold is used on personal items/upgrades, Iron is used on shared resources, and Diamonds are a collective currency used to upgrade the camp level
+* Upgrading the camp level unlocks new mining chambers, mining upgrades, and post upgrades
+* At night, waves of enemies spawn outside the camp, bent on destruction 
+* Players must use their weapons, posts, and defenses to kill the horde before the horde destroys the refinery or kills all the players
+* Waves get progressively harder every night, forcing players to think through their defenses and decide whether its better to improve mining speed or defense strength
+* Waves spawn over 90 seconds whenever a day ends and lasts until all enemies have been killed, at which point a new day begins
+* To win, players must collect the specified amount of Uranium they’ll be able to call the Apocalyptic Mining Co. rescue helicopter
+* The monsters will give one final, climatic wave as the rescue helicopter arrives.
+* Once safely inside the helicopter, the player has “won”
+
+
+Maps
+* The goal is to continue adding new maps, with fresh layouts, different challenges, new enemies, and obstacles
+* At launch the goal is to have 2 different maps
+   * Deadman’s Canyon: A desert mine in an old west canyon. This is the starter map, with a base only exposed on one side (so enemies only come from one direction). 
+   * Frostbite Pass: An arctic mining facility with brutal weather, more exposure, and more intense enemies
+* Each map will have its own separate mine spawn and enemy waves data, so they can be balanced differently. 
+Difficulty
+* Every map will also have 3 difficulty levels: Normal, Hard, and Nightmare
+* Difficulty will be balanced by adjusting these values: 
+   * Enemy wave composition
+   * Enemy HP/Damage
+   * Mining spawn rates
+   * Mine size. 
+Resources
+* The game has 3 Resource Types
+   * In-Run Raw Resources
+   * In-Run Refined Resources
+   * Meta Currency 
+
+
+Raw Resources
+These are resources harvested directly from mining. They are not useful until they are refined into In-Run Currency via the Refinery. 
+
+
+* Iron Ore: Dropped from breaking an Iron Block. Refined into Iron Bars. 
+* Gold Ore: Dropped from breaking an Iron Block. Refined into Gold Bars. 
+* Crystals: Dropped from breaking a Crystal Block. Refined into Diamonds.
+* Uranium Ore: Dropped from breaking a Uranium Block. Refined into Uranium. 
+Refined Resources
+These are resources that have been refined from Raw Resources via the Refinery and can be used by the player. 
+
+
+* Iron Bars: Refined from Iron Ore. Goes into a private player balance, but is spent on shared items like wall repairs and defenses. 
+* Gold Bars: Refined from Gold Ore. Goes into a private player balance and is used on personal player upgrades (mining attributes, post upgrades, weapons)
+* Diamonds: Refined from Crystals. These are a shared resource between all players, used to upgrade the Camp Level. 
+* Uranium: Refine from Uranium Ore. This is the win condition. Getting X amount of Uranium allows players to call in a rescue helicopter. 
+Meta Currency
+These currencies survive a run and are used to buy permanent unlocks/upgrades/etc from the lobby store
+
+
+* Cash: Earned by reaching specific milestones in a run or by purchasing with Robux
+Camp Locations
+Every camp consists of a few primary structures, each with a different purpose:
+Mines
+* Every camp has a mine consisting of an entrance, a central tunnel, and sequential chambers. 
+* The mine entrance goes directly into chamber one, with an open central tunnel leading to a closed chamber #2. 
+* Players can mine all rock blocks on either side of the central tunnel
+* New chambers are unlocked by upgrading the camp level
+* Each chamber has progressively harder rock, but more valuable resources/uranium
+
+
+
+
+Refinery
+* Located just outside the mine entrance is the Refinery
+* Players bring their raw materials here to get refined
+* It functions like a simulator game, players walk up to to refinery, press a proximity prompt attached to the refinery that says “Refine Materials” and all the raw resources are sucked from the player into the Refinery, which spits out the appropriate refined materials, which go straight into the player balance for spending (unless it’s diamonds, in which case it gets added to the Camp Level progress bar). 
+* The Refinery is the focal point of the camp, as it displays the camp level and if destroyed, ends the game
+* Players must protect the refinery at all costs
+Mining Supplies Store
+* This is where players upgrade their mining attributes and can buy consumable Mining Tools
+* It will have a 3D representation of each mining attribute, showing the next level item for that attribute, that players can buy by triggering a proximity prompt for each model:
+   * Pick Axe: Determines mining strength (how long to break a block)
+   * Boots: Determines how fast a player moves
+   * Backpack: How much raw resources a player is able to carry
+* It will also have a 3D representation of each consumable Mining Tool that can also be purchased by activating a proximity prompt:
+   * Torch: Creates light for dark mining caverns
+   * Dynamite: Destroys a large chunk of rock when activated
+Defense Store
+* This is where players can buy consumable Traps
+* Traps are consumable items that can be purchased with Iron and placed down outside the base. Once used, they disappear. They don’t directly attack enemies, but help corral, slow, or injure them when triggered. 
+* Defenses are units brought in via the player’s load out – these are automated weapons that attack enemies in the traditional TD way.
+* Traps are purchased just like Mining Tools in the Mining Store. They are 3D representations of each available trap in the Defense Store. Players can walk up to each and purchase via Proximity Prompt. 
+Walls
+* Along the perimeter of the base is a series of walls connecting 6 “Definsive Posts”
+* Each Wall has its own Health
+* As enemies attack, they can break a wall and enter the base
+* Walls can be repaired and upgraded with Iron
+Defensive Posts
+* There are 6 available Posts in each map (1 for each player, up to 6). 
+* Players claim up to 1 post and spawn their post weapon (taken from their loadout)
+* Post weapons are the most powerful weapons in the game and require a player to man them
+* Players will have to man their post each night and attack the horde to keep them away
+Gate
+* There is a gate that enters the camp
+* It has its own HP and can be upgraded/repaired like walls
+* During the day it opens to let players out into the Placement Area and closes at night
+Placement Area
+* This is a predefined area outside of the base, beyond the gates where players can place Traps and Defensive Units
+* When in the Placement Area, available Traps and Defensive Units appear in a tool bar at the bottom of the screen
+* Players tap one of them to bring up that Trap/Defensive Unit and a ghost version of that item appears in front of them, green if it can be placed in the current place and red if it cannot be placed. 
+* Players can then place an item, at which time it is removed from their inventory (or paid for if it is a Defensive Unit). 
+Helicopter Pad
+* An empty Helicopter Pad made for the company rescue helicopter to drop off/pick up players
+* This is where players spawn in after being teleported to the gameplay server. 
+* If players make it to the end, this is where the rescue helicopter lands
+Tools
+Tools are items that allow players to perform an action when equipped. Players load in with a weapon and a pick axe as their primary tools, but can buy other tools from the in-run stores. 
+Tool Bar System
+* The tool bar is a custom tool bar that mimics the functionality of the standard Roblox tool bar, but displays more than 3 items on mobile and keeps item order intact. 
+* When a player has a tool, it appears in their tool bar at the bottom center of the screen
+* When a player taps the tool in the tool bar, that tool is equipped
+* Only one tool can be equipped at a time
+* Tapping another tool or tapping the currently equipped tool in the Tool Bar unequips the currently tool 
+Pick Axe (Default Tool)
+* Every player starts with a basic Pick Axe Tool by default
+* Equipping a Pick Axe puts a player in Mining Mode, allowing them to mine Rocks in the mine 
+* If a pick axe is not equipped, they cannot mine
+* Players can upgrade their pick axe in the Mining Store, at which point the pick axe model and Tool Icon change to reflect the upgrade
+* Pick Axes do not perform any other function than mining (they cannot be used as a weapon)
+Weapon (Default Tool)
+* Every player also starts every run with a weapon
+* Players can choose which weapon they bring on a run via the loadout menu in the lobby
+* The default weapon is a Rifle
+* Equipping the Weapon puts the player in Weapon Mode, allowing them to use the weapon to fight enemies
+* This is helpful for early enemies and any monsters that get into the base or spawn in the mines
+Mining Tools
+* These are tools purchased from the Mining Store to help mining
+* Includes Dynamite and a torch at launch
+* Once purchased, these tools are added to the tool bar (after Pick Axe and Weapon)
+* Tapping the tool icons for these equips the item and allows players to place/throw them at the desired spot
+Mining
+Mining is half the game and is the only way players can win a run. However the goal is to keep mining simple, lightly strategic, but tactilely rewarding. Every mine is randomly generated based on a set of parameters created for each map/difficulty level. We want mining to feel exactly like mining in Roblox, so players just intuitively know how to mine. 
+
+
+Rocks
+Every mine consists of a grid of cube Rocks (4x4 Studs). Every Rock will use the same 4x4 cube mesh, but will have a different texture based on the Rock Type. Every Rock mesh will be located in ReplicatedStorage/Rocks with the exact name of the Rock. When a mine is generated, they are cloned from here.  
+Rock Types
+There are three types of Rock: Filler Rock, Resource Rocks, and Bedrock.  
+Filler Rock
+These Rocks do not give any resources, but fill empty space and slow progress. The vast majority of the mine will be filled with Filler Rocks. All Filler Rocks are breakable, but some are harder to break than others:
+
+
+* Shale (10 HP)
+* Sandstone (20 HP)
+* Granite (40 HP)
+* Basalt (80 HP)
+Resource Rocks
+These Rocks give any raw resources when destroyed. More valuable Resource Rocks appear more often in later chambers. Resource Rocks also have multiple tiers, with higher tiers taking longer to break but giving more resources: 
+
+
+* Iron
+   * Iron 1 (15 HP, 5 Iron Ore)
+   * Iron 2 (30 HP, 16 Iron Ore)
+   * Iron 3 (60 HP, 48 Iron Ore)
+   * Iron 4 (110 HP, 130 Iron Ore) 
+* Gold 
+   * Gold 1 (20 HP, 5 Gold Ore)
+   * Gold 2 (40 HP, 17 Gold Ore)
+   * Gold 3 (75 HP, 50 Gold Ore)
+   * Gold 4 (140 HP, 145 Gold Ore) 
+* Crystal
+   * Crystal 1 (30 HP, 3 Crystals)
+   * Crystal 2 (60 HP, 9 Crystals)
+   * Crystal 3 (110 HP, 24 Crystals)
+   * Crystal 4 (200 HP, 65 Crystals) 
+* Uranium (100 HP, 1 Uranium Ore)
+
+
+Bedrock
+Bedrock is a Rock that cannot be destroyed by anything, but is used to define the boundaries of the mine and each mine chamber. Every mine will be fully surrounded by bedrock on all sides (except for the entrance), which ensures players cannot dig out into some unwanted area.  
+Mine Chambers
+* Mines are divided into separate Chambers to gate progression and ensure players can’t find shortcuts to victory. 
+* It also gives players a clear goal to work toward at every level
+* There are 4 chambers per mine, though the system needs to be built in a way that this is a customizable number
+* Each Chamber has a single entrance, closed while locked
+* Every time the Camp Level is upgraded, the next Chamber is unlocked and the entrance for the Chamber opens automatically 
+* Mines will be structured in a way so that there is a clear path from one entry to the next, with mineable Rocks on both sides of this path. 
+* This ensures players know there is another Chamber and have a clear goal
+* Rock Type spawn will be adjusted on a per Chamber basis, to ensure each Chamber gets progressively hard to mine, but offers better rewards
+* This is to encourage players to upgrade their mining equipment as the game progresses
+
+
+Mining Rock
+* To mine Rock, players must first equip their Pick Axe – which puts them in “Mining Mode”
+* Mining is intended to feel just like Minecraft, so it is intuitive to a broad amount of players
+* There needs to be a small dot in the center screen, representing the player’s aim
+* With Pick Axed equipped, any rock in the center of the players screen is highlighted (Highlight, white borders, transparent fill)  and the name/HP of that Rock is shown to the right of the player’s central reticle 
+* To start breaking the highlighted rock players:
+   * Mobile: Tap Rock to hit once, hold to hit repeatedly 
+   * PC: LMB click to hit once, hold LMB to hit continuously 
+   * GamePad: RT to hit once, hold RT to hit continuously 
+* Only the Rock currently highlighted will be hit 
+* The Rock’s HP is updated to reflect its current health after each hit
+* There will be a particle effect with each hit (rock pieces flying) and noises to make it feel tactile and satisfying 
+* Once the Rock’s HP is at or below 0, it breaks
+* If any Ore is inside, it drops out (see Collecting Ore below) 
+* Players can mine as much a they want, they just can’t collect any additional Ore if their Backpack is full
+* When in “Mining Mode”, a backpack icon with current status will be shown in the HUD (taken slots/total slots).
+* When the Backpack is full, the Backpack Icon/numbers should turn red and a small text label should say “Backpack full” (see “A Game About Digging a Hole” for reference)
+Collecting Ore
+* Dropped resources are automatically given to the player who breaks the block. 
+* Any resources that the breaker doesn’t have room for in their Backpack (raw resource inventory) is dropped on the ground
+* Dropped Ore is automatically picked up by any player who walks over it with empty Backpack space (like Minecraft)
+* When Ore is collected, it should make a pop sound, again like Minecraft
+* Players can tap their Backpack icon to bring up a Backpack inventory menu
+* This menu shows how much of each Ore is in their backpack (only showing Ore that the player actually has) 
+Refining Ore
+* Players refine Raw Resources by taking them to the Refinery
+* The Refinery is the main camp building, located just outside the Mine Entrance
+* It is a complicated looking machine, that grinds up Raw Resources and returns them as Refined Resources that can be spent
+* The goal is to keep this very simple and recognizable to anyone who has played a Roblox simulator where you exchange resources for currency
+* Players simply walk up to the Refinery, trigger a proximity prompt on it that says “Refine Raw Resources” 
+* Triggering the proximity prompt begins the refining process
+* All Raw Resources in the player’s Backpack are automatically refined at the same time
+* Icons for each Raw Resource in the players backpack are sucked out of their backpack and into the Refinery mouth
+* The Refinery spins and grinds the resources for a few seconds and spits out icons for each of the Refined Resources it generates, which should fly into the player’s HUD to the appropriate balance bar
+* The balance bars should shake and update as each icon hits it
+* This process should all feel very satisfying, both visually and audibly – lots of particle effects, sounds, etc
+Randomized Mine Creation
+
+
+1. What a mine is
+A mine is a single grid of 4×4×4 stud cube blocks, generated on the server when a run starts. It is never built by hand in Studio.
+The grid is divided into chambers running back into the mountain. Each chamber is a sealed bedrock box with one entrance. A corridor runs from each chamber’s entrance straight through to the next chamber’s entrance, with mineable rock on both sides. Chambers open as the camp level rises.
+The last chamber has no corridor, because there is nothing beyond it.
+A designer authors roughly 35 numbers per mine. Difficulty is one more.
+________________
+
+
+2. Coordinate model
+The grid has its own local space, always axis-aligned. A single module maps that space into the world, so the mine can sit anywhere and face any direction without the generator knowing about it.
+Axis
+	Meaning
+	Direction
+	Depth
+	Into the mountain
+	Grows away from the entrance
+	Height
+	Up
+	Block 0 is the lowest
+	Width
+	Across
+	Centred on the mine’s centreline
+	* Origin is the centre of the entrance mouth, at floor level.
+* Facing is one of +X, -X, +Z, -Z — the direction a player walks to enter. Restricted to 90° steps so blocks stay axis-aligned.
+* The bedrock floor sits at origin height, so players can never dig below ground level. All mining is sideways and up.
+All chambers share the mine’s centreline. There is deliberately no per-chamber lateral offset: the corridor must run dead straight, or the sightline that justifies having a corridor is lost.
+________________
+
+
+3. Rock definitions
+A single global table, authored once for the whole game. Mines never redefine these.
+Filler rock
+Fills space and slows progress. Yields nothing. Ordered by hardness — that order is load-bearing, see §6.
+Index
+	Rock
+	HP
+	1
+	Shale
+	10
+	2
+	Sandstone
+	20
+	3
+	Granite
+	40
+	4
+	Basalt
+	80
+	Resource rock
+Yields raw ore when destroyed. Cluster size is a property of the rock, not of the mine — Iron 3 clusters the same way everywhere.
+Rock
+	Tier
+	HP
+	Yield
+	Cluster radius
+	Iron
+	1
+	15
+	5 Iron Ore
+	1–2
+	Iron
+	2
+	30
+	16 Iron Ore
+	1–2
+	Iron
+	3
+	60
+	48 Iron Ore
+	1–2
+	Iron
+	4
+	110
+	130 Iron Ore
+	0–1
+	Gold
+	1
+	20
+	5 Gold Ore
+	1–2
+	Gold
+	2
+	40
+	17 Gold Ore
+	1–2
+	Gold
+	3
+	75
+	50 Gold Ore
+	1–1
+	Gold
+	4
+	140
+	145 Gold Ore
+	0–1
+	Crystal
+	1
+	30
+	3 Crystals
+	1–1
+	Crystal
+	2
+	60
+	9 Crystals
+	1–1
+	Crystal
+	3
+	110
+	24 Crystals
+	0–1
+	Crystal
+	4
+	200
+	65 Crystals
+	0–1
+	Uranium
+	—
+	100
+	1 Uranium Ore
+	0–0
+	Uranium has no tiers. It is treated as its own resource with a single definition, and tierBias does not apply to it.
+Structural rock
+Rock
+	Behaviour
+	Bedrock
+	Indestructible. Forms every boundary
+	Gate
+	Indestructible while closed. Becomes air when its chamber unlocks
+	________________
+
+
+4. Mine-level parameters
+Authored once per map. Difficulty does not appear here — see §7.
+Parameter
+	Type
+	Default
+	Notes
+	mineId
+	string
+	—
+	Which map this defines
+	seed
+	number or nil
+	nil
+	nil means fresh per run. Set to reproduce a layout
+	origin
+	Vector3
+	—
+	Centre of the entrance mouth, at floor level
+	facing
+	enum
+	—
+	+X / -X / +Z / -Z
+	startingCampLevel
+	number
+	1
+	Which chambers are open at run start
+	bedrockThickness
+	number
+	1
+	Blocks, applied to every face and divider
+	bedrockOverrides
+	table
+	empty
+	Per-face exceptions. Rarely needed
+	veinCorridorClearance
+	number
+	0
+	Blocks of rock between a generated vein and the corridor surface
+	defaultChamberHeight
+	number
+	—
+	Chambers inherit this unless they say otherwise
+	defaultChamberWidth
+	number
+	—
+	Same
+	veinCorridorClearance is a real design decision, not a technicality. At 0, resource rock breaks the corridor surface and a player reads a chamber’s worth the moment they walk in. Above 0, everything is discovery. Hand-placed veins (§9) ignore this.
+________________
+
+
+5. Chamber parameters
+Chambers are authored as an ordered list. Chamber N inherits every unspecified value from chamber N−1; chamber 1 inherits from the mine defaults. In practice a later chamber is three or four lines.
+Parameter
+	Type
+	Default
+	Notes
+	depth
+	number
+	inherited
+	Blocks along the dig axis
+	height
+	number
+	inherited
+	Blocks
+	width
+	number
+	inherited
+	Blocks
+	hardness
+	1.0–4.0
+	inherited
+	Filler mix. See §6
+	tierBias
+	1.0–4.0
+	inherited
+	Which ore tiers dominate. See §6
+	iron
+	number
+	inherited
+	Vein clusters of iron in this chamber
+	gold
+	number
+	inherited
+	Vein clusters of gold
+	crystal
+	number
+	inherited
+	Vein clusters of crystal
+	uranium
+	number
+	inherited
+	Vein clusters of uranium
+	corridorWidth
+	number
+	inherited
+	Blocks, centred
+	corridorHeight
+	number or "full"
+	inherited
+	Blocks up from the chamber floor
+	handPlaced
+	list
+	empty
+	Never inherited. See §9
+	Derived, never authored
+Value
+	Rule
+	unlockCampLevel
+	Equals the chamber’s index
+	hasCorridor
+	False for the last chamber only
+	Chamber position in the grid
+	Accumulated from earlier chamber depths and dividers
+	Grid dimensions
+	See §10
+	Ore totals
+	Reported by the generator, not authored
+	If a designer can type a derived value directly, it will drift out of sync with the chamber list. Keep them out of the data.
+________________
+
+
+6. The weight kernel
+hardness and tierBias both compress a set of weights into one number, and they use the same function. Build it once.
+weights(center, count, spread = 1.5):
+    for i in 1..count:
+        w[i] = max(0, 1 - abs(i - center) / spread)
+    normalise w so it sums to 1
+    return w
+spread is a global tuning constant. It controls how much neighbouring categories bleed in. At spread = 1.5:
+hardness
+	Shale
+	Sandstone
+	Granite
+	Basalt
+	1.0
+	75%
+	25%
+	—
+	—
+	1.2
+	65%
+	35%
+	—
+	—
+	2.0
+	20%
+	60%
+	20%
+	—
+	2.5
+	—
+	50%
+	50%
+	—
+	3.0
+	—
+	20%
+	60%
+	20%
+	3.7
+	—
+	—
+	40%
+	60%
+	4.0
+	—
+	—
+	25%
+	75%
+	Note that spread = 1.5 means a chamber never mixes more than three rock types, and at the exact midpoint between two types it mixes only those two. Raising spread to 2.0 brings all four types into play at mid hardness, at the cost of chambers feeling less distinct from each other. Tune it once, globally, after seeing a mine in-game.
+Do not drop spread toward zero. At spread = 1.0 a whole-number hardness produces a chamber of one single rock type, which reads as flat and artificial. The bleed is what makes rock look natural.
+tierBias works identically over the four ore tiers. A chamber’s iron = 30 with tierBias = 2.0 places 30 iron clusters split roughly 6 / 18 / 6 / 0 across tiers 1–4.
+Uranium ignores tierBias; its count is placed directly.
+________________
+
+
+7. Difficulty
+One number per difficulty, applied at generation time. It never changes layout — chamber count, sizes, and corridors are identical across difficulties. Only effort and reward move.
+Difficulty
+	Value
+	Normal
+	1.0
+	Hard
+	1.4
+	Brutal
+	1.9
+	Two effects, both derived from it:
+effectiveHardness = clamp(
+    hardness + (difficulty - 1) * hardnessShift, 1, 4)
+effectiveVeinCount = round(baseCount / difficulty)
+hardnessShift is a global constant, default 1.0. At Brutal, a chamber authored at hardness = 2.1 generates at 3.0, and 30 iron veins become 16.
+Difficulty is deliberately not able to express “same rock, less ore.” If that turns out to be needed, split it into two numbers rather than reintroducing per-difficulty chamber data.
+________________
+
+
+8. Corridors
+A corridor runs the full depth of its chamber, from that chamber’s entrance to the next chamber’s entrance, carved as air.
+* Width is centred on the mine centreline. An even width cannot centre on a single block, so it leans one block toward positive width.
+* Height is measured up from the chamber floor. "full" reaches the bedrock ceiling.
+* The final chamber has no corridor. A player stepping through the last gate faces solid rock.
+Corridor height is the strongest single lever on how a chamber plays:
+Height
+	Effect
+	At or below pickaxe reach (~3 blocks)
+	Every block including the ceiling is minable from a standing start. No climbing needed
+	Above reach, below full
+	A tunnel with a rock ceiling players can see but not touch. Only use this if climbing is a real mechanic
+	"full"
+	Splits the chamber into two facing walls. Dramatic, but all mining is sideways and most of it is above reach
+	Chamber height and corridor height together decide how much of a chamber is actually reachable. Two chambers of identical volume can differ enormously. It is easy to accidentally author a chamber that is 80% decoration.
+________________
+
+
+9. Hand-placed rock
+Optional per chamber, usually empty, never inherited.
+Field
+	Notes
+	rock
+	Type and tier, e.g. Crystal 3
+	depth
+	Blocks from the chamber’s front face
+	height
+	Blocks up from the chamber floor
+	widthOffset
+	Blocks from the centreline. Negative is left
+	cluster
+	Radius override. Optional
+	Hand-placed rock is stamped after generated veins and overwrites them. It ignores veinCorridorClearance.
+This exists for one reason worth protecting: a high-tier vein deliberately placed in shallow reach, visible from the corridor, that a starting pickaxe can barely dent. That block sells upgrades better than any UI, and no richness number will reliably produce it. Keep the escape hatch.
+________________
+
+
+10. Generation pipeline
+Ordered. The order is load-bearing and each step explains why.
+1. Resolve difficulty. Apply §7 to produce effective hardness and vein counts.
+2. Resolve inheritance. Walk the chamber list, filling unspecified values from the previous chamber, then from mine defaults.
+3. Validate. See §11. Fail loudly before spending time generating.
+4. Size the grid.
+gridDepth  = frontBedrock + sum(chamberDepths)
+           + divider * (chamberCount - 1) + farBedrock
+gridHeight = max(chamberHeights) + floorBedrock + ceilingBedrock
+gridWidth  = max(chamberWidths) + sideBedrock * 2
+5. Fill the entire grid with bedrock. Everything is solid until carved. This is what makes “every chamber sealed on all sides” the default state rather than a rule to enforce. A chamber narrower or shorter than its neighbour simply has thicker bedrock around it, with no special handling.
+6. Carve each chamber and fill with filler rock. Hollow the chamber’s interior, roll each block against the §6 hardness weights.
+7. Stamp generated veins. Per chamber, per resource: split the count across tiers by tierBias, place each cluster at a random position inside the chamber’s rock volume, respecting veinCorridorClearance.
+8. Stamp hand-placed rock. After generated veins, so it always wins.
+9. Carve corridors. After veins, so a vein can never plug the path. Skip the final chamber.
+10. Place gates. Fill the corridor cross-section where it crosses into the next chamber with Gate blocks. Chamber 1’s entrance is the mine mouth and is always open.
+11. Report. Log grid size, per-chamber diggable volume, and derived ore totals per chamber. The designer authors vein counts but cares about ore, so the generator has to close that loop.
+________________
+
+
+11. Validation
+Every check must name the parameter and the chamber, so a misconfiguration is identifiable without reading code.
+Fatal — refuse to generate:
+* No chamber contains uranium. The run is unwinnable
+* A chamber has a dimension below 1
+* corridorWidth is greater than or equal to chamber width. No rock left to mine
+* Chamber 1’s unlock level exceeds startingCampLevel. The run begins with nothing open
+* facing is not one of the four permitted values
+Warn and continue:
+* corridorHeight exceeds chamber height. Clamp to "full"
+* A hand-placed entry falls inside the corridor volume. It will be carved away
+* A hand-placed entry falls outside its chamber bounds
+* Bedrock thickness leaves a chamber with no diggable volume
+* A chamber’s corridor height is above reach but below full, with no climbing mechanic enabled
+* hardness or tierBias outside 1.0–4.0. Clamp
+________________
+
+
+12. Runtime
+Gates. When the camp level reaches a chamber’s unlock level, that chamber’s gate blocks become air. This is the pacing beat of a run and should not happen silently — it needs an audible and visible moment.
+Damage. Rock HP is tracked server-side by grid position, not on the rendered block. Blocks are pooled and streamed, so a part that showed a half-mined block may be recycled or unloaded; damage keyed to position survives both.
+Visual damage states. Three states per the GDD: untouched, 60%, 30%. Author these as a crack overlay applied on top of any rock, not as separate textures per rock type. Seventeen rock types × 3 states is 51 assets to author and maintain; a shared overlay is 2, and it works automatically on rock types added later.
+________________
+
+
+13. Worked example
+A four-chamber mine. Note how short chambers 2–4 are — everything unspecified is inherited.
+return {
+    mineId = "canyon_default",
+    seed = nil,
+    origin = Vector3.new(-359.259, -6, -20.911),
+    facing = "-X",
+
+    startingCampLevel = 1,
+    bedrockThickness = 1,
+    veinCorridorClearance = 0,
+
+    defaultChamberHeight = 8,
+    defaultChamberWidth = 24,
+
+    chambers = {
+        {   -- 1: soft, generous, everything reachable
+            depth = 20,
+            hardness = 1.2,
+            tierBias = 1.0,
+            iron = 34, gold = 12, crystal = 2, uranium = 0,
+            corridorWidth = 3,
+            corridorHeight = 3,
+
+            handPlaced = {
+                -- The upgrade advertisement. Visible
+                -- from the corridor, barely dentable
+                -- with a starting pickaxe.
+                { rock = "Crystal 3", depth = 6,
+                  height = 1, widthOffset = 2 },
+            },
+        },
+
+        {   -- 2: mixed rock, better ore
+            depth = 24,
+            hardness = 2.1,
+            tierBias = 2.0,
+            iron = 30, gold = 18, crystal = 6,
+        },
+
+        {   -- 3: taller, harder, first uranium
+            depth = 24,
+            height = 12,
+            hardness = 3.0,
+            tierBias = 3.0,
+            iron = 22, gold = 22, crystal = 12, uranium = 3,
+            corridorHeight = 5,
+        },
+
+        {   -- 4: cathedral. No corridor, just solid rock.
+            depth = 28,
+            height = 16,
+            hardness = 3.7,
+            tierBias = 4.0,
+            iron = 16, gold = 20, crystal = 18, uranium = 8,
+        },
+    },
+}
+Chamber 4 needs no corridorWidth or corridorHeight — it has no corridor, and hasCorridor is derived from being last.
+At Brutal (1.9), the same file generates chamber 2 at hardness = 3.0 with 16 iron, 9 gold, and 3 crystal clusters. No second file, no overrides.
+Mining Attributes
+
+
+Pick Axe
+* A player’s Pick Axe determines how much HP is removed from a Rock per hit
+* There are 4 Pick Axe Levels (though this should be easily adjustable)
+
+
+
+
+Backpack
+Boots        
+Posts
+Defenses
+Traps
+Wall Repair
+Camp Level
+Wave Cycle
+Monsters
+Random Events
+Adjusting for Different Player Counts
+Revives
+
+
+Spectate Mode
+Menus
+Audio
+
+
+Design Requirements
+* All numbers that affect gameplay must be easily accessible and not hard coded, so that a designer can easily adjust them to balance gameplay
+* All art that is added to the workspace through gameplay/code (mine rocks, monsters, weapons, tools, posts etc) needs to be pulled from a central location so that artists/designers can easily replace/adjust one instance (for example, mine Rocks “templates” are in ReplicatedStorage and are cloned when generating a mine)
+Technical Overview
+Product/Marketing targets
+This game should play well on phones with pretty low bandwidth and even only 2GB of RAM. The biggest limitation will probably be bandwidth if we do things the naive roblox way, so keep this in mind (and see ‘shadow’ system below). 
+Reference Games/Code
+Review the code in ~/md (md stands for ‘merge dragons’, though the game ended up being called ‘fuse dragons’, sometimes referenced as ‘dragons’), and ~/square (‘lucky squares’, ended up being called ‘lucky lights’, or just ‘lights’). Dragons was written almost entirely by hand and code quality and structure is considered quite good. Lights was entirely written with AI, and while the structure is good, the code has largely not been reviewed.
+
+
+There are many systems or structures we should reuse from these games. Lights is newer than dragons, and hence tends to be more advanced and have better/deeper abstractions. Systems we should definitely copy–the player state loading/saving system, which uses a 3rd party library (code in both projects) for user profiles that handles errors incredibly well; the loading/ready system for players in Lights is excellent. Using Iris library for dev tools, and locking dev tool access to the members of a group, is also a great setup we should use here too. Lights has a sophisticated system to capture screenshots and turn them into image assets in Roblox Studio that we likely want to copy.
+
+
+Both games separate out most “dials” or otherwise configurable numbers controlling game play into data-only scripts in the ServerScripts/GameData folder. Let’s do the same here. Difference–in the other games, that folder was NOT checked into git, and editing the files in studio was authoritative. In this game, let’s check them into git.
+
+
+Both games also have an object/item system which works well, but is a bit less applicable here where less is persistent between sessions. Analyze and make suggestions on this.
+
+
+Copy and use coding standards from those games to start. Don’t use abbreviations in variable names, use luau type system a lot (but the LSP is not great, so don’t overindex here–we want to use colon functions for object ‘method’ functions for example, and the LSP doesn’t handle it well). Setup a test suite you can run from Studio for all core, testable units, same as Lights.
+
+
+Look to Lights for some key decisions–all messages go over one ‘RemoteEvent’ (and are then dispatched by name) to be able to detect missing handlers. Almost all game data setup is sent from the server to the client in a spot in the PlayerGui, which allows client-inspection of all of a client’s state by a human to be trivial, which helps us quickly debug problems.
+
+
+Key thing about Roblox development–we don’t want to use parts/models/meshes in the data model on the server very much, because they get replicated to clients at very high fidelity, and very high cost, giving us very little control. Look at the ‘shadow’ system used in both games–we place an invisible part on the server, clients get it (or not) depending on streaming, and then we set attributes on that part on the server, that the clients read and then render changes, animations, etc. This game is a bit different from our reference games, so there will be differences here, but while we must validate all significant game play actions on the server, we should be doing that by keeping game state in the server’s lua data structures, mostly NOT in parts in the workspace (except for shadows).
+
+
+In particular, mining needs to be carefully planned and thought through–the server probably should NOT store every minable thing as parts, but instead as a lua data structure that gets shared with the clients, with messages sent back and forth with updates to that data structure.
+Decisions/Project Philosophy
+We are designing this game to be commercially successful. We want a good amount of consistency–let’s decide font choices for UI and standards for centering, capitalization, when to use exclamation points (very rarely), etc. and then stick with them across the project. When copying in big parts of UI from our reference games (especially the premium shop, inventory, index, playtime rewards, daily rewards, etc.), always adjust the UI to our standards, even if the functionality remains the same or at least similar.
+
+
+We want to relatively quickly build up the core game play, even if the polish and graphic fidelity doesn’t exist (we can play the game where every attacker is just a cube just fine), and then add artwork and polish and sound effects etc. later.
+
+
+Our first step is to take this document and have you turn it into a set of phases of development. Phase 1 is probably “get studio, rojo, etc. setup and the places able to be run”, phase 2 is probably “setup player joining/leaving and lobbies”, phase 3 might be mining, phase 4 might be full game play. There should probably be about 8-10 total phases, each with 3-10 milestones each representing one or a small set of features that we will be building in sequence. Don’t ever commit code or mark a milestone complete without explicit approval. As we setup this project and you’re copying lots of standards and memories and instructions from the reference projects, please ask us if you think anything is contradictory or if you think something is a bad idea or wouldn’t apply, or if you just don’t know if we want it in this project. Once we build a few milestones together, you’ll be able to make a lot of progress with a lot less feedback while still staying aligned to the goals of this project.
