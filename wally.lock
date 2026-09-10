@@ -5,7 +5,7 @@ registry = "test"
 [[package]]
 name = "ckirmse/digdefend"
 version = "0.1.0"
-dependencies = [["Jest", "jsdotlua/jest@3.10.0"], ["JestGlobals", "jsdotlua/jest-globals@3.10.0"]]
+dependencies = [["Iris", "sirmallard/iris@2.5.1"], ["Jest", "jsdotlua/jest@3.10.0"], ["JestGlobals", "jsdotlua/jest-globals@3.10.0"]]
 
 [[package]]
 name = "jsdotlua/boolean"
@@ -246,3 +246,8 @@ dependencies = [["luau-polyfill", "jsdotlua/luau-polyfill@1.2.7"], ["promise", "
 name = "jsdotlua/timers"
 version = "1.2.7"
 dependencies = [["collections", "jsdotlua/collections@1.2.7"]]
+
+[[package]]
+name = "sirmallard/iris"
+version = "2.5.1"
+dependencies = []

@@ -6,6 +6,7 @@
 local module
 
 module = {
+	TRY_DEV_TOOL = "TryDevTool",
 	NOTIFY_PLAYER_FEEDBACK = "NotifyPlayerFeedback",
 }
 

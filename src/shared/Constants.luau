@@ -16,6 +16,13 @@ Constants.REMOTE_EVENT_NAME = "GameRemoteEvent"
 -- client-only BindableEvent; server feedback travels as NotifyPlayerFeedback on the RemoteEvent
 Constants.PLAYER_FEEDBACK_LOCAL_EVENT_NAME = "GivePlayerFeedbackLocal"
 
+-- dev tools are gated to this Roblox group at or above this rank
+Constants.ADMIN_GROUP_ID = 571203718
+Constants.ADMIN_MIN_RANK = 254
+
+-- the one central ReplicatedStorage folder every clonable asset lives under
+Constants.GAME_ASSETS_FOLDER = "GameAssets"
+
 Constants.SHADOWS_FOLDER = "Shadows"
 Constants.CASTERS_FOLDER = "Casters"
 

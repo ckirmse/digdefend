@@ -17,11 +17,6 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 
 # Upcoming
 
-## Phase 1: Infrastructure and Project Scaffold
-
-**M5 — Dev tools and group-gated access**
-Iris dev tool panel, access locked to members of the company group. Reset-player-state dev tool contract established (any new per-player state must be covered by it). Screenshot-to-image-asset capture tool ported from lights if it still applies.
-
 ## Phase 2: Player Lifecycle, Persistence, and Lobby Shell
 
 **M6 — Player lifecycle and PlayerData**
@@ -202,3 +197,6 @@ Finished 2026-09-10. jest-roblox 3.10.0 via Wally dev-dependencies, committed in
 
 **M4 — Single RemoteEvent message bus** ✅
 Finished 2026-09-10. `NetManager` creates the one `RemoteEvent` in code and runs the receive pipeline (rate limit → Ready check → known name → `Validate.isTableShape` → pcall handler) with throttled rejection warnings; per-player `TokenBucket` (unit tested) tuned by `GameData/Control/Network`. `ClientNetManager` mirrors it with loud unhandled-name warnings. `GameController` assembles handlers from `getNetHandlers()` owners. Feedback channel kept inside the one-RemoteEvent rule: `PlayerFeedbackManager:give()` sends `NotifyPlayerFeedback`; `ClientPlayerFeedbackManager` also owns the `GivePlayerFeedbackLocal` BindableEvent and prints until the M9 ScreenGui listens. Verified in Play: good/bad/unknown messages in both directions. Analyzer now reports only colon-method self-inference errors (ignored by decision); consider filtering that class in `scripts/analyze.sh`.
+
+**M5 — Dev tools and group-gated access** ✅
+Finished 2026-09-10. Iris 2.5.1 via Wally (`Packages/`, committed). Server `DevTools` handles `TryDevTool` against the `DevToolCommands` allowlist and re-checks admin per message; admin = rank ≥ 254 in group 571203718 (group-page roles, not Creator Hub collaborators), stamped as the `IsAdmin` Player attribute. `ClientDevTools` Iris panel (RightShift / triple-tap) with Players, Icon Framing, test feedback, and confirm-gated reset. Reset contract mechanism (`PLAYER_READY_SEQUENCE` / `PLAYER_TEARDOWN_SEQUENCE` in `GameController`) established, empty until M6. Icon capture pipeline ported with Windows replacements: `docs/icon-capture.md`, `scripts/capture_studio_window.ps1` (PrintWindow), `scripts/process_icon.sh` (ImageMagick 7, installed via winget). Verified in Play: non-admin refused; admin path handled valid/unknown/bad-args/reset commands. 8 suites / 75 tests. Lesson: stop `rojo serve` before `wally install` (Rojo 7.7 crashes).

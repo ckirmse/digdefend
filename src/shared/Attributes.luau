@@ -13,6 +13,9 @@ module = {
 	SERVER_START_TIME = "ServerStartTime",
 	SCHEMA_VERSION = "SchemaVersion",
 	SHADOW_TYPE = "ShadowType",
+	-- icon capture pipeline (see docs/icon-capture.md, IconFramingFormat, ApplyIconFramings)
+	ICON_FRAMING = "IconFraming",
+	ICON_IMAGE_ID = "IconImageId",
 }
 
 return module

@@ -90,7 +90,13 @@ Exactly **one** RemoteEvent, created in code by the server at startup, never aut
 Roblox replicates every server instance to clients at high cost with no throttle, so the server keeps a **minimal instance footprint**. World state is held in server-side Lua tables and validated there. For entities that need a world position, use the **shadow system**: one small invisible anchored Part per logical entity carrying attributes; clients watch the attributes and build all visuals locally (see `~/md/ghost_shadow.md` and `~/square/src/client/ClientShadowManager.luau`). The mine grid is Lua data sent to clients over the message bus, never parts on the server (M17). Enemies are server Lua state rendered through shadows (M29).
 
 ### Reset-player dev tool contract (M5)
-Any new per-player state must be covered by the reset-player-state dev tool, which must leave a player indistinguishable from a brand-new one.
+Any new per-player state must be covered by the reset-player-state dev tool, which must leave a player indistinguishable from a brand-new one. The mechanism is `PLAYER_READY_SEQUENCE` / `PLAYER_TEARDOWN_SEQUENCE` in `GameController` (each entry names its manager and its `onReset` behavior); `DevTools:resetPlayerState` replays teardown then ready with `isReset = true`.
+
+### Dev tools (M5)
+Server `DevTools` handles `TryDevTool { command, args }` against an explicit `COMMAND_NAMES` allowlist and re-checks `gameController:isPlayerAdmin` on every message. Admin = rank ≥ `Constants.ADMIN_MIN_RANK` in group `Constants.ADMIN_GROUP_ID`, stamped as the `IsAdmin` attribute on the Player for the client's benefit only. `ClientDevTools` is an Iris panel (RightShift, or triple-tap the bottom-right quadrant on touch) loaded only for admins. The icon capture pipeline (framing window → `ICON_FRAMING` Output lines → `ApplyIconFramings` → screenshot → ImageMagick → `upload_image` → `IconImageId` attribute) is documented step by step in `docs/icon-capture.md`.
+
+### Wally and Rojo
+Stop every `rojo serve` before running `wally install`: Wally rewrites `Packages/` and `DevPackages/` and Rojo 7.7 crashes when a watched folder disappears mid-scan. Restart Rojo afterward and reconnect the plugin in Studio.
 
 ### Studio authoring
 Studio-only content (ScreenGuis, world templates, placeholder geometry) is authored by Claude through the Roblox Studio MCP tools, never handed to the user as a checklist. After every playtest, read the Studio console output; the game can look fine while spamming errors. After Studio is reopened, verify Rojo sync is fresh (check a script's `.Source` for a recent edit) before trusting a playtest.
