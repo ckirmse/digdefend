@@ -18,7 +18,10 @@
     },
     "ServerScriptService": {
       "Server": {
-        "$path": "src/server"
+        "$path": "src/server",
+        "Libs": {
+          "$path": "ServerLibs"
+        }
       },
       "GameData": {
         "$path": "src/server/GameData"

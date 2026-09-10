@@ -25,6 +25,10 @@ local SEND_TEST_FEEDBACK_ARGS_SHAPE = {
 	displaySec = "positiveNumber",
 }
 
+local SET_CASH_ARGS_SHAPE = {
+	cash = "nonnegativeInteger",
+}
+
 -- a method is client-callable only if named in DevToolCommands.NAMES; init()
 -- verifies every listed name has a method below
 function DevTools:getNetHandlers()
@@ -39,7 +43,11 @@ function DevTools:getNetHandlers()
 end
 
 function DevTools:handleTryDevTool(player: Player, payload: { [string]: any })
-	if not gameController:isPlayerAdmin(player) then
+	local playerData = gameController:getPlayerData(player)
+	if not playerData then
+		return
+	end
+	if not playerData:getIsAdmin() then
 		warn("DevTools: command from non-admin", player.Name, payload.command)
 		return
 	end
@@ -67,6 +75,20 @@ function DevTools:sendTestFeedback(player: Player, args: { [string]: any })
 		return
 	end
 	PlayerFeedbackManager:give(player, args.message, args.displaySec)
+end
+
+function DevTools:setCash(player: Player, args: { [string]: any })
+	local isValid, err = Validate.isTableShape(args, SET_CASH_ARGS_SHAPE)
+	if not isValid then
+		warn("DevTools: setCash with invalid args:", err)
+		return
+	end
+	local playerData = gameController:getPlayerData(player)
+	if not playerData then
+		return
+	end
+	playerData:setCash(args.cash)
+	PlayerFeedbackManager:give(player, "Cash set to " .. tostring(playerData:getCash()))
 end
 
 function DevTools:init(gameControllerIn: any)

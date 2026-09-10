@@ -26,6 +26,7 @@ export type ClientDevTools = typeof(setmetatable(
 		playersSize: any,
 		iconFramingSize: any,
 		confirmReset: any,
+		cashInput: any,
 		framingAssetOption: any,
 		framingAssetOptions: { string },
 		framingYaw: any,
@@ -340,6 +341,20 @@ function ClientDevTools:renderMenuWindow()
 	end
 
 	Iris.Separator()
+	Iris.InputNum({ "Cash", 100, 0 }, { number = self.cashInput })
+	if Iris.Button({ "Set Cash" }).clicked() then
+		ClientNetManager:fireServer(
+			NetEventNames.TRY_DEV_TOOL,
+			{
+				command = "setCash",
+				args = {
+					cash = math.max(0, math.floor(self.cashInput:get())),
+				},
+			}
+		)
+	end
+
+	Iris.Separator()
 	Iris.Checkbox({ "Confirm full reset" }, { isChecked = self.confirmReset })
 	if Iris.Button({ "Reset player state" }).clicked() and self.confirmReset:get() then
 		self.confirmReset:set(false)
@@ -405,6 +420,7 @@ function ClientDevTools:init()
 	self.playersSize = Iris.State(Vector2.new(400, 250))
 	self.iconFramingSize = Iris.State(Vector2.new(350, 400))
 	self.confirmReset = Iris.State(false)
+	self.cashInput = Iris.State(1000)
 	self.framingAssetOptions = BakedIconUtil.getAllBakeableAssetPaths()
 	self.framingAssetOption = Iris.State(self.framingAssetOptions[1])
 	self.framingYaw = Iris.State(180)
@@ -459,6 +475,7 @@ function ClientDevTools.new(): ClientDevTools
 	self.playersSize = nil
 	self.iconFramingSize = nil
 	self.confirmReset = nil
+	self.cashInput = nil
 	self.framingAssetOption = nil
 	self.framingAssetOptions = {}
 	self.framingYaw = nil

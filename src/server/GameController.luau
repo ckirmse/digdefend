@@ -1,14 +1,18 @@
 --!strict
 
 -- The single top-level orchestrator: requires every manager, wires them
--- together through init(), owns player join/leave, and assembles the full
+-- together through init(), owns the player lifecycle, and assembles the full
 -- network protocol in one place so it can be read top to bottom.
 local Players = game:GetService("Players")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local PlayerControlData = require("@game/ServerScriptService/GameData/Control/Player")
+local ProfileStore = require(script.Parent.Libs.ProfileStore)
 local DevTools = require(script.Parent.DevTools)
 local NetManager = require(script.Parent.NetManager)
+local PlayerData = require(script.Parent.PlayerData)
 local PlayerFeedbackManager = require(script.Parent.PlayerFeedbackManager)
 
 local GameController = {}
@@ -16,7 +20,11 @@ GameController.__index = GameController
 
 export type GameController = typeof(setmetatable(
 	{} :: {
-		isAdminByPlayer: { [Player]: boolean },
+		playerStore: any?,
+		-- the single authoritative lifecycle table; a player is in here from
+		-- LOADING until GONE and nowhere else
+		playerDatas: { [Player]: PlayerData.PlayerData },
+		pendingExitCount: number,
 		netManager: typeof(NetManager),
 		devTools: typeof(DevTools),
 		playerFeedbackManager: typeof(PlayerFeedbackManager),
@@ -34,9 +42,9 @@ type SequenceEntry = {
 
 -- DEV TOOL CONTRACT: resetPlayerState must leave a player indistinguishable
 -- from a brand-new player, client and server side. If you add (a) a field to
--- persistent player data (M6), (b) a manager with per-player runtime state, or
--- (c) new per-player replication (M7), you MUST add it to both sequences
--- below, choosing its onReset behavior explicitly.
+-- PlayerSaveSchema, (b) a manager with per-player runtime state, or (c) new
+-- per-player replication (M7), you MUST add it to both sequences below,
+-- choosing its onReset behavior explicitly.
 --
 -- Ordered setup sequence for a player reaching Ready; order is load-bearing.
 local PLAYER_READY_SEQUENCE: { SequenceEntry } = {}
@@ -71,6 +79,10 @@ local function runTeardownSequence(player: Player, isReset: boolean)
 	end
 end
 
+local function getProfileKey(player: Player): string
+	return PlayerControlData.PROFILE_KEY_PREFIX .. player.UserId
+end
+
 local function fetchIsAdmin(player: Player): boolean
 	local isSuccess, rank = pcall(
 		function()
@@ -84,53 +96,179 @@ local function fetchIsAdmin(player: Player): boolean
 	return rank >= Constants.ADMIN_MIN_RANK
 end
 
--- Until the player lifecycle lands (M6) every connected player counts as Ready.
+-- nil unless the player is READY; the one question every other system asks
+function GameController:getPlayerData(player: Player): PlayerData.PlayerData?
+	local playerData = self.playerDatas[player]
+	if playerData and playerData:isReady() then
+		return playerData
+	end
+	return nil
+end
+
 function GameController:isPlayerReady(player: Player): boolean
-	return player.Parent == Players
+	return self:getPlayerData(player) ~= nil
 end
 
 function GameController:isPlayerAdmin(player: Player): boolean
-	return self.isAdminByPlayer[player] == true
+	local playerData = self:getPlayerData(player)
+	return playerData ~= nil and playerData:getIsAdmin()
+end
+
+function GameController:getReadyPlayers(): { Player }
+	local readyPlayers = {}
+	for player, playerData in self.playerDatas do
+		if playerData:isReady() then
+			table.insert(readyPlayers, player)
+		end
+	end
+	return readyPlayers
+end
+
+function GameController:abandonLoad(player: Player, playerData: PlayerData.PlayerData, profile: any?)
+	if profile then
+		profile:EndSession()
+	end
+	playerData:setLifecycle(Enums.PlayerLifecycle.GONE)
+	self.playerDatas[player] = nil
 end
 
 function GameController:processPlayerAdd(player: Player)
-	if self.isAdminByPlayer[player] ~= nil then
+	if self.playerDatas[player] then
 		warn("GameController: duplicate PlayerAdded for", player.Name)
 		return
 	end
 
-	local isAdmin = fetchIsAdmin(player)
-	if player.Parent ~= Players then
+	local playerData = PlayerData.new(player)
+	self.playerDatas[player] = playerData
+	print("[GameController] Loading:", player.Name)
+	player:SetAttribute(Attributes.LOAD_STATUS, Enums.LoadStatus.LOADING_DATA)
+
+	-- passing Cancel disables ProfileStore's own session timeout, so the retry
+	-- loop must be bounded here or a DataStore outage strands the player on
+	-- the loading screen forever
+	local loadStartedAt = workspace:GetServerTimeNow()
+	local profile = self.playerStore:StartSessionAsync(
+		getProfileKey(player),
+		{
+			Cancel = function()
+				if player.Parent ~= Players then
+					return true
+				end
+				return workspace:GetServerTimeNow() - loadStartedAt >= PlayerControlData.DATA_LOAD_TIMEOUT_SEC
+			end,
+		}
+	)
+
+	if profile == nil then
+		player:Kick("Couldn't load your data. Check your connection and rejoin.")
+		self:abandonLoad(player, playerData, nil)
 		return
 	end
-	self.isAdminByPlayer[player] = isAdmin
+
+	if player.Parent ~= Players then
+		self:abandonLoad(player, playerData, profile)
+		return
+	end
+
+	profile:Reconcile()
+	profile:AddUserId(player.UserId)
+
+	profile.OnSessionEnd:Connect(
+		function()
+			if self.playerDatas[player] then
+				player:Kick("Your session ended. Please rejoin.")
+			end
+		end
+	)
+
+	profile.OnSave:Connect(
+		function()
+			if playerData:shouldSaveOnExit() then
+				profile.Data = playerData:getSaveData()
+			end
+		end
+	)
+
+	playerData:setProfile(profile)
+	playerData:loadSaveData(playerData:validate(profile.Data))
+	playerData:setIsAdmin(fetchIsAdmin(player))
+
+	if player.Parent ~= Players then
+		self:abandonLoad(player, playerData, profile)
+		return
+	end
+
 	-- the client reads this to decide whether to load the dev tools; the server
 	-- re-checks isPlayerAdmin on every command so the attribute is not the gate
-	player:SetAttribute(Attributes.IS_ADMIN, isAdmin)
-
+	player:SetAttribute(Attributes.IS_ADMIN, playerData:getIsAdmin())
+	playerData:setLifecycle(Enums.PlayerLifecycle.READY)
+	player:SetAttribute(Attributes.LOAD_STATUS, Enums.LoadStatus.READY)
 	runReadySequence(player, false)
-	print("[GameController] Ready:", player.Name, if isAdmin then "(admin)" else "")
+	print("[GameController] Ready:", player.Name, if playerData:getIsAdmin() then "(admin)" else "")
 end
 
 function GameController:processPlayerRemove(player: Player)
-	if self.isAdminByPlayer[player] == nil then
+	local playerData = self.playerDatas[player]
+	if playerData == nil then
 		return
 	end
+	local lifecycle = playerData:getLifecycle()
+	if lifecycle == Enums.PlayerLifecycle.GONE or lifecycle == Enums.PlayerLifecycle.LEAVING then
+		return
+	end
+	if lifecycle == Enums.PlayerLifecycle.LOADING then
+		-- processPlayerAdd notices player.Parent == nil at its next checkpoint
+		-- and abandons the load itself
+		return
+	end
+
+	playerData:setLifecycle(Enums.PlayerLifecycle.LEAVING)
+	self.pendingExitCount += 1
+	print("[GameController] Leaving:", player.Name)
+
 	runTeardownSequence(player, false)
-	self.isAdminByPlayer[player] = nil
+	self.playerDatas[player] = nil
+
+	local profile = playerData:getProfile()
+	if profile then
+		if playerData:shouldSaveOnExit() then
+			profile.Data = playerData:getSaveData()
+		end
+		profile:EndSession()
+	end
+	playerData:destroy()
+
+	self.pendingExitCount -= 1
+	playerData:setLifecycle(Enums.PlayerLifecycle.GONE)
 	print("[GameController] Gone:", player.Name)
 end
 
 -- the reset contract lives on PLAYER_READY_SEQUENCE / PLAYER_TEARDOWN_SEQUENCE
 -- (see the DEV TOOL CONTRACT comment above them)
 function GameController:resetPlayerState(player: Player)
-	if self.isAdminByPlayer[player] == nil then
-		warn("GameController: resetPlayerState on unknown player", player.Name)
+	local playerData = self.playerDatas[player]
+	if playerData == nil or not playerData:isReady() then
+		warn("GameController: resetPlayerState on non-Ready player", player.Name)
 		return
 	end
+
 	print("[GameController] Resetting player state:", player.Name)
+
+	-- LOADING fences net handlers and everything else that asks getPlayerData
+	playerData:setLifecycle(Enums.PlayerLifecycle.LOADING)
+
 	runTeardownSequence(player, true)
+	playerData:resetToNewPlayer()
+
+	-- overwrite the live profile so a server crash cannot resurrect old data
+	local profile = playerData:getProfile()
+	if profile then
+		profile.Data = playerData:getSaveData()
+	end
+
+	playerData:setLifecycle(Enums.PlayerLifecycle.READY)
 	runReadySequence(player, true)
+
 	print("[GameController] Reset complete:", player.Name)
 end
 
@@ -157,6 +295,34 @@ function GameController:init()
 
 	self.netManager = NetManager
 	NetManager:init(self, netHandlers)
+
+	self.playerStore = ProfileStore.New(PlayerControlData.PROFILE_STORE_NAME, PlayerData.getDefaultSaveData())
+	ProfileStore.OnError:Connect(
+		function(message: string, storeName: string, profileKey: string)
+			warn("ProfileStore error:", message, storeName, profileKey)
+			for player, playerData in self.playerDatas do
+				if getProfileKey(player) ~= profileKey then
+					continue
+				end
+				if playerData:getLifecycle() == Enums.PlayerLifecycle.LOADING then
+					player:SetAttribute(Attributes.LOAD_STATUS, Enums.LoadStatus.RETRYING)
+				end
+			end
+		end
+	)
+
+	game:BindToClose(
+		function()
+			local elapsed = 0
+			while self.pendingExitCount > 0 and elapsed < PlayerControlData.BIND_TO_CLOSE_TIMEOUT_SEC do
+				task.wait(0.1)
+				elapsed += 0.1
+			end
+			for player in self.playerDatas do
+				self:processPlayerRemove(player)
+			end
+		end
+	)
 
 	Players.PlayerAdded:Connect(
 		function(player: Player)
@@ -185,7 +351,9 @@ end
 
 function GameController.new(): GameController
 	local self = setmetatable({}, GameController) :: GameController
-	self.isAdminByPlayer = {}
+	self.playerStore = nil
+	self.playerDatas = {}
+	self.pendingExitCount = 0
 	self.netManager = NetManager
 	self.devTools = DevTools
 	self.playerFeedbackManager = PlayerFeedbackManager

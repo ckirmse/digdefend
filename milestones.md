@@ -19,9 +19,6 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 
 ## Phase 2: Player Lifecycle, Persistence, and Lobby Shell
 
-**M6 — Player lifecycle and PlayerData**
-`PlayerLifecycle` enum (`Loading`, `Ready`, `Leaving`, `Gone`), single authoritative lifecycle table, ProfileStore-backed `PlayerData` as the sole owner of persistent state (Cash, owned items, loadout, map/difficulty completions, daily reward progress, level). `Validate` on every load. Join/leave stress test.
-
 **M7 — Client data folders**
 Server-created `SplendidGames` ScreenGui with `GameMetadata`, `AllPlayers`, `CurrentPlayer` folders; `CurrentPlayer` appearing is the client's ready signal. `ClientDataManager` with typed accessors and listeners. Both places use this.
 
@@ -32,7 +29,7 @@ Workspace folders `SpawnZone`, `HelicopterPads`, `Store`, `EventArea`, `HoldingA
 Arrival loading screen with title image and progress bar that fills as assets load and data is set up, then tweens off. `PlayerFeedback` ScreenGui listening on the M4 events with timed display.
 
 **M10 — Lobby HUD**
-Cash balance display with green/red flash and sounds on change, loadout slot strip (1 weapon, 1 post, 3 defenses, bonus slot at level 10), menu buttons for Store, Loadout, Daily Rewards. HUD hides when a menu opens. Establish the shared UI style (fonts, capitalization, layout rules) here and document it.
+Cash balance display with green/red flash and sounds on change, loadout slot strip (1 weapon, 1 post, 3 defenses; the level-10 bonus slot is gone with the XP system, decided 2026-09-10), menu buttons for Store, Loadout, Daily Rewards. HUD hides when a menu opens. Establish the shared UI style (fonts, capitalization, layout rules) here and document it.
 
 ## Phase 3: Queues and Teleporting
 
@@ -125,8 +122,8 @@ Showcase models in `Workspace.Store.Items` with `StoreItem` attributes and proxi
 **M37 — Loadout Menu**
 Owned/unowned/equipped states, equip/unequip/buy actions, slot replacement rules, five-slot loadout display. Loadout carried into the gameplay place via PlayerData.
 
-**M38 — Cash milestones and skill level**
-In-run milestone table awarding Cash, player level and XP, bonus loadout slot at level 10. Level-gated pads.
+**M38 — Cash milestones**
+In-run milestone table awarding Cash. (Player level, XP, the level-10 bonus loadout slot, and level-gated pads were removed from the design on 2026-09-10; pads gate on completions only.)
 
 **M39 — Daily Rewards**
 Daily Rewards Menu ported from lights with configurable day count and rewards, restyled to this project's UI standards.
@@ -200,3 +197,6 @@ Finished 2026-09-10. `NetManager` creates the one `RemoteEvent` in code and runs
 
 **M5 — Dev tools and group-gated access** ✅
 Finished 2026-09-10. Iris 2.5.1 via Wally (`Packages/`, committed). Server `DevTools` handles `TryDevTool` against the `DevToolCommands` allowlist and re-checks admin per message; admin = rank ≥ 254 in group 571203718 (group-page roles, not Creator Hub collaborators), stamped as the `IsAdmin` Player attribute. `ClientDevTools` Iris panel (RightShift / triple-tap) with Players, Icon Framing, test feedback, and confirm-gated reset. Reset contract mechanism (`PLAYER_READY_SEQUENCE` / `PLAYER_TEARDOWN_SEQUENCE` in `GameController`) established, empty until M6. Icon capture pipeline ported with Windows replacements: `docs/icon-capture.md`, `scripts/capture_studio_window.ps1` (PrintWindow), `scripts/process_icon.sh` (ImageMagick 7, installed via winget). Verified in Play: non-admin refused; admin path handled valid/unknown/bad-args/reset commands. 8 suites / 75 tests. Lesson: stop `rojo serve` before `wally install` (Rojo 7.7 crashes).
+
+**M6 — Player lifecycle and PlayerData** ✅
+Finished 2026-09-10. ProfileStore vendored in `ServerLibs/` (mounted `Server/Libs`, excluded from analysis). `GameController.playerDatas` is the single lifecycle table (LOADING → READY → LEAVING → GONE); `getPlayerData` returns nil unless READY and fences NetManager and DevTools. `PlayerData` owns the live record and profile; the save shape, defaults, and repair rules are the pure shared `PlayerSaveSchema` (cash, ownedUnlocks set, loadout by `Enums.LoadoutSlot` name with WEAPON/POST/DEFENSE_1..3, completions keyed by `CompletionKeys` "MAP/DIFFICULTY", dailyReward, sessionMeta). XP/level dropped from the design. Tuning in `GameData/Control/Player` (store `DigDefendPlayerData_v1`, starting Cash 0, 30 s load timeout). Reset dev tool now wipes the save and overwrites the live profile; `setCash` dev command added. Verified against the real DataStore (Studio API access enabled): Cash survived a rejoin, sessions and playtime accumulate, reset wrote defaults; 3-client Test-tab stress run saved all three fake players on leave with no session locks left and no errors. 10 suites / 89 tests.

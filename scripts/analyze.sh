@@ -30,4 +30,5 @@ exec luau-lsp analyze \
     --ignore "Packages/**" \
     --ignore "DevPackages/**" \
     --ignore "game/**" \
+    --ignore "ServerLibs/**" \
     "${@:-src/}"

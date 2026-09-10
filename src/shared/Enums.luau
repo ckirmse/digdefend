@@ -86,6 +86,22 @@ module = {
 		BEDROCK = 3,
 		GATE = 4,
 	},
+	-- the five loadout slots carried into a run; keys double as save-data keys
+	LoadoutSlot = {
+		WEAPON = 1,
+		POST = 2,
+		DEFENSE_1 = 3,
+		DEFENSE_2 = 4,
+		DEFENSE_3 = 5,
+
+		PublicNames = {
+			WEAPON = "Weapon",
+			POST = "Post",
+			DEFENSE_1 = "Defense",
+			DEFENSE_2 = "Defense",
+			DEFENSE_3 = "Defense",
+		},
+	},
 
 	getCount = function(tbl: EnumTable): number
 		if typeof(tbl) ~= "table" then
