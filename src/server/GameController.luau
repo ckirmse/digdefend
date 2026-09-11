@@ -72,6 +72,12 @@ local function addPlaceTeardownEntry(manager: any)
 	table.insert(PLAYER_TEARDOWN_SEQUENCE, #PLAYER_TEARDOWN_SEQUENCE, { manager = manager, onReset = true })
 end
 
+-- after every common entry, so the replication tree exists when it runs;
+-- not replayed on a dev-tool reset (arrival is a one-time event)
+local function addPlaceReadyEntry(manager: any)
+	table.insert(PLAYER_READY_SEQUENCE, { manager = manager, onReset = false })
+end
+
 local function runReadySequence(player: Player, isReset: boolean)
 	for _, entry in PLAYER_READY_SEQUENCE do
 		if isReset and entry.onReset == false then
@@ -105,7 +111,7 @@ end
 local function fetchIsAdmin(player: Player): boolean
 	local isSuccess, rank = pcall(
 		function()
-			return player:GetRankInGroup(Constants.ADMIN_GROUP_ID)
+			return player:GetRankInGroupAsync(Constants.ADMIN_GROUP_ID)
 		end
 	)
 	if not isSuccess then
@@ -306,6 +312,9 @@ function GameController:registerPlaceManager(manager: any)
 	end
 	if manager.onPlayerRemoved then
 		addPlaceTeardownEntry(manager)
+	end
+	if manager.onPlayerReady then
+		addPlaceReadyEntry(manager)
 	end
 end
 

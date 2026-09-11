@@ -109,6 +109,13 @@ module = {
 		CREATE = 2,
 		QUEUE = 3,
 	},
+	-- what a helicopter model is doing, set by the server as the
+	-- HelicopterPhase attribute and animated by ClientHelicopterManager
+	HelicopterPhase = {
+		IDLE = 1,
+		SPINNING = 2,
+		FLYING = 3,
+	},
 	RockKind = {
 		FILLER = 1,
 		RESOURCE = 2,

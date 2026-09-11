@@ -18,6 +18,13 @@ module = {
 	-- JSON of the party config the Create Party menu needs (lobby only; see
 	-- PartyRules.encodeConfig / decodeConfig)
 	PARTY_CONFIG = "PartyConfig",
+	-- GameMetadata in the gameplay place: the run the lobby sent (RunManager)
+	RUN_MAP = "RunMap",
+	RUN_DIFFICULTY = "RunDifficulty",
+	RUN_PLAYER_COUNT = "RunPlayerCount",
+	RUN_HOST_USER_ID = "RunHostUserId",
+	-- on every helicopter model (Tags.HELICOPTER): Enums.HelicopterPhase
+	HELICOPTER_PHASE = "HelicopterPhase",
 	-- on each helicopter pad model: PadIndex is Studio-authored, the rest is
 	-- runtime party state written only by PartyManager (GDD "Helicopter Pads")
 	PAD_INDEX = "PadIndex",

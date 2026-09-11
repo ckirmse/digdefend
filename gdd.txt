@@ -268,6 +268,7 @@ Arrival Loading Screen
 * It will have a title image and a loading bar
 * The loading bar should fill as assets are loaded/data is set up
 * Once loading is finished, the arrival loading screen should tween off screen
+* A player arriving by teleport keeps the Departure Loading Screen they left with (handed through the teleport), so no Roblox loading screen shows and the same screen carries straight into the arrival load; its bar stays empty through the flight and fills once on arrival.
 Departure Loading Screen
 * This loading screen is shown when players are teleporting to the gameplay server
 * Once the helicopter takes off from the helicopter pad with the local player, this loading screen should appear (2 seconds after takeoff, so the player sees the helicopter lift). For now it reuses the Arrival Loading Screen GUI with the subtext "Flying to <map>..." (decided 2026-09-11; may get its own art later)
@@ -279,7 +280,7 @@ Departure Loading Screen
 
 Gameplay
 Gameplay Overview
-* All gameplay in the gameplay server is in first person (lobby is default third person)
+* All gameplay in the gameplay server is in first person (lobby is default third person). Admin dev tools free the mouse while a dev window is open.
 * The core game consists of repeating the same core loop until the required uranium has been mined or until all players are dead or the mine grinder is destroyed 
 * During the day (5 minutes), players harvest resources, upgrade abilities, and place defenses
 * Players earn resources by mining raw ore and bringing it to the refinery to be refined into currency (Iron Bars, Gold Bars, Diamonds, and Uranium)
@@ -390,7 +391,8 @@ Placement Area
 * Players can then place an item, at which time it is removed from their inventory (or paid for if it is a Defensive Unit). 
 Helicopter Pad
 * An empty Helicopter Pad made for the company rescue helicopter to drop off/pick up players
-* This is where players spawn in after being teleported to the gameplay server. 
+* This is where players spawn in after being teleported to the gameplay server. The model is Workspace.Camp.HelicopterPad with a HelicopterSpawn part and a Spawns folder of parts named 1-6; players are placed on them in arrival order (first to arrive on 1).
+* On server start the company helicopter (ReplicatedStorage.GameAssets.Helicopter, the same template as the lobby) is spawned at HelicopterSpawn with its rotor already turning. Once every party member has loaded in (or 45 s after the first arrival), it waits 3 s and takes off exactly like a lobby departure.
 * If players make it to the end, this is where the rescue helicopter lands
 Tools
 Tools are items that allow players to perform an action when equipped. Players load in with a weapon and a pick axe as their primary tools, but can buy other tools from the in-run stores. 

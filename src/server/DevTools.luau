@@ -11,7 +11,16 @@ local PlayerFeedbackManager = require(script.Parent.PlayerFeedbackManager)
 local DevTools = {}
 DevTools.__index = DevTools
 
-export type DevTools = typeof(setmetatable({} :: {}, DevTools))
+export type PlaceCommandHandler = (player: Player, args: { [string]: any }) -> ()
+
+export type DevTools = typeof(setmetatable(
+	{} :: {
+		-- commands a place manager registered (registerPlaceCommand); the
+		-- common allowlist stays in DevToolCommands
+		placeCommands: { [string]: PlaceCommandHandler },
+	},
+	DevTools
+))
 
 local gameController: any -- prevent circular reference by not initializing here
 local splendidReplicationManager: any
@@ -54,6 +63,12 @@ function DevTools:handleTryDevTool(player: Player, payload: { [string]: any })
 	end
 
 	local command = payload.command
+	local placeHandler: PlaceCommandHandler? = self.placeCommands[command]
+	if placeHandler then
+		print("DevTools: executing", command, "for", player.Name)
+		placeHandler(player, payload.args or {})
+		return
+	end
 	if not DevToolCommands.isCommand(command) then
 		warn("DevTools: unknown command", command, "from", player.Name)
 		return
@@ -62,6 +77,15 @@ function DevTools:handleTryDevTool(player: Player, payload: { [string]: any })
 	print("DevTools: executing", command, "for", player.Name)
 	local method = (DevTools :: any)[command]
 	method(self, player, payload.args or {})
+end
+
+-- lobby- and gameplay-only commands plug in here so common code never
+-- names a place; the same admin check applies
+function DevTools:registerPlaceCommand(name: string, handler: PlaceCommandHandler)
+	if self.placeCommands[name] or DevToolCommands.isCommand(name) then
+		error("DevTools: duplicate command " .. name)
+	end
+	self.placeCommands[name] = handler
 end
 
 -- full reset to a brand-new player; see DEV TOOL CONTRACT in GameController
@@ -105,6 +129,7 @@ end
 
 function DevTools.new(): DevTools
 	local self = setmetatable({}, DevTools) :: DevTools
+	self.placeCommands = {}
 	return self
 end
 

@@ -1,21 +1,22 @@
 --!strict
 
--- Every pad helicopter's visuals, on every client, from the replicated pad
--- state: the rotor spins while Boarding or Departing, and a Departing
--- helicopter flies away (climb, then cruise off, then gone). The server
--- renames the launched model and clones a fresh one onto the pad, so a
--- flight is tracked apart from the pad's current helicopter. A Heartbeat
--- loop rather than tweens because everything here ramps and chains.
+-- Every helicopter's visuals, on every client, in both places: models tagged
+-- Tags.HELICOPTER carry a HelicopterPhase attribute set by the server
+-- (HelicopterManager). SPINNING turns the rotor, FLYING flies the helicopter
+-- away (climb, cruise, gone), IDLE winds the rotor down. The server never
+-- animates; a Heartbeat loop rather than tweens because everything ramps
+-- and chains.
+local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 
 local ClientHelicopterManager = {}
 ClientHelicopterManager.__index = ClientHelicopterManager
 
--- one helicopter being animated: the pad's resting one or a departed one
 type Craft = {
 	model: Model,
 	rotor: BasePart?,
@@ -33,15 +34,9 @@ type Craft = {
 	cruiseSpeed: number,
 }
 
-type PadView = {
-	padModel: Model,
-	craft: Craft?,
-}
-
 export type ClientHelicopterManager = typeof(setmetatable(
 	{} :: {
-		views: { PadView },
-		flights: { Craft },
+		crafts: { Craft },
 	},
 	ClientHelicopterManager
 ))
@@ -82,11 +77,10 @@ local function resolveRotorIfNeeded(craft: Craft)
 end
 
 local function makeCraft(model: Model): Craft
-	local restPivot = model:GetPivot()
 	return {
 		model = model,
 		rotor = nil,
-		restPivot = restPivot,
+		restPivot = model:GetPivot(),
 		rotorOffset = nil,
 		angle = 0,
 		speed = 0,
@@ -101,32 +95,9 @@ local function rampSpeed(current: number, target: number, accel: number, deltaSe
 	return math.min(target, current + accel * deltaSec)
 end
 
-function ClientHelicopterManager:getState(view: PadView): number
-	local state = view.padModel:GetAttribute(Attributes.PAD_STATE)
-	return if typeof(state) == "number" then state else Enums.PadState.IDLE
-end
-
-function ClientHelicopterManager:isInFlight(model: Model): boolean
-	for _, flight in self.flights do
-		if flight.model == model then
-			return true
-		end
-	end
-	return false
-end
-
--- the pad's current helicopter: re-found whenever ours is gone or has been
--- handed to a flight (the server names a fresh clone the same way)
-function ClientHelicopterManager:refreshCraftIfNeeded(view: PadView)
-	local craft = view.craft
-	if craft and craft.model.Parent ~= nil then
-		return
-	end
-	view.craft = nil
-	local model = view.padModel:FindFirstChild(Constants.HELICOPTER_TEMPLATE)
-	if model and model:IsA("Model") and not self:isInFlight(model) then
-		view.craft = makeCraft(model)
-	end
+local function getPhase(craft: Craft): number
+	local phase = craft.model:GetAttribute(Attributes.HELICOPTER_PHASE)
+	return if typeof(phase) == "number" then phase else Enums.HelicopterPhase.IDLE
 end
 
 function ClientHelicopterManager:stepRotor(craft: Craft, isSpinning: boolean, deltaSec: number)
@@ -172,71 +143,60 @@ function ClientHelicopterManager:stepFlight(craft: Craft, deltaSec: number): boo
 	return craft.cruise >= CRUISE_DISTANCE_STUDS
 end
 
-function ClientHelicopterManager:stepFlights(deltaSec: number)
-	for index = #self.flights, 1, -1 do
-		local flight = self.flights[index]
-		-- the server destroys the model after its lifetime; the flight may
-		-- finish first, in which case the local copy goes away here
-		local isGone = flight.model.Parent == nil
-		if not isGone and self:stepFlight(flight, deltaSec) then
-			flight.model:Destroy()
-			isGone = true
+-- true when the craft is finished with (gone from the world, or flown off)
+function ClientHelicopterManager:step(craft: Craft, deltaSec: number): boolean
+	if craft.model.Parent == nil then
+		return true
+	end
+	local phase = getPhase(craft)
+	if phase == Enums.HelicopterPhase.FLYING then
+		if self:stepFlight(craft, deltaSec) then
+			-- the server destroys it after its lifetime; locally it is done now
+			craft.model:Destroy()
+			return true
 		end
-		if isGone then
-			table.remove(self.flights, index)
-		end
+		return false
 	end
-end
-
-function ClientHelicopterManager:stepPad(view: PadView, deltaSec: number)
-	self:refreshCraftIfNeeded(view)
-	local craft = view.craft
-	if not craft then
-		return
-	end
-	local state = self:getState(view)
-	if state == Enums.PadState.DEPARTING then
-		-- the pad's helicopter becomes a flight; the pad picks up the fresh
-		-- clone once the server has reset
-		table.insert(self.flights, craft)
-		view.craft = nil
-		return
-	end
-	self:stepRotor(craft, state == Enums.PadState.BOARDING, deltaSec)
+	self:stepRotor(craft, phase == Enums.HelicopterPhase.SPINNING, deltaSec)
 	self:render(craft, false)
+	return false
 end
 
-function ClientHelicopterManager:watchPad(padModel: Model)
-	table.insert(
-		self.views,
-		{
-			padModel = padModel,
-			craft = nil,
-		}
-	)
+function ClientHelicopterManager:watch(instance: Instance)
+	if not instance:IsA("Model") then
+		return
+	end
+	for _, craft in self.crafts do
+		if craft.model == instance then
+			return
+		end
+	end
+	table.insert(self.crafts, makeCraft(instance))
 end
 
 function ClientHelicopterManager:init()
-	local padsFolder = workspace:WaitForChild(Constants.HELICOPTER_PADS_FOLDER)
-	for _, pad in padsFolder:GetChildren() do
-		if pad:IsA("Model") and pad:GetAttribute(Attributes.PAD_INDEX) ~= nil then
-			self:watchPad(pad)
-		end
+	for _, instance in CollectionService:GetTagged(Tags.HELICOPTER) do
+		self:watch(instance)
 	end
+	CollectionService:GetInstanceAddedSignal(Tags.HELICOPTER):Connect(
+		function(instance: Instance)
+			self:watch(instance)
+		end
+	)
 	RunService.Heartbeat:Connect(
 		function(deltaSec: number)
-			for _, view in self.views do
-				self:stepPad(view, deltaSec)
+			for index = #self.crafts, 1, -1 do
+				if self:step(self.crafts[index], deltaSec) then
+					table.remove(self.crafts, index)
+				end
 			end
-			self:stepFlights(deltaSec)
 		end
 	)
 end
 
 function ClientHelicopterManager.new(): ClientHelicopterManager
 	local self = setmetatable({}, ClientHelicopterManager) :: ClientHelicopterManager
-	self.views = {}
-	self.flights = {}
+	self.crafts = {}
 	return self
 end
 

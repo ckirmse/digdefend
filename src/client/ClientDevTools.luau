@@ -3,6 +3,7 @@
 -- Admin-only Iris dev panel. Loaded only when the local player's IsAdmin
 -- attribute is true; every command it sends is re-checked on the server.
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
@@ -22,6 +23,9 @@ ClientDevTools.__index = ClientDevTools
 export type ClientDevTools = typeof(setmetatable(
 	{} :: {
 		isConnected: boolean,
+		-- true while the mouse is being freed from the camera's lock so the
+		-- panel can be clicked in first person
+		isMouseReleased: boolean,
 		showMenu: any,
 		showPlayers: any,
 		showIconFraming: any,
@@ -44,11 +48,17 @@ export type ClientDevTools = typeof(setmetatable(
 		toggleTapCount: number,
 		toggleTapLastTime: number,
 		testMenuGui: ScreenGui?,
+		-- extra panel sections from place-specific dev tools (addMenuSection)
+		menuSections: { () -> () },
 	},
 	ClientDevTools
 ))
 
 local TOGGLE_KEY = Enum.KeyCode.RightShift
+-- the camera scripts re-lock the mouse every frame in first person; this
+-- step runs right after them and undoes it while a dev window is open
+local MOUSE_RELEASE_STEP = "DevToolsMouseRelease"
+local MOUSE_RELEASE_PRIORITY = Enum.RenderPriority.Camera.Value + 1
 -- touch has no RightShift: tapping the bottom-right screen quadrant three
 -- times in quick succession is the pointer equivalent
 local TOGGLE_TAP_COUNT = 3
@@ -445,13 +455,42 @@ function ClientDevTools:renderMenuWindow()
 		)
 	end
 
+	for _, renderSection in self.menuSections do
+		Iris.Separator()
+		renderSection()
+	end
+
 	Iris.End() -- Window
+end
+
+-- a place-specific dev tool renders its own buttons at the bottom of the panel
+function ClientDevTools:addMenuSection(renderSection: () -> ())
+	table.insert(self.menuSections, renderSection)
 end
 
 -- Iris walks every emitted widget each cycle even when its window is closed,
 -- so closed windows must emit nothing or the dev tools cost several ms per
 -- frame while idle
+function ClientDevTools:setMouseReleased(isReleased: boolean)
+	if isReleased == self.isMouseReleased then
+		return
+	end
+	self.isMouseReleased = isReleased
+	if isReleased then
+		RunService:BindToRenderStep(
+			MOUSE_RELEASE_STEP,
+			MOUSE_RELEASE_PRIORITY,
+			function()
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+			end
+		)
+	else
+		RunService:UnbindFromRenderStep(MOUSE_RELEASE_STEP)
+	end
+end
+
 function ClientDevTools:render()
+	self:setMouseReleased(self.showMenu:get() or self.showPlayers:get() or self.showIconFraming:get())
 	if self.showMenu:get() then
 		self:renderMenuWindow()
 	end
@@ -534,6 +573,8 @@ end
 function ClientDevTools.new(): ClientDevTools
 	local self = setmetatable({}, ClientDevTools) :: ClientDevTools
 	self.isConnected = false
+	self.isMouseReleased = false
+	self.menuSections = {}
 	self.showMenu = nil
 	self.showPlayers = nil
 	self.showIconFraming = nil

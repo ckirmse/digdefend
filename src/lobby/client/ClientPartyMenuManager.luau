@@ -506,7 +506,6 @@ end
 -- the pad launched with us aboard: the menu goes, the departure screen comes
 -- in over the takeoff. Only a failed teleport brings us back (menu NONE).
 function ClientPartyMenuManager:onDeparting(padModel: Model)
-	local config = self.config
 	local map = getAttributeNumber(padModel, Attributes.PAD_MAP)
 	local mapName = Enums.getPublicName(Enums.Map, map) or "the mine"
 	-- the menu fades but everything else stays: camera on the pad, billboards
@@ -517,17 +516,13 @@ function ClientPartyMenuManager:onDeparting(padModel: Model)
 	if queueView and queueView.gui.Enabled then
 		fadeOutGui(queueView.gui, queueView.dialog)
 	end
-	local takeoffSec = if config then config.TAKEOFF_SEC else 4
 	task.delay(
 		DEPARTURE_SCREEN_DELAY_SEC,
 		function()
 			if not self.isDeparting then
 				return
 			end
-			ClientLoadingScreenManager:showDeparture(
-				string.format(DEPARTURE_CAPTION, mapName),
-				math.max(1, takeoffSec - DEPARTURE_SCREEN_DELAY_SEC)
-			)
+			ClientLoadingScreenManager:showDeparture(string.format(DEPARTURE_CAPTION, mapName))
 		end
 	)
 end

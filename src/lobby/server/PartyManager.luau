@@ -8,7 +8,6 @@
 -- messages; M13 the launch: takeoff, holding area, one party teleport to a
 -- reserved gameplay server, failure recovery, and the pad reset.
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TeleportService = game:GetService("TeleportService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
@@ -19,6 +18,7 @@ local PartyRules = require("@game/ReplicatedStorage/Shared/PartyRules")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local PartyData = require("@game/ServerScriptService/GameData/Pads/Party")
 local GameController = require(script.Parent.Parent.Server.GameController)
+local HelicopterManager = require(script.Parent.Parent.Server.HelicopterManager)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
@@ -148,6 +148,7 @@ function PartyManager:setIdle(party: Party)
 	party.timerEndTime = NO_TIMER
 	party.seatByPlayer = {}
 	self:replicate(party)
+	self:syncHelicopterPhase(party)
 end
 
 -- Configuring: the host holds the pad while on the Create Party menu
@@ -180,6 +181,7 @@ function PartyManager:setBoarding(party: Party, selection: PartyRules.Selection)
 	-- a party of one is full the moment it is created
 	self:shortenTimerIfFull(party)
 	self:replicate(party)
+	self:syncHelicopterPhase(party)
 end
 
 -- GDD: a full party launches soon; the timer only ever shortens
@@ -203,6 +205,7 @@ function PartyManager:setDeparting(party: Party)
 	party.state = Enums.PadState.DEPARTING
 	party.timerEndTime = NO_TIMER
 	self:replicate(party)
+	self:syncHelicopterPhase(party)
 end
 
 function PartyManager:addMember(party: Party, player: Player)
@@ -251,26 +254,27 @@ function PartyManager:notifyMenu(player: Player, menu: number, party: Party?)
 	)
 end
 
--- seats in name order so Seat1 is always the host's
 function PartyManager:getSeats(party: Party): { Seat }
-	local seats: { Seat } = {}
 	local helicopter = party.helicopter
-	local spawns = if helicopter then helicopter:FindFirstChild(Constants.HELICOPTER_PLAYER_SPAWNS_FOLDER) else nil
-	if not spawns then
-		return seats
+	if not helicopter then
+		return {}
 	end
-	for _, child in spawns:GetChildren() do
-		if child:IsA("Seat") then
-			table.insert(seats, child)
-		end
+	return HelicopterManager:getSeats(helicopter)
+end
+
+-- the helicopter's visuals follow the pad: rotor from Create, flight at launch
+function PartyManager:syncHelicopterPhase(party: Party)
+	local helicopter = party.helicopter
+	if not helicopter then
+		return
 	end
-	table.sort(
-		seats,
-		function(a: Seat, b: Seat)
-			return a.Name < b.Name
-		end
-	)
-	return seats
+	local phase = Enums.HelicopterPhase.IDLE
+	if party.state == Enums.PadState.BOARDING then
+		phase = Enums.HelicopterPhase.SPINNING
+	elseif party.state == Enums.PadState.DEPARTING then
+		phase = Enums.HelicopterPhase.FLYING
+	end
+	HelicopterManager:setPhase(helicopter, phase)
 end
 
 function PartyManager:findFreeSeat(party: Party): Seat?
@@ -455,43 +459,27 @@ function PartyManager:onSeatOccupantChanged(party: Party, seat: Seat)
 	end
 end
 
--- the launched helicopter stays in the world (renamed, so it is no longer the
--- pad's helicopter) while clients fly it off, then goes away for good
-function PartyManager:retireHelicopter(helicopter: Instance)
-	helicopter.Name = Constants.DEPARTED_HELICOPTER_NAME
-	task.delay(
-		self:getConfig().DEPARTED_HELICOPTER_LIFETIME_SEC,
-		function()
-			if helicopter.Parent then
-				helicopter:Destroy()
-			end
-		end
-	)
-end
-
 -- GDD: every pad has a helicopter sitting on it when the server starts
 function PartyManager:placeHelicopter(party: Party)
-	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
-	local template = if gameAssets then gameAssets:FindFirstChild(Constants.HELICOPTER_TEMPLATE) else nil
 	local helicopterSpawn = party.model:FindFirstChild(Constants.PAD_HELICOPTER_SPAWN_PART)
-	if not template or not template:IsA("Model") or not helicopterSpawn or not helicopterSpawn:IsA("BasePart") then
+	if not helicopterSpawn or not helicopterSpawn:IsA("BasePart") then
 		-- LobbyMapManager already reported what is missing
 		return
 	end
 	local existing = party.model:FindFirstChild(Constants.HELICOPTER_TEMPLATE)
-	if existing then
+	if existing and existing:IsA("Model") then
 		if party.state == Enums.PadState.DEPARTING then
-			self:retireHelicopter(existing)
+			HelicopterManager:retire(existing, self:getConfig().DEPARTED_HELICOPTER_LIFETIME_SEC)
 		else
 			existing:Destroy()
 		end
 	end
-	local helicopter = template:Clone()
-	helicopter:PivotTo(helicopterSpawn.CFrame)
-	helicopter.Parent = party.model
+	local helicopter = HelicopterManager:spawnAt(helicopterSpawn, party.model, Enums.HelicopterPhase.IDLE)
 	party.helicopter = helicopter
-	for _, seat in self:getSeats(party) do
-		seat.Disabled = true
+	if not helicopter then
+		return
+	end
+	for _, seat in HelicopterManager:getSeats(helicopter) do
 		seat:GetPropertyChangedSignal("Occupant"):Connect(
 			function()
 				self:onSeatOccupantChanged(party, seat)
@@ -619,7 +607,7 @@ function PartyManager:failTeleport(party: Party, members: { Player })
 		end
 		self:notifyMenu(member, Enums.PartyMenu.NONE, nil)
 		PlayerFeedbackManager:give(member, PartyRules.FEEDBACK_TELEPORT_FAILED)
-		member:LoadCharacter()
+		member:LoadCharacterAsync()
 	end
 end
 

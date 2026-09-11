@@ -1,6 +1,6 @@
 # Helicopter Pad Party System — Spec
 
-**Status:** implemented through M13 (2026-09-11). This document mirrors the GDD "Helicopter Pads – Party Creation/Teleports", "Create Party Menu", and "Queue Menu" sections and records how they are realised in code.
+**Status:** implemented through M14 (2026-09-11). This document mirrors the GDD "Helicopter Pads – Party Creation/Teleports", "Create Party Menu", and "Queue Menu" sections and records how they are realised in code.
 
 **Reference:** Dead Rails' Create Party flow (difficulty carousel, player-count stepper, Friends Only toggle, creation countdown). No join-by-code.
 
@@ -80,8 +80,8 @@ Server (`PartyManager:runLaunch`):
 6. Reset: the launched helicopter is renamed `DepartedHelicopter` and destroyed after `DEPARTED_HELICOPTER_LIFETIME_SEC`; a fresh one is cloned to `HelicopterSpawn`; the pad returns to `IDLE`. Only the launch flow that set `DEPARTING` may reset.
 
 Client:
-- Every client flies the departed helicopter (`ClientHelicopterManager`): rotor at full speed, climb 100 studs, cruise 1000 studs along the model's facing, then the local copy is removed.
-- Party members: the Queue menu fades out, the camera stays on `CameraPositionPart`, and 2 s later the departure screen (the `Loading` ScreenGui in departure mode, "Flying to <map>...") slides in. Menu NONE (failure) restores everything and hides the screen.
+- Every client flies the departed helicopter (`ClientHelicopterManager`, phase `FLYING`): rotor at full speed, climb 100 studs, cruise 1000 studs along the model's facing, then the local copy is removed.
+- Party members: the Queue menu fades out, the camera stays on `CameraPositionPart`, and 2 s later the departure screen (the `Loading` ScreenGui in departure mode, "Flying to <map>...", bar empty) slides in and a copy is handed to `TeleportService:SetTeleportGui`, which the gameplay place's ReplicatedFirst script keeps on screen on arrival. Menu NONE (failure) restores everything and hides the screen.
 
 ---
 
@@ -108,7 +108,8 @@ The member list stays on the server.
 ### 4.2 Helicopter template (`ReplicatedStorage.GameAssets.Helicopter`)
 
 - `PlayerSpawns`: `Seat1`–`Seat6`, real `Seat` instances, anchored, invisible, `Disabled`. The server enables a seat only for its own `Sit` call and disables it again when it empties, so the engine never auto-seats a passer-by.
-- `Rotar.Rotar`: the rotor hub; blades are welded to it. `ClientHelicopterManager` spins it about world up while the pad is `BOARDING` or `DEPARTING`, with spin-up and spin-down ramps.
+- `Rotar.Rotar`: the rotor hub; blades are welded to it.
+- Every helicopter is cloned by the common server `HelicopterManager`, tagged `Tags.HELICOPTER`, and carries a `HelicopterPhase` attribute (`IDLE`, `SPINNING`, `FLYING`) that the server sets; the common `ClientHelicopterManager` animates every tagged model from it on every client (rotor about world up with ramps; `FLYING` climbs 100 studs then cruises 1000 studs and removes the local copy). The lobby maps pad states to phases (`BOARDING` → `SPINNING`, `DEPARTING` → `FLYING`); the gameplay place's `ArrivalManager` spawns the camp helicopter `SPINNING` and retires it to `FLYING` once the party is in.
 
 ### 4.3 Config — `GameData/Pads/Party`
 
@@ -202,7 +203,7 @@ A run's completion is recorded for a player only if that player had already comp
 { map = Enums.Map.X, difficulty = Enums.Difficulty.Y, playerCount = 4, hostUserId = 12345, padIndex = 2, memberUserIds = { 12345, ... } }
 ```
 
-`playerCount` is the number actually teleported. The gameplay place's `ArrivalGateManager` runs `PartyRules.getArrivalRejection` on every arrival and kicks anyone without valid join data or not listed in `memberUserIds` (Studio play sessions are let through with a warning).
+`playerCount` is the number actually teleported. The gameplay place's `ArrivalManager` runs `PartyRules.getArrivalRejection` on every arrival and kicks anyone without valid join data or not listed in `memberUserIds` (Studio play sessions are let through with a warning); `RunManager` records the first valid join data as the run and replicates map, difficulty, player count, and host as `GameMetadata` attributes.
 
 ---
 

@@ -6,6 +6,7 @@
 -- main.client reports progress stages here; the bar tweens to each one and the
 -- screen tweens off once startup finishes.
 local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
 local TweenService = game:GetService("TweenService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
@@ -160,9 +161,9 @@ function ClientLoadingScreenManager:hide()
 	end
 end
 
--- slides the loading screen in over the takeoff; the bar fills across
--- fillSec so it reads as the flight getting under way
-function ClientLoadingScreenManager:showDeparture(caption: string, fillSec: number)
+-- slides the loading screen in over the takeoff; the bar stays empty so the
+-- arrival fill in the gameplay place reads as one continuous load
+function ClientLoadingScreenManager:showDeparture(caption: string)
 	if self.isShowing or self.isDeparting then
 		return
 	end
@@ -182,15 +183,20 @@ function ClientLoadingScreenManager:showDeparture(caption: string, fillSec: numb
 	fill.Size = UDim2.fromScale(0, 1)
 	mainFrame.Position = UDim2.fromScale(0, -1)
 	gui.Enabled = true
+	-- Roblox shows this copy through the teleport instead of its own loading
+	-- screen, and the gameplay place's ReplicatedFirst script picks it up on
+	-- arrival, so the flight reads as one unbroken screen
+	local teleportGui = gui:Clone()
+	teleportGui.Enabled = true
+	local teleportMain = teleportGui:FindFirstChild(Constants.LOADING_MAIN_FRAME)
+	if teleportMain and teleportMain:IsA("Frame") then
+		teleportMain.Position = UDim2.fromScale(0, 0)
+	end
+	TeleportService:SetTeleportGui(teleportGui)
 	TweenService:Create(
 		mainFrame,
 		TweenInfo.new(HIDE_TWEEN_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 		{ Position = UDim2.fromScale(0, 0) }
-	):Play()
-	TweenService:Create(
-		fill,
-		TweenInfo.new(fillSec, Enum.EasingStyle.Linear),
-		{ Size = UDim2.fromScale(1, 1) }
 	):Play()
 end
 

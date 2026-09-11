@@ -7,6 +7,7 @@
 -- ReplicatedStorage would defeat the point of ReplicatedFirst.
 local Players = game:GetService("Players")
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
+local TeleportService = game:GetService("TeleportService")
 
 -- literals because Attributes.luau and Constants.luau are not replicated yet
 local LOADING_HANDOFF = "LoadingHandoff"
@@ -23,7 +24,17 @@ local MAX_DOT_COUNT = 3
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local gui = script.Parent:WaitForChild(LOADING_GUI_NAME) :: ScreenGui
+-- a player arriving by teleport brings the departure screen with them
+-- (SetTeleportGui in the lobby); keeping that very copy on screen means no
+-- flicker between places. Otherwise the place's own copy is used.
+local arrivingGui = TeleportService:GetArrivingTeleportGui()
+local ownGui = script.Parent:WaitForChild(LOADING_GUI_NAME) :: ScreenGui
+local gui: ScreenGui = ownGui
+if arrivingGui and arrivingGui:IsA("ScreenGui") then
+	gui = arrivingGui
+	ownGui:Destroy()
+end
+gui.Name = LOADING_GUI_NAME
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = LOADING_DISPLAY_ORDER
 gui.ResetOnSpawn = false

@@ -75,6 +75,12 @@ Constants.HELICOPTER_TEMPLATE = "Helicopter"
 Constants.HELICOPTER_PLAYER_SPAWNS_FOLDER = "PlayerSpawns"
 -- a launched helicopter is renamed to this while clients fly it away
 Constants.DEPARTED_HELICOPTER_NAME = "DepartedHelicopter"
+
+-- gameplay Workspace layout (Studio-authored; GameplayMapManager checks it at startup)
+Constants.CAMP_FOLDER = "Camp"
+Constants.CAMP_HELICOPTER_PAD_MODEL = "HelicopterPad"
+-- BaseParts named 1..6; players are placed on them in arrival order
+Constants.CAMP_SPAWNS_FOLDER = "Spawns"
 -- the rotor hub part (blades are welded to it) inside the rotor model; the
 -- designer's spelling
 Constants.HELICOPTER_ROTOR_MODEL = "Rotar"

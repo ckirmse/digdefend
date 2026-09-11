@@ -3,11 +3,11 @@
 -- Checks the Studio-authored lobby map has every folder and part later
 -- systems rely on, and names each missing piece loudly at startup so a
 -- broken place fails visibly instead of quietly.
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
+local HelicopterManager = require(script.Parent.Parent.Server.HelicopterManager)
 
 local LobbyMapManager = {}
 LobbyMapManager.__index = LobbyMapManager
@@ -139,24 +139,8 @@ function LobbyMapManager:checkHoldingArea()
 end
 
 function LobbyMapManager:checkHelicopterTemplate()
-	local gameAssets = self:requireChild(ReplicatedStorage, Constants.GAME_ASSETS_FOLDER, "Folder")
-	if not gameAssets then
-		return
-	end
-	local helicopter = self:requireChild(gameAssets, Constants.HELICOPTER_TEMPLATE, "Model")
-	if not helicopter then
-		return
-	end
-	local playerSpawns = self:requireChild(helicopter, Constants.HELICOPTER_PLAYER_SPAWNS_FOLDER, "Folder")
-	if playerSpawns and #playerSpawns:GetChildren() == 0 then
-		self:report(`{playerSpawns:GetFullName()} has no seats`)
-	end
-	if playerSpawns then
-		for _, spawn in playerSpawns:GetChildren() do
-			if not spawn:IsA("Seat") then
-				self:report(`{spawn:GetFullName()} must be a Seat, not a {spawn.ClassName}`)
-			end
-		end
+	for _, problem in HelicopterManager:getTemplateProblems() do
+		self:report(problem)
 	end
 end
 
