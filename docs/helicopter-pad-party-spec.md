@@ -1,44 +1,40 @@
 # Helicopter Pad Party System — Spec
 
-**Replaces:** the Helicopter Pads section of the GDD. Pads are no longer pre-assigned to a map and difficulty. Every pad is identical; the first player onto it becomes the host and configures the run.
+**Status:** implemented through M12 (2026-09-11). This document mirrors the GDD "Helicopter Pads – Party Creation/Teleports", "Create Party Menu", and "Queue Menu" sections and records how they are realised in code. Launch and teleport (§3.4) arrive in M13.
 
-**Reference:** Dead Rails' Create Party flow (difficulty carousel, player-count stepper, Private toggle, creation countdown). We are not implementing join-by-code.
+**Reference:** Dead Rails' Create Party flow (difficulty carousel, player-count stepper, Friends Only toggle, creation countdown). No join-by-code.
 
 ---
 
-## 1. Summary of changes
+## 1. Summary
 
-| Current GDD | New |
+| Old GDD | Current |
 |---|---|
 | 6 pads, each hardcoded to one map + difficulty | 6 identical pads, configured by the host at runtime |
 | Walk on → join queue | Walk onto an idle pad → become host → configure → others join |
-| Pad-level unlock requirements | Requirements evaluated against the host's data at configure time |
+| Pad-level unlock requirements | Requirements evaluated against the host's completions at Create |
 | Departure on timer only | Host presses Launch, or boarding timeout, or party full |
 | No host | Host role with promotion on leave |
 | No visibility control | Public or Friends Only |
 | No configuration timeout | Creation timeout ejects an idle host |
 
-Everything else about pads — the HelicopterModel, PlayerSpawns, CameraPositionPart, ExitSpawn, JoinCollision, HoldingArea, teleport retry handling, fresh helicopter clone after departure — is unchanged.
-
 ---
 
 ## 2. Pad states
 
-Each pad is in exactly one state. Stored as a `State` StringValue on the pad model, replicated so the billboard can render it.
+`Enums.PadState`, held in server Lua (`PartyManager`) and replicated as the `PadState` attribute on the pad model.
 
-| State | Meaning | Who can touch JoinCollision |
+| State | Meaning | Touching JoinCollision |
 |---|---|---|
-| `Idle` | Empty. No host. | Anyone → becomes host, enters `Configuring` |
-| `Configuring` | Host is on the Create Party menu | Nobody. Touching gives feedback "Pad is being set up" |
-| `Boarding` | Configured. Accepting players. | Anyone who passes the join checks (§6) |
-| `Departing` | Teleport in progress | Nobody |
-
-Transitions:
+| `IDLE` | Empty. No host. | Becomes host, enters `CONFIGURING` |
+| `CONFIGURING` | Host is on the Create Party menu | "Pad is being set up" |
+| `BOARDING` | Configured. Accepting players. | Runs the join checks (§6.2) |
+| `DEPARTING` | Teleport in progress | "Pad is departing" |
 
 ```
-Idle ──touch──▶ Configuring ──Create──▶ Boarding ──launch──▶ Departing ──reset──▶ Idle
+IDLE ──touch──▶ CONFIGURING ──Create──▶ BOARDING ──launch──▶ DEPARTING ──reset──▶ IDLE
                     │                        │
-                    └──timeout / host leaves─┘──(no players left)──▶ Idle
+                    └─timeout/Cancel/leave───┘──(nobody left)──▶ IDLE
 ```
 
 ---
@@ -47,309 +43,172 @@ Idle ──touch──▶ Configuring ──Create──▶ Boarding ──launc
 
 ### 3.1 Becoming host
 
-1. Player touches `JoinCollision` on an `Idle` pad.
-2. Server checks the player is not already in a party on any pad. If they are, feedback: "You're already in a party."
-3. Server sets `State = "Configuring"`, `HostUserId = player.UserId`, starts the `CreationTimer` at `CreationTimeout`.
-4. Player's character is seated in the helicopter at the first PlayerSpawn, camera moved to `CameraPositionPart`.
-5. Client opens the **Create Party Menu** (§5.1).
+1. Player touches `JoinCollision` on an `IDLE` pad (one decision per player per `TOUCH_DEBOUNCE_SEC`).
+2. If the player is already in a party on any pad: "You're already in a party".
+3. Pad becomes `CONFIGURING` with this host; the creation timer starts at `CREATION_TIMEOUT_SEC`.
+4. The character is seated in the helicopter's `Seat1`; the client moves its camera to `CameraPositionPart`, hides every pad billboard, and disables jumping.
+5. The client opens the Create Party menu.
 
-If two players touch an `Idle` pad in the same frame, the server processes the first, and the second receives "Pad is being set up." Never two hosts.
+Two players touching in the same frame: the first processed becomes host, the second gets "Pad is being set up".
 
 ### 3.2 Configuring
 
-The host sees the Create Party Menu with a visible countdown. Every second the countdown decrements. Changing a setting does **not** reset the countdown — it is a hard limit on how long a pad can be held without committing.
+The countdown is a hard limit; changing a setting does not reset it.
 
-**If the countdown reaches zero:** host is removed from the pad, character moved to `ExitSpawn`, camera returned, menu closed, feedback: "Party creation timed out." Pad returns to `Idle`.
+Leaving party creation: the countdown reaching zero (feedback "Party creation timed out"), the **Cancel** button, or disconnecting. In every case the host goes to `ExitSpawn`, the camera and jumping are restored, the menu closes, billboards reappear, and the pad returns to `IDLE`. Jumping out of the seat is disabled, so the seat only empties through the menu or an outside event (death); an emptied seat is still treated as a leave.
 
-**If the host leaves the game or walks off:** same as timeout, no feedback needed.
-
-**When the host presses Create:**
-
-1. Server validates the selection (§6.1). If invalid, reject with feedback and stay in `Configuring`.
-2. Server writes `MapId`, `DifficultyId`, `MaxPlayers`, `Visibility` to the pad model.
-3. `State = "Boarding"`. `CreationTimer` stops. `BoardingTimer` starts at `BoardingTimeout`.
-4. Host's client closes Create Party Menu and opens the **Queue Menu** (§5.2) in host mode.
-5. Billboard updates to show the configuration.
+**Create:** the server validates the selection (§6.1). If invalid, feedback and the pad stays `CONFIGURING`. If valid, the pad records map, difficulty, max players, and visibility, becomes `BOARDING`, and the boarding timer starts at `BOARDING_TIMEOUT_SEC` (shortened at once to `CAPACITY_TIME_SEC` if the party is already full, e.g. a party of one). The host's client swaps to the Queue menu in host mode; the rotor starts spinning.
 
 ### 3.3 Boarding
 
-Other players touch `JoinCollision`. Server runs the join checks (§6.2). On pass:
+Joiners touch `JoinCollision`; the join checks (§6.2) run. On pass: seated at the next free seat, camera moved, added to the party, count replicated, Queue menu in member mode.
 
-1. Character seated at the next free PlayerSpawn, camera moved.
-2. Player added to the pad's party list. `CurrentPlayers` incremented.
-3. Client opens Queue Menu in member mode.
-4. If `CurrentPlayers == MaxPlayers`, the `BoardingTimer` is set to `CapacityTime` (short auto-launch countdown).
+When the party reaches max players the boarding timer drops to `CAPACITY_TIME_SEC`. The timer never goes back up.
 
-**Leaving:** the Exit button in the Queue Menu, or walking off, or disconnecting. Character to `ExitSpawn`, party list updated, billboard updated. If the party was full and drops below full, the `BoardingTimer` does **not** reset upward — it continues from wherever it is. (A full party that loses someone in the last two seconds still launches.)
+Leaving: the **Exit** button or disconnecting (or the seat emptying for any other reason). The character goes to `ExitSpawn`. If the host leaves and others remain, the earliest joiner is promoted ("You are now the party host") and their menu switches to host mode. If nobody remains the pad returns to `IDLE`.
 
-**Host leaves during Boarding:**
-- If other players remain, the earliest-joined remaining player becomes host. Their Queue Menu switches to host mode. Feedback to them: "You are now the party host."
-- If nobody remains, pad resets to `Idle`.
+### 3.4 Launching (M13)
 
-### 3.4 Launching
+Triggers: host presses **Launch**, the boarding timer reaches zero, or the capacity countdown reaches zero. A party of one launches.
 
-Three triggers, any of which launches:
+On launch: `DEPARTING`, helicopter takes off, departure loading screen, characters to random `HoldingArea.Spawns`, one `TeleportPartyAsync` with join data (§7), retry and "Teleport failed" handling, fresh helicopter cloned to `HelicopterSpawn`, pad back to `IDLE`.
 
-1. Host presses **Launch** in the Queue Menu.
-2. `BoardingTimer` reaches zero.
-3. `CapacityTime` countdown reaches zero after the party filled.
-
-Launch requires `CurrentPlayers >= MinPlayersToLaunch` (default 1). This is always true in practice since the host counts.
-
-On launch:
-
-1. `State = "Departing"`. Billboard shows "Departing".
-2. Helicopter takes off (existing animation). Departure Loading Screen shown to party members.
-3. Party members' characters moved to random `HoldingArea.Spawns`.
-4. Teleport all party members together with `TeleportPartyAsync` (never per-player). Join data per §7.
-5. Existing failure handling: failed players respawn at SpawnZone with "Teleport failed."
-6. Pad reset: fresh HelicopterModel cloned to `HelicopterSpawn`, `State = "Idle"`, all values cleared.
+Until M13 the launch is a stub: the pad empties with the feedback "Launch arrives in M13".
 
 ---
 
 ## 4. Data model
 
-### 4.1 Pad model (`Workspace.HelicopterPads.HelicopterPad_N`)
+### 4.1 Pad model (`Workspace.HelicopterPads.Pad<n>`)
 
-Remove `MapNumber`, `DifficultyNumber`, `MaxPlayers` as authored values. They become runtime state.
+Studio-authored: `PadIndex` attribute (1–6), `JoinCollision`, `ExitSpawn`, `HelicopterSpawn`, `CameraPositionPart` (facing the helicopter), `GuiPart.PadGui`. All marker parts are anchored (`LobbyMapManager` warns otherwise). The `Helicopter` model is cloned in by `PartyManager` at startup.
 
-| Child | Type | Set when |
-|---|---|---|
-| `State` | StringValue | Every transition. `Idle` / `Configuring` / `Boarding` / `Departing` |
-| `HostUserId` | IntValue | Host assigned or promoted. 0 when Idle |
-| `MapId` | StringValue | Create pressed. Empty when Idle |
-| `DifficultyId` | StringValue | Create pressed. Empty when Idle |
-| `MaxPlayers` | IntValue | Create pressed. 0 when Idle |
-| `Visibility` | StringValue | Create pressed. `Public` / `FriendsOnly` |
-| `CurrentPlayers` | IntValue | Every join/leave |
-| `TimerSeconds` | IntValue | Every second while a timer is active. 0 when none |
+Runtime state, attributes written only by `PartyManager` (names in `Attributes.luau`):
 
-Existing children retained unchanged: `HelicopterModel`, `HelicopterSpawn`, `CameraPositionPart`, `GuiPart.PadGui`, `JoinCollision`, `ExitSpawn`.
+| Attribute | Value |
+|---|---|
+| `PadState` | `Enums.PadState` |
+| `PadHostUserId` | 0 when idle |
+| `PadMap`, `PadDifficulty` | `Enums.Map` / `Enums.Difficulty`; nil when idle |
+| `PadMaxPlayers` | `MAX_PARTY_SIZE` while idle or configuring, the host's choice once boarding |
+| `PadVisibility` | `Enums.PartyVisibility` |
+| `PadPlayerCount` | member count |
+| `PadTimerEndTime` | server time the active timer expires; 0 when none. Clients count down locally. |
 
-The party member list itself lives in server Lua state keyed by pad, not in the workspace. Only the count replicates.
+The member list stays on the server.
 
-### 4.2 Config — `ServerScripts/GameData/PartyConfig`
+### 4.2 Helicopter template (`ReplicatedStorage.GameAssets.Helicopter`)
 
-All numbers live here. Nothing is hardcoded in the pad scripts.
+- `PlayerSpawns`: `Seat1`–`Seat6`, real `Seat` instances, anchored, invisible, `Disabled`. The server enables a seat only for its own `Sit` call and disables it again when it empties, so the engine never auto-seats a passer-by.
+- `Rotar.Rotar`: the rotor hub; blades are welded to it. `ClientHelicopterManager` spins it about world up while the pad is `BOARDING` or `DEPARTING`, with spin-up and spin-down ramps.
+
+### 4.3 Config — `GameData/Pads/Party`
 
 ```lua
 return {
-    padCount           = 6,
-
-    creationTimeout    = 30,   -- seconds host has to press Create
-    boardingTimeout    = 120,  -- seconds after Create before auto-launch
-    capacityTime       = 3,    -- countdown once the party is full
-    minPlayersToLaunch = 1,
-    maxPartySize       = 6,    -- upper bound on the stepper
-
-    defaultMaxPlayers  = 4,    -- stepper starting value
-    defaultVisibility  = "Public",
-
-    maps = {
-        -- ordered. Carousel shows them in this order.
-        {
-            id          = "Canyon",
-            displayName = "Deadman's Canyon",
-            thumbnail   = "rbxassetid://0",
-            requires    = nil,   -- always available
-        },
-        {
-            id          = "Frostbite",
-            displayName = "Frostbite Pass",
-            thumbnail   = "rbxassetid://0",
-            requires    = { map = "Canyon", difficulty = "Normal" },
-        },
-    },
-
-    difficulties = {
-        -- ordered. Carousel shows them in this order.
-        -- requires is evaluated against the currently selected map.
-        { id = "Normal",    displayName = "Normal",    requires = nil },
-        { id = "Hard",      displayName = "Hard",      requires = { difficulty = "Normal" } },
-        { id = "Nightmare", displayName = "Nightmare", requires = { difficulty = "Hard" } },
-    },
+	CREATION_TIMEOUT_SEC = 30,
+	BOARDING_TIMEOUT_SEC = 20,
+	CAPACITY_TIME_SEC = 3,
+	MAX_PARTY_SIZE = 6,
+	DEFAULT_MAX_PLAYERS = 4,
+	DEFAULT_VISIBILITY = Enums.PartyVisibility.PUBLIC,
+	TOUCH_DEBOUNCE_SEC = 2,
+	TIMER_POLL_SEC = 0.25,
+	MAPS = { { map = Enums.Map.DEADMANS_CANYON, thumbnail = "rbxassetid://0" }, ... },
+	DIFFICULTIES = { { difficulty = Enums.Difficulty.NORMAL }, { difficulty = Enums.Difficulty.HARD, requires = { difficulty = Enums.Difficulty.NORMAL } }, ... },
 }
 ```
 
-**Note on naming:** the GDD's main text uses Normal / Hard / Nightmare. The mine generation section uses "Brutal" for the third tier. Use **Nightmare** everywhere.
+`PartyRules.validateConfig` runs at lobby startup and fails loudly naming the offending key. The client never requires GameData: the config is replicated as one JSON string attribute (`PartyConfig`) on `SplendidGames.GameMetadata` and decoded with `PartyRules.decodeConfig`, which re-validates it.
 
-### 4.3 Player progression data
+### 4.4 Player progression
 
-The system needs one query: has this player completed `(mapId, difficultyId)`? This reads from the existing profile system. Expected shape:
-
-```lua
-profile.Data.Completions = {
-    Canyon    = { Normal = true, Hard = false, Nightmare = false },
-    Frostbite = { Normal = false, ... },
-}
-```
-
-Only the **host's** completions are checked, and only at Create time.
+`PlayerData:hasCompletion(key)` with keys from `CompletionKeys` (`"DEADMANS_CANYON/NORMAL"`). Only the host's completions are checked, only at Create.
 
 ---
 
 ## 5. Menus
 
-### 5.1 Create Party Menu (new)
+Both are overlays registered with `ClientOverlayManager` (no blur, no freeze, no zoom; the seat holds the character and the camera is on the pad). Built by `scripts/studio/build_create_party_gui.luau` and `build_queue_gui.luau`; driven by `ClientPartyMenuManager`. The server chooses which menu a client shows (`NotifyPartyMenu { menu, padIndex, isHost }`).
 
-Shown to the host during `Configuring`. Modelled on Dead Rails' Create Party screen.
+### 5.1 Create Party menu
 
-**Layout, top to bottom:**
+Top to bottom: title; map carousel (thumbnail, name, lock icon and requirement text when locked; placeholder colours until art exists); difficulty carousel (re-evaluated per map, falls back to the first unlocked difficulty); players stepper (1–`MAX_PARTY_SIZE`, starts at `DEFAULT_MAX_PLAYERS`); Friends Only toggle; "Cancelling in N seconds" in red; **Create** (disabled while locked); **Cancel** directly beneath.
 
-1. **Title:** "Create Party"
-2. **Map carousel.** Left/right arrows around a large thumbnail. Map display name overlaid on the thumbnail. Locked maps show the thumbnail desaturated with a lock icon and the unlock requirement as text beneath ("Complete Deadman's Canyon on Normal"). Arrows skip nothing — locked maps are visible but not selectable.
-3. **Difficulty carousel.** Same pattern, smaller. Locked difficulties greyed with lock icon and requirement text. Re-evaluated whenever the map selection changes.
-4. **Players stepper.** "Players" label, `−` and `+` buttons, current value. Range 1 to `maxPartySize`. Starts at `defaultMaxPlayers`.
-5. **Visibility toggle.** A single toggle labelled "Friends Only". Off = Public. Starts at `defaultVisibility`.
-6. **Countdown text.** "Cancelling in N seconds", red, updates every second.
-7. **Create button.** Disabled (greyed) while the selected map or difficulty is locked. Enabled otherwise.
+Selection is client-side until Create sends `TryCreateParty { map, difficulty, maxPlayers, visibility }`.
 
-**Behaviour:**
-- Opening the menu hides the HUD (consistent with other menus).
-- No Cancel button is needed — walking off the pad or letting the timer expire cancels. If a Cancel button is added for clarity, it behaves identically to timeout.
-- All selection state is client-side until Create is pressed. The server receives one message with the full selection and validates it.
+### 5.2 Queue menu
 
-### 5.2 Queue Menu (existing, extended)
+Map, difficulty, "Players: X / Y", visibility, "Host: name", "Departing in N seconds", **Exit** (`TryLeaveParty`). The host also sees **Launch** (`TryLaunchParty`).
 
-Shown to everyone on a `Boarding` pad.
+### 5.3 Pad billboard (`GuiPart.PadGui`)
 
-**All members see:**
-- Map name, difficulty name
-- "Players: X / Y"
-- Visibility ("Public" or "Friends Only")
-- Host's display name
-- Countdown: "Departing in N seconds"
-- **Exit** button (existing behaviour)
-
-**Host additionally sees:**
-- **Launch** button. Pressing it launches immediately (§3.4).
-
-When host is promoted, the new host's client receives a message and shows the Launch button.
-
-### 5.3 Pad billboard (`GuiPart.PadGui`, existing, extended)
-
-Rendered from replicated pad values. Shows:
-
-Three labels, built by `scripts/studio/build_pad_gui.luau` (decided 2026-09-11):
+Three labels rendered by `ClientPadBillboardManager` from the pad attributes; hidden on that client while it is in a party menu.
 
 | State | Status | Private | Players |
 |---|---|---|---|
-| `Idle` | "Waiting for players..." | hidden | "0/MaxPartySize" |
-| `Configuring` | "Player configuring" | hidden | "1/MaxPartySize" |
-| `Boarding` | "Starts in: N" | "Public" or "Private" | "X/Y" |
-| `Departing` | "Departing" | "Public" or "Private" | "X/Y" |
-
-Map and difficulty are not shown on the billboard; joiners follow the host's configuration.
+| `IDLE` | "Waiting for players..." | hidden | "0/MaxPartySize" |
+| `CONFIGURING` | "Player configuring" | hidden | "1/MaxPartySize" |
+| `BOARDING` | "Starts in: N" | "Public" or "Private" | "X/Y" |
+| `DEPARTING` | "Departing" | "Public" or "Private" | "X/Y" |
 
 ---
 
-## 6. Rules
+## 6. Rules (`PartyRules`, unit tested)
 
-### 6.1 Create validation (server, on Create)
+### 6.1 Create validation (`validateSelection`)
 
-Reject with feedback if any fail:
+Reject if: map or difficulty not in config; map requirement not completed; difficulty requirement not completed on the selected map; max players outside 1..`MAX_PARTY_SIZE`; visibility invalid; pad not `CONFIGURING` or sender not its host. The server is authoritative; the client only greys out.
 
-- Selected map exists in config
-- Selected difficulty exists in config
-- Host has completed the map's `requires` (if any)
-- Host has completed the difficulty's `requires` on the selected map (if any)
-- `1 <= MaxPlayers <= maxPartySize`
-- Visibility is `Public` or `FriendsOnly`
-- Pad is still `Configuring` and this player is still its host
-
-The client greys out invalid options, but the server is authoritative. Never trust the client's claim that something is unlocked.
-
-### 6.2 Join checks (server, on JoinCollision touch during Boarding)
-
-Reject with the given feedback if any fail:
+### 6.2 Join checks (`getJoinRejection`, in order)
 
 | Check | Feedback |
 |---|---|
-| Pad is `Boarding` | "Pad is being set up" or "Pad is departing" |
-| `CurrentPlayers < MaxPlayers` | "Party is full" |
-| Player not already in a party | "You're already in a party" |
-| If `FriendsOnly`: `player:IsFriendsWith(HostUserId)` | "This party is friends only" |
+| Pad is `BOARDING` | "Pad is being set up" / "Pad is departing" |
+| Party has room | "Party is full" |
+| Not already in a party | "You're already in a party" |
+| Friends Only: joiner is a friend of the host (`IsFriendsWithAsync`) | "This party is friends only" |
 
-**Joiners are not checked against map or difficulty unlocks.** Map access follows the host. A player who hasn't unlocked Frostbite Pass can join a Frostbite party.
+Joiners are not checked against unlocks; access follows the host.
 
-### 6.3 Progression on completion (gameplay server, out of scope here but required)
+### 6.3 Timer on full (`getTimerEndTimeOnFull`)
 
-Completion of `(map, difficulty)` is recorded per player **only if that player had already completed the prerequisite themselves**. A player carried through Nightmare by a friend does not unlock Nightmare. The gameplay server needs the prerequisite table from `PartyConfig` to enforce this.
+`min(currentEndTime, now + CAPACITY_TIME_SEC)`. Never rises.
+
+### 6.4 Progression on completion (gameplay server, later)
+
+A run's completion is recorded for a player only if that player had already completed the prerequisite themselves.
 
 ---
 
-## 7. Join data
-
-Sent with `TeleportPartyAsync`:
+## 7. Join data (M13)
 
 ```lua
-{
-    mapId        = "Canyon",
-    difficultyId = "Normal",
-    playerCount  = 4,         -- CurrentPlayers at launch, not MaxPlayers
-    hostUserId   = 12345,
-    padIndex     = 2,         -- for logging
-}
+{ map = Enums.Map.X, difficulty = Enums.Difficulty.Y, playerCount = 4, hostUserId = 12345, padIndex = 2 }
 ```
 
-`playerCount` is the number actually teleported. The gameplay server uses it for scaling and must not wait for `MaxPlayers`.
+`playerCount` is the number actually teleported.
 
 ---
 
-## 8. Edge cases
+## 8. Wiring
+
+- `PartyManager` (lobby server) registers with `GameController:registerPlaceManager`: its `Try*` handlers join the single-RemoteEvent protocol and it takes part in the player teardown and dev-tool reset sequences (a reset player is removed from any party).
+- Feedback strings live on `PartyRules.FEEDBACK_*` and go through `PlayerFeedbackManager`.
+
+---
+
+## 9. Edge cases
 
 | Case | Behaviour |
 |---|---|
-| Host disconnects during `Configuring` | Pad → `Idle` |
-| Host disconnects during `Boarding`, others present | Earliest joiner promoted. Timers unaffected. |
-| Host disconnects during `Boarding`, alone | Pad → `Idle` |
-| Player disconnects during `Departing` | Excluded from teleport. Existing failed-teleport handling covers stragglers. |
-| Party full, then someone leaves before `CapacityTime` expires | Timer keeps counting down. Launches with remaining players. |
-| Host presses Launch with 1 player | Launches solo. This is allowed and expected. |
-| Player walks onto pad while already in another pad's party | Rejected. Must Exit first. |
-| Host changes map after selecting a difficulty locked on the new map | Difficulty selection resets to first unlocked difficulty for the new map. |
-| Two players touch an Idle pad simultaneously | First processed becomes host. Second rejected. |
-| Server shuts down mid-`Boarding` | Standard Roblox shutdown; no special handling. Players return to a fresh lobby. |
-
----
-
-## 9. Remove from current implementation
-
-- Per-pad `MapNumber` / `DifficultyNumber` / `MaxPlayers` as authored IntValues
-- Per-pad requirement fields (map completion / difficulty completion)
-- `Boarding` BoolValue (replaced by `State`)
-- `FullTime` (replaced by `boardingTimeout` — different semantics: it now starts at Create, not at first join)
-- Any logic that starts the departure timer on first touch
-
-Keep `CapacityTime` — same behaviour, now in `PartyConfig`.
-
----
-
-## 10. Validation at server start
-
-Walk `PartyConfig` and assert:
-
-- Every map `id` is unique
-- Every difficulty `id` is unique
-- Every `requires.map` references an existing map
-- Every `requires.difficulty` references an existing difficulty
-- `creationTimeout > 0`, `boardingTimeout > 0`, `capacityTime > 0`
-- `1 <= defaultMaxPlayers <= maxPartySize`
-- `defaultVisibility` is `Public` or `FriendsOnly`
-
-Fail loudly at startup with the offending key named.
-
----
-
-## 11. Feedback messages
-
-All routed through the existing `GivePlayerFeedback` event. Full list used by this system:
-
-- "Pad is being set up"
-- "Pad is departing"
-- "Party is full"
-- "You're already in a party"
-- "This party is friends only"
-- "Party creation timed out"
-- "You are now the party host"
-- "Teleport failed" (existing)
+| Host disconnects during `CONFIGURING` | Pad → `IDLE` |
+| Host disconnects during `BOARDING`, others present | Earliest joiner promoted. Timer unaffected. |
+| Host disconnects during `BOARDING`, alone | Pad → `IDLE` |
+| Player disconnects during `DEPARTING` | Excluded from teleport (M13) |
+| Party full, then someone leaves before the capacity countdown expires | Timer keeps counting; launches with the remaining players |
+| Host presses Launch with 1 player | Launches solo |
+| Player touches a pad while already in another pad's party | Rejected; must Exit first |
+| Map changed to one where the chosen difficulty is locked | Difficulty resets to the first unlocked one |
+| Two players touch an `IDLE` pad simultaneously | First processed becomes host; second rejected |
+| Player leaves and is still standing in `JoinCollision` | A touch grace window (`TOUCH_DEBOUNCE_SEC`) stops a stale touch from re-hosting them |

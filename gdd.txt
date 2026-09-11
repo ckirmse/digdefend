@@ -19,7 +19,7 @@ Place Structure
 * The game will have two separate places: a lobby place and a gameplay place. 
 * Everyone will join the lobby when they launch the game (start place). This is where players group up, buy upgrades/unlocks/consumables/classes and check event status. 
 * The gameplay server is where gameplay takes place and can only be reached via teleports from the lobby
-* Players will join queues inside the lobby, that will teleport them as a group to a fresh gameplay server where they will play the main game
+* Players form parties at helicopter pads inside the lobby, which teleport them as a group to a fresh gameplay server where they will play the main game
 * Only players in a specific queue should be able to access the specific gameplay server they’re teleported to. Friends and other players should not be able to join an existing gameplay server. 
 
 
@@ -37,6 +37,7 @@ The Lobby
    * HUD
    * Store Menu
    * Loadout Menu
+   * Create Party Menu
    * Queue Menu
    * Daily Rewards Menu  
    * Player Feedback Text
@@ -48,7 +49,7 @@ SpawnZone
 Helicopter Pads – Party Creation/Teleports
 * Helicopter Pads teleport parties of players to a new, private instance of the gameplay place
 * All 6 pads are identical. A pad is not tied to a map or difficulty. The first player onto an idle pad becomes the party host and configures the run (map, difficulty, party size, visibility). This is modelled on Dead Rails' Create Party flow, without join-by-code. Adding a map or difficulty later means adding it to the party config, not building a pad.
-* Every Helicopter Pad has a Helicopter sitting on it when the server initializes
+* Every Helicopter Pad has a Helicopter sitting on it when the server initializes (cloned from ReplicatedStorage.GameAssets.Helicopter onto HelicopterSpawn). Its rotor spins (client-side) from Create until the pad returns to Idle.
 * Every Helicopter Pad has a billboard gui at its entrance with three labels (decided 2026-09-11):
    * Status: Idle "Waiting for players...", Configuring "Player configuring", Boarding "Starts in: X" (seconds until departure), Departing "Departing"
    * Private: hidden while Idle or Configuring; once a party exists it shows "Public" or "Private" from the party config
@@ -62,17 +63,17 @@ Helicopter Pads – Party Creation/Teleports
 * Becoming host
    * A player touches JoinCollision on an Idle pad. The server rejects them with "You're already in a party" if they are in a party on any pad.
    * The server sets the pad to Configuring with this player as host and starts the CreationTimer at CreationTimeout.
-   * The host's character is seated in the helicopter at the first PlayerSpawn and their camera is moved to CameraPositionPart.
+   * The host's character is seated in the helicopter at the first PlayerSpawn and their camera is moved to CameraPositionPart. While in a party, jumping is disabled so the seat can only be left through the menu (Exit or Cancel); the pad billboards are hidden while a party menu is open.
    * The host's client opens the Create Party Menu.
    * If two players touch an Idle pad at the same time, the first processed becomes host and the second gets "Pad is being set up". Never two hosts.
 * Configuring
    * The Create Party Menu shows a countdown. Changing a setting does not reset it: CreationTimeout is a hard limit on how long a pad can be held without committing.
-   * If the countdown reaches zero, or the host leaves the game or leaves the pad: the host is moved to ExitSpawn, camera returned, menu closed, and the pad returns to Idle. The timeout gives the feedback "Party creation timed out"; leaving gives none.
+   * If the countdown reaches zero, the host presses Cancel, or the host leaves the game: the host is moved to ExitSpawn, camera returned, menu closed, and the pad returns to Idle. The timeout gives the feedback "Party creation timed out"; Cancel and leaving give none.
    * When the host presses Create, the server validates the selection (see Create validation). If invalid, it rejects with feedback and the pad stays Configuring. If valid, the server records map, difficulty, max players, and visibility on the pad, sets Boarding, stops the CreationTimer, and starts the BoardingTimer at BoardingTimeout. The host's client swaps the Create Party Menu for the Queue Menu in host mode and the billboard shows the configuration.
 * Boarding
    * Other players touch JoinCollision. The server runs the join checks. On pass, the character is seated at the next free PlayerSpawn, the camera moved, the player added to the party, the count updated on the billboard, and the Queue Menu opened in member mode.
    * When the party reaches max players, the BoardingTimer is set to CapacityTime (a short auto-launch countdown).
-   * Leaving: the Exit button in the Queue Menu, leaving the pad, or disconnecting. The character goes to ExitSpawn and the party and billboard update. If a full party drops below full, the timer does not go back up; it keeps counting from where it is (a full party that loses someone in the last two seconds still launches).
+   * Leaving: the Exit button in the Queue Menu, or disconnecting (a character that leaves its seat for any other reason, such as dying, also counts as leaving). The character goes to ExitSpawn and the party and billboard update. If a full party drops below full, the timer does not go back up; it keeps counting from where it is (a full party that loses someone in the last two seconds still launches).
    * If the host leaves during Boarding and other players remain, the earliest-joined remaining player becomes host, their Queue Menu switches to host mode, and they get the feedback "You are now the party host". If nobody remains, the pad returns to Idle.
 * Launching. Any of these launches:
    * The host presses Launch in the Queue Menu
@@ -102,7 +103,8 @@ Helicopter Pads – Party Creation/Teleports
 * Progression on completion (gameplay server): a run's completion of (map, difficulty) is recorded for a player only if that player had already completed its prerequisite themselves. A player carried through Nightmare by a friend does not unlock Nightmare. The gameplay server enforces this with the same requirement table the lobby uses.
 * Every Helicopter Pad will be a Model, located inside Workspace.HelicopterPads, with a PadIndex attribute (1–6). Inside each model will be:
    * HelicopterModel
-      * In the HelicopterModel will be a PlayerSpawns folder that contains invisible parts to spawn party members into. They will be on seats, so the player should be spawned into a sitting position.
+      * In the HelicopterModel will be a PlayerSpawns folder of invisible Seat instances (Seat1–Seat6) that party members are seated in. The seats are kept Disabled so the engine never auto-seats a passer-by; the server enables a seat only for its own Sit call and disables it again once it empties.
+      * A Rotar model with a Rotar hub part; the blades are welded to the hub and the client spins it about world up.
    * HelicopterSpawn: An invisible part used to place newly spawned HelicopterModels
    * CameraPositionPart: Invisible part that will be used to position the player's camera
    * GuiPart.PadGui: GuiPart is an invisible part that PadGui (BillboardGui) will be parented to. PadGui will display all the necessary info.
@@ -112,7 +114,7 @@ Helicopter Pads – Party Creation/Teleports
    * Runtime pad state (state, host, map, difficulty, max players, visibility, current player count, departure time) is server Lua replicated as attributes on the pad model. The party member list itself stays on the server; only the count replicates. The pad model carries no authored map, difficulty, or max players values.
 * Party config (one GameData module, nothing hardcoded in pad scripts). I need to be able to easily change:
    * CreationTimeout (default 30 s): how long a host has to press Create
-   * BoardingTimeout (default 120 s): seconds after Create before auto-launch
+   * BoardingTimeout (default 20 s): seconds after Create before auto-launch
    * CapacityTime (default 3 s): countdown once the party is full
    * MaxPartySize (default 6): upper bound on the players stepper
    * DefaultMaxPlayers (default 4) and DefaultVisibility (default Public): the menu's starting values
@@ -134,7 +136,7 @@ Event Area
 * At launch the area will be closed off with a “coming soon” sign
 Holding Area
 * This is an empty room under the map, meant to hold player characters during the teleport process so teleports don’t get clogged when teleports fail or take a long time (see Helicopter Pads section) 
-* Workspace.HoldingRoom.Spawns:GetChildren() will return a list of spawn points for characters
+* Workspace.HoldingArea.Spawns:GetChildren() will return a list of spawn points for characters
 
 
 Lobby Menus
@@ -144,7 +146,7 @@ HUD
       * Cash Balance (the game’s permanent currency)
          * Displays the user’s current Cash balance
          * When pressed, opens the store menu to the currency section
-         * After the initial value is loaded, if the value increases the text should turn green and play a coinDrop sound and update the value. If the value decreases, the text should red and it should play a ChaChingSound before updating the value (cash was spent). 
+         * After the initial value is loaded, if the value increases the text should turn green and play the CoinsAdded sound and update the value. If the value decreases, the text should turn red and it should play the SaleSuccess sound before updating the value (cash was spent). 
       * Loadout Slots
          * Shows the players current load out slots 
             * 1 Weapon Slot
@@ -157,7 +159,7 @@ HUD
          * When pressed, opens the loadout menu
       * Daily Rewards Menu Button
          * When pressed, opens the Daily Rewards Menu
-* When either the Store, Daily Rewards or Loadout Menu is opened, the HUD should hide off screen 
+* When any menu (Store, Daily Rewards, Loadout, Create Party, Queue) is opened, the HUD should hide off screen 
 
 
 Store Menu
@@ -235,8 +237,9 @@ Create Party Menu
    * Visibility toggle: one toggle labelled "Friends Only". Off = Public. Starts at DefaultVisibility.
    * Countdown text: "Cancelling in N seconds", red, updates every second.
    * Create button: disabled while the selected map or difficulty is locked.
-* Opening the menu hides the HUD, like the other menus.
-* No Cancel button is needed: leaving the pad or letting the timer expire cancels. If one is added for clarity it behaves exactly like the timeout.
+   * Cancel button, directly beneath Create: behaves exactly like the creation timeout (host to ExitSpawn, pad to Idle), with no feedback.
+* Opening the menu hides the HUD, like the other menus, and hides the pad billboards.
+* Cancel, the timeout, and disconnecting are the only ways out of party creation; jumping out of the seat is disabled.
 * All selection state is client-side until Create is pressed. The server receives one message with the full selection and validates it.
 Queue Menu
 * The Queue Menu appears when a player is in a Boarding party (see Helicopter Pads section)

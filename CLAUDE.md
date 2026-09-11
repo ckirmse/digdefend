@@ -21,6 +21,7 @@ Workflow per milestone:
 2. Implement, then run/test in Roblox Studio via Rojo sync.
 3. All unit tests must stay green and `scripts/analyze.sh` must stay clean.
 4. **Wait for explicit confirmation from the user that the milestone is complete before marking it done in `milestones.md` or making a git commit.** When the user says "close it out", that is the go-ahead: move the milestone (with ✅) to the end of the Done section in `milestones.md` and commit.
+5. **Before that commit, review `gdd.txt` (and any spec under `docs/`) against what was actually built** and update every outdated or missing detail in the sections the milestone touched: changed defaults, renamed instances or sounds, new buttons or behaviours, decisions made during playtesting. Keep the GDD's own voice and structure; it stays the design source of truth, so the doc must never describe something the game no longer does. Remind the user that `gdd.txt` is an export and the same edits belong in the Google Doc.
 
 The user jots dated notes directly into `milestones.md` while work is in progress. If `git status` shows such edits, include them in the next commit without asking.
 
