@@ -73,6 +73,8 @@ Constants.PAD_GUI_PLAYERS_LABEL = "Players"
 -- helicopter template under GameAssets; the clone on a pad keeps the name
 Constants.HELICOPTER_TEMPLATE = "Helicopter"
 Constants.HELICOPTER_PLAYER_SPAWNS_FOLDER = "PlayerSpawns"
+-- a launched helicopter is renamed to this while clients fly it away
+Constants.DEPARTED_HELICOPTER_NAME = "DepartedHelicopter"
 -- the rotor hub part (blades are welded to it) inside the rotor model; the
 -- designer's spelling
 Constants.HELICOPTER_ROTOR_MODEL = "Rotar"

@@ -81,10 +81,10 @@ Helicopter Pads – Party Creation/Teleports
    * The CapacityTime countdown reaches zero after the party filled
    * A party of one launches solo. This is allowed and expected.
 * On launch:
-   * The pad is set to Departing and the billboard shows "Departing". The helicopter takes off as the Departure Loading Screen fades in for party members.
+   * The pad is set to Departing and the billboard shows "Departing". Every client (party or not) sees the helicopter take off: it climbs 100 studs, then flies 1000 studs straight ahead, then disappears; a fresh helicopter is already on the pad by then. For party members the Queue Menu fades out while the camera stays on CameraPositionPart, and 2 seconds later the Departure Loading Screen comes in over the takeoff.
    * Party members' characters are moved to random spawns inside HoldingArea.Spawns. This removes their avatars from view in case of teleport issues.
-   * All party members are teleported together (one party teleport call, never per player) to a fresh reserved gameplay server. Join data: map, difficulty, playerCount (the number actually teleported, not max players; the gameplay server scales from this and never waits for more), hostUserId, and padIndex for logging. Only players in that party can enter that gameplay server.
-   * A failed teleport is retried; on final failure the player respawns in SpawnZone with a "Teleport failed" message. A player who disconnects during Departing is simply excluded from the teleport.
+   * All party members are teleported together (one TeleportAsync call with the player list, never per player) to a fresh reserved gameplay server. Join data: map, difficulty, playerCount (the number actually teleported, not max players; the gameplay server scales from this and never waits for more), hostUserId, padIndex for logging, and memberUserIds. Only players in that party can enter that gameplay server: the reserved server keeps outsiders out, and the gameplay server's arrival gate kicks anyone whose join data is missing or does not list them.
+   * A failed teleport is retried (3 attempts, 2 s apart); on final failure the player respawns in SpawnZone with a "Teleport failed" message and their camera and menus are restored. A player who disconnects during Departing is simply excluded from the teleport. A player still in the lobby 10 s after a successful teleport call is treated as a failed teleport.
    * A fresh helicopter model is cloned from ReplicatedStorage, placed at HelicopterSpawn, and parented to the pad model. The pad is cleared and returns to Idle.
 * Create validation (server, when the host presses Create). Reject with feedback if any fail:
    * The map and difficulty exist in the party config
@@ -270,7 +270,7 @@ Arrival Loading Screen
 * Once loading is finished, the arrival loading screen should tween off screen
 Departure Loading Screen
 * This loading screen is shown when players are teleporting to the gameplay server
-* Once the helicopter takes off from the helicopter pad with the local player, this loading screen should appear
+* Once the helicopter takes off from the helicopter pad with the local player, this loading screen should appear (2 seconds after takeoff, so the player sees the helicopter lift). For now it reuses the Arrival Loading Screen GUI with the subtext "Flying to <map>..." (decided 2026-09-11; may get its own art later)
 * It will have a title image, subtext, and a spinning icon in the bottom right corner
 * It will match the initial load screen of the gameplay server, so the teleport isn’t super obvious (it should just look like a menu flicker) 
 

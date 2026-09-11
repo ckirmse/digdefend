@@ -7,6 +7,7 @@
 -- a menu is open the camera sits on the pad's CameraPositionPart and the
 -- character stays in its helicopter seat (leaving the seat leaves the party).
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -16,6 +17,7 @@ local PartyRules = require("@game/ReplicatedStorage/Shared/PartyRules")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
+local ClientLoadingScreenManager = require(script.Parent.Parent.Client.ClientLoadingScreenManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientPadBillboardManager = require(script.Parent.ClientPadBillboardManager)
@@ -75,6 +77,9 @@ export type ClientPartyMenuManager = typeof(setmetatable(
 		difficultyIndex: number,
 		maxPlayers: number,
 		isFriendsOnly: boolean,
+		-- set from launch until the teleport succeeds or fails: the camera stays
+		-- on the pad with no menu while the helicopter flies off
+		isDeparting: boolean,
 	},
 	ClientPartyMenuManager
 ))
@@ -90,6 +95,11 @@ local CANCELLING_IN = "Cancelling in %d seconds"
 local DEPARTING_IN = "Departing in %d seconds"
 local PLAYERS_FORMAT = "Players: %d / %d"
 local HOST_FORMAT = "Host: %s"
+local DEPARTURE_CAPTION = "Flying to %s..."
+-- players get a look at their helicopter lifting off before the screen comes in
+local DEPARTURE_SCREEN_DELAY_SEC = 2
+local MENU_FADE_SEC = 0.4
+local MENU_FADE_SETTLE_SEC = 0.1
 local TOGGLE_ON = "On"
 local TOGGLE_OFF = "Off"
 local PLACEHOLDER_THUMBNAIL = "rbxassetid://0"
@@ -370,11 +380,63 @@ function ClientPartyMenuManager:showGuis()
 	end
 end
 
+-- fades every part of a dialog to invisible, then disables its ScreenGui and
+-- puts the transparencies back so the next open is untouched
+local function fadeOutGui(gui: ScreenGui, dialog: Frame)
+	local tweenInfo = TweenInfo.new(MENU_FADE_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local originals: { [Instance]: { [string]: number } } = {}
+	local tweens: { Tween } = {}
+	local function fadeProperty(instance: Instance, property: string)
+		local current = (instance :: any)[property]
+		if typeof(current) ~= "number" then
+			return
+		end
+		originals[instance] = originals[instance] or {}
+		originals[instance][property] = current
+		local tween = TweenService:Create(instance, tweenInfo, { [property] = 1 })
+		table.insert(tweens, tween)
+		tween:Play()
+	end
+	for _, descendant in dialog:GetDescendants() do
+		if descendant:IsA("GuiObject") then
+			fadeProperty(descendant, "BackgroundTransparency")
+		end
+		if descendant:IsA("TextLabel") or descendant:IsA("TextButton") then
+			fadeProperty(descendant, "TextTransparency")
+		end
+		if descendant:IsA("ImageLabel") or descendant:IsA("ImageButton") then
+			fadeProperty(descendant, "ImageTransparency")
+		end
+		if descendant:IsA("UIStroke") then
+			fadeProperty(descendant, "Transparency")
+		end
+	end
+	fadeProperty(dialog, "BackgroundTransparency")
+	-- the tweens are cancelled before the values go back, otherwise one that
+	-- finishes a frame late writes "invisible" over the restored value and
+	-- the next open shows an empty dialog
+	task.delay(
+		MENU_FADE_SEC + MENU_FADE_SETTLE_SEC,
+		function()
+			gui.Enabled = false
+			for _, tween in tweens do
+				tween:Cancel()
+			end
+			for instance, properties in originals do
+				for property, value in properties do
+					(instance :: any)[property] = value
+				end
+			end
+		end
+	)
+end
+
 function ClientPartyMenuManager:closeMenu()
-	if self.activeMenu == Enums.PartyMenu.NONE then
+	if self.activeMenu == Enums.PartyMenu.NONE and not self.isDeparting then
 		return
 	end
 	self.activeMenu = Enums.PartyMenu.NONE
+	self.isDeparting = false
 	self:showGuis()
 	local padConnection = self.padConnection
 	if padConnection then
@@ -411,9 +473,14 @@ function ClientPartyMenuManager:openMenu(menu: number, padIndex: number, isHost:
 		self.padModel = padModel
 		self.padConnection = padModel.AttributeChanged:Connect(
 			function()
-				if self.activeMenu == Enums.PartyMenu.QUEUE then
-					self:renderQueue()
+				if self.activeMenu ~= Enums.PartyMenu.QUEUE then
+					return
 				end
+				if padModel:GetAttribute(Attributes.PAD_STATE) == Enums.PadState.DEPARTING then
+					self:onDeparting(padModel)
+					return
+				end
+				self:renderQueue()
 			end
 		)
 	end
@@ -436,6 +503,35 @@ function ClientPartyMenuManager:openMenu(menu: number, padIndex: number, isHost:
 	end
 end
 
+-- the pad launched with us aboard: the menu goes, the departure screen comes
+-- in over the takeoff. Only a failed teleport brings us back (menu NONE).
+function ClientPartyMenuManager:onDeparting(padModel: Model)
+	local config = self.config
+	local map = getAttributeNumber(padModel, Attributes.PAD_MAP)
+	local mapName = Enums.getPublicName(Enums.Map, map) or "the mine"
+	-- the menu fades but everything else stays: camera on the pad, billboards
+	-- hidden, HUD away, so the takeoff is watched from the pad's viewpoint
+	self.activeMenu = Enums.PartyMenu.NONE
+	self.isDeparting = true
+	local queueView = self.queueView
+	if queueView and queueView.gui.Enabled then
+		fadeOutGui(queueView.gui, queueView.dialog)
+	end
+	local takeoffSec = if config then config.TAKEOFF_SEC else 4
+	task.delay(
+		DEPARTURE_SCREEN_DELAY_SEC,
+		function()
+			if not self.isDeparting then
+				return
+			end
+			ClientLoadingScreenManager:showDeparture(
+				string.format(DEPARTURE_CAPTION, mapName),
+				math.max(1, takeoffSec - DEPARTURE_SCREEN_DELAY_SEC)
+			)
+		end
+	)
+end
+
 function ClientPartyMenuManager:onNotifyPartyMenu(payload: any)
 	local isValid, err = Validate.isTableShape(payload, NOTIFY_PARTY_MENU_SHAPE)
 	if not isValid then
@@ -444,6 +540,7 @@ function ClientPartyMenuManager:onNotifyPartyMenu(payload: any)
 	end
 	if payload.menu == Enums.PartyMenu.NONE then
 		self:closeMenu()
+		ClientLoadingScreenManager:hideDeparture()
 		return
 	end
 	self:openMenu(payload.menu, payload.padIndex, payload.isHost)
@@ -740,6 +837,7 @@ function ClientPartyMenuManager.new(): ClientPartyMenuManager
 	self.difficultyIndex = 1
 	self.maxPlayers = 1
 	self.isFriendsOnly = false
+	self.isDeparting = false
 	return self
 end
 

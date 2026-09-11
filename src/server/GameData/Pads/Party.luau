@@ -24,6 +24,18 @@ return {
 	TOUCH_DEBOUNCE_SEC = 2,
 	-- how often the server checks pad timers for expiry
 	TIMER_POLL_SEC = 0.25,
+	-- seconds the helicopter climbs (client visual) before characters are
+	-- moved to the holding area and the teleport is attempted
+	TAKEOFF_SEC = 4,
+	-- reserve + teleport attempts before the party is given "Teleport failed"
+	TELEPORT_RETRY_COUNT = 3,
+	TELEPORT_RETRY_DELAY_SEC = 2,
+	-- after a successful teleport call, how long members get to actually leave
+	-- before anyone still here is treated as a failed teleport
+	TELEPORT_SETTLE_SEC = 10,
+	-- a departed helicopter keeps flying (client visual) this long after the
+	-- pad has been reset with a fresh one, then the server destroys it
+	DEPARTED_HELICOPTER_LIFETIME_SEC = 35,
 
 	MAPS = {
 		{

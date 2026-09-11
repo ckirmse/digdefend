@@ -25,6 +25,9 @@ export type ClientLoadingScreenManager = typeof(setmetatable(
 		progress: number,
 		caption: string,
 		loadStatusConnection: RBXScriptConnection?,
+		-- the same screen doubles as the departure screen (decided 2026-09-11,
+		-- M13; may get its own art later)
+		isDeparting: boolean,
 	},
 	ClientLoadingScreenManager
 ))
@@ -157,6 +160,63 @@ function ClientLoadingScreenManager:hide()
 	end
 end
 
+-- slides the loading screen in over the takeoff; the bar fills across
+-- fillSec so it reads as the flight getting under way
+function ClientLoadingScreenManager:showDeparture(caption: string, fillSec: number)
+	if self.isShowing or self.isDeparting then
+		return
+	end
+	self.isDeparting = true
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local gui = playerGui:WaitForChild(Constants.LOADING_GUI_NAME) :: ScreenGui
+	local mainFrame = gui:WaitForChild(Constants.LOADING_MAIN_FRAME) :: Frame
+	local progressBar = mainFrame:WaitForChild(Constants.LOADING_PROGRESS_BAR) :: Frame
+	local fill = progressBar:WaitForChild(Constants.LOADING_PROGRESS_FILL) :: Frame
+	local statusLabel = mainFrame:WaitForChild(Constants.LOADING_STATUS_LABEL) :: TextLabel
+	self.gui = gui
+	self.mainFrame = mainFrame
+	self.fill = fill
+	self.statusLabel = statusLabel
+
+	statusLabel.Text = caption
+	fill.Size = UDim2.fromScale(0, 1)
+	mainFrame.Position = UDim2.fromScale(0, -1)
+	gui.Enabled = true
+	TweenService:Create(
+		mainFrame,
+		TweenInfo.new(HIDE_TWEEN_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ Position = UDim2.fromScale(0, 0) }
+	):Play()
+	TweenService:Create(
+		fill,
+		TweenInfo.new(fillSec, Enum.EasingStyle.Linear),
+		{ Size = UDim2.fromScale(1, 1) }
+	):Play()
+end
+
+-- the teleport failed; the screen leaves the same way the arrival screen does
+function ClientLoadingScreenManager:hideDeparture()
+	if not self.isDeparting then
+		return
+	end
+	self.isDeparting = false
+	local mainFrame = self.mainFrame
+	local gui = self.gui
+	if not mainFrame then
+		return
+	end
+	local tween = TweenService:Create(
+		mainFrame,
+		TweenInfo.new(HIDE_TWEEN_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+		{ Position = UDim2.fromScale(0, -1) }
+	)
+	tween:Play()
+	tween.Completed:Wait()
+	if gui and not self.isShowing and not self.isDeparting then
+		gui.Enabled = false
+	end
+end
+
 function ClientLoadingScreenManager.new(): ClientLoadingScreenManager
 	local self = setmetatable({}, ClientLoadingScreenManager) :: ClientLoadingScreenManager
 	self.gui = nil
@@ -167,6 +227,7 @@ function ClientLoadingScreenManager.new(): ClientLoadingScreenManager
 	self.progress = 0
 	self.caption = "Connecting..."
 	self.loadStatusConnection = nil
+	self.isDeparting = false
 	return self
 end
 

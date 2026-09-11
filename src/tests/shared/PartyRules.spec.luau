@@ -21,6 +21,11 @@ local function makeConfig()
 		DEFAULT_VISIBILITY = Enums.PartyVisibility.PUBLIC,
 		TOUCH_DEBOUNCE_SEC = 2,
 		TIMER_POLL_SEC = 0.25,
+		TAKEOFF_SEC = 4,
+		TELEPORT_RETRY_COUNT = 3,
+		TELEPORT_RETRY_DELAY_SEC = 2,
+		TELEPORT_SETTLE_SEC = 10,
+		DEPARTED_HELICOPTER_LIFETIME_SEC = 35,
 		MAPS = {
 			{ map = Enums.Map.DEADMANS_CANYON, thumbnail = "rbxassetid://0" },
 			{
@@ -338,6 +343,41 @@ describe(
 				expect(PartyRules.decodeConfig("")).toBe(nil)
 				expect(PartyRules.decodeConfig("{not json")).toBe(nil)
 				expect(PartyRules.decodeConfig("{}")).toBe(nil)
+			end
+		)
+	end
+)
+
+describe(
+	"PartyRules.buildJoinData / getArrivalRejection",
+	function()
+		local joinData = PartyRules.buildJoinData(Enums.Map.DEADMANS_CANYON, Enums.Difficulty.HARD, 10, 2, { 10, 20, 30 })
+
+		it(
+			"counts the players actually teleported",
+			function()
+				expect(joinData.playerCount).toBe(3)
+				expect(joinData.hostUserId).toBe(10)
+				expect(joinData.padIndex).toBe(2)
+			end
+		)
+
+		it(
+			"admits party members and rejects everyone else",
+			function()
+				expect(PartyRules.getArrivalRejection(joinData, 20)).toBe(nil)
+				expect(PartyRules.getArrivalRejection(joinData, 99)).toBe(PartyRules.ARRIVAL_REJECTION)
+			end
+		)
+
+		it(
+			"rejects missing or malformed join data",
+			function()
+				expect(PartyRules.getArrivalRejection(nil, 10)).toBe(PartyRules.ARRIVAL_REJECTION)
+				expect(PartyRules.getArrivalRejection({ map = 1 }, 10)).toBe(PartyRules.ARRIVAL_REJECTION)
+				local tampered = PartyRules.buildJoinData(Enums.Map.DEADMANS_CANYON, Enums.Difficulty.NORMAL, 10, 1, { 10 })
+				tampered.memberUserIds = {}
+				expect(PartyRules.getArrivalRejection(tampered, 10)).toBe(PartyRules.ARRIVAL_REJECTION)
 			end
 		)
 	end

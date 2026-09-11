@@ -5,9 +5,11 @@
 -- the attributes clients need to render the billboard and menus, and this
 -- manager is their only writer. M11 covers records, transitions, and
 -- replication; M12 adds touch handling, seating, timers, and the menus'
--- messages. Launch (M13) is stubbed: an expired boarding timer idles the pad.
+-- messages; M13 the launch: takeoff, holding area, one party teleport to a
+-- reserved gameplay server, failure recovery, and the pad reset.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -55,7 +57,6 @@ local NO_TIMER = 0
 -- lifts a character clear of the ExitSpawn part so it does not spawn inside it
 local EXIT_LIFT = Vector3.new(0, 3, 0)
 local EXIT_MOVE_DELAY_SEC = 0.1
-local LAUNCH_STUB_MESSAGE = "Launch arrives in M13"
 
 local EMPTY_SHAPE = {}
 
@@ -223,7 +224,10 @@ function PartyManager:removeMember(party: Party, player: Player): Player?
 	table.remove(party.members, index)
 	party.seatByPlayer[player] = nil
 	if #party.members == 0 then
-		self:setIdle(party)
+		-- a departing pad is reset by the launch flow itself, never underneath it
+		if party.state ~= Enums.PadState.DEPARTING then
+			self:setIdle(party)
+		end
 		return nil
 	end
 	local promotedHost: Player? = nil
@@ -439,12 +443,30 @@ function PartyManager:onSeatOccupantChanged(party: Party, seat: Seat)
 		return
 	end
 	seat.Disabled = true
+	-- the launch flow empties every seat itself on the way to the holding area
+	if party.state == Enums.PadState.DEPARTING then
+		return
+	end
 	for player, playerSeat in party.seatByPlayer do
 		if playerSeat == seat then
 			self:leaveParty(player, false)
 			return
 		end
 	end
+end
+
+-- the launched helicopter stays in the world (renamed, so it is no longer the
+-- pad's helicopter) while clients fly it off, then goes away for good
+function PartyManager:retireHelicopter(helicopter: Instance)
+	helicopter.Name = Constants.DEPARTED_HELICOPTER_NAME
+	task.delay(
+		self:getConfig().DEPARTED_HELICOPTER_LIFETIME_SEC,
+		function()
+			if helicopter.Parent then
+				helicopter:Destroy()
+			end
+		end
+	)
 end
 
 -- GDD: every pad has a helicopter sitting on it when the server starts
@@ -458,7 +480,11 @@ function PartyManager:placeHelicopter(party: Party)
 	end
 	local existing = party.model:FindFirstChild(Constants.HELICOPTER_TEMPLATE)
 	if existing then
-		existing:Destroy()
+		if party.state == Enums.PadState.DEPARTING then
+			self:retireHelicopter(existing)
+		else
+			existing:Destroy()
+		end
 	end
 	local helicopter = template:Clone()
 	helicopter:PivotTo(helicopterSpawn.CFrame)
@@ -490,14 +516,165 @@ function PartyManager:connectTouch(party: Party)
 	)
 end
 
--- M13 replaces this with the real departure; until then an expired boarding
--- timer or a Launch press empties the pad so testing loops stay short
-function PartyManager:launch(party: Party)
-	print(`[PartyManager] pad {party.padIndex} would launch with {#party.members} player(s)`)
-	for _, member in table.clone(party.members) do
-		PlayerFeedbackManager:give(member, LAUNCH_STUB_MESSAGE)
-		self:leaveParty(member, false)
+function PartyManager:getPresentMembers(party: Party): { Player }
+	local present = {}
+	for _, member in party.members do
+		if member.Parent == Players then
+			table.insert(present, member)
+		end
 	end
+	return present
+end
+
+function PartyManager:getHoldingSpawns(): { BasePart }
+	local spawns: { BasePart } = {}
+	local holdingArea = workspace:FindFirstChild(Constants.HOLDING_AREA_FOLDER)
+	local folder = if holdingArea then holdingArea:FindFirstChild(Constants.HOLDING_AREA_SPAWNS_FOLDER) else nil
+	if not folder then
+		return spawns
+	end
+	for _, child in folder:GetChildren() do
+		if child:IsA("BasePart") then
+			table.insert(spawns, child)
+		end
+	end
+	return spawns
+end
+
+-- GDD: characters wait out the teleport under the map so a slow or failed
+-- teleport never leaves avatars sitting in a helicopter that has "left"
+function PartyManager:moveToHolding(party: Party, members: { Player })
+	local spawns = self:getHoldingSpawns()
+	if #spawns == 0 then
+		warn("PartyManager: no holding area spawns; characters stay on the pad")
+		return
+	end
+	local random = Random.new()
+	for _, member in members do
+		local character = member.Character
+		if not character then
+			continue
+		end
+		local seat = party.seatByPlayer[member]
+		local weld = if seat then seat:FindFirstChild("SeatWeld") else nil
+		if weld then
+			weld:Destroy()
+		end
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.Sit = false
+		end
+		local spawn = spawns[random:NextInteger(1, #spawns)]
+		task.delay(
+			EXIT_MOVE_DELAY_SEC,
+			function()
+				character:PivotTo(CFrame.new(spawn.Position + EXIT_LIFT))
+			end
+		)
+	end
+end
+
+-- one reserve + one teleport call for the whole party, retried as a pair
+function PartyManager:teleportParty(party: Party, members: { Player }): boolean
+	local memberUserIds = {}
+	for _, member in members do
+		table.insert(memberUserIds, member.UserId)
+	end
+	local joinData = PartyRules.buildJoinData(
+		party.map or 0,
+		party.difficulty or 0,
+		party.hostUserId,
+		party.padIndex,
+		memberUserIds
+	)
+	local config = self:getConfig()
+	for attempt = 1, config.TELEPORT_RETRY_COUNT do
+		local isSuccess, err = pcall(
+			function()
+				local accessCode = TeleportService:ReserveServer(Constants.GAMEPLAY_PLACE_ID)
+				local options = Instance.new("TeleportOptions")
+				options.ReservedServerAccessCode = accessCode
+				options:SetTeleportData(joinData)
+				TeleportService:TeleportAsync(Constants.GAMEPLAY_PLACE_ID, members, options)
+			end
+		)
+		if isSuccess then
+			print(`[PartyManager] pad {party.padIndex} teleported {#members} player(s)`)
+			return true
+		end
+		warn(`PartyManager: teleport attempt {attempt} for pad {party.padIndex} failed:`, err)
+		if attempt < config.TELEPORT_RETRY_COUNT then
+			task.wait(config.TELEPORT_RETRY_DELAY_SEC)
+		end
+	end
+	return false
+end
+
+-- GDD: a failed teleport respawns the player in SpawnZone with "Teleport
+-- failed" (the one respawn the lobby is allowed to trigger itself)
+function PartyManager:failTeleport(party: Party, members: { Player })
+	for _, member in members do
+		if member.Parent ~= Players then
+			continue
+		end
+		self:notifyMenu(member, Enums.PartyMenu.NONE, nil)
+		PlayerFeedbackManager:give(member, PartyRules.FEEDBACK_TELEPORT_FAILED)
+		member:LoadCharacter()
+	end
+end
+
+-- fresh helicopter, cleared record, back to Idle; only the launch flow that
+-- set Departing may reset, so an intervening state change is left alone
+function PartyManager:resetPad(party: Party)
+	if party.state ~= Enums.PadState.DEPARTING then
+		return
+	end
+	self:placeHelicopter(party)
+	self:setIdle(party)
+end
+
+function PartyManager:runLaunch(party: Party)
+	local config = self:getConfig()
+	task.wait(config.TAKEOFF_SEC)
+	local members = self:getPresentMembers(party)
+	if #members == 0 then
+		self:resetPad(party)
+		return
+	end
+	self:moveToHolding(party, members)
+	task.wait(EXIT_MOVE_DELAY_SEC * 2)
+
+	-- a member who left during takeoff is simply excluded
+	members = self:getPresentMembers(party)
+	local isSuccess = #members > 0 and self:teleportParty(party, members)
+	if not isSuccess then
+		self:failTeleport(party, members)
+		self:resetPad(party)
+		return
+	end
+
+	task.wait(config.TELEPORT_SETTLE_SEC)
+	local stragglers = self:getPresentMembers(party)
+	if #stragglers > 0 then
+		warn(`PartyManager: {#stragglers} player(s) never left after the teleport call on pad {party.padIndex}`)
+		self:failTeleport(party, stragglers)
+	end
+	self:resetPad(party)
+end
+
+-- launch on Launch press, boarding timeout, or capacity countdown; a party
+-- of one launches. Clients see Departing and take over the visuals.
+function PartyManager:launch(party: Party)
+	if party.state ~= Enums.PadState.BOARDING then
+		return
+	end
+	print(`[PartyManager] pad {party.padIndex} launching with {#party.members} player(s)`)
+	self:setDeparting(party)
+	task.spawn(
+		function()
+			self:runLaunch(party)
+		end
+	)
 end
 
 function PartyManager:onCreationTimedOut(party: Party)

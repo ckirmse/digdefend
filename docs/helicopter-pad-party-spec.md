@@ -1,6 +1,6 @@
 # Helicopter Pad Party System — Spec
 
-**Status:** implemented through M12 (2026-09-11). This document mirrors the GDD "Helicopter Pads – Party Creation/Teleports", "Create Party Menu", and "Queue Menu" sections and records how they are realised in code. Launch and teleport (§3.4) arrive in M13.
+**Status:** implemented through M13 (2026-09-11). This document mirrors the GDD "Helicopter Pads – Party Creation/Teleports", "Create Party Menu", and "Queue Menu" sections and records how they are realised in code.
 
 **Reference:** Dead Rails' Create Party flow (difficulty carousel, player-count stepper, Friends Only toggle, creation countdown). No join-by-code.
 
@@ -67,13 +67,21 @@ When the party reaches max players the boarding timer drops to `CAPACITY_TIME_SE
 
 Leaving: the **Exit** button or disconnecting (or the seat emptying for any other reason). The character goes to `ExitSpawn`. If the host leaves and others remain, the earliest joiner is promoted ("You are now the party host") and their menu switches to host mode. If nobody remains the pad returns to `IDLE`.
 
-### 3.4 Launching (M13)
+### 3.4 Launching
 
 Triggers: host presses **Launch**, the boarding timer reaches zero, or the capacity countdown reaches zero. A party of one launches.
 
-On launch: `DEPARTING`, helicopter takes off, departure loading screen, characters to random `HoldingArea.Spawns`, one `TeleportPartyAsync` with join data (§7), retry and "Teleport failed" handling, fresh helicopter cloned to `HelicopterSpawn`, pad back to `IDLE`.
+Server (`PartyManager:runLaunch`):
+1. `DEPARTING`. Seats emptying no longer count as leaving.
+2. After `TAKEOFF_SEC` the present members are unseated and moved to random `HoldingArea.Spawns`.
+3. `TeleportService:ReserveServer` + one `TeleportAsync` with the member list and join data (§7), retried `TELEPORT_RETRY_COUNT` times `TELEPORT_RETRY_DELAY_SEC` apart. A member who left during takeoff is excluded.
+4. On final failure every present member gets `NotifyPartyMenu NONE`, "Teleport failed", and `LoadCharacter` (respawn in `SpawnZone`).
+5. On success, anyone still here after `TELEPORT_SETTLE_SEC` gets the same failure treatment.
+6. Reset: the launched helicopter is renamed `DepartedHelicopter` and destroyed after `DEPARTED_HELICOPTER_LIFETIME_SEC`; a fresh one is cloned to `HelicopterSpawn`; the pad returns to `IDLE`. Only the launch flow that set `DEPARTING` may reset.
 
-Until M13 the launch is a stub: the pad empties with the feedback "Launch arrives in M13".
+Client:
+- Every client flies the departed helicopter (`ClientHelicopterManager`): rotor at full speed, climb 100 studs, cruise 1000 studs along the model's facing, then the local copy is removed.
+- Party members: the Queue menu fades out, the camera stays on `CameraPositionPart`, and 2 s later the departure screen (the `Loading` ScreenGui in departure mode, "Flying to <map>...") slides in. Menu NONE (failure) restores everything and hides the screen.
 
 ---
 
@@ -114,6 +122,11 @@ return {
 	DEFAULT_VISIBILITY = Enums.PartyVisibility.PUBLIC,
 	TOUCH_DEBOUNCE_SEC = 2,
 	TIMER_POLL_SEC = 0.25,
+	TAKEOFF_SEC = 4,
+	TELEPORT_RETRY_COUNT = 3,
+	TELEPORT_RETRY_DELAY_SEC = 2,
+	TELEPORT_SETTLE_SEC = 10,
+	DEPARTED_HELICOPTER_LIFETIME_SEC = 35,
 	MAPS = { { map = Enums.Map.DEADMANS_CANYON, thumbnail = "rbxassetid://0" }, ... },
 	DIFFICULTIES = { { difficulty = Enums.Difficulty.NORMAL }, { difficulty = Enums.Difficulty.HARD, requires = { difficulty = Enums.Difficulty.NORMAL } }, ... },
 }
@@ -181,13 +194,15 @@ A run's completion is recorded for a player only if that player had already comp
 
 ---
 
-## 7. Join data (M13)
+## 7. Join data
+
+`PartyRules.buildJoinData`, sent as the teleport data and validated by `PartyRules.JOIN_DATA_SHAPE`:
 
 ```lua
-{ map = Enums.Map.X, difficulty = Enums.Difficulty.Y, playerCount = 4, hostUserId = 12345, padIndex = 2 }
+{ map = Enums.Map.X, difficulty = Enums.Difficulty.Y, playerCount = 4, hostUserId = 12345, padIndex = 2, memberUserIds = { 12345, ... } }
 ```
 
-`playerCount` is the number actually teleported.
+`playerCount` is the number actually teleported. The gameplay place's `ArrivalGateManager` runs `PartyRules.getArrivalRejection` on every arrival and kicks anyone without valid join data or not listed in `memberUserIds` (Studio play sessions are let through with a warning).
 
 ---
 
@@ -205,7 +220,7 @@ A run's completion is recorded for a player only if that player had already comp
 | Host disconnects during `CONFIGURING` | Pad → `IDLE` |
 | Host disconnects during `BOARDING`, others present | Earliest joiner promoted. Timer unaffected. |
 | Host disconnects during `BOARDING`, alone | Pad → `IDLE` |
-| Player disconnects during `DEPARTING` | Excluded from teleport (M13) |
+| Player disconnects during `DEPARTING` | Excluded from teleport |
 | Party full, then someone leaves before the capacity countdown expires | Timer keeps counting; launches with the remaining players |
 | Host presses Launch with 1 player | Launches solo |
 | Player touches a pad while already in another pad's party | Rejected; must Exit first |

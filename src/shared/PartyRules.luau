@@ -38,6 +38,11 @@ export type Config = {
 	DEFAULT_VISIBILITY: number,
 	TOUCH_DEBOUNCE_SEC: number,
 	TIMER_POLL_SEC: number,
+	TAKEOFF_SEC: number,
+	TELEPORT_RETRY_COUNT: number,
+	TELEPORT_RETRY_DELAY_SEC: number,
+	TELEPORT_SETTLE_SEC: number,
+	DEPARTED_HELICOPTER_LIFETIME_SEC: number,
 	MAPS: { MapEntry },
 	DIFFICULTIES: { DifficultyEntry },
 }
@@ -50,6 +55,19 @@ export type Selection = {
 }
 
 export type HasCompletion = (completionKey: string) -> boolean
+
+-- what the lobby sends with the party teleport and the gameplay server reads
+-- back from Player:GetJoinData().TeleportData
+export type JoinData = {
+	map: number,
+	difficulty: number,
+	-- players actually teleported, never the party's max; the gameplay server
+	-- scales from this and never waits for more
+	playerCount: number,
+	hostUserId: number,
+	padIndex: number,
+	memberUserIds: { number },
+}
 
 -- what the server knows about a would-be joiner when JoinCollision is touched
 export type JoinContext = {
@@ -69,6 +87,8 @@ PartyRules.FEEDBACK_ALREADY_IN_PARTY = "You're already in a party"
 PartyRules.FEEDBACK_FRIENDS_ONLY = "This party is friends only"
 PartyRules.FEEDBACK_CREATION_TIMED_OUT = "Party creation timed out"
 PartyRules.FEEDBACK_NOW_HOST = "You are now the party host"
+PartyRules.FEEDBACK_TELEPORT_FAILED = "Teleport failed"
+PartyRules.ARRIVAL_REJECTION = "This server is reserved for a party"
 
 local REQUIREMENT_SHAPE = {
 	map = { type = "enum", name = "Map", optional = true },
@@ -95,8 +115,22 @@ local CONFIG_SHAPE = {
 	DEFAULT_VISIBILITY = { type = "enum", name = "PartyVisibility" },
 	TOUCH_DEBOUNCE_SEC = "positiveNumber",
 	TIMER_POLL_SEC = "positiveNumber",
+	TAKEOFF_SEC = "positiveNumber",
+	TELEPORT_RETRY_COUNT = "positiveInteger",
+	TELEPORT_RETRY_DELAY_SEC = "positiveNumber",
+	TELEPORT_SETTLE_SEC = "positiveNumber",
+	DEPARTED_HELICOPTER_LIFETIME_SEC = "positiveNumber",
 	MAPS = { type = "array", elementType = { type = "table", shape = MAP_ENTRY_SHAPE }, nonempty = true },
 	DIFFICULTIES = { type = "array", elementType = { type = "table", shape = DIFFICULTY_ENTRY_SHAPE }, nonempty = true },
+}
+
+PartyRules.JOIN_DATA_SHAPE = {
+	map = { type = "enum", name = "Map" },
+	difficulty = { type = "enum", name = "Difficulty" },
+	playerCount = "positiveInteger",
+	hostUserId = "positiveInteger",
+	padIndex = "positiveInteger",
+	memberUserIds = { type = "array", elementType = "positiveInteger", nonempty = true },
 }
 
 PartyRules.SELECTION_SHAPE = {
@@ -289,6 +323,32 @@ end
 -- but never goes back up, and a later leaver does not restore it
 function PartyRules.getTimerEndTimeOnFull(currentEndTime: number, now: number, capacityTimeSec: number): number
 	return math.min(currentEndTime, now + capacityTimeSec)
+end
+
+function PartyRules.buildJoinData(map: number, difficulty: number, hostUserId: number, padIndex: number, memberUserIds: { number }): JoinData
+	return {
+		map = map,
+		difficulty = difficulty,
+		playerCount = #memberUserIds,
+		hostUserId = hostUserId,
+		padIndex = padIndex,
+		memberUserIds = table.clone(memberUserIds),
+	}
+end
+
+-- the gameplay server's door check: nil when this player belongs to the party
+-- the server was reserved for, otherwise the kick reason. Reserved servers
+-- already keep outsiders away; this is the second lock.
+function PartyRules.getArrivalRejection(teleportData: any, userId: number): string?
+	local isValid = Validate.isTableShape(teleportData, PartyRules.JOIN_DATA_SHAPE)
+	if not isValid then
+		return PartyRules.ARRIVAL_REJECTION
+	end
+	local joinData = teleportData :: JoinData
+	if not table.find(joinData.memberUserIds, userId) then
+		return PartyRules.ARRIVAL_REJECTION
+	end
+	return nil
 end
 
 -- the config travels to clients as one JSON attribute on GameMetadata; the
