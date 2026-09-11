@@ -6,6 +6,11 @@
   "servePort": 34872,
   "tree": {
     "$className": "DataModel",
+    "ReplicatedFirst": {
+      "loading": {
+        "$path": "src/first/loading.client.luau"
+      }
+    },
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"

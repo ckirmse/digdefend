@@ -15,6 +15,17 @@ Constants.CURRENT_PLAYER_FOLDER = "CurrentPlayer"
 Constants.OWNED_UNLOCKS_FOLDER = "OwnedUnlocks"
 Constants.COMPLETIONS_FOLDER = "Completions"
 
+-- ScreenGuis authored in Studio (scripts/studio/*.luau rebuild them)
+Constants.LOADING_GUI_NAME = "Loading"
+Constants.LOADING_MAIN_FRAME = "Main"
+Constants.LOADING_TITLE_IMAGE = "TitleImage"
+Constants.LOADING_TITLE_TEXT = "TitleText"
+Constants.LOADING_PROGRESS_BAR = "ProgressBar"
+Constants.LOADING_PROGRESS_FILL = "Fill"
+Constants.LOADING_STATUS_LABEL = "Status"
+Constants.PLAYER_FEEDBACK_GUI_NAME = "PlayerFeedback"
+Constants.PLAYER_FEEDBACK_BOX = "FeedbackBox"
+Constants.PLAYER_FEEDBACK_LABEL = "Message"
 Constants.REMOTE_EVENT_NAME = "GameRemoteEvent"
 -- client-only BindableEvent; server feedback travels as NotifyPlayerFeedback on the RemoteEvent
 Constants.PLAYER_FEEDBACK_LOCAL_EVENT_NAME = "GivePlayerFeedbackLocal"

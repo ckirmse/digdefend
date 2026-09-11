@@ -174,6 +174,28 @@ Every RemoteEvent handler validates its inputs before doing anything. Table payl
 
 Defined in M10 and recorded here when decided: font choices, capitalization, centering, layout rules, exclamation points (very rarely). When copying UI from the reference games, restyle to these standards even if the functionality is the same.
 
+### GUI standard (decided 2026-09-11, M9)
+**Goal: every ScreenGui keeps its intended appearance on every device type** (phone, tablet, desktop, console, ultrawide). A layout is finished only when it reads the same at 375×667 and 3840×2160. These rules exist to make that true by construction, not by touch-up.
+
+Sizing and position:
+- **Scale** for the position and size of every container and label, never offset, so proportions hold across resolutions.
+- `UIAspectRatioConstraint` on any frame whose shape matters (images, buttons, cards, dialogs), so it does not stretch between phone and widescreen.
+- `UISizeConstraint` (min and max pixels) on elements that must stay usable on a phone and not balloon on a big screen (bars, boxes, buttons, icons).
+- `TextScaled = true` on every label, paired with a `UITextSizeConstraint` (min and max), so text is never unreadable or enormous. Long dynamic text gets `TextTruncate` rather than overflowing.
+- **Offset only for hairlines:** strokes, corner radii, padding, and the pixel bounds inside a size constraint.
+- Lists and grids use `UIListLayout` / `UIGridLayout` with scale-based cell sizes plus constraints; never hand-placed rows.
+
+Device fit:
+- Full-screen overlays (loading, departure) set `IgnoreGuiInset = true`; everything else respects the inset so the top bar never covers it.
+- Anchor to edges or center with `AnchorPoint`, never to absolute coordinates, so notches and aspect changes cannot push content off screen.
+- Touch targets are at least 44 pixels on a side at the size constraint's minimum; anything smaller is a design bug.
+- Input-specific controls (keyboard hints, gamepad glyphs, touch buttons) are toggled per input type, not left visible everywhere.
+
+Authoring and verification:
+- ScreenGuis are authored by replayable build scripts in `scripts/studio/` (run through the Studio MCP), never hand-built, so both places get identical copies and a rebuild is one command. The script is the source of truth; edits in the Explorer are lost.
+- Before a UI milestone is closed, check the screen in Studio's Device Emulator at a phone, a tablet, a desktop, and an ultrawide preset, and confirm the captured `AbsoluteSize` values sit inside their constraints.
+- Colours, fonts, capitalization, and copy rules are decided in M10 and added here when settled.
+
 ## Testing
 
 jest-roblox (jsdotlua Jest via Wally dev-dependencies, installed to the committed `DevPackages/`). Tests live under `src/tests/`, mounted at `ServerScriptService/Tests` in both places and in `analysis.project.json` so `scripts/analyze.sh` type-checks them. Specs are `*.spec.luau` under `src/tests/shared`, matched by `src/tests/shared/jest.config.luau`. Specs require code by instance path (`game:GetService("ReplicatedStorage").Shared.utils`), never the `@game` alias, because jest-runtime cannot resolve it, and import `JestGlobals` explicitly because `debug.loadmodule` is unavailable in Edit mode.

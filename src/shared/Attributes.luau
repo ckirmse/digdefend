@@ -38,6 +38,10 @@ module = {
 	DAILY_REWARD_LAST_CLAIMED_DAY = "DailyRewardLastClaimedDay",
 	DAILY_REWARD_NEXT_CLAIM_TIME = "DailyRewardNextClaimTime",
 	-- icon capture pipeline (see docs/icon-capture.md, IconFramingFormat, ApplyIconFramings)
+	-- on the Loading ScreenGui; src/first/loading.client.luau uses the literals
+	-- because nothing in ReplicatedStorage has replicated when it runs
+	LOADING_HANDOFF = "LoadingHandoff",
+	LOADING_SHOWN_AT = "LoadingShownAt",
 	ICON_FRAMING = "IconFraming",
 	ICON_IMAGE_ID = "IconImageId",
 }
