@@ -80,6 +80,29 @@ module = {
 			URANIUM = "Uranium",
 		},
 	},
+	-- one helicopter pad's party lifecycle (GDD "Helicopter Pads")
+	PadState = {
+		IDLE = 1,
+		CONFIGURING = 2,
+		BOARDING = 3,
+		DEPARTING = 4,
+
+		PublicNames = {
+			IDLE = "Open",
+			CONFIGURING = "Setting Up",
+			BOARDING = "Now Boarding",
+			DEPARTING = "Departing",
+		},
+	},
+	PartyVisibility = {
+		PUBLIC = 1,
+		FRIENDS_ONLY = 2,
+
+		PublicNames = {
+			PUBLIC = "Public",
+			FRIENDS_ONLY = "Friends Only",
+		},
+	},
 	RockKind = {
 		FILLER = 1,
 		RESOURCE = 2,

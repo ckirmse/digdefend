@@ -15,8 +15,19 @@ module = {
 	SHADOW_TYPE = "ShadowType",
 	-- GameMetadata
 	PLACE_KIND = "PlaceKind",
-	-- on each helicopter pad model; GameData/Pads (Phase 3) holds everything else
+	-- on each helicopter pad model: PadIndex is Studio-authored, the rest is
+	-- runtime party state written only by PartyManager (GDD "Helicopter Pads")
 	PAD_INDEX = "PadIndex",
+	PAD_STATE = "PadState",
+	PAD_HOST_USER_ID = "PadHostUserId",
+	PAD_MAP = "PadMap",
+	PAD_DIFFICULTY = "PadDifficulty",
+	PAD_MAX_PLAYERS = "PadMaxPlayers",
+	PAD_VISIBILITY = "PadVisibility",
+	PAD_PLAYER_COUNT = "PadPlayerCount",
+	-- server time (GetServerTimeNow) the active pad timer expires; 0 when none;
+	-- clients count down locally from it
+	PAD_TIMER_END_TIME = "PadTimerEndTime",
 	-- CurrentPlayer (private)
 	CASH = "Cash",
 	LOADOUT_WEAPON = "LoadoutWeapon",

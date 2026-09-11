@@ -29,7 +29,7 @@ The Lobby
 * The lobby will be the Apocalyptic Mining Co. headquarters, a high security base in the middle of a post-apocalyptic wasteland
 * The lobby will have a few map locations. Each zone will have its own folder under workspace (Workspace.SpawnZone, Workspace.HelicopterPads, etc.) 
    * SpawnZone - a central area in the map where players spawn in 
-   * 6 Helicopter Pads (queues – teleports to the gameplay server) 
+   * 6 Helicopter Pads (party creation – teleports to the gameplay server) 
    * 3D Store (shows featured items, gives secondary access to store menu)
    * Event Area - an area reserved for future events 
    * HoldingArea - a room under the map where teleporting player characters can be placed during the teleport process. 
@@ -45,64 +45,81 @@ The Lobby
 Lobby Map Areas
 SpawnZone
 * This will be a central area in the lobby that contains all SpawnLocations. Players will spawn here when they join or if they have teleport issues. 
-Helicopter Pads – Queues/Teleports
-* Helicopter Pads teleport groups of players to a new, private instance of the gameplay place
-* At launch, each helicopter pad will take players to one of two maps at one of three difficulties
-   * Helicopter Pad #1: Map 1 - Normal
-   * Helicopter Pad #2: Map 1 - Hard (Unlocked @ Map #1 - Normal completion)
-   * Helicopter Pad #3: Map 1 - Nightmare (Unlocked @ Map #1 - Hard completion)
-   * Helicopter Pad #4: Map 2 - Normal  (Unlocked @ Map #1 - Normal completion)
-   * Helicopter Pad #5: Map 2 - Hard (Unlocked @ Map #2 - Normal completion)
-   * Helicopter Pad #6: Map 2 - Nightmare  (Unlocked @ Map #2 - Hard completion)
-* Every Helicopter Pad has a Helicopter sitting on it when the server initializes 
-* Every Helicopter Pad has a billboard gui at its entrance. It shows:
-   * Status:  Boarding or Departing (Players can join or teleport in progress/can’t join)
-   * Number of current players in queue / max number of players in queue
-   * Seconds until departure
-* Each Helicopter Pad will have a TeleportTimer and use a universal FullTime and Capacity Time to set wait times. 
-   * TeleportTimer: Number of seconds until queued players are teleported
-   * FullTime: The full wait time for a non full queue
-   * CapacityTime: The adjusted wait time for a full queue
-   * If no players are in the queue, no timer is active. 
-   * The first player to enter the queue triggers the TeleportTimer, starting at FullTime
-   * If a player joins the queue and number of queued players == max players and the TeleportTimer is greater than CapacityTime, then the timer is set to CapacityTime to cut down on wasted time waiting
-   * If all players leave before the TeleportTimer completes, the timer is reset and turned off until another player joins. 
-* To join a helicopter, players simply walk onto the helicopter pad 
-   * Touching JoinCollision checks if they meet the requirements then puts them in the queue if they are eligible and there is an open spot and the queue is boarding)
-   * If the player meets the requirements, their character is placed inside the helicopter at one of six spawn points (invisible parts placed inside the helicopter)
-   * The current players in queue number is updated (and reflected on that pad’s GUI)
-   * The player’s camera is placed at a specific spot outside of the helicopter looking in (again, an invisible part inside the helicopter pad model will be used for CFrame)
-   * Once joined, the Queue HUD appears:
-      * A leave button: when pressed removes player from the queue, places their character outside of the helicopter, and returns default camera control
-   * If there are no other players, the departure timer begins at FullTime (30 seconds)
-   * If there amount of queued players == max players, the departure timer is reduced to CapacityTime (3 seconds) 
-   * Once the timer reaches 0, the status should change to “Departing” and the Helicopter should take off into the air as the loading screen fades in for queued players
-   * At this point, teleporting player characters can be moved to random spawn inside the a HoldingArea.Spawns folder (there will be multiple invisible parts). This will remove their avatar from the view of other players in case they have teleport issues. 
-   * All players inside the queue should be teleported to the game place. The lobby should send playerNumber, map, and difficulty via join data. 
-   * Ensure there is handling/retries for a failed teleport. A failed teleport should respawn the player in the main SpawnZone along with a “Teleport failed” message. 
-   * A fresh helicopter model should be cloned from ReplicatedStorage, placed at the HelicopterSpawn and parented to the HelicopterPad model. 
-   * Boarding should be set to true, timer reset, and new players should be able to join. 
-* Every Helicopter Pad will be a Model, located inside Workspace.HelicopterPads. Inside each model will be:
-   * MapNumber (IntValue): Value corresponds to the map it is going to
-   * DifficultyNumber (IntValue): Value corresponds to the difficulty 
-   * MaxPlayers (IntValue): Value corresponds to the max number of players allowed
-   * Boarding (BoolValue): Value corresponds to whether the pad is currently teleporting queued players/accepting players into queue
+Helicopter Pads – Party Creation/Teleports
+* Helicopter Pads teleport parties of players to a new, private instance of the gameplay place
+* All 6 pads are identical. A pad is not tied to a map or difficulty. The first player onto an idle pad becomes the party host and configures the run (map, difficulty, party size, visibility). This is modelled on Dead Rails' Create Party flow, without join-by-code. Adding a map or difficulty later means adding it to the party config, not building a pad.
+* Every Helicopter Pad has a Helicopter sitting on it when the server initializes
+* Every Helicopter Pad has a billboard gui at its entrance. It shows, by state:
+   * Idle: "Open"
+   * Configuring: "Setting up…"
+   * Boarding: map name, difficulty, current players / max players, a friends-only icon if the party is friends only, seconds until departure
+   * Departing: "Departing"
+* Pad states. Each pad is in exactly one state, held in server Lua and replicated to clients as an attribute on the pad model so the billboard and menus can render it:
+   * Idle: empty, no host. Touching JoinCollision makes you the host and moves the pad to Configuring.
+   * Configuring: the host is on the Create Party Menu. Nobody else can join; touching gives the feedback "Pad is being set up".
+   * Boarding: configured and accepting players who pass the join checks.
+   * Departing: teleport in progress. Nobody can join; touching gives "Pad is departing".
+   * Transitions: Idle → (touch) → Configuring → (Create) → Boarding → (launch) → Departing → (reset) → Idle. Configuring returns to Idle on creation timeout or if the host leaves. Boarding returns to Idle if nobody is left.
+* Becoming host
+   * A player touches JoinCollision on an Idle pad. The server rejects them with "You're already in a party" if they are in a party on any pad.
+   * The server sets the pad to Configuring with this player as host and starts the CreationTimer at CreationTimeout.
+   * The host's character is seated in the helicopter at the first PlayerSpawn and their camera is moved to CameraPositionPart.
+   * The host's client opens the Create Party Menu.
+   * If two players touch an Idle pad at the same time, the first processed becomes host and the second gets "Pad is being set up". Never two hosts.
+* Configuring
+   * The Create Party Menu shows a countdown. Changing a setting does not reset it: CreationTimeout is a hard limit on how long a pad can be held without committing.
+   * If the countdown reaches zero, or the host leaves the game or leaves the pad: the host is moved to ExitSpawn, camera returned, menu closed, and the pad returns to Idle. The timeout gives the feedback "Party creation timed out"; leaving gives none.
+   * When the host presses Create, the server validates the selection (see Create validation). If invalid, it rejects with feedback and the pad stays Configuring. If valid, the server records map, difficulty, max players, and visibility on the pad, sets Boarding, stops the CreationTimer, and starts the BoardingTimer at BoardingTimeout. The host's client swaps the Create Party Menu for the Queue Menu in host mode and the billboard shows the configuration.
+* Boarding
+   * Other players touch JoinCollision. The server runs the join checks. On pass, the character is seated at the next free PlayerSpawn, the camera moved, the player added to the party, the count updated on the billboard, and the Queue Menu opened in member mode.
+   * When the party reaches max players, the BoardingTimer is set to CapacityTime (a short auto-launch countdown).
+   * Leaving: the Exit button in the Queue Menu, leaving the pad, or disconnecting. The character goes to ExitSpawn and the party and billboard update. If a full party drops below full, the timer does not go back up; it keeps counting from where it is (a full party that loses someone in the last two seconds still launches).
+   * If the host leaves during Boarding and other players remain, the earliest-joined remaining player becomes host, their Queue Menu switches to host mode, and they get the feedback "You are now the party host". If nobody remains, the pad returns to Idle.
+* Launching. Any of these launches:
+   * The host presses Launch in the Queue Menu
+   * The BoardingTimer reaches zero
+   * The CapacityTime countdown reaches zero after the party filled
+   * A party of one launches solo. This is allowed and expected.
+* On launch:
+   * The pad is set to Departing and the billboard shows "Departing". The helicopter takes off as the Departure Loading Screen fades in for party members.
+   * Party members' characters are moved to random spawns inside HoldingArea.Spawns. This removes their avatars from view in case of teleport issues.
+   * All party members are teleported together (one party teleport call, never per player) to a fresh reserved gameplay server. Join data: map, difficulty, playerCount (the number actually teleported, not max players; the gameplay server scales from this and never waits for more), hostUserId, and padIndex for logging. Only players in that party can enter that gameplay server.
+   * A failed teleport is retried; on final failure the player respawns in SpawnZone with a "Teleport failed" message. A player who disconnects during Departing is simply excluded from the teleport.
+   * A fresh helicopter model is cloned from ReplicatedStorage, placed at HelicopterSpawn, and parented to the pad model. The pad is cleared and returns to Idle.
+* Create validation (server, when the host presses Create). Reject with feedback if any fail:
+   * The map and difficulty exist in the party config
+   * The host has completed the map's requirement (if any)
+   * The host has completed the difficulty's requirement on the selected map (if any)
+   * 1 <= max players <= MaxPartySize
+   * Visibility is Public or Friends Only
+   * The pad is still Configuring and this player is still its host
+   * The client greys out locked options, but the server is authoritative. Never trust the client's claim that something is unlocked.
+* Join checks (server, on JoinCollision touch during Boarding). Reject with the given feedback if any fail:
+   * Pad is Boarding: "Pad is being set up" / "Pad is departing"
+   * Party has room: "Party is full"
+   * Player not already in a party: "You're already in a party"
+   * If Friends Only, the joiner is a friend of the host: "This party is friends only"
+   * Joiners are not checked against map or difficulty unlocks. Access follows the host: a player who hasn't unlocked Frostbite Pass can join a Frostbite Pass party.
+* Progression on completion (gameplay server): a run's completion of (map, difficulty) is recorded for a player only if that player had already completed its prerequisite themselves. A player carried through Nightmare by a friend does not unlock Nightmare. The gameplay server enforces this with the same requirement table the lobby uses.
+* Every Helicopter Pad will be a Model, located inside Workspace.HelicopterPads, with a PadIndex attribute (1–6). Inside each model will be:
    * HelicopterModel
-      * In the HelicopterModel will be a PlayerSpawns folder that contains invisible parts to spawn queued players into. They will be on seats, so the player should be spawned into a sitting position. 
+      * In the HelicopterModel will be a PlayerSpawns folder that contains invisible parts to spawn party members into. They will be on seats, so the player should be spawned into a sitting position.
    * HelicopterSpawn: An invisible part used to place newly spawned HelicopterModels
-   * CameraPositionPart: Invisible part that will be used to position the player’s camera
-   * GuiPart.PadGui: GuiPart is an invisible part that PadGui (BillboardGui) will be parented to. PadGui will display all the necessary info. 
-   * JoinCollision: An invisible part, that when touched by a player character adds that player to the queue if available
-   * ExitSpawn: an invisible part outside the helicopter pad, where players exiting the queue will be moved to 
-   * Other decorations (not needed by code) 
-* For each pad, I need to be able to specify:
-   * Map
-   * Difficulty
-   * Max Players
-   * Requirements 
-      * Map Completion
-      * Difficulty Completion
-* For all pads, I need to be able to easily change the FullTime and CapacityTime. It will be the same for all pads. 
+   * CameraPositionPart: Invisible part that will be used to position the player's camera
+   * GuiPart.PadGui: GuiPart is an invisible part that PadGui (BillboardGui) will be parented to. PadGui will display all the necessary info.
+   * JoinCollision: An invisible part, that when touched by a player character starts or joins a party if available
+   * ExitSpawn: an invisible part outside the helicopter pad, where players leaving the party will be moved to
+   * Other decorations (not needed by code)
+   * Runtime pad state (state, host, map, difficulty, max players, visibility, current player count, departure time) is server Lua replicated as attributes on the pad model. The party member list itself stays on the server; only the count replicates. The pad model carries no authored map, difficulty, or max players values.
+* Party config (one GameData module, nothing hardcoded in pad scripts). I need to be able to easily change:
+   * CreationTimeout (default 30 s): how long a host has to press Create
+   * BoardingTimeout (default 120 s): seconds after Create before auto-launch
+   * CapacityTime (default 3 s): countdown once the party is full
+   * MaxPartySize (default 6): upper bound on the players stepper
+   * DefaultMaxPlayers (default 4) and DefaultVisibility (default Public): the menu's starting values
+   * Maps, in carousel order, each with a display name, thumbnail, and an optional requirement (a map/difficulty completion). At launch: Deadman's Canyon (always available), Frostbite Pass (requires Deadman's Canyon on Normal).
+   * Difficulties, in carousel order, each with an optional requirement evaluated against the currently selected map. At launch: Normal (always), Hard (requires Normal), Nightmare (requires Hard).
+   * The config is validated at server start (unique ids, requirements reference real maps and difficulties, timeouts positive, defaults in range), failing loudly with the offending key named.
 3D Store
 * In addition to the Store Menu, there will be a physical store present in the lobby showcasing featured items and giving players another entry point for the store menu. 
 * Inside Workspace.Store.Items will be a series of “showcase” models
@@ -209,10 +226,25 @@ Loadout Menu
             * Defenses (under 3 slots)
 
 
+Create Party Menu
+* Shown to the host while their pad is Configuring (see Helicopter Pads section). Modelled on Dead Rails' Create Party screen.
+* Layout, top to bottom:
+   * Title: "Create Party"
+   * Map carousel: left/right arrows around a large thumbnail with the map name overlaid. Locked maps are still shown (desaturated, lock icon, requirement text beneath such as "Complete Deadman's Canyon on Normal") but cannot be selected.
+   * Difficulty carousel: same pattern, smaller. Locked difficulties greyed with lock icon and requirement text. Re-evaluated whenever the map changes; if the current difficulty is locked on the new map, the selection resets to the first unlocked difficulty.
+   * Players stepper: "Players" label, − and + buttons, current value. Range 1 to MaxPartySize, starts at DefaultMaxPlayers.
+   * Visibility toggle: one toggle labelled "Friends Only". Off = Public. Starts at DefaultVisibility.
+   * Countdown text: "Cancelling in N seconds", red, updates every second.
+   * Create button: disabled while the selected map or difficulty is locked.
+* Opening the menu hides the HUD, like the other menus.
+* No Cancel button is needed: leaving the pad or letting the timer expire cancels. If one is added for clarity it behaves exactly like the timeout.
+* All selection state is client-side until Create is pressed. The server receives one message with the full selection and validates it.
 Queue Menu
-* The Queue Menu appears when a player is actively in a teleport queue (see Helicopter Pad section)
+* The Queue Menu appears when a player is in a Boarding party (see Helicopter Pads section)
+* Every member sees: map name, difficulty name, "Players: X / Y", visibility ("Public" or "Friends Only"), the host's display name, and "Departing in N seconds"
 * It has an ExitButton at the bottom center of the screen
-   * When pressed, the player is removed from the queue and their character is moved to the ExitSpawn part of the HelicopterPad model they’re queued for
+   * When pressed, the player is removed from the party and their character is moved to the ExitSpawn part of the HelicopterPad model they're on
+* The host additionally sees a Launch button, which launches immediately. When a member is promoted to host, their menu switches to host mode and shows it.
 Daily Rewards Menu
 * This menu can only be accessed from the DailyRewardsButton in the HUD
 * It displays all the daily login rewards by day and the players current progress
@@ -789,13 +821,13 @@ Difficulty
 	1.0
 	Hard
 	1.4
-	Brutal
+	Nightmare
 	1.9
 	Two effects, both derived from it:
 effectiveHardness = clamp(
     hardness + (difficulty - 1) * hardnessShift, 1, 4)
 effectiveVeinCount = round(baseCount / difficulty)
-hardnessShift is a global constant, default 1.0. At Brutal, a chamber authored at hardness = 2.1 generates at 3.0, and 30 iron veins become 16.
+hardnessShift is a global constant, default 1.0. At Nightmare, a chamber authored at hardness = 2.1 generates at 3.0, and 30 iron veins become 16.
 Difficulty is deliberately not able to express “same rock, less ore.” If that turns out to be needed, split it into two numbers rather than reintroducing per-difficulty chamber data.
 ________________
 
@@ -941,7 +973,7 @@ return {
     },
 }
 Chamber 4 needs no corridorWidth or corridorHeight — it has no corridor, and hasCorridor is derived from being last.
-At Brutal (1.9), the same file generates chamber 2 at hardness = 3.0 with 16 iron, 9 gold, and 3 crystal clusters. No second file, no overrides.
+At Nightmare (1.9), the same file generates chamber 2 at hardness = 3.0 with 16 iron, 9 gold, and 3 crystal clusters. No second file, no overrides.
 Mining Attributes
 
 

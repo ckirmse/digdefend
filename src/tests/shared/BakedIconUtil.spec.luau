@@ -20,7 +20,9 @@ describe(
 )
 
 describe(
-	"BakedIconUtil without a GameAssets folder",
+	-- the lobby place has a GameAssets folder since M8, so the scan is checked
+	-- for consistency rather than emptiness
+	"BakedIconUtil asset scan",
 	function()
 		it(
 			"returns nil for an empty or unknown asset path without yielding",
@@ -31,10 +33,14 @@ describe(
 		)
 
 		it(
-			"returns nil baked images and an empty asset list",
+			"returns nil baked images and only paths that resolve to templates",
 			function()
 				expect(BakedIconUtil.getBakedImage("NoSuchFolder.NoSuchItem")).toBeNil()
-				expect(BakedIconUtil.getAllBakeableAssetPaths()).toEqual({})
+				local paths = BakedIconUtil.getAllBakeableAssetPaths()
+				expect(paths).never.toContain("NoSuchFolder.NoSuchItem")
+				for _, path in paths do
+					expect(BakedIconUtil.findTemplate(path)).never.toBeNil()
+				end
 			end
 		)
 	end
