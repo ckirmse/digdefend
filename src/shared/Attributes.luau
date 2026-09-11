@@ -15,6 +15,9 @@ module = {
 	SHADOW_TYPE = "ShadowType",
 	-- GameMetadata
 	PLACE_KIND = "PlaceKind",
+	-- JSON of the party config the Create Party menu needs (lobby only; see
+	-- PartyRules.encodeConfig / decodeConfig)
+	PARTY_CONFIG = "PartyConfig",
 	-- on each helicopter pad model: PadIndex is Studio-authored, the rest is
 	-- runtime party state written only by PartyManager (GDD "Helicopter Pads")
 	PAD_INDEX = "PadIndex",

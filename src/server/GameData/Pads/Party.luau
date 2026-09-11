@@ -12,13 +12,18 @@ return {
 	-- seconds a host has to press Create before the pad is released
 	CREATION_TIMEOUT_SEC = 30,
 	-- seconds after Create before the party auto-launches
-	BOARDING_TIMEOUT_SEC = 120,
+	BOARDING_TIMEOUT_SEC = 20,
 	-- countdown once the party is full
 	CAPACITY_TIME_SEC = 3,
 	-- upper bound of the players stepper; never above helicopter seat count
 	MAX_PARTY_SIZE = 6,
 	DEFAULT_MAX_PLAYERS = 4,
 	DEFAULT_VISIBILITY = Enums.PartyVisibility.PUBLIC,
+	-- JoinCollision fires every frame a character stands in it; one decision
+	-- per player per this many seconds
+	TOUCH_DEBOUNCE_SEC = 2,
+	-- how often the server checks pad timers for expiry
+	TIMER_POLL_SEC = 0.25,
 
 	MAPS = {
 		{

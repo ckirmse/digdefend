@@ -103,6 +103,12 @@ module = {
 			FRIENDS_ONLY = "Friends Only",
 		},
 	},
+	-- which pad menu a client should show (NotifyPartyMenu)
+	PartyMenu = {
+		NONE = 1,
+		CREATE = 2,
+		QUEUE = 3,
+	},
 	RockKind = {
 		FILLER = 1,
 		RESOURCE = 2,

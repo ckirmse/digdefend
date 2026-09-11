@@ -93,7 +93,12 @@ function LobbyMapManager:checkHelicopterPads()
 			seenIndexes[padIndex] = pad
 		end
 		for _, partName in REQUIRED_PAD_PARTS do
-			self:requireChild(pad, partName, "BasePart")
+			local part = self:requireChild(pad, partName, "BasePart")
+			-- an unanchored marker part falls out of the world the moment
+			-- physics starts and takes its touch or spawn point with it
+			if part and part:IsA("BasePart") and not part.Anchored then
+				self:report(`{part:GetFullName()} must be anchored`)
+			end
 		end
 		local guiPart = pad:FindFirstChild(Constants.PAD_GUI_PART)
 		local padGui = if guiPart then self:requireChild(guiPart, Constants.PAD_GUI_NAME, "BillboardGui") else nil
@@ -144,7 +149,14 @@ function LobbyMapManager:checkHelicopterTemplate()
 	end
 	local playerSpawns = self:requireChild(helicopter, Constants.HELICOPTER_PLAYER_SPAWNS_FOLDER, "Folder")
 	if playerSpawns and #playerSpawns:GetChildren() == 0 then
-		self:report(`{playerSpawns:GetFullName()} has no seat parts`)
+		self:report(`{playerSpawns:GetFullName()} has no seats`)
+	end
+	if playerSpawns then
+		for _, spawn in playerSpawns:GetChildren() do
+			if not spawn:IsA("Seat") then
+				self:report(`{spawn:GetFullName()} must be a Seat, not a {spawn.ClassName}`)
+			end
+		end
 	end
 end
 

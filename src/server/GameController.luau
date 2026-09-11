@@ -26,6 +26,9 @@ export type GameController = typeof(setmetatable(
 		-- LOADING until GONE and nowhere else
 		playerDatas: { [Player]: PlayerData.PlayerData },
 		pendingExitCount: number,
+		-- the full network protocol; NetManager dispatches from this same table,
+		-- so place managers can register into it before or after init
+		netHandlers: NetManager.NetHandlers,
 		netManager: typeof(NetManager),
 		devTools: typeof(DevTools),
 		playerFeedbackManager: typeof(PlayerFeedbackManager),
@@ -61,6 +64,13 @@ local PLAYER_TEARDOWN_SEQUENCE: { SequenceEntry } = {
 	-- last: the tree is reset in place, never destroyed
 	{ manager = SplendidReplicationManager, onReset = false },
 }
+
+-- a place-specific manager (ServerScriptService/Lobby or /Gameplay) with
+-- per-player runtime state: it is torn down (and reset) right before the
+-- replication tree, and any net handlers it exposes join the protocol
+local function addPlaceTeardownEntry(manager: any)
+	table.insert(PLAYER_TEARDOWN_SEQUENCE, #PLAYER_TEARDOWN_SEQUENCE, { manager = manager, onReset = true })
+end
 
 local function runReadySequence(player: Player, isReset: boolean)
 	for _, entry in PLAYER_READY_SEQUENCE do
@@ -279,6 +289,26 @@ function GameController:resetPlayerState(player: Player)
 	print("[GameController] Reset complete:", player.Name)
 end
 
+function GameController:addNetHandlers(manager: any)
+	for eventName, entry in manager:getNetHandlers() do
+		if self.netHandlers[eventName] then
+			error("GameController: duplicate net handler for " .. eventName)
+		end
+		self.netHandlers[eventName] = entry
+	end
+end
+
+-- the one entry point for lobby- and gameplay-only managers; common code
+-- never names them (CLAUDE.md "no place checks in common code")
+function GameController:registerPlaceManager(manager: any)
+	if manager.getNetHandlers then
+		self:addNetHandlers(manager)
+	end
+	if manager.onPlayerRemoved then
+		addPlaceTeardownEntry(manager)
+	end
+end
+
 function GameController:init()
 	self.splendidReplicationManager = SplendidReplicationManager
 	SplendidReplicationManager:init(self)
@@ -288,23 +318,17 @@ function GameController:init()
 
 	self.playerFeedbackManager = PlayerFeedbackManager
 
-	-- the full network protocol, assembled in one place; managers that handle
-	-- client messages expose getNetHandlers() and are listed here
-	local netHandlers: NetManager.NetHandlers = {}
+	-- the full network protocol, assembled in one place; common managers that
+	-- handle client messages are listed here, place managers register themselves
 	local handlerOwners: { any } = {
 		DevTools,
 	}
 	for _, manager in handlerOwners do
-		for eventName, entry in manager:getNetHandlers() do
-			if netHandlers[eventName] then
-				error("GameController: duplicate net handler for " .. eventName)
-			end
-			netHandlers[eventName] = entry
-		end
+		self:addNetHandlers(manager)
 	end
 
 	self.netManager = NetManager
-	NetManager:init(self, netHandlers)
+	NetManager:init(self, self.netHandlers)
 
 	self.playerStore = ProfileStore.New(PlayerControlData.PROFILE_STORE_NAME, PlayerData.getDefaultSaveData())
 	ProfileStore.OnError:Connect(
@@ -364,6 +388,7 @@ function GameController.new(): GameController
 	self.playerStore = nil
 	self.playerDatas = {}
 	self.pendingExitCount = 0
+	self.netHandlers = {}
 	self.netManager = NetManager
 	self.devTools = DevTools
 	self.playerFeedbackManager = PlayerFeedbackManager

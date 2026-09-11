@@ -17,6 +17,8 @@ type AttributeMap = { [string]: any }
 export type SplendidReplicationManager = typeof(setmetatable(
 	{} :: {
 		serverStartTime: number,
+		-- place managers contribute global config here (setGameMetadata)
+		extraGameMetadata: AttributeMap,
 	},
 	SplendidReplicationManager
 ))
@@ -78,11 +80,22 @@ function SplendidReplicationManager:getCurrentPlayerFolder(player: Player): Inst
 end
 
 function SplendidReplicationManager:buildGameMetadataAttributes(): AttributeMap
-	return {
+	local attributes: AttributeMap = {
 		[Attributes.SERVER_START_TIME] = self.serverStartTime,
 		[Attributes.SCHEMA_VERSION] = Constants.DATA_SCHEMA_VERSION,
 		[Attributes.PLACE_KIND] = Constants.getPlaceKind(),
 	}
+	for key, value in self.extraGameMetadata do
+		attributes[key] = value
+	end
+	return attributes
+end
+
+-- global config from a place manager; reaches players already Ready and
+-- every player who becomes Ready later
+function SplendidReplicationManager:setGameMetadata(key: string, value: any)
+	self.extraGameMetadata[key] = value
+	self:updateGameMetadata(key, value)
 end
 
 function SplendidReplicationManager:writeCurrentPlayer(player: Player, playerData: any, currentPlayer: Instance)
@@ -269,6 +282,11 @@ function SplendidReplicationManager:replicateDailyReward(player: Player)
 end
 
 function SplendidReplicationManager:updateGameMetadata(key: string, value: any)
+	-- a place manager may register config before GameController:init has run;
+	-- the value then reaches players through buildGameMetadataAttributes
+	if gameController == nil then
+		return
+	end
 	for _, player in gameController:getReadyPlayers() do
 		local root = self:getRoot(player)
 		if not root then
@@ -289,6 +307,7 @@ end
 function SplendidReplicationManager.new(): SplendidReplicationManager
 	local self = setmetatable({}, SplendidReplicationManager) :: SplendidReplicationManager
 	self.serverStartTime = 0
+	self.extraGameMetadata = {}
 	return self
 end
 

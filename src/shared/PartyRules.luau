@@ -5,6 +5,8 @@
 -- server enforces and the Create Party menu previews the same rules. The
 -- config is passed in (GameData/Pads/Party on the server; the replicated copy
 -- on the client) so this module stays free of GameData and unit testable.
+local HttpService = game:GetService("HttpService")
+
 local CompletionKeys = require(script.Parent.CompletionKeys)
 local Enums = require(script.Parent.Enums)
 local Validate = require(script.Parent.Validate)
@@ -34,6 +36,8 @@ export type Config = {
 	MAX_PARTY_SIZE: number,
 	DEFAULT_MAX_PLAYERS: number,
 	DEFAULT_VISIBILITY: number,
+	TOUCH_DEBOUNCE_SEC: number,
+	TIMER_POLL_SEC: number,
 	MAPS: { MapEntry },
 	DIFFICULTIES: { DifficultyEntry },
 }
@@ -46,6 +50,25 @@ export type Selection = {
 }
 
 export type HasCompletion = (completionKey: string) -> boolean
+
+-- what the server knows about a would-be joiner when JoinCollision is touched
+export type JoinContext = {
+	padState: number,
+	memberCount: number,
+	maxPlayers: number,
+	visibility: number,
+	isAlreadyInParty: boolean,
+	isFriendOfHost: boolean,
+}
+
+-- player-facing feedback strings (GDD "Join checks" / "Configuring")
+PartyRules.FEEDBACK_PAD_SETTING_UP = "Pad is being set up"
+PartyRules.FEEDBACK_PAD_DEPARTING = "Pad is departing"
+PartyRules.FEEDBACK_PARTY_FULL = "Party is full"
+PartyRules.FEEDBACK_ALREADY_IN_PARTY = "You're already in a party"
+PartyRules.FEEDBACK_FRIENDS_ONLY = "This party is friends only"
+PartyRules.FEEDBACK_CREATION_TIMED_OUT = "Party creation timed out"
+PartyRules.FEEDBACK_NOW_HOST = "You are now the party host"
 
 local REQUIREMENT_SHAPE = {
 	map = { type = "enum", name = "Map", optional = true },
@@ -70,6 +93,8 @@ local CONFIG_SHAPE = {
 	MAX_PARTY_SIZE = "positiveInteger",
 	DEFAULT_MAX_PLAYERS = "positiveInteger",
 	DEFAULT_VISIBILITY = { type = "enum", name = "PartyVisibility" },
+	TOUCH_DEBOUNCE_SEC = "positiveNumber",
+	TIMER_POLL_SEC = "positiveNumber",
 	MAPS = { type = "array", elementType = { type = "table", shape = MAP_ENTRY_SHAPE }, nonempty = true },
 	DIFFICULTIES = { type = "array", elementType = { type = "table", shape = DIFFICULTY_ENTRY_SHAPE }, nonempty = true },
 }
@@ -234,6 +259,63 @@ function PartyRules.getRequirementText(completionKey: string): string
 	local mapName = Enums.getPublicName(Enums.Map, map) or "?"
 	local difficultyName = Enums.getPublicName(Enums.Difficulty, difficulty) or "?"
 	return `Complete {mapName} on {difficultyName}`
+end
+
+-- the join checks, in GDD order; nil when the player may join. An idle pad
+-- is not a join: the caller makes the toucher host instead.
+function PartyRules.getJoinRejection(context: JoinContext): string?
+	if context.padState == Enums.PadState.CONFIGURING then
+		return PartyRules.FEEDBACK_PAD_SETTING_UP
+	end
+	if context.padState == Enums.PadState.DEPARTING then
+		return PartyRules.FEEDBACK_PAD_DEPARTING
+	end
+	if context.padState ~= Enums.PadState.BOARDING then
+		return PartyRules.FEEDBACK_PAD_SETTING_UP
+	end
+	if context.memberCount >= context.maxPlayers then
+		return PartyRules.FEEDBACK_PARTY_FULL
+	end
+	if context.isAlreadyInParty then
+		return PartyRules.FEEDBACK_ALREADY_IN_PARTY
+	end
+	if context.visibility == Enums.PartyVisibility.FRIENDS_ONLY and not context.isFriendOfHost then
+		return PartyRules.FEEDBACK_FRIENDS_ONLY
+	end
+	return nil
+end
+
+-- the boarding timer when the party fills: it drops to the capacity countdown
+-- but never goes back up, and a later leaver does not restore it
+function PartyRules.getTimerEndTimeOnFull(currentEndTime: number, now: number, capacityTimeSec: number): number
+	return math.min(currentEndTime, now + capacityTimeSec)
+end
+
+-- the config travels to clients as one JSON attribute on GameMetadata; the
+-- client decodes and re-validates it so a broken replication fails loudly
+function PartyRules.encodeConfig(config: Config): string
+	return HttpService:JSONEncode(config)
+end
+
+function PartyRules.decodeConfig(encoded: any): Config?
+	if typeof(encoded) ~= "string" or encoded == "" then
+		return nil
+	end
+	local isSuccess, decoded = pcall(
+		function()
+			return HttpService:JSONDecode(encoded)
+		end
+	)
+	if not isSuccess then
+		return nil
+	end
+	-- JSON has no nil array holes: an entry without requires decodes cleanly,
+	-- so the full validation applies unchanged
+	local problems = PartyRules.validateConfig(decoded)
+	if #problems > 0 then
+		return nil
+	end
+	return decoded :: Config
 end
 
 -- the server's Create validation; the returned reason is player-facing

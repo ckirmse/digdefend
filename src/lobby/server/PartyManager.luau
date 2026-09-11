@@ -4,13 +4,22 @@
 -- Creation/Teleports"). State lives here in Lua; the pad model only carries
 -- the attributes clients need to render the billboard and menus, and this
 -- manager is their only writer. M11 covers records, transitions, and
--- replication; touch handling, timers, and launch arrive in M12 and M13.
+-- replication; M12 adds touch handling, seating, timers, and the menus'
+-- messages. Launch (M13) is stubbed: an expired boarding timer idles the pad.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PartyRules = require("@game/ReplicatedStorage/Shared/PartyRules")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local PartyData = require("@game/ServerScriptService/GameData/Pads/Party")
+local GameController = require(script.Parent.Parent.Server.GameController)
+local NetManager = require(script.Parent.Parent.Server.NetManager)
+local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
+local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 
 local PartyManager = {}
 PartyManager.__index = PartyManager
@@ -28,17 +37,27 @@ export type Party = {
 	visibility: number,
 	-- server time the active timer expires; 0 when no timer runs
 	timerEndTime: number,
+	-- the helicopter currently on the pad and who sits where
+	helicopter: Model?,
+	seatByPlayer: { [Player]: Seat },
 }
 
 export type PartyManager = typeof(setmetatable(
 	{} :: {
 		partiesByPadIndex: { [number]: Party },
+		lastTouchTimeByPlayer: { [Player]: number },
 	},
 	PartyManager
 ))
 
 local NO_HOST = 0
 local NO_TIMER = 0
+-- lifts a character clear of the ExitSpawn part so it does not spawn inside it
+local EXIT_LIFT = Vector3.new(0, 3, 0)
+local EXIT_MOVE_DELAY_SEC = 0.1
+local LAUNCH_STUB_MESSAGE = "Launch arrives in M13"
+
+local EMPTY_SHAPE = {}
 
 function PartyManager:getConfig(): PartyRules.Config
 	return PartyData :: PartyRules.Config
@@ -75,6 +94,10 @@ function PartyManager:getHost(party: Party): Player?
 		end
 	end
 	return nil
+end
+
+function PartyManager:isHost(party: Party, player: Player): boolean
+	return party.hostUserId == player.UserId and table.find(party.members, player) ~= nil
 end
 
 function PartyManager:isFull(party: Party): boolean
@@ -122,6 +145,7 @@ function PartyManager:setIdle(party: Party)
 	party.maxPlayers = self:getConfig().MAX_PARTY_SIZE
 	party.visibility = self:getConfig().DEFAULT_VISIBILITY
 	party.timerEndTime = NO_TIMER
+	party.seatByPlayer = {}
 	self:replicate(party)
 end
 
@@ -152,7 +176,21 @@ function PartyManager:setBoarding(party: Party, selection: PartyRules.Selection)
 	party.maxPlayers = selection.maxPlayers
 	party.visibility = selection.visibility
 	party.timerEndTime = workspace:GetServerTimeNow() + self:getConfig().BOARDING_TIMEOUT_SEC
+	-- a party of one is full the moment it is created
+	self:shortenTimerIfFull(party)
 	self:replicate(party)
+end
+
+-- GDD: a full party launches soon; the timer only ever shortens
+function PartyManager:shortenTimerIfFull(party: Party)
+	if not self:isFull(party) then
+		return
+	end
+	party.timerEndTime = PartyRules.getTimerEndTimeOnFull(
+		party.timerEndTime,
+		workspace:GetServerTimeNow(),
+		self:getConfig().CAPACITY_TIME_SEC
+	)
 end
 
 -- Departing: teleport in progress; the record is cleared by setIdle afterward
@@ -171,6 +209,7 @@ function PartyManager:addMember(party: Party, player: Player)
 		return
 	end
 	table.insert(party.members, player)
+	self:shortenTimerIfFull(party)
 	self:replicate(party)
 end
 
@@ -182,6 +221,7 @@ function PartyManager:removeMember(party: Party, player: Player): Player?
 		return nil
 	end
 	table.remove(party.members, index)
+	party.seatByPlayer[player] = nil
 	if #party.members == 0 then
 		self:setIdle(party)
 		return nil
@@ -193,6 +233,366 @@ function PartyManager:removeMember(party: Party, player: Player): Player?
 	end
 	self:replicate(party)
 	return promotedHost
+end
+
+function PartyManager:notifyMenu(player: Player, menu: number, party: Party?)
+	NetManager:notifyClient(
+		player,
+		NetEventNames.NOTIFY_PARTY_MENU,
+		{
+			menu = menu,
+			padIndex = if party then party.padIndex else 0,
+			isHost = if party then self:isHost(party, player) else false,
+		}
+	)
+end
+
+-- seats in name order so Seat1 is always the host's
+function PartyManager:getSeats(party: Party): { Seat }
+	local seats: { Seat } = {}
+	local helicopter = party.helicopter
+	local spawns = if helicopter then helicopter:FindFirstChild(Constants.HELICOPTER_PLAYER_SPAWNS_FOLDER) else nil
+	if not spawns then
+		return seats
+	end
+	for _, child in spawns:GetChildren() do
+		if child:IsA("Seat") then
+			table.insert(seats, child)
+		end
+	end
+	table.sort(
+		seats,
+		function(a: Seat, b: Seat)
+			return a.Name < b.Name
+		end
+	)
+	return seats
+end
+
+function PartyManager:findFreeSeat(party: Party): Seat?
+	local taken: { [Seat]: boolean } = {}
+	for _, seat in party.seatByPlayer do
+		taken[seat] = true
+	end
+	for _, seat in self:getSeats(party) do
+		if not taken[seat] and seat.Occupant == nil then
+			return seat
+		end
+	end
+	return nil
+end
+
+function PartyManager:seatPlayer(party: Party, player: Player, seat: Seat): boolean
+	local character = player.Character
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	if not character or not humanoid then
+		warn(`PartyManager: {player.Name} has no character to seat`)
+		return false
+	end
+	party.seatByPlayer[player] = seat
+	-- Sit needs the character clear of any other seat weld first
+	humanoid.Sit = false
+	character:PivotTo(seat.CFrame + Vector3.new(0, 2, 0))
+	-- seats stay Disabled so a character brushing the helicopter is never
+	-- auto-seated by the engine; only this call seats anyone, and the seat is
+	-- disabled again once it empties (disabling an occupied seat ejects)
+	seat.Disabled = false
+	seat:Sit(humanoid)
+	return true
+end
+
+function PartyManager:moveToExit(party: Party, player: Player)
+	local character = player.Character
+	if not character then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local seat = party.seatByPlayer[player]
+	if seat then
+		local weld = seat:FindFirstChild("SeatWeld")
+		if weld then
+			weld:Destroy()
+		end
+	end
+	if humanoid then
+		humanoid.Sit = false
+	end
+	local exitSpawn = party.model:FindFirstChild(Constants.PAD_EXIT_SPAWN_PART)
+	if exitSpawn and exitSpawn:IsA("BasePart") then
+		-- the engine settles the character at the seat as it stands up; a move
+		-- in the same frame is undone, so it waits a beat (still inside the
+		-- touch grace window)
+		task.delay(
+			EXIT_MOVE_DELAY_SEC,
+			function()
+				character:PivotTo(CFrame.new(exitSpawn.Position + EXIT_LIFT))
+			end
+		)
+	end
+end
+
+-- the single leave path: Exit button, leaving the seat, disconnecting,
+-- timeouts, and the dev-tool reset all end here. Idempotent.
+function PartyManager:leaveParty(player: Player, isDisconnecting: boolean)
+	local party = self:getPartyOfPlayer(player)
+	if not party then
+		return
+	end
+	-- a Touched event from the seat can still arrive after the character has
+	-- been moved out; the debounce window keeps it from re-hosting the leaver
+	self.lastTouchTimeByPlayer[player] = workspace:GetServerTimeNow()
+	if not isDisconnecting then
+		self:moveToExit(party, player)
+		self:notifyMenu(player, Enums.PartyMenu.NONE, nil)
+	end
+	local promotedHost = self:removeMember(party, player)
+	if promotedHost then
+		PlayerFeedbackManager:give(promotedHost, PartyRules.FEEDBACK_NOW_HOST)
+		self:notifyMenu(promotedHost, Enums.PartyMenu.QUEUE, party)
+	end
+end
+
+function PartyManager:startHosting(party: Party, player: Player)
+	local seat = self:findFreeSeat(party)
+	if not seat then
+		warn(`PartyManager: pad {party.padIndex} has no free seat for a host`)
+		return
+	end
+	self:setConfiguring(party, player)
+	if not self:seatPlayer(party, player, seat) then
+		self:setIdle(party)
+		return
+	end
+	self:notifyMenu(player, Enums.PartyMenu.CREATE, party)
+end
+
+function PartyManager:isFriendOfHost(party: Party, player: Player): boolean
+	local isSuccess, isFriend = pcall(
+		function()
+			return player:IsFriendsWithAsync(party.hostUserId)
+		end
+	)
+	if not isSuccess then
+		warn(`PartyManager: IsFriendsWithAsync failed for {player.Name}:`, isFriend)
+		return false
+	end
+	return isFriend == true
+end
+
+function PartyManager:tryJoin(party: Party, player: Player)
+	local isFriendOfHost = false
+	if party.state == Enums.PadState.BOARDING and party.visibility == Enums.PartyVisibility.FRIENDS_ONLY then
+		isFriendOfHost = self:isFriendOfHost(party, player)
+	end
+	local rejection = PartyRules.getJoinRejection({
+		padState = party.state,
+		memberCount = #party.members,
+		maxPlayers = party.maxPlayers,
+		visibility = party.visibility,
+		isAlreadyInParty = self:getPartyOfPlayer(player) ~= nil,
+		isFriendOfHost = isFriendOfHost,
+	})
+	if rejection then
+		PlayerFeedbackManager:give(player, rejection)
+		return
+	end
+	local seat = self:findFreeSeat(party)
+	if not seat then
+		PlayerFeedbackManager:give(player, PartyRules.FEEDBACK_PARTY_FULL)
+		return
+	end
+	if not self:seatPlayer(party, player, seat) then
+		return
+	end
+	self:addMember(party, player)
+	self:notifyMenu(player, Enums.PartyMenu.QUEUE, party)
+end
+
+function PartyManager:handleTouch(party: Party, player: Player)
+	if not GameController:getPlayerData(player) then
+		return
+	end
+	local now = workspace:GetServerTimeNow()
+	local lastTouchTime = self.lastTouchTimeByPlayer[player] or 0
+	if now - lastTouchTime < self:getConfig().TOUCH_DEBOUNCE_SEC then
+		return
+	end
+	self.lastTouchTimeByPlayer[player] = now
+
+	local currentParty = self:getPartyOfPlayer(player)
+	if currentParty == party then
+		return
+	end
+	if party.state == Enums.PadState.IDLE then
+		if currentParty then
+			PlayerFeedbackManager:give(player, PartyRules.FEEDBACK_ALREADY_IN_PARTY)
+			return
+		end
+		self:startHosting(party, player)
+		return
+	end
+	self:tryJoin(party, player)
+end
+
+function PartyManager:onSeatOccupantChanged(party: Party, seat: Seat)
+	if seat.Occupant ~= nil then
+		return
+	end
+	seat.Disabled = true
+	for player, playerSeat in party.seatByPlayer do
+		if playerSeat == seat then
+			self:leaveParty(player, false)
+			return
+		end
+	end
+end
+
+-- GDD: every pad has a helicopter sitting on it when the server starts
+function PartyManager:placeHelicopter(party: Party)
+	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
+	local template = if gameAssets then gameAssets:FindFirstChild(Constants.HELICOPTER_TEMPLATE) else nil
+	local helicopterSpawn = party.model:FindFirstChild(Constants.PAD_HELICOPTER_SPAWN_PART)
+	if not template or not template:IsA("Model") or not helicopterSpawn or not helicopterSpawn:IsA("BasePart") then
+		-- LobbyMapManager already reported what is missing
+		return
+	end
+	local existing = party.model:FindFirstChild(Constants.HELICOPTER_TEMPLATE)
+	if existing then
+		existing:Destroy()
+	end
+	local helicopter = template:Clone()
+	helicopter:PivotTo(helicopterSpawn.CFrame)
+	helicopter.Parent = party.model
+	party.helicopter = helicopter
+	for _, seat in self:getSeats(party) do
+		seat.Disabled = true
+		seat:GetPropertyChangedSignal("Occupant"):Connect(
+			function()
+				self:onSeatOccupantChanged(party, seat)
+			end
+		)
+	end
+end
+
+function PartyManager:connectTouch(party: Party)
+	local joinCollision = party.model:FindFirstChild(Constants.PAD_JOIN_COLLISION_PART)
+	if not joinCollision or not joinCollision:IsA("BasePart") then
+		return
+	end
+	joinCollision.Touched:Connect(
+		function(hit: BasePart)
+			local character = hit.Parent
+			local player = if character and character:IsA("Model") then Players:GetPlayerFromCharacter(character) else nil
+			if player then
+				self:handleTouch(party, player)
+			end
+		end
+	)
+end
+
+-- M13 replaces this with the real departure; until then an expired boarding
+-- timer or a Launch press empties the pad so testing loops stay short
+function PartyManager:launch(party: Party)
+	print(`[PartyManager] pad {party.padIndex} would launch with {#party.members} player(s)`)
+	for _, member in table.clone(party.members) do
+		PlayerFeedbackManager:give(member, LAUNCH_STUB_MESSAGE)
+		self:leaveParty(member, false)
+	end
+end
+
+function PartyManager:onCreationTimedOut(party: Party)
+	local host = self:getHost(party)
+	if host then
+		PlayerFeedbackManager:give(host, PartyRules.FEEDBACK_CREATION_TIMED_OUT)
+		self:leaveParty(host, false)
+	else
+		self:setIdle(party)
+	end
+end
+
+function PartyManager:pollTimers()
+	local now = workspace:GetServerTimeNow()
+	for _, party in self:getParties() do
+		if party.timerEndTime == NO_TIMER or now < party.timerEndTime then
+			continue
+		end
+		if party.state == Enums.PadState.CONFIGURING then
+			self:onCreationTimedOut(party)
+		elseif party.state == Enums.PadState.BOARDING then
+			self:launch(party)
+		else
+			self:clearTimer(party)
+		end
+	end
+end
+
+function PartyManager:handleTryCreateParty(player: Player, payload: { [string]: any })
+	local party = self:getPartyOfPlayer(player)
+	if not party or party.state ~= Enums.PadState.CONFIGURING or not self:isHost(party, player) then
+		warn(`PartyManager: TryCreateParty from {player.Name} who is not configuring a pad`)
+		return
+	end
+	local playerData = GameController:getPlayerData(player)
+	if not playerData then
+		return
+	end
+	-- the host's own record decides what is unlocked, never the client's claim
+	local isValid, reason = PartyRules.validateSelection(
+		self:getConfig(),
+		payload,
+		function(completionKey: string)
+			return playerData:hasCompletion(completionKey)
+		end
+	)
+	if not isValid then
+		PlayerFeedbackManager:give(player, reason or "Invalid party settings")
+		return
+	end
+	self:setBoarding(party, payload :: PartyRules.Selection)
+	self:notifyMenu(player, Enums.PartyMenu.QUEUE, party)
+end
+
+function PartyManager:handleTryLeaveParty(player: Player)
+	self:leaveParty(player, false)
+end
+
+function PartyManager:handleTryLaunchParty(player: Player)
+	local party = self:getPartyOfPlayer(player)
+	if not party or party.state ~= Enums.PadState.BOARDING or not self:isHost(party, player) then
+		warn(`PartyManager: TryLaunchParty from {player.Name} who is not hosting a boarding pad`)
+		return
+	end
+	self:launch(party)
+end
+
+function PartyManager:getNetHandlers()
+	return {
+		[NetEventNames.TRY_CREATE_PARTY] = {
+			shape = PartyRules.SELECTION_SHAPE,
+			handler = function(player: Player, payload: { [string]: any })
+				self:handleTryCreateParty(player, payload)
+			end,
+		},
+		[NetEventNames.TRY_LEAVE_PARTY] = {
+			shape = EMPTY_SHAPE,
+			handler = function(player: Player, _payload: { [string]: any })
+				self:handleTryLeaveParty(player)
+			end,
+		},
+		[NetEventNames.TRY_LAUNCH_PARTY] = {
+			shape = EMPTY_SHAPE,
+			handler = function(player: Player, _payload: { [string]: any })
+				self:handleTryLaunchParty(player)
+			end,
+		},
+	}
+end
+
+-- teardown entry (registered through GameController:registerPlaceManager);
+-- also the dev-tool reset, which must leave the player in no party
+function PartyManager:onPlayerRemoved(player: Player)
+	self:leaveParty(player, player.Parent ~= Players)
+	self.lastTouchTimeByPlayer[player] = nil
 end
 
 function PartyManager:findPadModels(): { [number]: Model }
@@ -242,16 +642,35 @@ function PartyManager:init()
 			maxPlayers = self:getConfig().MAX_PARTY_SIZE,
 			visibility = self:getConfig().DEFAULT_VISIBILITY,
 			timerEndTime = NO_TIMER,
+			helicopter = nil,
+			seatByPlayer = {},
 		}
 		self.partiesByPadIndex[padIndex] = party
 		self:setIdle(party)
+		self:placeHelicopter(party)
+		self:connectTouch(party)
 	end
+
+	-- the Create Party menu needs the map and difficulty lists; the client
+	-- never requires GameData, so the config travels as one metadata attribute
+	SplendidReplicationManager:setGameMetadata(Attributes.PARTY_CONFIG, PartyRules.encodeConfig(self:getConfig()))
+	GameController:registerPlaceManager(self)
+
+	task.spawn(
+		function()
+			while true do
+				task.wait(self:getConfig().TIMER_POLL_SEC)
+				self:pollTimers()
+			end
+		end
+	)
 	print(`[PartyManager] {#self:getParties()} pads ready`)
 end
 
 function PartyManager.new(): PartyManager
 	local self = setmetatable({}, PartyManager) :: PartyManager
 	self.partiesByPadIndex = {}
+	self.lastTouchTimeByPlayer = {}
 	return self
 end
 

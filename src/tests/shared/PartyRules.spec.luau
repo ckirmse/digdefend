@@ -19,6 +19,8 @@ local function makeConfig()
 		MAX_PARTY_SIZE = 6,
 		DEFAULT_MAX_PLAYERS = 4,
 		DEFAULT_VISIBILITY = Enums.PartyVisibility.PUBLIC,
+		TOUCH_DEBOUNCE_SEC = 2,
+		TIMER_POLL_SEC = 0.25,
 		MAPS = {
 			{ map = Enums.Map.DEADMANS_CANYON, thumbnail = "rbxassetid://0" },
 			{
@@ -227,6 +229,115 @@ describe(
 				local isValid, reason = PartyRules.validateSelection(config, selection({ map = Enums.Map.FROSTBITE_PASS }), makeHasCompletion({ CANYON_NORMAL }))
 				expect(isValid).toBe(false)
 				expect(reason).toBe("Unknown map")
+			end
+		)
+	end
+)
+
+describe(
+	"PartyRules.getJoinRejection",
+	function()
+		local function makeContext(overrides)
+			local context = {
+				padState = Enums.PadState.BOARDING,
+				memberCount = 1,
+				maxPlayers = 4,
+				visibility = Enums.PartyVisibility.PUBLIC,
+				isAlreadyInParty = false,
+				isFriendOfHost = false,
+			}
+			for key, value in overrides do
+				context[key] = value
+			end
+			return context
+		end
+
+		it(
+			"admits a joiner who passes every check",
+			function()
+				expect(PartyRules.getJoinRejection(makeContext({}))).toBe(nil)
+			end
+		)
+
+		it(
+			"rejects by pad state",
+			function()
+				expect(PartyRules.getJoinRejection(makeContext({ padState = Enums.PadState.CONFIGURING }))).toBe(
+					PartyRules.FEEDBACK_PAD_SETTING_UP
+				)
+				expect(PartyRules.getJoinRejection(makeContext({ padState = Enums.PadState.DEPARTING }))).toBe(
+					PartyRules.FEEDBACK_PAD_DEPARTING
+				)
+			end
+		)
+
+		it(
+			"rejects a full party before the membership and friends checks",
+			function()
+				local context = makeContext({ memberCount = 4, isAlreadyInParty = true })
+				expect(PartyRules.getJoinRejection(context)).toBe(PartyRules.FEEDBACK_PARTY_FULL)
+			end
+		)
+
+		it(
+			"rejects a player already in a party",
+			function()
+				expect(PartyRules.getJoinRejection(makeContext({ isAlreadyInParty = true }))).toBe(
+					PartyRules.FEEDBACK_ALREADY_IN_PARTY
+				)
+			end
+		)
+
+		it(
+			"rejects non-friends only for friends-only parties",
+			function()
+				local friendsOnly = makeContext({ visibility = Enums.PartyVisibility.FRIENDS_ONLY })
+				expect(PartyRules.getJoinRejection(friendsOnly)).toBe(PartyRules.FEEDBACK_FRIENDS_ONLY)
+				friendsOnly.isFriendOfHost = true
+				expect(PartyRules.getJoinRejection(friendsOnly)).toBe(nil)
+			end
+		)
+	end
+)
+
+describe(
+	"PartyRules.getTimerEndTimeOnFull",
+	function()
+		it(
+			"drops a long timer to the capacity countdown",
+			function()
+				expect(PartyRules.getTimerEndTimeOnFull(1000 + 120, 1000, 3)).toBe(1003)
+			end
+		)
+
+		it(
+			"never raises a timer that is already shorter",
+			function()
+				expect(PartyRules.getTimerEndTimeOnFull(1001, 1000, 3)).toBe(1001)
+			end
+		)
+	end
+)
+
+describe(
+	"PartyRules.encodeConfig / decodeConfig",
+	function()
+		it(
+			"round-trips the launch config",
+			function()
+				local config = makeConfig()
+				local decoded = PartyRules.decodeConfig(PartyRules.encodeConfig(config))
+				expect(decoded).toEqual(config)
+			end
+		)
+
+		it(
+			"returns nil for garbage",
+			function()
+				expect(PartyRules.decodeConfig(nil)).toBe(nil)
+				expect(PartyRules.decodeConfig("")).toBe(nil)
+				expect(PartyRules.decodeConfig("{not json")).toBe(nil)
+				expect(PartyRules.decodeConfig("{}")).toBe(nil)
 			end
 		)
 	end

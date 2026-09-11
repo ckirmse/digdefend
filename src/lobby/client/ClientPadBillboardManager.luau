@@ -19,6 +19,7 @@ type Labels = {
 
 type PadView = {
 	model: Model,
+	gui: BillboardGui,
 	labels: Labels,
 }
 
@@ -50,6 +51,13 @@ end
 local function getAttributeNumber(model: Model, name: string): number
 	local value = model:GetAttribute(name)
 	return if typeof(value) == "number" then value else 0
+end
+
+-- the party menus hide every billboard so they do not float over the dialog
+function ClientPadBillboardManager:setBillboardsVisible(isVisible: boolean)
+	for _, view in self.views do
+		view.gui.Enabled = isVisible
+	end
 end
 
 function ClientPadBillboardManager:renderStatus(view: PadView)
@@ -96,7 +104,7 @@ end
 function ClientPadBillboardManager:watchPad(model: Model)
 	local guiPart = model:FindFirstChild(Constants.PAD_GUI_PART)
 	local gui = if guiPart then guiPart:FindFirstChild(Constants.PAD_GUI_NAME) else nil
-	if not gui then
+	if not gui or not gui:IsA("BillboardGui") then
 		warn(`ClientPadBillboardManager: {model:GetFullName()} has no {Constants.PAD_GUI_NAME}`)
 		return
 	end
@@ -109,6 +117,7 @@ function ClientPadBillboardManager:watchPad(model: Model)
 	end
 	local view: PadView = {
 		model = model,
+		gui = gui,
 		labels = {
 			status = status,
 			private = private,
