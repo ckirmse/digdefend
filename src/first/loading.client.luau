@@ -39,7 +39,7 @@ task.spawn(
 	function()
 		local dotCount = 0
 		while gui:GetAttribute(LOADING_HANDOFF) == nil do
-			statusLabel.Text = "LOADING" .. string.rep(".", dotCount)
+			statusLabel.Text = "Loading" .. string.rep(".", dotCount)
 			dotCount = (dotCount + 1) % (MAX_DOT_COUNT + 1)
 			task.wait(DOT_INTERVAL_SEC)
 		end

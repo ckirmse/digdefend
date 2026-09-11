@@ -8,6 +8,8 @@
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
+local UiStyle = require(game.ReplicatedStorage.Shared.UiStyle)
+
 ChangeHistoryService:SetWaypoint("Before Loading gui")
 
 local existing = ReplicatedFirst:FindFirstChild("Loading")
@@ -27,7 +29,7 @@ local main = Instance.new("Frame")
 main.Name = "Main"
 main.Size = UDim2.fromScale(1, 1)
 main.Position = UDim2.fromScale(0, 0)
-main.BackgroundColor3 = Color3.fromRGB(18, 16, 14)
+main.BackgroundColor3 = UiStyle.BACKGROUND_COLOR
 main.BorderSizePixel = 0
 main.Parent = gui
 
@@ -53,17 +55,17 @@ titleText.Size = UDim2.fromScale(0.8, 0.18)
 titleText.BackgroundTransparency = 1
 local titleTextSize = Instance.new("UITextSizeConstraint")
 titleTextSize.MinTextSize = 32
-titleTextSize.MaxTextSize = 110
+titleTextSize.MaxTextSize = UiStyle.TITLE_TEXT_MAX_PX
 titleTextSize.Parent = titleText
-titleText.Text = "DIG DEFEND"
-titleText.TextColor3 = Color3.fromRGB(245, 200, 80)
+titleText.Text = UiStyle.formatTitle("Dig Defend")
+titleText.TextColor3 = UiStyle.ACCENT_COLOR
 titleText.TextScaled = true
-titleText.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+titleText.FontFace = UiStyle.TITLE_FONT
 titleText.Parent = main
 
 local titleStroke = Instance.new("UIStroke")
 titleStroke.Thickness = 3
-titleStroke.Color = Color3.fromRGB(60, 35, 10)
+titleStroke.Color = UiStyle.ACCENT_STROKE_COLOR
 titleStroke.Parent = titleText
 
 local progressBar = Instance.new("Frame")
@@ -75,7 +77,7 @@ local progressBarSize = Instance.new("UISizeConstraint")
 progressBarSize.MinSize = Vector2.new(240, 14)
 progressBarSize.MaxSize = Vector2.new(640, 26)
 progressBarSize.Parent = progressBar
-progressBar.BackgroundColor3 = Color3.fromRGB(50, 46, 42)
+progressBar.BackgroundColor3 = UiStyle.PANEL_COLOR
 progressBar.BorderSizePixel = 0
 progressBar.Parent = main
 
@@ -86,7 +88,7 @@ barCorner.Parent = progressBar
 local fill = Instance.new("Frame")
 fill.Name = "Fill"
 fill.Size = UDim2.fromScale(0, 1)
-fill.BackgroundColor3 = Color3.fromRGB(245, 200, 80)
+fill.BackgroundColor3 = UiStyle.ACCENT_COLOR
 fill.BorderSizePixel = 0
 fill.Parent = progressBar
 
@@ -101,13 +103,13 @@ status.Position = UDim2.fromScale(0.5, 0.675)
 status.Size = UDim2.fromScale(0.5, 0.045)
 status.BackgroundTransparency = 1
 local statusTextSize = Instance.new("UITextSizeConstraint")
-statusTextSize.MinTextSize = 14
-statusTextSize.MaxTextSize = 26
+statusTextSize.MinTextSize = UiStyle.BODY_TEXT_MIN_PX
+statusTextSize.MaxTextSize = UiStyle.BODY_TEXT_MAX_PX
 statusTextSize.Parent = status
-status.Text = "LOADING"
-status.TextColor3 = Color3.fromRGB(220, 215, 205)
+status.Text = "Loading"
+status.TextColor3 = UiStyle.TEXT_MUTED_COLOR
 status.TextScaled = true
-status.FontFace = Font.fromEnum(Enum.Font.GothamMedium)
+status.FontFace = UiStyle.BODY_FONT
 status.Parent = main
 
 gui.Parent = ReplicatedFirst

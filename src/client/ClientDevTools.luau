@@ -9,9 +9,11 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local BakedIconUtil = require("@game/ReplicatedStorage/Shared/BakedIconUtil")
 local IconFramingFormat = require("@game/ReplicatedStorage/Shared/IconFramingFormat")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local Iris = require(script.Parent.Iris)
 local ClientDataManager = require(script.Parent.ClientDataManager)
 local ClientNetManager = require(script.Parent.ClientNetManager)
+local ClientOverlayManager = require(script.Parent.ClientOverlayManager)
 local ClientPlayerFeedbackManager = require(script.Parent.ClientPlayerFeedbackManager)
 
 local ClientDevTools = {}
@@ -41,6 +43,7 @@ export type ClientDevTools = typeof(setmetatable(
 		savedCameraFov: number?,
 		toggleTapCount: number,
 		toggleTapLastTime: number,
+		testMenuGui: ScreenGui?,
 	},
 	ClientDevTools
 ))
@@ -60,6 +63,8 @@ local FRAMING_STAGE_POSITION = Vector3.new(0, 5000, 0)
 local FRAMING_BACKDROP_COLOR = Color3.new(0, 1, 0)
 local FRAMING_BACKDROP_SIZE = Vector3.new(400, 400, 1)
 local FRAMING_BACKDROP_DISTANCE = 60
+
+local TEST_MENU_GUI_NAME = "DevTestMenu"
 
 local function formatBool(value: boolean): string
 	return if value then "yes" else "no"
@@ -318,6 +323,68 @@ function ClientDevTools:renderIconFramingWindow()
 	end
 end
 
+-- a stand-in menu until real ones exist (M35+): proves the overlay contract
+-- (HUD slides away, world blurs, click outside closes)
+function ClientDevTools:closeTestMenu()
+	local gui = self.testMenuGui
+	if not gui then
+		return
+	end
+	self.testMenuGui = nil
+	gui:Destroy()
+end
+
+function ClientDevTools:openTestMenu()
+	if self.testMenuGui then
+		ClientOverlayManager:closeOverlayIfExists()
+		return
+	end
+	local gui = Instance.new("ScreenGui")
+	gui.Name = TEST_MENU_GUI_NAME
+	gui.ResetOnSpawn = false
+	gui.DisplayOrder = ClientOverlayManager.MENU_DISPLAY_ORDER
+	local frame = Instance.new("Frame")
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.Position = UDim2.fromScale(0.5, 0.5)
+	frame.Size = UDim2.fromScale(0.5, 0.5)
+	frame.BackgroundColor3 = UiStyle.PANEL_COLOR
+	frame.Parent = gui
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.fromScale(1, 0.3)
+	title.BackgroundTransparency = 1
+	title.Text = UiStyle.formatTitle("Test menu")
+	title.TextColor3 = UiStyle.ACCENT_COLOR
+	title.TextScaled = true
+	title.FontFace = UiStyle.TITLE_FONT
+	title.Parent = frame
+	local hint = Instance.new("TextLabel")
+	hint.Position = UDim2.fromScale(0, 0.4)
+	hint.Size = UDim2.fromScale(1, 0.2)
+	hint.BackgroundTransparency = 1
+	hint.Text = "Click outside to close"
+	hint.TextColor3 = UiStyle.TEXT_COLOR
+	hint.TextScaled = true
+	hint.FontFace = UiStyle.BODY_FONT
+	hint.Parent = frame
+	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	self.testMenuGui = gui
+
+	local overlay: ClientOverlayManager.Overlay
+	overlay = {
+		getGuiRoot = function(_overlay)
+			return frame
+		end,
+		notifyForceEnd = function(_overlay)
+			self:closeTestMenu()
+		end,
+		notifyClickOutside = function(_overlay)
+			self:closeTestMenu()
+			ClientOverlayManager:notifyEndOverlay(overlay)
+		end,
+	}
+	ClientOverlayManager:notifyBeginOverlay(overlay)
+end
+
 function ClientDevTools:renderMenuWindow()
 	Iris.Window({ "Dev Tools" }, { size = self.menuSize, isOpened = self.showMenu })
 
@@ -347,6 +414,9 @@ function ClientDevTools:renderMenuWindow()
 	end
 	if Iris.Button({ "Send test feedback (local)" }).clicked() then
 		ClientPlayerFeedbackManager:giveLocal(TEST_FEEDBACK_MESSAGE, TEST_FEEDBACK_DISPLAY_SEC)
+	end
+	if Iris.Button({ "Toggle test menu (overlay)" }).clicked() then
+		self:openTestMenu()
 	end
 
 	Iris.Separator()
@@ -485,6 +555,7 @@ function ClientDevTools.new(): ClientDevTools
 	self.savedCameraFov = nil
 	self.toggleTapCount = 0
 	self.toggleTapLastTime = 0
+	self.testMenuGui = nil
 	return self
 end
 

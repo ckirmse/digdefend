@@ -7,6 +7,8 @@
 local StarterGui = game:GetService("StarterGui")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
+local UiStyle = require(game.ReplicatedStorage.Shared.UiStyle)
+
 ChangeHistoryService:SetWaypoint("Before PlayerFeedback gui")
 
 local existing = StarterGui:FindFirstChild("PlayerFeedback")
@@ -30,14 +32,14 @@ local boxSize = Instance.new("UISizeConstraint")
 boxSize.MinSize = Vector2.new(240, 40)
 boxSize.MaxSize = Vector2.new(640, 64)
 boxSize.Parent = box
-box.BackgroundColor3 = Color3.fromRGB(18, 16, 14)
-box.BackgroundTransparency = 0.25
+box.BackgroundColor3 = UiStyle.PANEL_COLOR
+box.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
 box.BorderSizePixel = 0
 box.Visible = false
 box.Parent = gui
 
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
+corner.CornerRadius = UDim.new(0, UiStyle.CORNER_RADIUS_PX)
 corner.Parent = box
 
 local padding = Instance.new("UIPadding")
@@ -52,12 +54,12 @@ message.BackgroundTransparency = 1
 message.TextScaled = true
 message.TextTruncate = Enum.TextTruncate.AtEnd
 local messageTextSize = Instance.new("UITextSizeConstraint")
-messageTextSize.MinTextSize = 14
-messageTextSize.MaxTextSize = 26
+messageTextSize.MinTextSize = UiStyle.BODY_TEXT_MIN_PX
+messageTextSize.MaxTextSize = UiStyle.BODY_TEXT_MAX_PX
 messageTextSize.Parent = message
 message.Text = "Feedback message"
-message.TextColor3 = Color3.fromRGB(255, 255, 255)
-message.FontFace = Font.fromEnum(Enum.Font.GothamMedium)
+message.TextColor3 = UiStyle.TEXT_COLOR
+message.FontFace = UiStyle.BODY_FONT
 message.Parent = box
 
 gui.Parent = StarterGui

@@ -9,7 +9,9 @@ local ClientDataManager = require(script.Parent.ClientDataManager)
 local ClientDevTools = require(script.Parent.ClientDevTools)
 local ClientLoadingScreenManager = require(script.Parent.ClientLoadingScreenManager)
 local ClientNetManager = require(script.Parent.ClientNetManager)
+local ClientOverlayManager = require(script.Parent.ClientOverlayManager)
 local ClientPlayerFeedbackManager = require(script.Parent.ClientPlayerFeedbackManager)
+local ClientSoundManager = require(script.Parent.ClientSoundManager)
 
 -- progress stages of the arrival loading screen; the fractions only need to
 -- read as steady forward motion
@@ -40,6 +42,9 @@ if gameAssets then
 end
 
 ClientLoadingScreenManager:setProgress(PROGRESS_SYSTEMS, "Starting up...")
+ClientOverlayManager:init()
+ClientOverlayManager:setDeferOverlays(true)
+ClientSoundManager:init()
 ClientNetManager:init()
 ClientPlayerFeedbackManager:init()
 
@@ -48,5 +53,6 @@ if ClientDataManager:getIsAdmin() then
 end
 
 ClientLoadingScreenManager:hide()
+ClientOverlayManager:setDeferOverlays(false)
 
 print("Dig Defend client started (" .. tostring(Enums.getName(Enums.PlaceKind, Constants.getPlaceKind())) .. ")")

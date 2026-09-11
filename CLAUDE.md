@@ -194,7 +194,13 @@ Device fit:
 Authoring and verification:
 - ScreenGuis are authored by replayable build scripts in `scripts/studio/` (run through the Studio MCP), never hand-built, so both places get identical copies and a rebuild is one command. The script is the source of truth; edits in the Explorer are lost.
 - Before a UI milestone is closed, check the screen in Studio's Device Emulator at a phone, a tablet, a desktop, and an ultrawide preset, and confirm the captured `AbsoluteSize` values sit inside their constraints.
-- Colours, fonts, capitalization, and copy rules are decided in M10 and added here when settled.
+
+Type and copy (decided 2026-09-11, M10; expected to change with real art):
+- **Fonts:** titles, headings, and button labels use Poppins Bold (Creator Store family); body text, values, and messages use Montserrat. Both are exposed as `UiStyle.TITLE_FONT` / `UiStyle.BODY_FONT`; never construct a `Font` elsewhere.
+- **Capitalization:** titles, headings, and button labels are ALL CAPS, applied through `UiStyle.formatTitle` so the source text stays readable. Everything else is sentence case. Exclamation marks very rarely.
+- **Palette, corner radius, stroke, timings, and text size bounds** live in shared `UiStyle` (data only, read by both the client managers and the `scripts/studio/` build scripts). Change the look there, never inline.
+- **Sounds:** 2D audio is designer-authored as `AudioPlayer`s under `SoundService.Sfx` and `SoundService.Music`, wired to the `AudioDeviceOutput`, in both places. Code plays them by name through `ClientSoundManager` with names from shared `SoundNames`; a missing player or empty asset warns once and stays silent. Source audio files live in `audio/` (`Music/`, `Sfx/`).
+- **Menus:** every menu is an overlay registered with `ClientOverlayManager` (one at a time; blur, click-catching backdrop, frozen character, HUD slides away). Menu ScreenGuis use `DisplayOrder >= ClientOverlayManager.MENU_DISPLAY_ORDER`; HUD ScreenGuis stay at 0.
 
 ## Testing
 

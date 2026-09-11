@@ -19,9 +19,6 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 
 ## Phase 2: Player Lifecycle, Persistence, and Lobby Shell
 
-**M10 — Lobby HUD**
-Cash balance display with green/red flash and sounds on change, loadout slot strip (1 weapon, 1 post, 3 defenses; the level-10 bonus slot is gone with the XP system, decided 2026-09-10), menu buttons for Store, Loadout, Daily Rewards. HUD hides when a menu opens. Establish the shared UI style (fonts, capitalization, layout rules) here and document it.
-
 ## Phase 3: Queues and Teleporting
 
 **M12 — Host, configure, join, and leave**
@@ -200,3 +197,6 @@ Finished 2026-09-11 (built out of order, before M9/M10, because the pad redesign
 
 **M9 — Arrival loading screen and feedback text** ✅
 Finished 2026-09-11. Lucky Squares pattern: `src/first/loading.client.luau` (ReplicatedFirst, no requires) shows the Studio-authored `Loading` ScreenGui on frame one and removes the default screen; `ClientLoadingScreenManager` takes over via the `LoadingHandoff` attribute, fills the bar in stages from `main.client` (save, world, assets via `PreloadAsync` on `GameAssets`, systems), shows retry/slow-connection captions from `LoadStatus`, holds a minimum visible time, and tweens off. `PlayerFeedback` ScreenGui (`FeedbackBox.Message`) driven by `ClientPlayerFeedbackManager`; a newer message replaces the current one. Both GUIs are built by `scripts/studio/build_*.luau`, which must be replayed in the gameplay place when it is first opened (M14). Title image is a text placeholder until art exists; colours and fonts provisional until M10. Layout standard (scale + aspect/size/text-size constraints, offset only for hairlines) decided here and recorded in CLAUDE.md; both GUIs rebuilt to it. GUI standard (goal: identical intended appearance on every device type) recorded in CLAUDE.md; Device Emulator pass deferred to M10 when all three screens are restyled together.
+
+**M10 — Lobby HUD** ✅
+Finished 2026-09-11. `HUD` ScreenGui (built by `scripts/studio/build_hud_gui.luau`): `CashWallet` (tap opens the store currency tab at M35), `LoadoutStrip` with five slot frames carrying the `LoadoutSlot` attribute, `MenuButtons` (Store, Loadout, Daily Rewards; "Coming soon" feedback until their menus exist). Lobby `ClientHudManager` flashes Cash green/red with the `CoinsAdded`/`SaleSuccess` sounds before updating, renders slots from the loadout attributes, and slides all three groups off screen on overlay begin. Common `ClientOverlayManager` (Lucky Squares: one overlay, blur, click-catching backdrop, frozen character, FOV nudge, deferred while loading) and `ClientSoundManager` (plays designer-authored `AudioPlayer`s under `SoundService.Sfx`/`Music`; names in shared `SoundNames`; warns once for empty assets). Shared `UiStyle` (Poppins Bold ALL CAPS titles, Montserrat body, palette, timings, text bounds) recorded in CLAUDE.md; Loading and PlayerFeedback rebuilt to it. Dev tools gained "Toggle test menu (overlay)" as the stand-in menu until M35. Sound asset ids are empty until the designer can upload; source files in `audio/`. SoundService structure must be mirrored in the gameplay place (M14). Designer confirmed the look and the Device Emulator pass on 2026-09-11. Still owed: sound asset ids once the designer has upload permission (source files stay in `audio/` as the archive of record).

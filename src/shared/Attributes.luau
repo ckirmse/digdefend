@@ -28,6 +28,8 @@ module = {
 	-- server time (GetServerTimeNow) the active pad timer expires; 0 when none;
 	-- clients count down locally from it
 	PAD_TIMER_END_TIME = "PadTimerEndTime",
+	-- on each HUD loadout slot frame: the Enums.LoadoutSlot value it shows
+	LOADOUT_SLOT = "LoadoutSlot",
 	-- CurrentPlayer (private)
 	CASH = "Cash",
 	LOADOUT_WEAPON = "LoadoutWeapon",

@@ -149,8 +149,8 @@ HUD
       * Loadout Slots
          * Shows the players current load out slots 
             * 1 Weapon Slot
-            * 3 Placement Slots
-            * 1 Bonus Slot (unlocks at level 10)
+            * 1 Post Slot
+            * 3 Defense Slots
    * Menu Buttons
       * Store Menu Button
          * When pressed, opens the store menu to the featured section

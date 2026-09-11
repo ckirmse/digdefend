@@ -26,6 +26,18 @@ Constants.LOADING_STATUS_LABEL = "Status"
 Constants.PLAYER_FEEDBACK_GUI_NAME = "PlayerFeedback"
 Constants.PLAYER_FEEDBACK_BOX = "FeedbackBox"
 Constants.PLAYER_FEEDBACK_LABEL = "Message"
+Constants.HUD_GUI_NAME = "HUD"
+Constants.HUD_CASH_WALLET = "CashWallet"
+Constants.HUD_CASH_AMOUNT_LABEL = "CashAmount"
+Constants.HUD_LOADOUT_STRIP = "LoadoutStrip"
+Constants.HUD_MENU_BUTTONS = "MenuButtons"
+Constants.HUD_STORE_BUTTON = "StoreButton"
+Constants.HUD_LOADOUT_BUTTON = "LoadoutButton"
+Constants.HUD_DAILY_REWARDS_BUTTON = "DailyRewardsButton"
+-- SoundService layout (designer-authored in both places): AudioPlayers under
+-- these folders, each wired to the AudioDeviceOutput; see SoundNames
+Constants.SFX_FOLDER = "Sfx"
+Constants.MUSIC_FOLDER = "Music"
 Constants.REMOTE_EVENT_NAME = "GameRemoteEvent"
 -- client-only BindableEvent; server feedback travels as NotifyPlayerFeedback on the RemoteEvent
 Constants.PLAYER_FEEDBACK_LOCAL_EVENT_NAME = "GivePlayerFeedbackLocal"
