@@ -65,12 +65,11 @@ Constants.PAD_HELICOPTER_SPAWN_PART = "HelicopterSpawn"
 Constants.PAD_CAMERA_POSITION_PART = "CameraPositionPart"
 Constants.PAD_GUI_PART = "GuiPart"
 Constants.PAD_GUI_NAME = "PadGui"
--- TextLabels inside PadGui (designer-authored in Studio)
-Constants.PAD_GUI_MAP_NAME_LABEL = "MapName"
-Constants.PAD_GUI_DIFFICULTY_LABEL = "Difficulty"
+-- TextLabels inside PadGui (built by scripts/studio/build_pad_gui.luau)
+Constants.PAD_GUI_PANEL = "Panel"
 Constants.PAD_GUI_STATUS_LABEL = "Status"
-Constants.PAD_GUI_PLAYER_COUNT_LABEL = "PlayerCount"
-Constants.PAD_GUI_TIMER_LABEL = "Timer"
+Constants.PAD_GUI_PRIVATE_LABEL = "Private"
+Constants.PAD_GUI_PLAYERS_LABEL = "Players"
 -- helicopter template under GameAssets
 Constants.HELICOPTER_TEMPLATE = "Helicopter"
 Constants.HELICOPTER_PLAYER_SPAWNS_FOLDER = "PlayerSpawns"

@@ -20,11 +20,9 @@ export type LobbyMapManager = typeof(setmetatable(
 ))
 
 local REQUIRED_PAD_GUI_LABELS = {
-	Constants.PAD_GUI_MAP_NAME_LABEL,
-	Constants.PAD_GUI_DIFFICULTY_LABEL,
 	Constants.PAD_GUI_STATUS_LABEL,
-	Constants.PAD_GUI_PLAYER_COUNT_LABEL,
-	Constants.PAD_GUI_TIMER_LABEL,
+	Constants.PAD_GUI_PRIVATE_LABEL,
+	Constants.PAD_GUI_PLAYERS_LABEL,
 }
 
 local REQUIRED_PAD_PARTS = {
@@ -99,9 +97,10 @@ function LobbyMapManager:checkHelicopterPads()
 		end
 		local guiPart = pad:FindFirstChild(Constants.PAD_GUI_PART)
 		local padGui = if guiPart then self:requireChild(guiPart, Constants.PAD_GUI_NAME, "BillboardGui") else nil
-		if padGui then
+		local panel = if padGui then self:requireChild(padGui, Constants.PAD_GUI_PANEL, "Frame") else nil
+		if panel then
 			for _, labelName in REQUIRED_PAD_GUI_LABELS do
-				self:requireChild(padGui, labelName, "TextLabel")
+				self:requireChild(panel, labelName, "TextLabel")
 			end
 		end
 	end

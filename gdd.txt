@@ -49,11 +49,10 @@ Helicopter Pads – Party Creation/Teleports
 * Helicopter Pads teleport parties of players to a new, private instance of the gameplay place
 * All 6 pads are identical. A pad is not tied to a map or difficulty. The first player onto an idle pad becomes the party host and configures the run (map, difficulty, party size, visibility). This is modelled on Dead Rails' Create Party flow, without join-by-code. Adding a map or difficulty later means adding it to the party config, not building a pad.
 * Every Helicopter Pad has a Helicopter sitting on it when the server initializes
-* Every Helicopter Pad has a billboard gui at its entrance. It shows, by state:
-   * Idle: "Open"
-   * Configuring: "Setting up…"
-   * Boarding: map name, difficulty, current players / max players, a friends-only icon if the party is friends only, seconds until departure
-   * Departing: "Departing"
+* Every Helicopter Pad has a billboard gui at its entrance with three labels (decided 2026-09-11):
+   * Status: Idle "Waiting for players...", Configuring "Player configuring", Boarding "Starts in: X" (seconds until departure), Departing "Departing"
+   * Private: hidden while Idle or Configuring; once a party exists it shows "Public" or "Private" from the party config
+   * Players: always shows current players / party size (an idle pad reads 0 / MaxPartySize)
 * Pad states. Each pad is in exactly one state, held in server Lua and replicated to clients as an attribute on the pad model so the billboard and menus can render it:
    * Idle: empty, no host. Touching JoinCollision makes you the host and moves the pad to Configuring.
    * Configuring: the host is on the Create Party Menu. Nobody else can join; touching gives the feedback "Pad is being set up".

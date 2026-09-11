@@ -230,14 +230,16 @@ When host is promoted, the new host's client receives a message and shows the La
 
 Rendered from replicated pad values. Shows:
 
-| State | Billboard content |
-|---|---|
-| `Idle` | "Open" |
-| `Configuring` | "Setting up…" |
-| `Boarding` | Map name / Difficulty / "X / Y players" / visibility icon / "Departing in N" |
-| `Departing` | "Departing" |
+Three labels, built by `scripts/studio/build_pad_gui.luau` (decided 2026-09-11):
 
-A `FriendsOnly` pad shows a lock or friends icon so players can tell before walking over.
+| State | Status | Private | Players |
+|---|---|---|---|
+| `Idle` | "Waiting for players..." | hidden | "0/MaxPartySize" |
+| `Configuring` | "Player configuring" | hidden | "1/MaxPartySize" |
+| `Boarding` | "Starts in: N" | "Public" or "Private" | "X/Y" |
+| `Departing` | "Departing" | "Public" or "Private" | "X/Y" |
+
+Map and difficulty are not shown on the billboard; joiners follow the host's configuration.
 
 ---
 

@@ -118,7 +118,8 @@ function PartyManager:setIdle(party: Party)
 	party.hostUserId = NO_HOST
 	party.map = nil
 	party.difficulty = nil
-	party.maxPlayers = 0
+	-- the billboard always shows count/size, so an empty pad reads "0/MAX"
+	party.maxPlayers = self:getConfig().MAX_PARTY_SIZE
 	party.visibility = self:getConfig().DEFAULT_VISIBILITY
 	party.timerEndTime = NO_TIMER
 	self:replicate(party)
@@ -238,7 +239,7 @@ function PartyManager:init()
 			hostUserId = NO_HOST,
 			map = nil,
 			difficulty = nil,
-			maxPlayers = 0,
+			maxPlayers = self:getConfig().MAX_PARTY_SIZE,
 			visibility = self:getConfig().DEFAULT_VISIBILITY,
 			timerEndTime = NO_TIMER,
 		}
