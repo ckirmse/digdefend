@@ -305,11 +305,20 @@ Maps
 * Each map will have its own separate mine spawn and enemy waves data, so they can be balanced differently. 
 Difficulty
 * Every map will also have 3 difficulty levels: Normal, Hard, and Nightmare
-* Difficulty will be balanced by adjusting these values: 
-   * Enemy wave composition
-   * Enemy HP/Damage
-   * Mining spawn rates
-   * Mine size. 
+* Difficulty is driven by the enemy waves. Harder rock is more swings per block, which is grind, not challenge; waves are decisions, positioning, and spending. Levers:
+   * Enemy wave composition, count, HP, and damage (the main lever)
+   * Ore scarcity: fewer veins on Hard and Nightmare, so upgrade choices bite (see Randomized Mine Creation §7). Uranium is exempt
+   * Rock hardness never changes with difficulty by default (the knob exists but is off); mine layout never changes with difficulty or player count
+Party scaling
+* Parties are 1 to 6 players and the count can drop mid-run. The mine grid is fixed at generation and never resized; everything that scales with party size is applied at the moment of effect (a rock breaking, a wave spawning) from the current player count, so drop-outs adjust the run with nothing to migrate.
+* Levers live in one PartyScaling table keyed by player count 1–6, so 3 players can be tuned separately from 5:
+   * Wave count and enemy HP multipliers. The main lever: a bigger crew digs faster and attracts bigger nights.
+   * Uranium rescue target multiplier, kept modest (about 1.0 solo to 1.25 at six). Every mine must author enough uranium for the largest party; the generator validates supply against target × the six-player multiplier.
+   * Per-player ore yield multiplier, applied only to Iron and Gold drops because those balances are per player. Diamonds and Uranium are shared and never scaled, so the mine’s authored totals stay their reference.
+   * Rock HP is never scaled by party size. A crew of six clears a chamber faster, and the bigger night that follows is the balance.
+* Multipliers are sublinear: six players are not six times as effective.
+* The count is sampled once per day cycle at dawn, never continuously, so no wave changes under a player. The day-start message states it plainly (“Crew of 4. Waves 2.0x”).
+* The scaling count only ever goes down after a run starts. A player leaving eases the run at the next dawn; nothing ever gets harder mid-run.
 Resources
 * The game has 3 Resource Types
    * In-Run Raw Resources
@@ -679,6 +688,10 @@ Parameter
 	number
 	0
 	Blocks of rock between a generated vein and the corridor surface
+	uraniumTarget
+	number
+	—
+	Uranium rocks (each yields one ore) needed to call the rescue helicopter, solo. Party size scales it (see Party scaling)
 	defaultChamberHeight
 	number
 	—
@@ -818,21 +831,25 @@ ________________
 
 
 7. Difficulty
-One number per difficulty, applied at generation time. It never changes layout — chamber count, sizes, and corridors are identical across difficulties. Only effort and reward move.
+Two numbers per difficulty, applied at generation time. Difficulty never changes layout — chamber count, sizes, and corridors are identical across difficulties. Difficulty lives mainly in the waves (see Difficulty under Maps); in the mine it only makes ore scarcer.
 Difficulty
-	Value
+	Difficulty value
+	Vein divisor
 	Normal
+	1.0
 	1.0
 	Hard
 	1.4
+	1.2
 	Nightmare
 	1.9
-	Two effects, both derived from it:
+	1.4
+	The difficulty value is the general scalar other systems (waves) read. The vein divisor is the mine’s own lever. Two effects:
 effectiveHardness = clamp(
     hardness + (difficulty - 1) * hardnessShift, 1, 4)
-effectiveVeinCount = round(baseCount / difficulty)
-hardnessShift is a global constant, default 1.0 (GameData/Control/Difficulty, alongside the difficulty values; spread lives in GameData/Rocks/Weights). round is half-up. At Nightmare, a chamber authored at hardness = 2.1 generates at 3.0, and 30 iron veins become 16.
-Difficulty is deliberately not able to express “same rock, less ore.” If that turns out to be needed, split it into two numbers rather than reintroducing per-difficulty chamber data.
+effectiveVeinCount = round(baseCount / veinDivisor)
+hardnessShift is a global constant, default 0.0, so rock hardness does not change with difficulty. The knob exists (GameData/Control/Difficulty, alongside the difficulty values and vein divisors; spread lives in GameData/Rocks/Weights) for a map that deliberately wants grittier rock at Nightmare. round is half-up. Uranium is exempt from the vein divisor: its count is always as authored, so the target-to-supply ratio is a plain designer choice on every difficulty. At Nightmare, a chamber authored with 30 iron veins generates 21.
+Player count is not a generator input. The grid is identical for 1 or 6 players; party size scales waves, per-player ore yield, and the uranium target at the moment of effect (see Party scaling under Difficulty).
 ________________
 
 
@@ -885,11 +902,12 @@ gridHeight = max(chamberHeights) + floorBedrock + ceilingBedrock
 gridWidth  = max(chamberWidths) + sideBedrock * 2
 5. Fill the entire grid with bedrock. Everything is solid until carved. This is what makes “every chamber sealed on all sides” the default state rather than a rule to enforce. A chamber narrower or shorter than its neighbour simply has thicker bedrock around it, with no special handling.
 6. Carve each chamber and fill with filler rock. Hollow the chamber’s interior, roll each block against the §6 hardness weights.
-7. Stamp generated veins. Per chamber, per resource: split the count across tiers by tierBias, place each cluster at a random position inside the chamber’s rock volume, respecting veinCorridorClearance.
+7. Stamp generated veins. Per chamber, per resource: split the count across tiers by tierBias, place each cluster at a random position inside the chamber’s rock volume, respecting veinCorridorClearance. Uranium is stamped last and gets two guarantees ordinary ore does not, because it is the win condition: every uranium rock sits within pickaxe reach of the chamber floor, so it is minable from a standing start with no step-carving, and no uranium rock lands on another, so placed always equals authored.
 8. Stamp hand-placed rock. After generated veins, so it always wins.
 9. Carve corridors. After veins, so a vein can never plug the path. Skip the final chamber.
 10. Place gates. Fill the corridor cross-section where it crosses into the next chamber with Gate blocks. Chamber 1’s entrance is the mine mouth and is always open.
-11. Report. Log the seed, grid size, per-chamber diggable volume, and derived ore totals per chamber, both requested (vein counts × tier split × mean cluster size × yield) and actually placed, since overlapping clusters overwrite each other and silently lower the count. Also report how much of each chamber’s diggable volume sits within pickaxe reach of the floor or corridor, so a chamber that is mostly decoration (§8) is caught in the log rather than in playtest. The designer authors vein counts but cares about ore, so the generator has to close that loop.
+11. Report. Log the seed, grid size, per-chamber diggable volume, and derived ore totals per chamber, both requested (vein counts × tier split × mean cluster size × yield) and actually placed, since overlapping clusters overwrite each other and silently lower the count. Also report how much of each chamber’s diggable volume sits within pickaxe reach of the floor or corridor, so a chamber that is mostly decoration (§8) is caught in the log rather than in playtest. Also report cumulative uranium per chamber (“uranium so far”) so the designer can see the counter’s progression against uraniumTarget. The designer authors vein counts but cares about ore, so the generator has to close that loop.
+After the report, check the grid itself: if fewer uranium rocks survived than the largest party needs, refuse the result and name the seed. Validation checks the authored numbers; this checks what was actually built, so no seed can ever ship unwinnable.
 Randomness. One Random is seeded from the run seed, and each chamber draws from its own sub-seed derived from the run seed and the chamber index. Changing chamber 2’s numbers therefore never reshuffles chamber 1, so a designer sees only the effect of their edit.
 ________________
 
@@ -897,7 +915,8 @@ ________________
 11. Validation
 Every check must name the parameter and the chamber, so a misconfiguration is identifiable without reading code.
 Fatal — refuse to generate:
-* The effective uranium total (after §7 rounding) is below the map’s uranium rescue target. The run is unwinnable. Checked on effective counts, because at Nightmare small authored counts round down
+* The authored uranium total is below the map’s uraniumTarget × the largest party multiplier. The run is unwinnable for a full crew
+* The uranium in every chamber except the last already meets uraniumTarget. The last chamber must be required, so the run cannot end before the final gate opens
 * A chamber has a dimension below 1
 * corridorWidth is greater than or equal to chamber width. No rock left to mine
 * Chamber 1’s unlock level exceeds startingCampLevel. The run begins with nothing open
@@ -934,6 +953,7 @@ return {
     startingCampLevel = 1,
     bedrockThickness = 1,
     veinCorridorClearance = 0,
+    uraniumTarget = 20,
 
     defaultChamberHeight = 8,
     defaultChamberWidth = 24,
@@ -943,7 +963,7 @@ return {
             depth = 20,
             hardness = 1.2,
             tierBias = 1.0,
-            iron = 34, gold = 12, crystal = 2, uranium = 0,
+            iron = 34, gold = 12, crystal = 2, uranium = 2,
             corridorWidth = 3,
             corridorHeight = 3,
 
@@ -960,15 +980,15 @@ return {
             depth = 24,
             hardness = 2.1,
             tierBias = 2.0,
-            iron = 30, gold = 18, crystal = 6,
+            iron = 30, gold = 18, crystal = 6, uranium = 4,
         },
 
-        {   -- 3: taller, harder, first uranium
+        {   -- 3: taller, harder
             depth = 24,
             height = 12,
             hardness = 3.0,
             tierBias = 3.0,
-            iron = 22, gold = 22, crystal = 12, uranium = 3,
+            iron = 22, gold = 22, crystal = 12, uranium = 8,
             corridorHeight = 5,
         },
 
@@ -977,12 +997,13 @@ return {
             height = 16,
             hardness = 3.7,
             tierBias = 4.0,
-            iron = 16, gold = 20, crystal = 18, uranium = 8,
+            iron = 16, gold = 20, crystal = 18, uranium = 14,
         },
     },
 }
 Chamber 4 needs no corridorWidth or corridorHeight — it has no corridor, and hasCorridor is derived from being last.
-At Nightmare (1.9), the same file generates chamber 2 at hardness = 3.0 with 16 iron, 9 gold, and 3 crystal clusters. No second file, no overrides.
+Uranium is spread 2 / 4 / 8 / 14 so the counter moves from the first chamber, while chambers 1–3 hold 14, under the target of 20, so the run cannot finish until the last gate opens. The total of 28 covers the six-player target of 25.
+At Nightmare (vein divisor 1.4), the same file generates chamber 2 with the same rock, 21 iron, 13 gold, and 4 crystal clusters, and unchanged uranium. No second file, no overrides.
 Mining Attributes
 
 

@@ -17,11 +17,16 @@ local RockKind = Enums.RockKind
 local SPREAD = 1.5
 local MIN_CENTER = 1.0
 local MAX_CENTER = 4.0
-local HARDNESS_SHIFT = 1.0
+local HARDNESS_SHIFT = 0.0
 local DIFFICULTY_VALUE = {
 	[Enums.Difficulty.NORMAL] = 1.0,
 	[Enums.Difficulty.HARD] = 1.4,
 	[Enums.Difficulty.NIGHTMARE] = 1.9,
+}
+local VEIN_DIVISOR = {
+	[Enums.Difficulty.NORMAL] = 1.0,
+	[Enums.Difficulty.HARD] = 1.2,
+	[Enums.Difficulty.NIGHTMARE] = 1.4,
 }
 
 local function makeResource(resource: number, tier: number, hp: number, yield: number, radiusMin: number, radiusMax: number)
@@ -305,21 +310,23 @@ describe(
 		)
 
 		it(
-			"reproduces the GDD Nightmare example for chamber 2",
+			"reproduces the GDD Nightmare example for chamber 2: same rock, scarcer ore",
 			function()
 				local nightmare = DIFFICULTY_VALUE[Enums.Difficulty.NIGHTMARE]
-				expect(RockRules.effectiveHardness(2.1, nightmare, HARDNESS_SHIFT, MIN_CENTER, MAX_CENTER)).toBeCloseTo(3.0, 9)
-				expect(RockRules.effectiveVeinCount(30, nightmare)).toBe(16)
-				expect(RockRules.effectiveVeinCount(18, nightmare)).toBe(9)
-				expect(RockRules.effectiveVeinCount(6, nightmare)).toBe(3)
+				local divisor = VEIN_DIVISOR[Enums.Difficulty.NIGHTMARE]
+				expect(RockRules.effectiveHardness(2.1, nightmare, HARDNESS_SHIFT, MIN_CENTER, MAX_CENTER)).toBeCloseTo(2.1, 9)
+				expect(RockRules.effectiveVeinCount(30, divisor)).toBe(21)
+				expect(RockRules.effectiveVeinCount(18, divisor)).toBe(13)
+				expect(RockRules.effectiveVeinCount(6, divisor)).toBe(4)
 			end
 		)
 
 		it(
-			"clamps hardness at the top of the range",
+			"shifts and clamps hardness when the knob is turned on",
 			function()
 				local nightmare = DIFFICULTY_VALUE[Enums.Difficulty.NIGHTMARE]
-				expect(RockRules.effectiveHardness(3.7, nightmare, HARDNESS_SHIFT, MIN_CENTER, MAX_CENTER)).toBe(4)
+				expect(RockRules.effectiveHardness(2.1, nightmare, 1.0, MIN_CENTER, MAX_CENTER)).toBeCloseTo(3.0, 9)
+				expect(RockRules.effectiveHardness(3.7, nightmare, 1.0, MIN_CENTER, MAX_CENTER)).toBe(4)
 			end
 		)
 

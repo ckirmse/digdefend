@@ -116,6 +116,14 @@ module = {
 		SPINNING = 2,
 		FLYING = 3,
 	},
+	-- the direction a player walks to enter a mine; 90 degree steps keep
+	-- blocks axis-aligned (GDD "Coordinate model")
+	MineFacing = {
+		POSITIVE_X = 1,
+		NEGATIVE_X = 2,
+		POSITIVE_Z = 3,
+		NEGATIVE_Z = 4,
+	},
 	RockKind = {
 		FILLER = 1,
 		RESOURCE = 2,
