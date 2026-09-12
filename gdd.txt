@@ -424,7 +424,7 @@ Mining is half the game and is the only way players can win a run. However the g
 
 
 Rocks
-Every mine consists of a grid of cube Rocks (4x4 Studs). Every Rock will use the same 4x4 cube mesh, but will have a different texture based on the Rock Type. Every Rock mesh will be located in ReplicatedStorage/Rocks with the exact name of the Rock. When a mine is generated, they are cloned from here.  
+Every mine consists of a grid of cube Rocks (4x4 Studs). Every Rock will use the same 4x4 cube mesh, but will have a different texture based on the Rock Type. Every Rock mesh will be located in ReplicatedStorage/Rocks named by its RockName enum key (IRON_3, SHALE, BEDROCK); the player-facing name (“Iron 3”) is the enum’s public name. When a mine is generated, they are cloned from here.  
 Rock Types
 There are three types of Rock: Filler Rock, Resource Rocks, and Bedrock.  
 Filler Rock
@@ -654,7 +654,7 @@ Parameter
 	seed
 	number or nil
 	nil
-	nil means fresh per run. Set to reproduce a layout
+	nil means fresh per run. Set to reproduce a layout. The seed actually used is logged at the start of every run so any playtest report can be reproduced
 	origin
 	Vector3
 	—
@@ -812,7 +812,7 @@ hardness
 	75%
 	Note that spread = 1.5 means a chamber never mixes more than three rock types, and at the exact midpoint between two types it mixes only those two. Raising spread to 2.0 brings all four types into play at mid hardness, at the cost of chambers feeling less distinct from each other. Tune it once, globally, after seeing a mine in-game.
 Do not drop spread toward zero. At spread = 1.0 a whole-number hardness produces a chamber of one single rock type, which reads as flat and artificial. The bleed is what makes rock look natural.
-tierBias works identically over the four ore tiers. A chamber’s iron = 30 with tierBias = 2.0 places 30 iron clusters split roughly 6 / 18 / 6 / 0 across tiers 1–4.
+tierBias works identically over the four ore tiers. A chamber’s iron = 30 with tierBias = 2.0 places 30 iron clusters split 6 / 18 / 6 / 0 across tiers 1–4. Fractional splits use largest-remainder rounding so the tiers always sum to exactly the authored count; a tie goes to the lower tier.
 Uranium ignores tierBias; its count is placed directly.
 ________________
 
@@ -831,7 +831,7 @@ Difficulty
 effectiveHardness = clamp(
     hardness + (difficulty - 1) * hardnessShift, 1, 4)
 effectiveVeinCount = round(baseCount / difficulty)
-hardnessShift is a global constant, default 1.0. At Nightmare, a chamber authored at hardness = 2.1 generates at 3.0, and 30 iron veins become 16.
+hardnessShift is a global constant, default 1.0 (GameData/Control/Difficulty, alongside the difficulty values; spread lives in GameData/Rocks/Weights). round is half-up. At Nightmare, a chamber authored at hardness = 2.1 generates at 3.0, and 30 iron veins become 16.
 Difficulty is deliberately not able to express “same rock, less ore.” If that turns out to be needed, split it into two numbers rather than reintroducing per-difficulty chamber data.
 ________________
 
@@ -889,14 +889,15 @@ gridWidth  = max(chamberWidths) + sideBedrock * 2
 8. Stamp hand-placed rock. After generated veins, so it always wins.
 9. Carve corridors. After veins, so a vein can never plug the path. Skip the final chamber.
 10. Place gates. Fill the corridor cross-section where it crosses into the next chamber with Gate blocks. Chamber 1’s entrance is the mine mouth and is always open.
-11. Report. Log grid size, per-chamber diggable volume, and derived ore totals per chamber. The designer authors vein counts but cares about ore, so the generator has to close that loop.
+11. Report. Log the seed, grid size, per-chamber diggable volume, and derived ore totals per chamber, both requested (vein counts × tier split × mean cluster size × yield) and actually placed, since overlapping clusters overwrite each other and silently lower the count. Also report how much of each chamber’s diggable volume sits within pickaxe reach of the floor or corridor, so a chamber that is mostly decoration (§8) is caught in the log rather than in playtest. The designer authors vein counts but cares about ore, so the generator has to close that loop.
+Randomness. One Random is seeded from the run seed, and each chamber draws from its own sub-seed derived from the run seed and the chamber index. Changing chamber 2’s numbers therefore never reshuffles chamber 1, so a designer sees only the effect of their edit.
 ________________
 
 
 11. Validation
 Every check must name the parameter and the chamber, so a misconfiguration is identifiable without reading code.
 Fatal — refuse to generate:
-* No chamber contains uranium. The run is unwinnable
+* The effective uranium total (after §7 rounding) is below the map’s uranium rescue target. The run is unwinnable. Checked on effective counts, because at Nightmare small authored counts round down
 * A chamber has a dimension below 1
 * corridorWidth is greater than or equal to chamber width. No rock left to mine
 * Chamber 1’s unlock level exceeds startingCampLevel. The run begins with nothing open
@@ -915,6 +916,10 @@ ________________
 Gates. When the camp level reaches a chamber’s unlock level, that chamber’s gate blocks become air. This is the pacing beat of a run and should not happen silently — it needs an audible and visible moment.
 Damage. Rock HP is tracked server-side by grid position, not on the rendered block. Blocks are pooled and streamed, so a part that showed a half-mined block may be recycled or unloaded; damage keyed to position survives both.
 Visual damage states. Three states per the GDD: untouched, 60%, 30%. Author these as a crack overlay applied on top of any rock, not as separate textures per rock type. Seventeen rock types × 3 states is 51 assets to author and maintain; a shared overlay is 2, and it works automatically on rock types added later.
+Designer tooling. A dev tool regenerates the mine in a running session, with an optional seed, without restarting the run. This is the tuning loop: edit the mine file, sync, regenerate, walk in. A pure expected-ore preview computes the report’s requested-ore and HP totals from the mine file alone, so a designer can read the balance sheet of an edit before generating anything.
+Open questions, to revisit only on real feedback:
+* Independent per-block filler rolls may read as static noise rather than strata. If so, roll per 2×2×2 cell or bias toward a neighbour’s rock. Visual only; balance is untouched.
+* Fixed layout may feel same-shaped after many runs. If so, add bounded jitter to chamber depths rather than freer generation, so balance stays authored.
 ________________
 
 

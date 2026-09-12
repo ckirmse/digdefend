@@ -122,6 +122,53 @@ module = {
 		BEDROCK = 3,
 		GATE = 4,
 	},
+	-- every rock in the global rock table (GDD "Rock definitions"). One integer
+	-- per grid cell in the generated mine; keys double as the template names
+	-- under ReplicatedStorage/Rocks. PublicNames match the hand-placed rock
+	-- strings in the GDD ("Crystal 3").
+	RockName = {
+		SHALE = 1,
+		SANDSTONE = 2,
+		GRANITE = 3,
+		BASALT = 4,
+		IRON_1 = 5,
+		IRON_2 = 6,
+		IRON_3 = 7,
+		IRON_4 = 8,
+		GOLD_1 = 9,
+		GOLD_2 = 10,
+		GOLD_3 = 11,
+		GOLD_4 = 12,
+		CRYSTAL_1 = 13,
+		CRYSTAL_2 = 14,
+		CRYSTAL_3 = 15,
+		CRYSTAL_4 = 16,
+		URANIUM = 17,
+		BEDROCK = 18,
+		GATE = 19,
+
+		PublicNames = {
+			SHALE = "Shale",
+			SANDSTONE = "Sandstone",
+			GRANITE = "Granite",
+			BASALT = "Basalt",
+			IRON_1 = "Iron 1",
+			IRON_2 = "Iron 2",
+			IRON_3 = "Iron 3",
+			IRON_4 = "Iron 4",
+			GOLD_1 = "Gold 1",
+			GOLD_2 = "Gold 2",
+			GOLD_3 = "Gold 3",
+			GOLD_4 = "Gold 4",
+			CRYSTAL_1 = "Crystal 1",
+			CRYSTAL_2 = "Crystal 2",
+			CRYSTAL_3 = "Crystal 3",
+			CRYSTAL_4 = "Crystal 4",
+			URANIUM = "Uranium",
+			BEDROCK = "Bedrock",
+			GATE = "Gate",
+		},
+	},
 	-- the five loadout slots carried into a run; keys double as save-data keys
 	LoadoutSlot = {
 		WEAPON = 1,
