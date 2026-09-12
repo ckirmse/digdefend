@@ -6,17 +6,21 @@
 -- not faster than the pick axe swings. Results go to every client so the
 -- crack state and the removal are seen by all.
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
+local BackpackRules = require("@game/ReplicatedStorage/Shared/BackpackRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local MineGenerator = require("@game/ReplicatedStorage/Shared/MineGenerator")
 local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
 local MiningRules = require("@game/ReplicatedStorage/Shared/MiningRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local PartyScalingData = require("@game/ServerScriptService/GameData/Control/PartyScaling")
 local PickAxeData = require("@game/ServerScriptService/GameData/Mining/PickAxe")
 local RockDefinitionsData = require("@game/ServerScriptService/GameData/Rocks/RockDefinitions")
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
+local BackpackManager = require(script.Parent.BackpackManager)
 local MineManager = require(script.Parent.MineManager)
+local OrePickupManager = require(script.Parent.OrePickupManager)
 local ToolManager = require(script.Parent.ToolManager)
 
 local MiningManager = {}
@@ -82,6 +86,7 @@ function MiningManager:handleHit(player: Player, depth: number, height: number, 
 			rock = rock,
 			breakerUserId = player.UserId,
 		})
+		self:awardOre(player, definition, blockCenter)
 	else
 		NetManager:notifyAllClients(NetEventNames.NOTIFY_ROCK_DAMAGED, {
 			depth = depth,
@@ -90,6 +95,21 @@ function MiningManager:handleHit(player: Player, depth: number, height: number, 
 			remainingHp = remainingHp,
 			maxHp = definition.hp,
 		})
+	end
+end
+
+-- the ore inside a broken resource rock goes to the breaker; what does not
+-- fit lands on the ground (GDD "Collecting Ore"). Party size is the current
+-- Ready count until M28 samples it at dawn.
+function MiningManager:awardOre(player: Player, definition: any, blockCenter: Vector3)
+	if definition.kind ~= Enums.RockKind.RESOURCE or not definition.resource or not definition.yield then
+		return
+	end
+	local playerCount = #GameController:getReadyPlayers()
+	local amount = BackpackRules.yieldForBreak(definition.yield, definition.resource, playerCount, PartyScalingData.ORE_YIELD_MULTIPLIER_BY_PLAYER_COUNT)
+	local _, overflow = BackpackManager:add(player, definition.resource, amount)
+	if overflow > 0 then
+		OrePickupManager:drop(blockCenter, definition.resource, overflow)
 	end
 end
 

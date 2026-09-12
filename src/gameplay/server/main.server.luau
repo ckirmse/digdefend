@@ -3,11 +3,13 @@
 -- Gameplay-only server startup. The shared GameController starts from
 -- ServerScriptService/Server/main; this script wires the gameplay's own managers.
 local ArrivalManager = require(script.Parent.ArrivalManager)
+local BackpackManager = require(script.Parent.BackpackManager)
 local GameplayMapManager = require(script.Parent.GameplayMapManager)
 local MapManager = require(script.Parent.MapManager)
 local MineDevTools = require(script.Parent.MineDevTools)
 local MineManager = require(script.Parent.MineManager)
 local MiningManager = require(script.Parent.MiningManager)
+local OrePickupManager = require(script.Parent.OrePickupManager)
 local RunDevTools = require(script.Parent.RunDevTools)
 local RunManager = require(script.Parent.RunManager)
 local ToolManager = require(script.Parent.ToolManager)
@@ -32,6 +34,8 @@ RunManager:subscribeRunStarted(
 )
 
 ToolManager:init()
+BackpackManager:init()
+OrePickupManager:init()
 MiningManager:init()
 
 RunDevTools:init()

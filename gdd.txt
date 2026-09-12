@@ -518,6 +518,9 @@ Collecting Ore
 * When Ore is collected, it should make a pop sound, again like Minecraft
 * Players can tap their Backpack icon to bring up a Backpack inventory menu
 * This menu shows how much of each Ore is in their backpack (only showing Ore that the player actually has) 
+* Capacity is counted in ore units, so the HUD’s taken/total is total ore over capacity (“37/50”). Contents, level, and capacity are server run state replicated as private attributes; the backpack HUD button shows only while the pick axe is held and opens the contents menu as an overlay
+* A broken resource rock gives the breaker its yield. Iron and Gold are multiplied by the party table (PartyScaling) and rounded half up; Crystal and Uranium never are. Party size is the current player count until M28 samples it at dawn
+* Ore that does not fit lands by the block as a pickup (one invisible server part carrying resource and amount; clients draw a bobbing cube in the ore’s colour), scattered up to 1.5 studs. Any player with room within 5 studs collects it, partial amounts included; the server checks four times a second. A pickup nobody takes disappears after 120 s, and past 300 pickups the oldest go first (GameData/Mining/Backpack)
 Refining Ore
 * Players refine Raw Resources by taking them to the Refinery
 * The Refinery is the main camp building, located just outside the Mine Entrance
@@ -1030,6 +1033,7 @@ Pick Axe
 
 
 Backpack
+* Capacity by level, in ore units: 50 / 100 / 200 / 400 (GameData/Mining/Backpack, CAPACITY_BY_LEVEL; the list length is the level count). Everyone is level 1 until the Mining Supplies Store (M21)
 Boots        
 Posts
 Defenses

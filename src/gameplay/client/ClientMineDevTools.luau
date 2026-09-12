@@ -20,8 +20,10 @@ export type ClientMineDevTools = typeof(setmetatable(
 	ClientMineDevTools
 ))
 
--- must match MineDevTools.REGENERATE_MINE_COMMAND on the server
+-- must match MineDevTools.*_COMMAND on the server
 local REGENERATE_MINE_COMMAND = "regenerateMine"
+local FILL_BACKPACK_COMMAND = "fillBackpack"
+local EMPTY_BACKPACK_COMMAND = "emptyBackpack"
 
 function ClientMineDevTools:renderSection()
 	local stats = ClientMineManager:getStats()
@@ -29,6 +31,13 @@ function ClientMineDevTools:renderSection()
 	Iris.Text({ `Received {stats.bytesReceived} bytes in {stats.chunksReceived}/{stats.chunkCount} chunks` })
 	Iris.Text({ `Rendered {stats.renderedCount} blocks ({stats.exposedInRadius} exposed in radius), {stats.pooledCount} pooled` })
 	Iris.Text({ string.format("Last refresh %.1f ms", stats.lastRefreshMs) })
+
+	if Iris.Button({ "Fill backpack" }).clicked() then
+		ClientNetManager:fireServer(NetEventNames.TRY_DEV_TOOL, { command = FILL_BACKPACK_COMMAND })
+	end
+	if Iris.Button({ "Empty backpack" }).clicked() then
+		ClientNetManager:fireServer(NetEventNames.TRY_DEV_TOOL, { command = EMPTY_BACKPACK_COMMAND })
+	end
 
 	Iris.Checkbox({ "Use seed" }, { isChecked = self.useSeed })
 	Iris.InputNum({ "Seed", 1, 1 }, { number = self.seedInput })

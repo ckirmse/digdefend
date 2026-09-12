@@ -40,6 +40,17 @@ module = {
 	-- GameMetadata (gameplay): pick axe input tuning the client needs
 	PICK_AXE_HIT_INTERVAL_SEC = "PickAxeHitIntervalSec",
 	PICK_AXE_REACH_STUDS = "PickAxeReachStuds",
+	-- backpack (BackpackManager, gameplay): private CurrentPlayer run state,
+	-- one count per raw resource plus level and capacity in ore units
+	BACKPACK_LEVEL = "BackpackLevel",
+	BACKPACK_CAPACITY = "BackpackCapacity",
+	BACKPACK_IRON_ORE = "BackpackIronOre",
+	BACKPACK_GOLD_ORE = "BackpackGoldOre",
+	BACKPACK_CRYSTAL = "BackpackCrystal",
+	BACKPACK_URANIUM_ORE = "BackpackUraniumOre",
+	-- on each ore pickup shadow part (Tags.ORE_PICKUP): what lies there
+	PICKUP_RESOURCE = "PickupResource",
+	PICKUP_AMOUNT = "PickupAmount",
 	-- on every helicopter model (Tags.HELICOPTER): Enums.HelicopterPhase
 	HELICOPTER_PHASE = "HelicopterPhase",
 	-- on each helicopter pad model: PadIndex is Studio-authored, the rest is

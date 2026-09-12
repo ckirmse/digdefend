@@ -26,6 +26,9 @@ module = {
 	-- every client: a block took damage (crack state) or broke (clear the cell)
 	NOTIFY_ROCK_DAMAGED = "NotifyRockDamaged",
 	NOTIFY_ROCK_BROKEN = "NotifyRockBroken",
+	-- to one client: ore reached their backpack (from a break or a pickup),
+	-- so the pop plays; the counts themselves arrive as attributes
+	NOTIFY_ORE_COLLECTED = "NotifyOreCollected",
 }
 
 return module

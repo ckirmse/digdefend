@@ -1,11 +1,14 @@
 --!strict
 
--- Gameplay dev tool: regenerate the mine in a live session, with an optional
--- seed, so a designer can edit the mine file, sync, regenerate, and walk in
--- without restarting the run (GDD "Designer tooling").
+-- Gameplay mining dev tools: regenerate the mine in a live session with an
+-- optional seed, so a designer can edit the mine file, sync, regenerate, and
+-- walk in without restarting the run (GDD "Designer tooling"); and fill or
+-- empty the backpack so the full state and overflow drops can be tested
+-- without mining fifty ore.
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local DevTools = require(script.Parent.Parent.Server.DevTools)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
+local BackpackManager = require(script.Parent.BackpackManager)
 local MineManager = require(script.Parent.MineManager)
 local RunManager = require(script.Parent.RunManager)
 
@@ -15,6 +18,8 @@ MineDevTools.__index = MineDevTools
 export type MineDevTools = typeof(setmetatable({} :: {}, MineDevTools))
 
 MineDevTools.REGENERATE_MINE_COMMAND = "regenerateMine"
+MineDevTools.FILL_BACKPACK_COMMAND = "fillBackpack"
+MineDevTools.EMPTY_BACKPACK_COMMAND = "emptyBackpack"
 
 local REGENERATE_MINE_ARGS_SHAPE = {
 	seed = { type = "positiveInteger", optional = true },
@@ -45,6 +50,20 @@ function MineDevTools:init()
 		MineDevTools.REGENERATE_MINE_COMMAND,
 		function(player: Player, args: { [string]: any })
 			self:regenerateMine(player, args)
+		end
+	)
+	DevTools:registerPlaceCommand(
+		MineDevTools.FILL_BACKPACK_COMMAND,
+		function(player: Player, _args: { [string]: any })
+			BackpackManager:fill(player)
+			PlayerFeedbackManager:give(player, "Backpack filled")
+		end
+	)
+	DevTools:registerPlaceCommand(
+		MineDevTools.EMPTY_BACKPACK_COMMAND,
+		function(player: Player, _args: { [string]: any })
+			BackpackManager:empty(player)
+			PlayerFeedbackManager:give(player, "Backpack emptied")
 		end
 	)
 end

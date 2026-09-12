@@ -114,6 +114,21 @@ Constants.MAX_TOOL_SLOTS = 9
 Constants.MINING_HUD_GUI_NAME = "MiningHud"
 Constants.MINING_RETICLE = "Reticle"
 Constants.MINING_TARGET_LABEL = "TargetLabel"
+-- gameplay HUD (built by scripts/studio/build_gameplay_hud_gui.luau)
+Constants.GAMEPLAY_HUD_GUI_NAME = "GameplayHud"
+Constants.HUD_BACKPACK_BUTTON = "BackpackButton"
+Constants.HUD_BACKPACK_COUNT_LABEL = "CountLabel"
+Constants.HUD_BACKPACK_FULL_LABEL = "FullLabel"
+-- backpack contents menu (built by scripts/studio/build_backpack_menu_gui.luau)
+Constants.BACKPACK_MENU_GUI_NAME = "Backpack"
+Constants.BACKPACK_MENU_LIST = "List"
+Constants.BACKPACK_MENU_ROW_TEMPLATE = "RowTemplate"
+Constants.BACKPACK_ROW_NAME_LABEL = "NameLabel"
+Constants.BACKPACK_ROW_AMOUNT_LABEL = "AmountLabel"
+Constants.BACKPACK_MENU_EMPTY_LABEL = "EmptyLabel"
+Constants.BACKPACK_MENU_CLOSE_BUTTON = "CloseButton"
+-- server folder holding ore pickup shadow parts
+Constants.ORE_PICKUPS_FOLDER = "OrePickups"
 -- the rotor hub part (blades are welded to it) inside the rotor model; the
 -- designer's spelling
 Constants.HELICOPTER_ROTOR_MODEL = "Rotar"

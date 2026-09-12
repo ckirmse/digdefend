@@ -12,6 +12,7 @@ module = {
 		SALE_SUCCESS = "SaleSuccess",
 		ROCK_HIT = "RockHit",
 		ROCK_BREAK = "RockBreak",
+		ORE_PICKUP = "OrePickup",
 	},
 	Music = {},
 }
