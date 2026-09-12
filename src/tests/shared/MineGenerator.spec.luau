@@ -650,6 +650,52 @@ describe(
 )
 
 describe(
+	"MineGenerator filler on the wire",
+	function()
+		it(
+			"collapses filler to a placeholder and expands it back to the identical grid",
+			function()
+				local result = generateOrFail(makeMine())
+				local fillerOrder = makeRockTable().FILLER_ORDER
+				local collapsed = MineGenerator.collapseFiller(result.grid.cells, fillerOrder)
+				local placeholders = 0
+				for _, rock in collapsed do
+					if rock == MineGenerator.FILLER_PLACEHOLDER then
+						placeholders += 1
+					end
+					expect(rock ~= RockName.SHALE and rock ~= RockName.SANDSTONE and rock ~= RockName.GRANITE and rock ~= RockName.BASALT).toBe(true)
+				end
+				expect(placeholders).toBeGreaterThan(10000)
+
+				local fills = {}
+				for _, chamber in result.chambers do
+					table.insert(fills, {
+						index = chamber.index,
+						depthStart = chamber.depthStart,
+						depth = chamber.depth,
+						heightStart = chamber.heightStart,
+						height = chamber.height,
+						widthStart = chamber.widthStart,
+						width = chamber.width,
+						fillerWeights = chamber.fillerWeights,
+					})
+				end
+				local rebuilt = {
+					depth = result.grid.depth,
+					height = result.grid.height,
+					width = result.grid.width,
+					centrelineWidth = result.grid.centrelineWidth,
+					floorHeight = result.grid.floorHeight,
+					cells = collapsed,
+				}
+				MineGenerator.expandFiller(rebuilt, fills, result.report.seed, fillerOrder)
+				expect(rebuilt.cells).toEqual(result.grid.cells)
+			end
+		)
+	end
+)
+
+describe(
 	"MineGenerator.clusterCellCount",
 	function()
 		it(

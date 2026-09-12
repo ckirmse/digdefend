@@ -14,6 +14,12 @@ module = {
 	NOTIFY_PLAYER_FEEDBACK = "NotifyPlayerFeedback",
 	-- tells one client which pad menu to show (Enums.PartyMenu) and whether it hosts
 	NOTIFY_PARTY_MENU = "NotifyPartyMenu",
+	-- the generated mine (gameplay place): a header with dimensions, placement,
+	-- and chunk count, then the run-length-encoded cells in buffer chunks
+	-- (MineGridCodec); a version ties chunks to their header so a regenerate
+	-- mid-stream cannot mix two mines
+	NOTIFY_MINE_HEADER = "NotifyMineHeader",
+	NOTIFY_MINE_CHUNK = "NotifyMineChunk",
 }
 
 return module

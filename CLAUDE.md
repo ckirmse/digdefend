@@ -102,6 +102,9 @@ Stop every `rojo serve` before running `wally install`: Wally rewrites `Packages
 ### Studio authoring
 Studio-only content (ScreenGuis, world templates, placeholder geometry) is authored by Claude through the Roblox Studio MCP tools, never handed to the user as a checklist. After every playtest, read the Studio console output; the game can look fine while spamming errors. After Studio is reopened, verify Rojo sync is fresh (check a script's `.Source` for a recent edit) before trusting a playtest.
 
+### Maps (M17)
+Every map is a Folder under `ServerStorage/Maps` named by its `Enums.Map` key; `MapManager` clones the run's map into Workspace as `Camp` at run start and `GameplayMapManager:checkCamp` validates it. To edit a map in Studio, run `scripts/studio/map_tools.luau` with `ACTION = "load"` (moves it into Workspace, pastes any terrain snapshot), then with `ACTION = "save"`. A map left in Workspace is used as-is with a warning. The mine's origin and facing come from the map's `Mine.Entrance` part. The generated mine is never parts on the server: `MineManager` holds the grid and sends it as run-length-encoded buffer chunks with filler collapsed to a placeholder that the client re-rolls from the seed (`MineGenerator.expandFiller`); `ClientMineManager` renders only exposed blocks within the streaming radius from a part pool, cloning `GameAssets/Rocks` templates (`scripts/studio/build_rock_templates.luau`).
+
 ### Attributes and Tags
 All instance attribute names live in `Attributes.luau`; all CollectionService tags in `Tags.luau`. Never raw strings.
 

@@ -76,11 +76,28 @@ Constants.HELICOPTER_PLAYER_SPAWNS_FOLDER = "PlayerSpawns"
 -- a launched helicopter is renamed to this while clients fly it away
 Constants.DEPARTED_HELICOPTER_NAME = "DepartedHelicopter"
 
--- gameplay Workspace layout (Studio-authored; GameplayMapManager checks it at startup)
+-- gameplay map layout (Studio-authored; GameplayMapManager checks it when a
+-- map loads). Every map is a Folder under ServerStorage/Maps named by its
+-- Enums.Map key; MapManager clones the run's map into Workspace as Camp.
+Constants.MAPS_FOLDER = "Maps"
 Constants.CAMP_FOLDER = "Camp"
 Constants.CAMP_HELICOPTER_PAD_MODEL = "HelicopterPad"
 -- BaseParts named 1..6; players are placed on them in arrival order
 Constants.CAMP_SPAWNS_FOLDER = "Spawns"
+-- Camp.Mine.Entrance: an anchored part whose position is the mine origin and
+-- whose look direction (snapped to an axis) is the mine facing
+Constants.CAMP_MINE_FOLDER = "Mine"
+Constants.MINE_ENTRANCE_PART = "Entrance"
+-- optional per-map terrain: the part bounding the terrain to snapshot and
+-- the TerrainRegion the snapshot is stored in (scripts/studio/map_tools.luau)
+Constants.MAP_TERRAIN_BOUNDS_PART = "TerrainBounds"
+Constants.MAP_TERRAIN_REGION = "TerrainSnapshot"
+-- rock templates under GameAssets, one per Enums.RockName key; clients clone
+-- them into the client-only MineBlocks folder in Workspace
+Constants.ROCK_TEMPLATES_FOLDER = "Rocks"
+Constants.MINE_BLOCKS_FOLDER = "MineBlocks"
+-- the GDD fixes every rock as a 4-stud cube; structural, not tuning
+Constants.MINE_BLOCK_SIZE_STUDS = 4
 -- the rotor hub part (blades are welded to it) inside the rotor model; the
 -- designer's spelling
 Constants.HELICOPTER_ROTOR_MODEL = "Rotar"

@@ -303,6 +303,15 @@ Maps
    * Deadman’s Canyon: A desert mine in an old west canyon. This is the starter map, with a base only exposed on one side (so enemies only come from one direction). 
    * Frostbite Pass: An arctic mining facility with brutal weather, more exposure, and more intense enemies
 * Each map will have its own separate mine spawn and enemy waves data, so they can be balanced differently. 
+Map authoring (decided 2026-09-12)
+* All maps live in the one gameplay place. Each map is a Folder under ServerStorage/Maps named by its Enums.Map key (DEADMANS_CANYON, FROSTBITE_PASS). Folders, not Models, so clicking a part in the Explorer selects only that part; things that should move as one unit (the helicopter pad) stay Models inside the folder.
+* At run start the server clones the chosen map folder into Workspace as Camp. Only the active map exists in memory. Its scenery is static geometry and is the one place server-side parts are the right call.
+* Every map folder carries the same required named parts, validated at startup with the map’s name in every message: HelicopterPad (with HelicopterSpawn and Spawns 1–6), Mine.Entrance (an anchored part whose position is the mine origin and whose look direction is the mine facing, snapped to the nearest axis), and later the Refinery, walls, and store spots.
+* Editing a map: run scripts/studio/map_tools.luau in Edit mode with ACTION = "load" to move the map folder into Workspace, edit, then run it with ACTION = "save" to move it back. Pressing Play with a map folder still in Workspace uses it as-is with a warning, so an unsaved edit still plays and is never lost.
+* Terrain is optional per map. A map that wants terrain adds a TerrainBounds part sized around it; “save” snapshots the terrain inside the bounds into a TerrainRegion in the map folder and “load” pastes it back. A map without TerrainBounds is a plain folder and the tools skip terrain. Terrain lives in the place file only.
+* What a map cannot change: rock definitions, the weight kernel, block size, difficulty and party scaling, and the generator. Balance stays comparable between maps.
+* A new map is: one Enums.Map entry with a public name, one row in the pad’s map carousel (thumbnail and unlock requirement), one mine file in GameData/Mines plus its registry entry, one wave file in GameData/Waves, and one folder under ServerStorage/Maps.
+* Studio has no teleport data, so a dev tool starts a run as any map and difficulty without leaving Play.
 Difficulty
 * Every map will also have 3 difficulty levels: Normal, Hard, and Nightmare
 * Difficulty is driven by the enemy waves. Harder rock is more swings per block, which is grind, not challenge; waves are decisions, positioning, and spending. Levers:
@@ -433,7 +442,7 @@ Mining is half the game and is the only way players can win a run. However the g
 
 
 Rocks
-Every mine consists of a grid of cube Rocks (4x4 Studs). Every Rock will use the same 4x4 cube mesh, but will have a different texture based on the Rock Type. Every Rock mesh will be located in ReplicatedStorage/Rocks named by its RockName enum key (IRON_3, SHALE, BEDROCK); the player-facing name (“Iron 3”) is the enum’s public name. When a mine is generated, they are cloned from here.  
+Every mine consists of a grid of cube Rocks (4x4 Studs). Every Rock will use the same 4x4 cube mesh, but will have a different texture based on the Rock Type. Every Rock mesh will be located in ReplicatedStorage/GameAssets/Rocks (the central asset folder) named by its RockName enum key (IRON_3, SHALE, BEDROCK); the player-facing name (“Iron 3”) is the enum’s public name. Clients clone from here; the server never holds rock parts.  
 Rock Types
 There are three types of Rock: Filler Rock, Resource Rocks, and Bedrock.  
 Filler Rock
@@ -666,12 +675,12 @@ Parameter
 	nil means fresh per run. Set to reproduce a layout. The seed actually used is logged at the start of every run so any playtest report can be reproduced
 	origin
 	Vector3
-	—
-	Centre of the entrance mouth, at floor level
+	from Mine.Entrance
+	Centre of the entrance mouth, at floor level. Read from the map folder’s Mine.Entrance part, not authored in the file, so a designer moves the mine by dragging a part
 	facing
 	enum
-	—
-	+X / -X / +Z / -Z
+	from Mine.Entrance
+	+X / -X / +Z / -Z, the entrance part’s look direction snapped to an axis
 	startingCampLevel
 	number
 	1

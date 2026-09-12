@@ -14,6 +14,11 @@ local MineGenerator = {}
 
 MineGenerator.AIR = 0
 MineGenerator.CORRIDOR_HEIGHT_FULL = "full"
+-- wire symbol for "a filler block; roll its identity from the seed" (see
+-- collapseFiller / expandFiller): filler is per-block noise that no codec
+-- can compress, but it is a pure function of the chamber seed, so clients
+-- re-roll it instead of receiving it
+MineGenerator.FILLER_PLACEHOLDER = 255
 
 -- seeds drawn for a nil-seed run stay well inside Random's integer range
 local MAX_DRAWN_SEED = 2 ^ 31 - 1
@@ -98,12 +103,31 @@ export type ResolvedChamber = {
 	heightStart: number,
 	widthStart: number,
 	corridorWidthStart: number,
+	-- the resolved hardness kernel over the filler order, so a client can
+	-- re-roll filler without RockRules or the rock table
+	fillerWeights: { number },
+}
+
+-- what a client needs per chamber to re-roll filler (a subset of ResolvedChamber)
+export type ChamberFill = {
+	index: number,
+	depthStart: number,
+	depth: number,
+	heightStart: number,
+	height: number,
+	widthStart: number,
+	width: number,
+	fillerWeights: { number },
 }
 
 export type MineGrid = {
 	depth: number,
 	height: number,
 	width: number,
+	-- width index on the mine centreline and height index of the first
+	-- chamber-floor row; MineSpace needs both to place the grid in the world
+	centrelineWidth: number,
+	floorHeight: number,
 	cells: { number },
 }
 
@@ -376,6 +400,7 @@ local function resolveChambers(definition: MineDefinition, config: GeneratorConf
 			heightStart = 0,
 			widthStart = 0,
 			corridorWidthStart = 0,
+			fillerWeights = {},
 		})
 	end
 
@@ -438,13 +463,15 @@ local function layoutGrid(definition: MineDefinition, chambers: { ResolvedChambe
 		maxHeight = math.max(maxHeight, chamber.height)
 		maxWidth = math.max(maxWidth, chamber.width)
 	end
+	local centreline = bedrock.side + math.floor((maxWidth - 1) / 2)
 	local grid: MineGrid = {
 		depth = bedrock.front + sumDepth + bedrock.divider * (#chambers - 1) + bedrock.far,
 		height = maxHeight + bedrock.floor + bedrock.ceiling,
 		width = maxWidth + bedrock.side * 2,
+		centrelineWidth = centreline,
+		floorHeight = bedrock.floor,
 		cells = {},
 	}
-	local centreline = bedrock.side + math.floor((maxWidth - 1) / 2)
 	local depthCursor = bedrock.front
 	for _, chamber in chambers do
 		chamber.depthStart = depthCursor
@@ -458,20 +485,59 @@ end
 
 -- Steps 5 and 6: everything is bedrock until carved; chamber interiors are
 -- rolled against the hardness weights.
+-- Rolls filler for one chamber from a fresh chamber Random, writing a cell
+-- only where `onlyPlaceholder` allows. Server generation and client
+-- reconstruction both call this, in the same cell order, so the rolls line
+-- up: the client's Random consumes exactly what the server's did.
+function MineGenerator.rollFiller(grid: MineGrid, fill: ChamberFill, fillerOrder: { number }, random: Random, onlyPlaceholder: boolean)
+	for depth = fill.depthStart, fill.depthStart + fill.depth - 1 do
+		for height = fill.heightStart, fill.heightStart + fill.height - 1 do
+			for width = fill.widthStart, fill.widthStart + fill.width - 1 do
+				local rock = fillerOrder[RockRules.pickWeightedIndex(random, fill.fillerWeights)]
+				if onlyPlaceholder and MineGenerator.getCell(grid, depth, height, width) ~= MineGenerator.FILLER_PLACEHOLDER then
+					continue
+				end
+				setCell(grid, depth, height, width, rock)
+			end
+		end
+	end
+end
+
+-- cells for the wire: every filler rock becomes FILLER_PLACEHOLDER so chamber
+-- interiors run-length encode to almost nothing
+function MineGenerator.collapseFiller(cells: { number }, fillerOrder: { number }): { number }
+	local isFiller: { [number]: boolean } = {}
+	for _, rock in fillerOrder do
+		isFiller[rock] = true
+	end
+	local collapsed = table.create(#cells, MineGenerator.AIR)
+	for index, rock in cells do
+		collapsed[index] = if isFiller[rock] then MineGenerator.FILLER_PLACEHOLDER else rock
+	end
+	return collapsed
+end
+
+-- the inverse of collapseFiller on a client: re-rolls every placeholder from
+-- the chamber seeds. Placeholders outside every chamber (never expected)
+-- become the first filler rock so the grid holds no wire symbols.
+function MineGenerator.expandFiller(grid: MineGrid, fills: { ChamberFill }, seed: number, fillerOrder: { number })
+	for _, fill in fills do
+		local random = Random.new(MineGenerator.deriveChamberSeed(seed, fill.index))
+		MineGenerator.rollFiller(grid, fill, fillerOrder, random, true)
+	end
+	for index, rock in grid.cells do
+		if rock == MineGenerator.FILLER_PLACEHOLDER then
+			grid.cells[index] = fillerOrder[1]
+		end
+	end
+end
+
 local function fillBedrockAndCarve(grid: MineGrid, chambers: { ResolvedChamber }, config: GeneratorConfig, chamberRandoms: { Random })
 	grid.cells = table.create(grid.depth * grid.height * grid.width, Enums.RockName.BEDROCK)
 	local fillerOrder = config.rockTable.FILLER_ORDER
 	for _, chamber in chambers do
-		local weights = RockRules.weights(chamber.hardness, #fillerOrder, config.spread)
-		local random = chamberRandoms[chamber.index]
-		local box = chamberBox(chamber)
-		for depth = box.depthStart, box.depthEnd do
-			for height = box.heightStart, box.heightEnd do
-				for width = box.widthStart, box.widthEnd do
-					setCell(grid, depth, height, width, fillerOrder[RockRules.pickWeightedIndex(random, weights)])
-				end
-			end
-		end
+		chamber.fillerWeights = RockRules.weights(chamber.hardness, #fillerOrder, config.spread)
+		MineGenerator.rollFiller(grid, chamber, fillerOrder, chamberRandoms[chamber.index], false)
 	end
 end
 

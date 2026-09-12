@@ -23,6 +23,12 @@ module = {
 	RUN_DIFFICULTY = "RunDifficulty",
 	RUN_PLAYER_COUNT = "RunPlayerCount",
 	RUN_HOST_USER_ID = "RunHostUserId",
+	-- the seed the current mine was generated with (MineManager), for bug reports
+	MINE_SEED = "MineSeed",
+	-- on the client-only MineBlocks folder: ClientMineManager's live streaming numbers
+	MINE_RENDERED_COUNT = "MineRenderedCount",
+	MINE_POOLED_COUNT = "MinePooledCount",
+	MINE_LAST_REFRESH_MS = "MineLastRefreshMs",
 	-- on every helicopter model (Tags.HELICOPTER): Enums.HelicopterPhase
 	HELICOPTER_PHASE = "HelicopterPhase",
 	-- on each helicopter pad model: PadIndex is Studio-authored, the rest is

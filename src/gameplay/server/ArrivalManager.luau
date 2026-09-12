@@ -6,7 +6,8 @@
 -- is the second lock). Players are placed on the pad's spawn parts in arrival
 -- order (first to arrive on 1). The camp helicopter sits on the pad with its
 -- rotor turning and flies off once every expected member is Ready, or after
--- the arrival timeout.
+-- the arrival timeout. The camp only exists once the run has started and
+-- MapManager has loaded the map, so placement waits for run start.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
@@ -102,6 +103,8 @@ function ArrivalManager:onPlayerAdded(player: Player)
 	if not self:checkGate(player) then
 		return
 	end
+	-- starts the run (and loads the map) on the first arrival, before the
+	-- character exists, so placeAtSpawn finds the camp
 	RunManager:recordFromPlayer(player)
 	if not self.firstArrivalTime then
 		self.firstArrivalTime = workspace:GetServerTimeNow()
@@ -185,8 +188,27 @@ function ArrivalManager:placeHelicopter()
 	self.helicopter = HelicopterManager:spawnAt(spawnPart, pad, Enums.HelicopterPhase.SPINNING)
 end
 
+-- the map is loaded now (a fresh one on a dev-tool restart, so the old
+-- helicopter went with the old camp); place the helicopter and put every
+-- present character on its spawn
+function ArrivalManager:onRunStarted(_map: number, _difficulty: number)
+	if not self.hasLaunched then
+		self:placeHelicopter()
+	end
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		if character then
+			self:placeAtSpawn(player, character)
+		end
+	end
+end
+
 function ArrivalManager:init()
-	self:placeHelicopter()
+	RunManager:subscribeRunStarted(
+		function(map: number, difficulty: number)
+			self:onRunStarted(map, difficulty)
+		end
+	)
 	GameController:registerPlaceManager(self)
 
 	Players.PlayerAdded:Connect(
