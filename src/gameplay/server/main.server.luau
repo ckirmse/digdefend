@@ -7,8 +7,10 @@ local GameplayMapManager = require(script.Parent.GameplayMapManager)
 local MapManager = require(script.Parent.MapManager)
 local MineDevTools = require(script.Parent.MineDevTools)
 local MineManager = require(script.Parent.MineManager)
+local MiningManager = require(script.Parent.MiningManager)
 local RunDevTools = require(script.Parent.RunDevTools)
 local RunManager = require(script.Parent.RunManager)
+local ToolManager = require(script.Parent.ToolManager)
 
 GameplayMapManager:init()
 RunManager:init()
@@ -28,6 +30,9 @@ RunManager:subscribeRunStarted(
 		MineManager:onRunStarted(map, difficulty)
 	end
 )
+
+ToolManager:init()
+MiningManager:init()
 
 RunDevTools:init()
 MineDevTools:init()

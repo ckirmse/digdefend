@@ -41,6 +41,7 @@ export type Header = {
 	maxRenderedBlocks: number,
 	streamPollSec: number,
 	fillerOrder: { number },
+	rockHp: { [number]: number },
 	chambers: { MineGenerator.ChamberFill },
 }
 
@@ -64,9 +65,12 @@ export type ClientMineManager = typeof(setmetatable(
 		bytesReceived: number,
 		grid: MineGenerator.MineGrid?,
 		space: MineSpace.MineSpace?,
-		-- every exposed cell index, computed once per grid so a refresh only
-		-- walks candidates instead of the whole radius cube
-		exposedCells: { number },
+		-- every exposed cell index, computed once per grid and maintained as
+		-- blocks break, so a refresh only walks candidates
+		exposedCells: { [number]: boolean },
+		-- crack stage per damaged cell (MiningRules.crackStage), kept off the
+		-- part so a recycled or re-streamed block shows the right state
+		crackStageByCell: { [number]: number },
 		blocksFolder: Folder?,
 		-- cell index -> the part showing that block
 		rendered: { [number]: BasePart },
@@ -107,6 +111,82 @@ end
 
 function ClientMineManager:getSpace(): MineSpace.MineSpace?
 	return self.space
+end
+
+function ClientMineManager:getRockMaxHp(rock: number): number?
+	local header = self.header
+	return if header and header.rockHp then header.rockHp[rock] else nil
+end
+
+-- the grid cell a rendered block part shows, from the attribute stamped at render
+function ClientMineManager:getCellFromPart(part: Instance): (number?, number?, number?)
+	local grid = self.grid
+	local cellIndex = part:GetAttribute(Attributes.MINE_CELL_INDEX)
+	if not grid or typeof(cellIndex) ~= "number" then
+		return nil, nil, nil
+	end
+	local zeroBased = cellIndex - 1
+	return zeroBased // (grid.width * grid.height), (zeroBased // grid.width) % grid.height, zeroBased % grid.width
+end
+
+-- placeholder crack look until M46 art: the block darkens per stage
+function ClientMineManager:applyCrackLook(part: BasePart, rock: number, stage: number)
+	local template = self:getTemplate(rock)
+	local baseColor = if template then template.Color else FALLBACK_COLOR
+	part.Color = baseColor:Lerp(Color3.new(0, 0, 0), 0.3 * stage)
+end
+
+function ClientMineManager:setCrackStage(depth: number, height: number, width: number, stage: number)
+	local grid = self.grid
+	if not grid then
+		return
+	end
+	local cellIndex = MineGenerator.cellIndex(grid, depth, height, width)
+	self.crackStageByCell[cellIndex] = if stage > 0 then stage else nil
+	local part = self.rendered[cellIndex]
+	if part then
+		self:applyCrackLook(part, grid.cells[cellIndex], stage)
+	end
+end
+
+function ClientMineManager:getRenderedPart(depth: number, height: number, width: number): BasePart?
+	local grid = self.grid
+	if not grid then
+		return nil
+	end
+	return self.rendered[MineGenerator.cellIndex(grid, depth, height, width)]
+end
+
+-- a block broke: clear it, release its part, and expose its neighbours
+function ClientMineManager:clearCell(depth: number, height: number, width: number)
+	local grid = self.grid
+	if not grid or not MineGridQuery.isInBounds(grid, depth, height, width) then
+		return
+	end
+	local cellIndex = MineGenerator.cellIndex(grid, depth, height, width)
+	local rock = grid.cells[cellIndex]
+	if rock == MineGenerator.AIR then
+		return
+	end
+	local part = self.rendered[cellIndex]
+	if part then
+		self:releasePart(rock, part)
+		self.rendered[cellIndex] = nil
+		self.renderedCount -= 1
+	end
+	grid.cells[cellIndex] = MineGenerator.AIR
+	self.exposedCells[cellIndex] = nil
+	self.crackStageByCell[cellIndex] = nil
+	for _, offset in { { 1, 0, 0 }, { -1, 0, 0 }, { 0, 1, 0 }, { 0, -1, 0 }, { 0, 0, 1 }, { 0, 0, -1 } } do
+		local nd = depth + offset[1]
+		local nh = height + offset[2]
+		local nw = width + offset[3]
+		if MineGridQuery.isExposed(grid, nd, nh, nw) then
+			self.exposedCells[MineGenerator.cellIndex(grid, nd, nh, nw)] = true
+		end
+	end
+	self.isDirty = true
+	self:poll()
 end
 
 function ClientMineManager:getBlocksFolder(): Folder
@@ -165,6 +245,7 @@ end
 
 function ClientMineManager:releasePart(rock: number, part: BasePart)
 	part.Parent = nil
+	part:SetAttribute(Attributes.MINE_CELL_INDEX, nil)
 	local pool = self.poolByRock[rock]
 	if not pool then
 		pool = {}
@@ -200,19 +281,22 @@ end
 
 function ClientMineManager:rebuildExposedCells()
 	local grid = self.grid
-	local exposed: { number } = {}
+	local exposed: { [number]: boolean } = {}
+	local count = 0
 	if grid then
 		for depth = 0, grid.depth - 1 do
 			for height = 0, grid.height - 1 do
 				for width = 0, grid.width - 1 do
 					if MineGridQuery.isExposed(grid, depth, height, width) then
-						table.insert(exposed, MineGenerator.cellIndex(grid, depth, height, width))
+						exposed[MineGenerator.cellIndex(grid, depth, height, width)] = true
+						count += 1
 					end
 				end
 			end
 		end
 	end
 	self.exposedCells = exposed
+	return count
 end
 
 -- rebuilds the set of rendered blocks around the player's cell
@@ -229,7 +313,7 @@ function ClientMineManager:refresh(playerDepth: number, playerHeight: number, pl
 	local height = grid.height
 	local desired: { [number]: number } = {}
 	local desiredCount = 0
-	for _, cellIndex in self.exposedCells do
+	for cellIndex in self.exposedCells do
 		local zeroBased = cellIndex - 1
 		local dw = zeroBased % width - playerWidth
 		local dh = (zeroBased // width) % height - playerHeight
@@ -280,6 +364,8 @@ function ClientMineManager:refresh(playerDepth: number, playerHeight: number, pl
 		local cellDepth = zeroBased // (width * height)
 		local part = self:acquirePart(rock)
 		part.CFrame = CFrame.new(MineSpace.cellToWorld(space, cellDepth, cellHeight, cellWidth))
+		part:SetAttribute(Attributes.MINE_CELL_INDEX, cellIndex)
+		self:applyCrackLook(part, rock, self.crackStageByCell[cellIndex] or 0)
 		part.Parent = folder
 		self.rendered[cellIndex] = part
 		self.renderedCount += 1
@@ -351,10 +437,11 @@ function ClientMineManager:onMineComplete()
 	local startClock = workspace:GetServerTimeNow()
 	MineGenerator.expandFiller(grid, header.chambers, header.seed, header.fillerOrder)
 	self.grid = grid
-	self:rebuildExposedCells()
+	self.crackStageByCell = {}
+	local exposedCount = self:rebuildExposedCells()
 	self.space = MineSpace.new(header.origin, header.facing, header.centrelineWidth, header.floorHeight, header.blockSize)
 	self.isDirty = true
-	print(string.format("[ClientMineManager] mine v%d (seed %d) received: %d bytes in %d chunk(s); filler and exposure rebuilt in %.1f ms, %d exposed cells", header.version, header.seed, self.bytesReceived, header.chunkCount, (workspace:GetServerTimeNow() - startClock) * 1000, #self.exposedCells))
+	print(string.format("[ClientMineManager] mine v%d (seed %d) received: %d bytes in %d chunk(s); filler and exposure rebuilt in %.1f ms, %d exposed cells", header.version, header.seed, self.bytesReceived, header.chunkCount, (workspace:GetServerTimeNow() - startClock) * 1000, exposedCount))
 	self:startPolling()
 	self:poll()
 end
@@ -418,6 +505,7 @@ function ClientMineManager.new(): ClientMineManager
 	self.grid = nil
 	self.space = nil
 	self.exposedCells = {}
+	self.crackStageByCell = {}
 	self.blocksFolder = nil
 	self.rendered = {}
 	self.renderedCount = 0

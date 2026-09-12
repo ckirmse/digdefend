@@ -11,6 +11,7 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local MineGenerator = require("@game/ReplicatedStorage/Shared/MineGenerator")
 local MineGridCodec = require("@game/ReplicatedStorage/Shared/MineGridCodec")
+local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local RockRules = require("@game/ReplicatedStorage/Shared/RockRules")
 local DifficultyData = require("@game/ServerScriptService/GameData/Control/Difficulty")
@@ -35,6 +36,7 @@ export type MineManager = typeof(setmetatable(
 		version: number,
 		origin: Vector3?,
 		facing: number?,
+		space: MineSpace.MineSpace?,
 		-- damage dealt per cell index; a block breaks when it reaches the rock's hp
 		damageByCell: { [number]: number },
 	},
@@ -48,6 +50,10 @@ end
 
 function MineManager:getVersion(): number
 	return self.version
+end
+
+function MineManager:getSpace(): MineSpace.MineSpace?
+	return self.space
 end
 
 function MineManager:buildConfig(difficulty: number): MineGenerator.GeneratorConfig
@@ -92,6 +98,7 @@ function MineManager:generate(map: number, difficulty: number, seed: number?): b
 	self.result = result
 	self.origin = origin
 	self.facing = facing
+	self.space = MineSpace.new(origin, facing, result.grid.centrelineWidth, result.grid.floorHeight, Constants.MINE_BLOCK_SIZE_STUDS)
 	self.damageByCell = {}
 	self.version += 1
 	-- filler is re-rolled client side from the seed, so it travels as one symbol
@@ -125,9 +132,18 @@ function MineManager:buildHeader(): { [string]: any }
 			fillerWeights = chamber.fillerWeights,
 		})
 	end
+	-- max hp per diggable rock, so the reticle label can show "x/y" for an
+	-- untouched block without the client requiring GameData
+	local rockHp = {}
+	for rockName, definition in RockDefinitionsData.ROCKS do
+		if definition.hp then
+			rockHp[rockName] = definition.hp
+		end
+	end
 	return {
 		version = self.version,
 		fillerOrder = RockDefinitionsData.FILLER_ORDER,
+		rockHp = rockHp,
 		seed = result.report.seed,
 		depth = grid.depth,
 		height = grid.height,
@@ -231,6 +247,7 @@ function MineManager.new(): MineManager
 	self.version = 0
 	self.origin = nil
 	self.facing = nil
+	self.space = nil
 	self.damageByCell = {}
 	return self
 end

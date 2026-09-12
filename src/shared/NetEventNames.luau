@@ -20,6 +20,12 @@ module = {
 	-- mid-stream cannot mix two mines
 	NOTIFY_MINE_HEADER = "NotifyMineHeader",
 	NOTIFY_MINE_CHUNK = "NotifyMineChunk",
+	-- tools and mining (gameplay place, GDD "Tools" and "Mining Rock")
+	TRY_EQUIP_TOOL = "TryEquipTool",
+	TRY_HIT_ROCK = "TryHitRock",
+	-- every client: a block took damage (crack state) or broke (clear the cell)
+	NOTIFY_ROCK_DAMAGED = "NotifyRockDamaged",
+	NOTIFY_ROCK_BROKEN = "NotifyRockBroken",
 }
 
 return module

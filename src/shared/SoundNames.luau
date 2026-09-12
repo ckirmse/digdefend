@@ -10,6 +10,8 @@ module = {
 	Sfx = {
 		COINS_ADDED = "CoinsAdded",
 		SALE_SUCCESS = "SaleSuccess",
+		ROCK_HIT = "RockHit",
+		ROCK_BREAK = "RockBreak",
 	},
 	Music = {},
 }

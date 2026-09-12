@@ -16,6 +16,8 @@ export type PublicData = {
 	userId: number,
 	displayName: string,
 	isReady: boolean,
+	-- Enums.ToolKind, 0 when nothing is held
+	equippedTool: number,
 }
 
 export type AllPlayersHandlers = {
@@ -48,6 +50,7 @@ local function readPublicData(folder: Instance): PublicData
 		userId = (folder:GetAttribute(Attributes.USER_ID) :: number?) or 0,
 		displayName = (folder:GetAttribute(Attributes.DISPLAY_NAME) :: string?) or "",
 		isReady = folder:GetAttribute(Attributes.IS_READY) == true,
+		equippedTool = (folder:GetAttribute(Attributes.EQUIPPED_TOOL) :: number?) or 0,
 	}
 end
 

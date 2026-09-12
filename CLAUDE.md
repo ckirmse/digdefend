@@ -105,6 +105,9 @@ Studio-only content (ScreenGuis, world templates, placeholder geometry) is autho
 ### Maps (M17)
 Every map is a Folder under `ServerStorage/Maps` named by its `Enums.Map` key; `MapManager` clones the run's map into Workspace as `Camp` at run start and `GameplayMapManager:checkCamp` validates it. To edit a map in Studio, run `scripts/studio/map_tools.luau` with `ACTION = "load"` (moves it into Workspace, pastes any terrain snapshot), then with `ACTION = "save"`. A map left in Workspace is used as-is with a warning. The mine's origin and facing come from the map's `Mine.Entrance` part. The generated mine is never parts on the server: `MineManager` holds the grid and sends it as run-length-encoded buffer chunks with filler collapsed to a placeholder that the client re-rolls from the seed (`MineGenerator.expandFiller`); `ClientMineManager` renders only exposed blocks within the streaming radius from a part pool, cloning `GameAssets/Rocks` templates (`scripts/studio/build_rock_templates.luau`).
 
+### Tools and mining (M18)
+Per-player run state that is not persistent (tool slots, equipped tool, pick axe level) lives in a gameplay manager's Lua table and is published through `SplendidReplicationManager:setPublicAttribute` (visible to every client, on `AllPlayers`) or `setCurrentPlayerAttribute` (private); both survive tree rewrites and reach late viewers. The client never requires GameData: tuning it needs (swing interval, reach) is published as `GameMetadata` attributes, and per-rock max HP travels in the mine header. Every swing is a `TryHitRock` request validated server-side (equipped, diggable, reach + tolerance, cooldown); clients only ever apply what `NotifyRockDamaged` / `NotifyRockBroken` say.
+
 ### Attributes and Tags
 All instance attribute names live in `Attributes.luau`; all CollectionService tags in `Tags.luau`. Never raw strings.
 

@@ -98,6 +98,22 @@ Constants.ROCK_TEMPLATES_FOLDER = "Rocks"
 Constants.MINE_BLOCKS_FOLDER = "MineBlocks"
 -- the GDD fixes every rock as a 4-stud cube; structural, not tuning
 Constants.MINE_BLOCK_SIZE_STUDS = 4
+-- held tool models under GameAssets, one per Enums.ToolKind key, each with a
+-- Handle part the client welds to the character's right hand
+Constants.TOOL_TEMPLATES_FOLDER = "Tools"
+Constants.TOOL_HANDLE_PART = "Handle"
+-- the custom tool bar (built by scripts/studio/build_tool_bar_gui.luau)
+Constants.TOOL_BAR_GUI_NAME = "ToolBar"
+Constants.TOOL_BAR_SLOTS_FRAME = "Slots"
+Constants.TOOL_BAR_SLOT_TEMPLATE = "SlotTemplate"
+Constants.TOOL_SLOT_ICON = "Icon"
+Constants.TOOL_SLOT_LABEL = "Label"
+Constants.TOOL_SLOT_KEY_LABEL = "KeyLabel"
+Constants.MAX_TOOL_SLOTS = 9
+-- mining mode HUD (built by scripts/studio/build_mining_hud_gui.luau)
+Constants.MINING_HUD_GUI_NAME = "MiningHud"
+Constants.MINING_RETICLE = "Reticle"
+Constants.MINING_TARGET_LABEL = "TargetLabel"
 -- the rotor hub part (blades are welded to it) inside the rotor model; the
 -- designer's spelling
 Constants.HELICOPTER_ROTOR_MODEL = "Rotar"

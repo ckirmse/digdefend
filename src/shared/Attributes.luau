@@ -29,6 +29,17 @@ module = {
 	MINE_RENDERED_COUNT = "MineRenderedCount",
 	MINE_POOLED_COUNT = "MinePooledCount",
 	MINE_LAST_REFRESH_MS = "MineLastRefreshMs",
+	-- on each rendered block part (client only): the grid cell index it shows
+	MINE_CELL_INDEX = "MineCellIndex",
+	-- tools (ToolManager, gameplay): the equipped Enums.ToolKind (0 = none) is
+	-- public on AllPlayers so every client shows the held model, and repeated
+	-- on CurrentPlayer; the slot list and pick axe level are private
+	EQUIPPED_TOOL = "EquippedTool",
+	TOOL_SLOTS = "ToolSlots",
+	PICK_AXE_LEVEL = "PickAxeLevel",
+	-- GameMetadata (gameplay): pick axe input tuning the client needs
+	PICK_AXE_HIT_INTERVAL_SEC = "PickAxeHitIntervalSec",
+	PICK_AXE_REACH_STUDS = "PickAxeReachStuds",
 	-- on every helicopter model (Tags.HELICOPTER): Enums.HelicopterPhase
 	HELICOPTER_PHASE = "HelicopterPhase",
 	-- on each helicopter pad model: PadIndex is Studio-authored, the rest is

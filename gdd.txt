@@ -320,7 +320,7 @@ Difficulty
    * Rock hardness never changes with difficulty by default (the knob exists but is off); mine layout never changes with difficulty or player count
 Party scaling
 * Parties are 1 to 6 players and the count can drop mid-run. The mine grid is fixed at generation and never resized; everything that scales with party size is applied at the moment of effect (a rock breaking, a wave spawning) from the current player count, so drop-outs adjust the run with nothing to migrate.
-* Levers live in one PartyScaling table keyed by player count 1–6, so 3 players can be tuned separately from 5:
+* Levers live in one PartyScaling table keyed by player count 1–6 (GameData/Control/PartyScaling), so 3 players can be tuned separately from 5:
    * Wave count and enemy HP multipliers. The main lever: a bigger crew digs faster and attracts bigger nights.
    * Uranium rescue target multiplier, kept modest (about 1.0 solo to 1.25 at six). Every mine must author enough uranium for the largest party; the generator validates supply against target × the six-player multiplier.
    * Per-player ore yield multiplier, applied only to Iron and Gold drops because those balances are per player. Diamonds and Uranium are shared and never scaled, so the mine’s authored totals stay their reference.
@@ -420,6 +420,8 @@ Tool Bar System
 * When a player taps the tool in the tool bar, that tool is equipped
 * Only one tool can be equipped at a time
 * Tapping another tool or tapping the currently equipped tool in the Tool Bar unequips the currently tool 
+* Keyboard: keys 1-9 toggle the slot with that number. Gamepad: the bumpers step through the bar; stepping past either end unequips. The number hint on each slot is shown only when a keyboard is present
+* The bar shows what the server says the player holds (tool slots and the equipped tool are server state replicated as attributes); every tap is a request. The equipped tool is public, so every client shows the held model on that player's right hand. The bar slides away while a menu is open
 Pick Axe (Default Tool)
 * Every player starts with a basic Pick Axe Tool by default
 * Equipping a Pick Axe puts a player in Mining Mode, allowing them to mine Rocks in the mine 
@@ -498,6 +500,9 @@ Mining Rock
    * Mobile: Tap Rock to hit once, hold to hit repeatedly 
    * PC: LMB click to hit once, hold LMB to hit continuously 
    * GamePad: RT to hit once, hold RT to hit continuously 
+* A held input swings every 0.45 s (hitIntervalSec in GameData/Mining/PickAxe). The reticle reaches 12 studs, the 3-block pickaxe reach the mine generator assumes
+* Every swing is a request (TryHitRock with the block's grid cell). The server refuses it unless the pick axe is equipped, the cell is a diggable rock, the player's root is within reach plus a 6-stud tolerance of the block centre, and 0.35 s have passed since that player's last accepted swing. Damage is the pick axe level's value; the server then tells every client the block's remaining HP (crack state) or that it broke
+* Until M46 art, the crack overlay is a placeholder tint: the block darkens at 60% and again at 30% HP. Hit and break bursts are placeholder particles in the block's colour; the RockHit and RockBreak sounds play for players within 60 studs
 * Only the Rock currently highlighted will be hit 
 * The Rock’s HP is updated to reflect its current health after each hit
 * There will be a particle effect with each hit (rock pieces flying) and noises to make it feel tactile and satisfying 
@@ -1019,6 +1024,7 @@ Mining Attributes
 Pick Axe
 * A player’s Pick Axe determines how much HP is removed from a Rock per hit
 * There are 4 Pick Axe Levels (though this should be easily adjustable)
+* Damage per hit by level: 5 / 12 / 25 / 50 (GameData/Mining/PickAxe, DAMAGE_BY_LEVEL; the list length is the level count). Level 1 breaks Shale in two swings and needs 22 for Iron 4, which is what sells the upgrade. Everyone is level 1 until the Mining Supplies Store (M21)
 
 
 

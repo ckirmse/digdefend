@@ -19,6 +19,11 @@ export type SplendidReplicationManager = typeof(setmetatable(
 		serverStartTime: number,
 		-- place managers contribute global config here (setGameMetadata)
 		extraGameMetadata: AttributeMap,
+		-- per-player run state a place manager publishes (setPublicAttribute /
+		-- setCurrentPlayerAttribute), kept so a tree rewrite or a late viewer
+		-- still gets it
+		extraPublicByUserId: { [number]: AttributeMap },
+		extraCurrentPlayerByUserId: { [number]: AttributeMap },
 	},
 	SplendidReplicationManager
 ))
@@ -100,6 +105,7 @@ end
 
 function SplendidReplicationManager:writeCurrentPlayer(player: Player, playerData: any, currentPlayer: Instance)
 	writeAttributes(currentPlayer, PlayerPublicSchema.buildCurrentPlayerAttributes(snapshot(player, playerData)))
+	writeAttributes(currentPlayer, self.extraCurrentPlayerByUserId[player.UserId] or {})
 	local ownedUnlocks = currentPlayer:FindFirstChild(Constants.OWNED_UNLOCKS_FOLDER)
 	if ownedUnlocks then
 		syncMarkerFolder(ownedUnlocks, playerData.ownedUnlocks)
@@ -176,6 +182,32 @@ function SplendidReplicationManager:createOrUpdateAllPlayersEntry(viewerPlayer: 
 		entry.Parent = allPlayers
 	end
 	writeAttributes(entry :: Instance, PlayerPublicSchema.buildPublicAttributes(snapshot(subjectPlayer, subjectData)))
+	writeAttributes(entry :: Instance, self.extraPublicByUserId[subjectPlayer.UserId] or {})
+end
+
+-- run state about one player every client may see (the equipped tool)
+function SplendidReplicationManager:setPublicAttribute(player: Player, key: string, value: any)
+	local extras = self.extraPublicByUserId[player.UserId]
+	if not extras then
+		extras = {}
+		self.extraPublicByUserId[player.UserId] = extras
+	end
+	extras[key] = value
+	self:updateAllPlayersEntry(player)
+end
+
+-- run state only that player sees (tool slots, pick axe level)
+function SplendidReplicationManager:setCurrentPlayerAttribute(player: Player, key: string, value: any)
+	local extras = self.extraCurrentPlayerByUserId[player.UserId]
+	if not extras then
+		extras = {}
+		self.extraCurrentPlayerByUserId[player.UserId] = extras
+	end
+	extras[key] = value
+	local currentPlayer = self:getCurrentPlayerFolder(player)
+	if currentPlayer then
+		currentPlayer:SetAttribute(key, value)
+	end
 end
 
 function SplendidReplicationManager:updateAllPlayersEntry(subjectPlayer: Player)
@@ -194,6 +226,8 @@ function SplendidReplicationManager:onPlayerReady(player: Player)
 end
 
 function SplendidReplicationManager:onPlayerRemoved(player: Player)
+	self.extraPublicByUserId[player.UserId] = nil
+	self.extraCurrentPlayerByUserId[player.UserId] = nil
 	local key = tostring(player.UserId)
 	for _, viewer in gameController:getReadyPlayers() do
 		local root = self:getRoot(viewer)
@@ -308,6 +342,8 @@ function SplendidReplicationManager.new(): SplendidReplicationManager
 	local self = setmetatable({}, SplendidReplicationManager) :: SplendidReplicationManager
 	self.serverStartTime = 0
 	self.extraGameMetadata = {}
+	self.extraPublicByUserId = {}
+	self.extraCurrentPlayerByUserId = {}
 	return self
 end
 

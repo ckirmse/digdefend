@@ -116,6 +116,17 @@ module = {
 		SPINNING = 2,
 		FLYING = 3,
 	},
+	-- what a player can hold (GDD "Tools"); the tool bar shows these in a
+	-- stable order and only one is equipped at a time
+	ToolKind = {
+		PICK_AXE = 1,
+		WEAPON = 2,
+
+		PublicNames = {
+			PICK_AXE = "Pick Axe",
+			WEAPON = "Weapon",
+		},
+	},
 	-- the direction a player walks to enter a mine; 90 degree steps keep
 	-- blocks axis-aligned (GDD "Coordinate model")
 	MineFacing = {
