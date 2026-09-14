@@ -3,8 +3,8 @@
 -- Validates Studio-authored content for the gameplay place and warns per
 -- missing piece so a broken place is obvious in the Output: the templates
 -- under GameAssets at startup, and each map folder when MapManager loads it
--- (M14 covers the helicopter pad, M17 the mine entrance; later milestones
--- add the refinery, walls, posts, and stores).
+-- (M14 covers the helicopter pad, M17 the mine entrance, M20 the refinery;
+-- later milestones add walls, posts, and stores).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -83,6 +83,23 @@ function GameplayMapManager:checkMineEntrance(camp: Folder)
 	end
 end
 
+function GameplayMapManager:checkRefinery(camp: Folder)
+	local refinery = self:requireChild(camp, Constants.CAMP_REFINERY_MODEL, "Model")
+	if not refinery then
+		return
+	end
+	local promptPart = self:requireChild(refinery, Constants.REFINERY_PROMPT_PART, "BasePart")
+	if not promptPart then
+		return
+	end
+	if promptPart:IsA("BasePart") and not promptPart.Anchored then
+		self:report(`{promptPart:GetFullName()} must be anchored`)
+	end
+	if not promptPart:FindFirstChildWhichIsA("ProximityPrompt") then
+		self:report(`{promptPart:GetFullName()} needs a ProximityPrompt child`)
+	end
+end
+
 -- one template part per rock, so a client can clone every rock the generator
 -- can place; missing ones render as a plain grey cube with a warning
 function GameplayMapManager:checkRockTemplates()
@@ -109,6 +126,7 @@ function GameplayMapManager:checkCamp(camp: Folder, mapName: string)
 	local before = #self.problems
 	self:checkHelicopterPad(camp)
 	self:checkMineEntrance(camp)
+	self:checkRefinery(camp)
 	local found = #self.problems - before
 	if found == 0 then
 		print(`[GameplayMapManager] map {mapName} check passed`)

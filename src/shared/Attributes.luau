@@ -48,6 +48,17 @@ module = {
 	BACKPACK_GOLD_ORE = "BackpackGoldOre",
 	BACKPACK_CRYSTAL = "BackpackCrystal",
 	BACKPACK_URANIUM_ORE = "BackpackUraniumOre",
+	-- refinery (RefineryManager, gameplay): private CurrentPlayer balances
+	BALANCE_IRON_BARS = "BalanceIronBars",
+	BALANCE_GOLD_BARS = "BalanceGoldBars",
+	-- GameMetadata (gameplay): the shared camp progress every client shows;
+	-- CampDiamondsRequired is 0 at the top level
+	CAMP_LEVEL = "CampLevel",
+	CAMP_DIAMONDS = "CampDiamonds",
+	CAMP_DIAMONDS_REQUIRED = "CampDiamondsRequired",
+	URANIUM_TOTAL = "UraniumTotal",
+	URANIUM_TARGET = "UraniumTarget",
+	REFINE_DURATION_SEC = "RefineDurationSec",
 	-- on each ore pickup shadow part (Tags.ORE_PICKUP): what lies there
 	PICKUP_RESOURCE = "PickupResource",
 	PICKUP_AMOUNT = "PickupAmount",

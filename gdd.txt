@@ -306,8 +306,8 @@ Maps
 Map authoring (decided 2026-09-12)
 * All maps live in the one gameplay place. Each map is a Folder under ServerStorage/Maps named by its Enums.Map key (DEADMANS_CANYON, FROSTBITE_PASS). Folders, not Models, so clicking a part in the Explorer selects only that part; things that should move as one unit (the helicopter pad) stay Models inside the folder.
 * At run start the server clones the chosen map folder into Workspace as Camp. Only the active map exists in memory. Its scenery is static geometry and is the one place server-side parts are the right call.
-* Every map folder carries the same required named parts, validated at startup with the map’s name in every message: HelicopterPad (with HelicopterSpawn and Spawns 1–6), Mine.Entrance (an anchored part whose position is the mine origin and whose look direction is the mine facing, snapped to the nearest axis), and later the Refinery, walls, and store spots.
-* Editing a map: run scripts/studio/map_tools.luau in Edit mode with ACTION = "load" to move the map folder into Workspace, edit, then run it with ACTION = "save" to move it back. Pressing Play with a map folder still in Workspace uses it as-is with a warning, so an unsaved edit still plays and is never lost.
+* Every map folder carries the same required named parts, validated at startup with the map’s name in every message: HelicopterPad (with HelicopterSpawn and Spawns 1–6), Mine.Entrance (an anchored part whose position is the mine origin and whose look direction is the mine facing, snapped to the nearest axis), Refinery (a Model whose anchored Prompt part carries the refine ProximityPrompt), and later walls and store spots.
+* Editing a map: run scripts/studio/map_tools.luau in Edit mode with ACTION = "load" to move the map folder into Workspace, edit, then run it with ACTION = "save" to move it back. Pressing Play with a map folder still in Workspace uses it as-is with a warning, so an unsaved edit still plays and is never lost. With the map loaded, ACTION = "preview_mine" generates its mine from Mine.Entrance exactly as the server would and draws translucent labelled boxes (bedrock envelope, each chamber and camp level, each corridor, each hand-placed rock) into Workspace/MinePreview so the camp can be built around the real footprint; rerun it after moving the entrance, ACTION = "clear_preview" removes it, "save" removes it, and the server deletes any copy left behind at run start so it never shows in Play.
 * Terrain is optional per map. A map that wants terrain adds a TerrainBounds part sized around it; “save” snapshots the terrain inside the bounds into a TerrainRegion in the map folder and “load” pastes it back. A map without TerrainBounds is a plain folder and the tools skip terrain. Terrain lives in the place file only.
 * What a map cannot change: rock definitions, the weight kernel, block size, difficulty and party scaling, and the generator. Balance stays comparable between maps.
 * A new map is: one Enums.Map entry with a public name, one row in the pad’s map carousel (thumbnail and unlock requirement), one mine file in GameData/Mines plus its registry entry, one wave file in GameData/Waves, and one folder under ServerStorage/Maps.
@@ -371,7 +371,7 @@ Mines
 Refinery
 * Located just outside the mine entrance is the Refinery
 * Players bring their raw materials here to get refined
-* It functions like a simulator game, players walk up to to refinery, press a proximity prompt attached to the refinery that says “Refine Materials” and all the raw resources are sucked from the player into the Refinery, which spits out the appropriate refined materials, which go straight into the player balance for spending (unless it’s diamonds, in which case it gets added to the Camp Level progress bar). 
+* It functions like a simulator game, players walk up to to refinery, press a proximity prompt attached to the refinery that says “Refine Raw Resources” and all the raw resources are sucked from the player into the Refinery, which spits out the appropriate refined materials, which go straight into the player balance for spending (unless it’s diamonds, in which case it gets added to the Camp Level progress bar). 
 * The Refinery is the focal point of the camp, as it displays the camp level and if destroyed, ends the game
 * Players must protect the refinery at all costs
 Mining Supplies Store
@@ -502,7 +502,7 @@ Mining Rock
    * GamePad: RT to hit once, hold RT to hit continuously 
 * A held input swings every 0.45 s (hitIntervalSec in GameData/Mining/PickAxe). The reticle reaches 12 studs, the 3-block pickaxe reach the mine generator assumes
 * Every swing is a request (TryHitRock with the block's grid cell). The server refuses it unless the pick axe is equipped, the cell is a diggable rock, the player's root is within reach plus a 6-stud tolerance of the block centre, and 0.35 s have passed since that player's last accepted swing. Damage is the pick axe level's value; the server then tells every client the block's remaining HP (crack state) or that it broke
-* Until M46 art, the crack overlay is a placeholder tint: the block darkens at 60% and again at 30% HP. Hit and break bursts are placeholder particles in the block's colour; the RockHit and RockBreak sounds play for players within 60 studs
+* Until M46 art, the crack overlay is a placeholder tint: the block darkens at 60% and again at 30% HP. Hit and break bursts are placeholder particles in the block's colour; the RockHit sound (filler) or ResourceHit sound (ore, metallic) plays on a hit and RockBreak on a break, for players within 60 studs
 * Only the Rock currently highlighted will be hit 
 * The Rock’s HP is updated to reflect its current health after each hit
 * There will be a particle effect with each hit (rock pieces flying) and noises to make it feel tactile and satisfying 
@@ -533,6 +533,9 @@ Refining Ore
 * The Refinery spins and grinds the resources for a few seconds and spits out icons for each of the Refined Resources it generates, which should fly into the player’s HUD to the appropriate balance bar
 * The balance bars should shake and update as each icon hits it
 * This process should all feel very satisfying, both visually and audibly – lots of particle effects, sounds, etc
+* As built (M20, decided 2026-09-14): every ore refines one to one (GameData/Refinery, adjustable per ore). The prompt is heard by the server directly, never as a client message; it empties the whole backpack, disables itself for a 2 second grind, then pays out. Iron Bars and Gold Bars are private per-player balances; Diamonds go into the shared Camp Level pool and Uranium into the shared rescue count, both shown to every player. The Uranium row reads “total / target”, the target being the mine’s solo uraniumTarget times the PartyScaling multiplier for the current crew (sampled at dawn from M28), and turns green once reached
+* Placeholder sequence until Phase 9 polish: coloured discs (at most six per resource) fly from the backpack button into the Refinery on screen while RefineryGrind plays, then from the Refinery to each balance row (Diamonds to the Camp Level bar) with RefineryPayout; a row bumps as each icon lands and its value updates when the last one does. The Refinery must be visible on screen for the icons to aim at it; otherwise they aim at the screen centre
+* Dev tools: Fill backpack spreads all four ores evenly; Reset refinery clears every balance and the camp progress
 Randomized Mine Creation
 
 
@@ -1040,6 +1043,8 @@ Defenses
 Traps
 Wall Repair
 Camp Level
+* The Camp Level is shared by the whole crew and starts at the mine’s startingCampLevel. Diamonds from the Refinery fill it like an XP bar: the HUD shows “CAMP LEVEL n” over a bar reading “pool / needed”, and a full bar rolls over into the next level with the remainder carried, several levels at once if one payout is big enough. At the top level the pool reads MAX
+* Diamonds needed per level live in GameData/Camp/Level (placeholder pacing 20, 80, 250 until this section is designed). What each level unlocks (chamber gates, mining and post upgrade tiers) is M22 and still to be written here
 Wave Cycle
 Monsters
 Random Events

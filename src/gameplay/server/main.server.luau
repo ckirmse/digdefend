@@ -10,6 +10,7 @@ local MineDevTools = require(script.Parent.MineDevTools)
 local MineManager = require(script.Parent.MineManager)
 local MiningManager = require(script.Parent.MiningManager)
 local OrePickupManager = require(script.Parent.OrePickupManager)
+local RefineryManager = require(script.Parent.RefineryManager)
 local RunDevTools = require(script.Parent.RunDevTools)
 local RunManager = require(script.Parent.RunManager)
 local ToolManager = require(script.Parent.ToolManager)
@@ -37,6 +38,13 @@ ToolManager:init()
 BackpackManager:init()
 OrePickupManager:init()
 MiningManager:init()
+-- after the mine, so the refinery reads the run's uranium target and camp level
+RefineryManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		RefineryManager:onRunStarted()
+	end
+)
 
 RunDevTools:init()
 MineDevTools:init()

@@ -90,14 +90,21 @@ function BackpackManager:takeAll(player: Player): BackpackRules.Contents
 	return taken
 end
 
--- dev tools
+-- dev tool: fills the remaining room with an even spread of every ore, so a
+-- refine shows all four payouts
 function BackpackManager:fill(player: Player)
 	local state = self.stateByPlayer[player]
 	if not state then
 		return
 	end
-	local room = self:getCapacity(player) - BackpackRules.getTotal(state.contents)
-	BackpackRules.add(state.contents, self:getCapacity(player), Enums.RawResource.IRON_ORE, room)
+	local capacity = self:getCapacity(player)
+	local resources = Enums.getAllValues(Enums.RawResource)
+	local room = capacity - BackpackRules.getTotal(state.contents)
+	local share = room // #resources
+	for index, resource in resources do
+		local amount = if index == #resources then room - share * (#resources - 1) else share
+		BackpackRules.add(state.contents, capacity, resource, amount)
+	end
 	self:replicate(player)
 end
 

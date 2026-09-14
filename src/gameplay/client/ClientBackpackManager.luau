@@ -130,6 +130,15 @@ function ClientBackpackManager:renderMenu()
 	end
 end
 
+-- screen centre of the HUD button while shown, for the refinery's suck-in
+function ClientBackpackManager:getButtonScreenCenter(): Vector2?
+	local button = self.button
+	if not button or not button.Visible then
+		return nil
+	end
+	return button.AbsolutePosition + button.AbsoluteSize / 2
+end
+
 function ClientBackpackManager:setHudVisible()
 	local button = self.button
 	if not button then

@@ -84,6 +84,11 @@ function MapManager:loadMap(map: number): boolean
 	if previous then
 		previous:Destroy()
 	end
+	local preview = workspace:FindFirstChild(Constants.MINE_PREVIEW_FOLDER)
+	if preview then
+		warn(`MapManager: removed the {Constants.MINE_PREVIEW_FOLDER} folder left in Workspace by the map tools`)
+		preview:Destroy()
+	end
 
 	local camp: Folder
 	if isUnsaved then

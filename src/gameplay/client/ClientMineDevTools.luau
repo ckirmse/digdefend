@@ -24,6 +24,7 @@ export type ClientMineDevTools = typeof(setmetatable(
 local REGENERATE_MINE_COMMAND = "regenerateMine"
 local FILL_BACKPACK_COMMAND = "fillBackpack"
 local EMPTY_BACKPACK_COMMAND = "emptyBackpack"
+local RESET_REFINERY_COMMAND = "resetRefinery"
 
 function ClientMineDevTools:renderSection()
 	local stats = ClientMineManager:getStats()
@@ -37,6 +38,9 @@ function ClientMineDevTools:renderSection()
 	end
 	if Iris.Button({ "Empty backpack" }).clicked() then
 		ClientNetManager:fireServer(NetEventNames.TRY_DEV_TOOL, { command = EMPTY_BACKPACK_COMMAND })
+	end
+	if Iris.Button({ "Reset refinery" }).clicked() then
+		ClientNetManager:fireServer(NetEventNames.TRY_DEV_TOOL, { command = RESET_REFINERY_COMMAND })
 	end
 
 	Iris.Checkbox({ "Use seed" }, { isChecked = self.useSeed })

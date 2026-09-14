@@ -4,12 +4,15 @@
 -- optional seed, so a designer can edit the mine file, sync, regenerate, and
 -- walk in without restarting the run (GDD "Designer tooling"); and fill or
 -- empty the backpack so the full state and overflow drops can be tested
--- without mining fifty ore.
+-- without mining fifty ore; and reset the refinery balances and camp
+-- progress so a payout can be watched from zero.
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local DevTools = require(script.Parent.Parent.Server.DevTools)
+local GameController = require(script.Parent.Parent.Server.GameController)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
 local BackpackManager = require(script.Parent.BackpackManager)
 local MineManager = require(script.Parent.MineManager)
+local RefineryManager = require(script.Parent.RefineryManager)
 local RunManager = require(script.Parent.RunManager)
 
 local MineDevTools = {}
@@ -20,6 +23,7 @@ export type MineDevTools = typeof(setmetatable({} :: {}, MineDevTools))
 MineDevTools.REGENERATE_MINE_COMMAND = "regenerateMine"
 MineDevTools.FILL_BACKPACK_COMMAND = "fillBackpack"
 MineDevTools.EMPTY_BACKPACK_COMMAND = "emptyBackpack"
+MineDevTools.RESET_REFINERY_COMMAND = "resetRefinery"
 
 local REGENERATE_MINE_ARGS_SHAPE = {
 	seed = { type = "positiveInteger", optional = true },
@@ -64,6 +68,15 @@ function MineDevTools:init()
 		function(player: Player, _args: { [string]: any })
 			BackpackManager:empty(player)
 			PlayerFeedbackManager:give(player, "Backpack emptied")
+		end
+	)
+	DevTools:registerPlaceCommand(
+		MineDevTools.RESET_REFINERY_COMMAND,
+		function(_player: Player, _args: { [string]: any })
+			RefineryManager:resetProgress()
+			for _, readyPlayer in GameController:getReadyPlayers() do
+				PlayerFeedbackManager:give(readyPlayer, "Refinery balances and camp progress reset")
+			end
 		end
 	)
 end

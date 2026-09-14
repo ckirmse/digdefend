@@ -29,6 +29,11 @@ module = {
 	-- to one client: ore reached their backpack (from a break or a pickup),
 	-- so the pop plays; the counts themselves arrive as attributes
 	NOTIFY_ORE_COLLECTED = "NotifyOreCollected",
+	-- to the refining player: what left their backpack (the suck-in), then,
+	-- after the grind, what was paid out (the fly-to-HUD); balances arrive as
+	-- attributes. Refining itself is a ProximityPrompt trigger, not a message
+	NOTIFY_REFINE_STARTED = "NotifyRefineStarted",
+	NOTIFY_REFINE_COMPLETED = "NotifyRefineCompleted",
 }
 
 return module

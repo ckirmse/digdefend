@@ -42,6 +42,7 @@ export type Header = {
 	streamPollSec: number,
 	fillerOrder: { number },
 	rockHp: { [number]: number },
+	rockKind: { [number]: number },
 	chambers: { MineGenerator.ChamberFill },
 }
 
@@ -116,6 +117,19 @@ end
 function ClientMineManager:getRockMaxHp(rock: number): number?
 	local header = self.header
 	return if header and header.rockHp then header.rockHp[rock] else nil
+end
+
+-- the Enums.RockKind of the rock currently in a grid cell, nil outside the mine
+function ClientMineManager:getCellRockKind(depth: number, height: number, width: number): number?
+	local grid = self.grid
+	local header = self.header
+	if not grid or not header or not header.rockKind then
+		return nil
+	end
+	if depth < 0 or depth >= grid.depth or height < 0 or height >= grid.height or width < 0 or width >= grid.width then
+		return nil
+	end
+	return header.rockKind[MineGenerator.getCell(grid, depth, height, width)]
 end
 
 -- the grid cell a rendered block part shows, from the attribute stamped at render

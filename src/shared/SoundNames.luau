@@ -11,8 +11,11 @@ module = {
 		COINS_ADDED = "CoinsAdded",
 		SALE_SUCCESS = "SaleSuccess",
 		ROCK_HIT = "RockHit",
+		RESOURCE_HIT = "ResourceHit",
 		ROCK_BREAK = "RockBreak",
 		ORE_PICKUP = "OrePickup",
+		REFINERY_GRIND = "RefineryGrind",
+		REFINERY_PAYOUT = "RefineryPayout",
 	},
 	Music = {},
 }

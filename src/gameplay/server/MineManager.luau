@@ -31,6 +31,9 @@ MineManager.__index = MineManager
 export type MineManager = typeof(setmetatable(
 	{} :: {
 		result: MineGenerator.GenerateResult?,
+		-- the authored mine the current run generated from (uraniumTarget,
+		-- startingCampLevel are read by the refinery)
+		definition: MineGenerator.MineDefinition?,
 		encoded: buffer?,
 		chunks: { buffer },
 		version: number,
@@ -54,6 +57,10 @@ end
 
 function MineManager:getSpace(): MineSpace.MineSpace?
 	return self.space
+end
+
+function MineManager:getDefinition(): MineGenerator.MineDefinition?
+	return self.definition
 end
 
 function MineManager:buildConfig(difficulty: number): MineGenerator.GeneratorConfig
@@ -96,6 +103,7 @@ function MineManager:generate(map: number, difficulty: number, seed: number?): b
 	end
 
 	self.result = result
+	self.definition = definition
 	self.origin = origin
 	self.facing = facing
 	self.space = MineSpace.new(origin, facing, result.grid.centrelineWidth, result.grid.floorHeight, Constants.MINE_BLOCK_SIZE_STUDS)
@@ -135,15 +143,19 @@ function MineManager:buildHeader(): { [string]: any }
 	-- max hp per diggable rock, so the reticle label can show "x/y" for an
 	-- untouched block without the client requiring GameData
 	local rockHp = {}
+	-- kind per rock, so hit feedback can tell ore from filler without GameData
+	local rockKind = {}
 	for rockName, definition in RockDefinitionsData.ROCKS do
 		if definition.hp then
 			rockHp[rockName] = definition.hp
 		end
+		rockKind[rockName] = definition.kind
 	end
 	return {
 		version = self.version,
 		fillerOrder = RockDefinitionsData.FILLER_ORDER,
 		rockHp = rockHp,
+		rockKind = rockKind,
 		seed = result.report.seed,
 		depth = grid.depth,
 		height = grid.height,
@@ -242,6 +254,7 @@ end
 function MineManager.new(): MineManager
 	local self = setmetatable({}, MineManager) :: MineManager
 	self.result = nil
+	self.definition = nil
 	self.encoded = nil
 	self.chunks = {}
 	self.version = 0

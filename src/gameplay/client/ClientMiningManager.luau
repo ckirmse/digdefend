@@ -233,7 +233,10 @@ function ClientMiningManager:onRockDamaged(payload: any)
 	local part = ClientMineManager:getRenderedPart(payload.depth, payload.height, payload.width)
 	if part and self:isNear(part) then
 		self:emitBurst(part, HIT_PARTICLE_COUNT)
-		ClientSoundManager:playSfx(SoundNames.Sfx.ROCK_HIT)
+		-- ore rings like metal, filler thuds like rock (decided 2026-09-14)
+		local kind = ClientMineManager:getCellRockKind(payload.depth, payload.height, payload.width)
+		local soundName = if kind == Enums.RockKind.RESOURCE then SoundNames.Sfx.RESOURCE_HIT else SoundNames.Sfx.ROCK_HIT
+		ClientSoundManager:playSfx(soundName)
 	end
 	local target = self.target
 	if target and target.depth == payload.depth and target.height == payload.height and target.width == payload.width then

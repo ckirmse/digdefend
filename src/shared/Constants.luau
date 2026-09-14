@@ -88,10 +88,18 @@ Constants.CAMP_SPAWNS_FOLDER = "Spawns"
 -- whose look direction (snapped to an axis) is the mine facing
 Constants.CAMP_MINE_FOLDER = "Mine"
 Constants.MINE_ENTRANCE_PART = "Entrance"
+-- Camp.Refinery: a Model whose Prompt part carries the refine ProximityPrompt
+-- (RefineryManager configures and listens to it); its pivot is where the
+-- client's ore icons fly to
+Constants.CAMP_REFINERY_MODEL = "Refinery"
+Constants.REFINERY_PROMPT_PART = "Prompt"
 -- optional per-map terrain: the part bounding the terrain to snapshot and
 -- the TerrainRegion the snapshot is stored in (scripts/studio/map_tools.luau)
 Constants.MAP_TERRAIN_BOUNDS_PART = "TerrainBounds"
 Constants.MAP_TERRAIN_REGION = "TerrainSnapshot"
+-- the Edit-mode mine preview map_tools.luau draws in Workspace; MapManager
+-- removes it at run start so a designer's guide never shows in Play
+Constants.MINE_PREVIEW_FOLDER = "MinePreview"
 -- rock templates under GameAssets, one per Enums.RockName key; clients clone
 -- them into the client-only MineBlocks folder in Workspace
 Constants.ROCK_TEMPLATES_FOLDER = "Rocks"
@@ -119,6 +127,21 @@ Constants.GAMEPLAY_HUD_GUI_NAME = "GameplayHud"
 Constants.HUD_BACKPACK_BUTTON = "BackpackButton"
 Constants.HUD_BACKPACK_COUNT_LABEL = "CountLabel"
 Constants.HUD_BACKPACK_FULL_LABEL = "FullLabel"
+-- balances (top left): one row per resource, Uranium as "total / target"
+Constants.HUD_BALANCES_FRAME = "Balances"
+Constants.HUD_BALANCE_IRON_ROW = "IronRow"
+Constants.HUD_BALANCE_GOLD_ROW = "GoldRow"
+Constants.HUD_BALANCE_URANIUM_ROW = "UraniumRow"
+Constants.HUD_BALANCE_ICON = "Icon"
+Constants.HUD_BALANCE_VALUE_LABEL = "ValueLabel"
+-- camp level (top centre): title, XP-style bar with fill and "pool / required"
+Constants.HUD_CAMP_LEVEL_FRAME = "CampLevel"
+Constants.HUD_CAMP_LEVEL_TITLE_LABEL = "TitleLabel"
+Constants.HUD_CAMP_LEVEL_BAR = "Bar"
+Constants.HUD_CAMP_LEVEL_FILL = "Fill"
+Constants.HUD_CAMP_LEVEL_PROGRESS_LABEL = "ProgressLabel"
+-- full-screen frame the refinery's flying icons are parented to
+Constants.HUD_FLY_LAYER = "FlyLayer"
 -- backpack contents menu (built by scripts/studio/build_backpack_menu_gui.luau)
 Constants.BACKPACK_MENU_GUI_NAME = "Backpack"
 Constants.BACKPACK_MENU_LIST = "List"

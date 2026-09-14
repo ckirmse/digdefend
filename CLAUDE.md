@@ -12,6 +12,10 @@ Game design doc: `gdd.txt` (export of the Google Doc linked in `milestones.md`)
 Build milestones: `milestones.md`
 Reference games (copy patterns and standards, never ship their code directly): `~/square` (Lucky Squares, "lights", primary reference) and `~/md` (Fuse Dragons, "dragons").
 
+## Working with the user
+
+The user is a designer and a junior programmer. Explain what you are doing as you build, not just what you built: which module a change lives in and why it belongs there, how the pieces talk to each other (server Lua state, replication folders, the message bus, client managers), and what a reader would need to know to change it themselves later. Name the pattern when one is being applied (shadow system, manager singleton, `Validate` shape, `SplendidGames` attributes) and say in a sentence what it is for. Plain language over jargon; expand tooling terms (Rojo, Wally, MCP, LSP) the first time they matter in a session. The goal is that the user understands the system as it is being built, not only that it works.
+
 ## How we build
 
 We work milestone by milestone from `milestones.md`. Each milestone must be **testable and playable** before starting the next.
