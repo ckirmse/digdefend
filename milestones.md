@@ -24,10 +24,10 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 ## Phase 4: Mine Generation and Mining
 
 **M21 — Mining Supplies Store and mining tools**
-3D proximity-prompt store for Pick Axe, Boots, and Backpack upgrades (4 levels each, adjustable) paid in Gold, plus Torch and Dynamite consumables added to the tool bar. Pick axe model and icon change on upgrade. Dynamite destroys a region of rock server-side.
+3D proximity-prompt store for Pick Axe, Boots, Backpack, and Jet Pack upgrades (5 levels each, adjustable; level 2 is a plain Gold buy, level N+1 needs Camp Level N) paid in Gold, plus Torch and Dynamite consumables added to the tool bar. Pick axe model and icon change on upgrade. Dynamite destroys a region of rock server-side. Jet Pack (added 2026-09-15): one gesture (double-tap and hold Jump, or hold the touch Jet Pack button; release stops) on a server-owned fuel tank, 3 s plus 1 s per level, refilling only on the ground; it flips the generator's climbing flag. Boots are walk speed only (16 to 24 studs per second by level). The "Boots" and "Jet Pack" GDD sections are written.
 
-**M22 — Camp Level and chamber gates**
-Diamonds fill the Camp Level bar on the Refinery. Reaching a level opens that chamber's gate blocks with a visible and audible moment, and unlocks the next tier of mining and post upgrades. Definition of what each camp level unlocks lives in GameData. Needs the empty "Camp Level" GDD section filled first.
+**M22 — Camp Level unlocks**
+Diamonds fill the Camp Level bar shown on the Refinery. Reaching a level is a visible and audible moment for the whole crew and unlocks the next tier of every upgrade track (Pick Axe, Boots, Backpack: level N+1 needs Camp Level N so the first upgrade is never locked; Posts: tier N needs level N; consumables and defenses never capped); depth is gated only by rock hardness (the chamber gates were removed from the design on 2026-09-15 for an open, explorable mine). Definition of what each camp level unlocks lives in GameData. Needs the "Camp Level" GDD section finished first.
 
 ## Phase 5: Camp, Defense, and Placement
 

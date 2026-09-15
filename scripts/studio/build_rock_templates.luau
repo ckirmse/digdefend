@@ -30,10 +30,12 @@ rocks.Parent = gameAssets
 
 -- placeholder looks; tiers of one resource darken and saturate as they rise
 local LOOKS = {
-	SHALE = { color = Color3.fromRGB(150, 140, 120), material = Enum.Material.Slate },
-	SANDSTONE = { color = Color3.fromRGB(196, 168, 110), material = Enum.Material.Sandstone },
-	GRANITE = { color = Color3.fromRGB(128, 128, 132), material = Enum.Material.Granite },
-	BASALT = { color = Color3.fromRGB(62, 60, 64), material = Enum.Material.Basalt },
+	-- one stone, darker as the tier rises, so ore stands out against it
+	STONE_1 = { color = Color3.fromRGB(168, 160, 148), material = Enum.Material.Slate },
+	STONE_2 = { color = Color3.fromRGB(140, 134, 126), material = Enum.Material.Slate },
+	STONE_3 = { color = Color3.fromRGB(112, 108, 104), material = Enum.Material.Slate },
+	STONE_4 = { color = Color3.fromRGB(84, 82, 82), material = Enum.Material.Slate },
+	STONE_5 = { color = Color3.fromRGB(58, 56, 60), material = Enum.Material.Slate },
 	IRON_1 = { color = Color3.fromRGB(190, 140, 110), material = Enum.Material.Rock },
 	IRON_2 = { color = Color3.fromRGB(170, 110, 80), material = Enum.Material.Rock },
 	IRON_3 = { color = Color3.fromRGB(150, 85, 55), material = Enum.Material.Rock },
@@ -48,7 +50,6 @@ local LOOKS = {
 	CRYSTAL_4 = { color = Color3.fromRGB(30, 140, 220), material = Enum.Material.Glass },
 	URANIUM = { color = Color3.fromRGB(110, 255, 90), material = Enum.Material.Neon },
 	BEDROCK = { color = Color3.fromRGB(28, 28, 32), material = Enum.Material.Basalt },
-	GATE = { color = Color3.fromRGB(150, 90, 200), material = Enum.Material.Metal, transparency = 0.25 },
 }
 
 local size = Constants.MINE_BLOCK_SIZE_STUDS

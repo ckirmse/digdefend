@@ -31,8 +31,8 @@ MineManager.__index = MineManager
 export type MineManager = typeof(setmetatable(
 	{} :: {
 		result: MineGenerator.GenerateResult?,
-		-- the authored mine the current run generated from (uraniumTarget,
-		-- startingCampLevel are read by the refinery)
+		-- the authored mine the current run generated from (the refinery
+		-- reads uraniumTarget)
 		definition: MineGenerator.MineDefinition?,
 		encoded: buffer?,
 		chunks: { buffer },
@@ -45,6 +45,8 @@ export type MineManager = typeof(setmetatable(
 	},
 	MineManager
 ))
+
+local TRY_REQUEST_MINE_SHAPE = {}
 
 function MineManager:getGrid(): MineGenerator.MineGrid?
 	local result = self.result
@@ -125,19 +127,17 @@ end
 function MineManager:buildHeader(): { [string]: any }
 	local result = self.result :: MineGenerator.GenerateResult
 	local grid = result.grid
-	local chambers = {}
-	for _, chamber in result.chambers do
-		table.insert(chambers, {
-			index = chamber.index,
-			unlockCampLevel = chamber.unlockCampLevel,
-			hasCorridor = chamber.hasCorridor,
-			depthStart = chamber.depthStart,
-			depth = chamber.depth,
-			heightStart = chamber.heightStart,
-			height = chamber.height,
-			widthStart = chamber.widthStart,
-			width = chamber.width,
-			fillerWeights = chamber.fillerWeights,
+	local zones = {}
+	for _, zone in result.zones do
+		table.insert(zones, {
+			index = zone.index,
+			depthStart = zone.depthStart,
+			depth = zone.depth,
+			heightStart = zone.heightStart,
+			height = zone.height,
+			widthStart = zone.widthStart,
+			width = zone.width,
+			fillerWeights = zone.fillerWeights,
 		})
 	end
 	-- max hp per diggable rock, so the reticle label can show "x/y" for an
@@ -170,7 +170,7 @@ function MineManager:buildHeader(): { [string]: any }
 		streamRadiusBlocks = StreamingData.STREAM_RADIUS_BLOCKS,
 		maxRenderedBlocks = StreamingData.MAX_RENDERED_BLOCKS,
 		streamPollSec = StreamingData.STREAM_POLL_SEC,
-		chambers = chambers,
+		zones = zones,
 	}
 end
 
@@ -199,9 +199,17 @@ function MineManager:sendTo(player: Player)
 	)
 end
 
--- ready-sequence entry: a player who becomes Ready after generation gets the mine
-function MineManager:onPlayerReady(player: Player)
-	self:sendTo(player)
+-- the client asks once ClientMineManager is listening. A push at Ready was
+-- lost whenever the client was still preloading assets when it arrived
+function MineManager:getNetHandlers()
+	return {
+		[NetEventNames.TRY_REQUEST_MINE] = {
+			shape = TRY_REQUEST_MINE_SHAPE,
+			handler = function(player: Player, _payload: { [string]: any })
+				self:sendTo(player)
+			end,
+		},
+	}
 end
 
 function MineManager:getRockAt(depth: number, height: number, width: number): number?
@@ -225,7 +233,7 @@ function MineManager:applyDamage(depth: number, height: number, width: number, a
 	end
 	local definition = RockDefinitionsData.ROCKS[rock]
 	if not definition or not definition.hp then
-		-- bedrock and gates take no damage
+		-- bedrock takes no damage
 		return false, 0
 	end
 	local cellIndex = MineGenerator.cellIndex(grid, depth, height, width)

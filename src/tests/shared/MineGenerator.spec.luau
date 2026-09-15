@@ -29,7 +29,7 @@ end
 -- because it requires through the @game alias
 local function makeRockTable()
 	return {
-		FILLER_ORDER = { RockName.SHALE, RockName.SANDSTONE, RockName.GRANITE, RockName.BASALT },
+		FILLER_ORDER = { RockName.STONE_1, RockName.STONE_2, RockName.STONE_3, RockName.STONE_4, RockName.STONE_5 },
 		RESOURCE_TIERS = {
 			[RawResource.IRON_ORE] = { RockName.IRON_1, RockName.IRON_2, RockName.IRON_3, RockName.IRON_4 },
 			[RawResource.GOLD_ORE] = { RockName.GOLD_1, RockName.GOLD_2, RockName.GOLD_3, RockName.GOLD_4 },
@@ -37,25 +37,25 @@ local function makeRockTable()
 			[RawResource.URANIUM_ORE] = { RockName.URANIUM },
 		},
 		ROCKS = {
-			[RockName.SHALE] = { kind = RockKind.FILLER, hp = 10 },
-			[RockName.SANDSTONE] = { kind = RockKind.FILLER, hp = 20 },
-			[RockName.GRANITE] = { kind = RockKind.FILLER, hp = 40 },
-			[RockName.BASALT] = { kind = RockKind.FILLER, hp = 80 },
-			[RockName.IRON_1] = makeResource(RawResource.IRON_ORE, 1, 15, 5, 1, 2),
-			[RockName.IRON_2] = makeResource(RawResource.IRON_ORE, 2, 30, 16, 1, 2),
-			[RockName.IRON_3] = makeResource(RawResource.IRON_ORE, 3, 60, 48, 1, 2),
-			[RockName.IRON_4] = makeResource(RawResource.IRON_ORE, 4, 110, 130, 0, 1),
-			[RockName.GOLD_1] = makeResource(RawResource.GOLD_ORE, 1, 20, 5, 1, 2),
-			[RockName.GOLD_2] = makeResource(RawResource.GOLD_ORE, 2, 40, 17, 1, 2),
-			[RockName.GOLD_3] = makeResource(RawResource.GOLD_ORE, 3, 75, 50, 1, 1),
-			[RockName.GOLD_4] = makeResource(RawResource.GOLD_ORE, 4, 140, 145, 0, 1),
-			[RockName.CRYSTAL_1] = makeResource(RawResource.CRYSTAL, 1, 30, 3, 1, 1),
-			[RockName.CRYSTAL_2] = makeResource(RawResource.CRYSTAL, 2, 60, 9, 1, 1),
-			[RockName.CRYSTAL_3] = makeResource(RawResource.CRYSTAL, 3, 110, 24, 0, 1),
-			[RockName.CRYSTAL_4] = makeResource(RawResource.CRYSTAL, 4, 200, 65, 0, 1),
+			[RockName.STONE_1] = { kind = RockKind.FILLER, hp = 10 },
+			[RockName.STONE_2] = { kind = RockKind.FILLER, hp = 20 },
+			[RockName.STONE_3] = { kind = RockKind.FILLER, hp = 40 },
+			[RockName.STONE_4] = { kind = RockKind.FILLER, hp = 80 },
+			[RockName.STONE_5] = { kind = RockKind.FILLER, hp = 160 },
+			[RockName.IRON_1] = makeResource(RawResource.IRON_ORE, 1, 15, 3, 1, 2),
+			[RockName.IRON_2] = makeResource(RawResource.IRON_ORE, 2, 30, 10, 1, 2),
+			[RockName.IRON_3] = makeResource(RawResource.IRON_ORE, 3, 60, 29, 1, 2),
+			[RockName.IRON_4] = makeResource(RawResource.IRON_ORE, 4, 110, 78, 0, 1),
+			[RockName.GOLD_1] = makeResource(RawResource.GOLD_ORE, 1, 20, 3, 1, 2),
+			[RockName.GOLD_2] = makeResource(RawResource.GOLD_ORE, 2, 40, 10, 1, 2),
+			[RockName.GOLD_3] = makeResource(RawResource.GOLD_ORE, 3, 75, 30, 1, 1),
+			[RockName.GOLD_4] = makeResource(RawResource.GOLD_ORE, 4, 140, 87, 0, 1),
+			[RockName.CRYSTAL_1] = makeResource(RawResource.CRYSTAL, 1, 30, 2, 1, 1),
+			[RockName.CRYSTAL_2] = makeResource(RawResource.CRYSTAL, 2, 60, 5, 1, 1),
+			[RockName.CRYSTAL_3] = makeResource(RawResource.CRYSTAL, 3, 110, 14, 0, 1),
+			[RockName.CRYSTAL_4] = makeResource(RawResource.CRYSTAL, 4, 200, 39, 0, 1),
 			[RockName.URANIUM] = makeResource(RawResource.URANIUM_ORE, 1, 100, 1, 0, 0),
 			[RockName.BEDROCK] = { kind = RockKind.BEDROCK },
-			[RockName.GATE] = { kind = RockKind.GATE },
 		},
 	}
 end
@@ -65,7 +65,7 @@ end
 local function makeConfig(overrides: { [string]: any }?)
 	local config = {
 		rockTable = makeRockTable(),
-		spread = 1.5,
+		spread = 1.2,
 		minCenter = 1.0,
 		maxCenter = 4.0,
 		hardnessShift = 0.0,
@@ -88,30 +88,33 @@ local function makeMine()
 		seed = nil,
 		origin = Vector3.new(-359.259, -6, -20.911),
 		facing = Enums.MineFacing.NEGATIVE_X,
-		startingCampLevel = 1,
 		bedrockThickness = 1,
-		veinCorridorClearance = 0,
+		entranceWidth = 3,
+		entranceHeight = 3,
+		entranceDepth = 3,
+		veinEntranceClearance = 0,
+		pocketRadiusMin = 1,
+		pocketRadiusMax = 2,
 		uraniumTarget = 20,
-		defaultChamberHeight = 8,
-		defaultChamberWidth = 24,
-		chambers = {
+		defaultZoneHeight = 8,
+		defaultZoneWidth = 24,
+		zones = {
 			{
 				depth = 20,
-				hardness = 1.2,
+				hardness = 1.0,
 				tierBias = 1.0,
 				iron = 34,
 				gold = 12,
 				crystal = 2,
 				uranium = 2,
-				corridorWidth = 3,
-				corridorHeight = 3,
+				pockets = 2,
 				handPlaced = {
 					{ rock = RockName.CRYSTAL_3, depth = 6, height = 1, widthOffset = 2 },
 				},
 			},
-			{ depth = 24, hardness = 2.1, tierBias = 2.0, iron = 30, gold = 18, crystal = 6, uranium = 4 },
-			{ depth = 24, height = 12, hardness = 3.0, tierBias = 3.0, iron = 22, gold = 22, crystal = 12, uranium = 8, corridorHeight = 5 },
-			{ depth = 28, height = 16, hardness = 3.7, tierBias = 4.0, iron = 16, gold = 20, crystal = 18, uranium = 14 },
+			{ depth = 24, hardness = 2.0, tierBias = 2.0, iron = 30, gold = 18, crystal = 6, uranium = 4, pockets = 3 },
+			{ depth = 24, height = 12, hardness = 3.0, tierBias = 3.0, iron = 22, gold = 22, crystal = 12, uranium = 8, pockets = 4 },
+			{ depth = 28, height = 16, hardness = 4.0, tierBias = 4.0, iron = 16, gold = 20, crystal = 18, uranium = 14, pockets = 5 },
 		},
 	}
 end
@@ -139,25 +142,28 @@ local function countRock(grid, box, rock)
 	return count
 end
 
-local function boxOf(chamber)
+local function boxOf(zone)
 	return {
-		depthStart = chamber.depthStart,
-		depthEnd = chamber.depthStart + chamber.depth - 1,
-		heightStart = chamber.heightStart,
-		heightEnd = chamber.heightStart + chamber.height - 1,
-		widthStart = chamber.widthStart,
-		widthEnd = chamber.widthStart + chamber.width - 1,
+		depthStart = zone.depthStart,
+		depthEnd = zone.depthStart + zone.depth - 1,
+		heightStart = zone.heightStart,
+		heightEnd = zone.heightStart + zone.height - 1,
+		widthStart = zone.widthStart,
+		widthEnd = zone.widthStart + zone.width - 1,
 	}
 end
+
+-- the entrance is 3 wide centred on width 12 (centreline of 24 leaning positive)
+local ENTRANCE_WIDTHS = { 11, 12, 13 }
 
 describe(
 	"MineGenerator.generate on the worked example",
 	function()
 		it(
-			"sizes the grid from the chamber list and bedrock",
+			"sizes the grid from the zone list and bedrock, with no dividers",
 			function()
 				local result = generateOrFail(makeMine())
-				expect(result.grid.depth).toBe(1 + 20 + 24 + 24 + 28 + 3 + 1)
+				expect(result.grid.depth).toBe(1 + 20 + 24 + 24 + 28 + 1)
 				expect(result.grid.height).toBe(16 + 1 + 1)
 				expect(result.grid.width).toBe(24 + 2)
 				expect(#result.grid.cells).toBe(result.grid.depth * result.grid.height * result.grid.width)
@@ -166,33 +172,26 @@ describe(
 		)
 
 		it(
-			"resolves inheritance and derives unlock level and corridor presence",
+			"resolves inheritance and lays zones end to end",
 			function()
 				local result = generateOrFail(makeMine())
-				local chambers = result.chambers
-				expect(#chambers).toBe(4)
-				expect(chambers[2].height).toBe(8)
-				expect(chambers[2].width).toBe(24)
-				expect(chambers[2].corridorWidth).toBe(3)
-				expect(chambers[2].corridorHeight).toBe(3)
-				expect(chambers[2].veins[RawResource.URANIUM_ORE]).toBe(4)
-				expect(chambers[3].corridorHeight).toBe(5)
-				expect(chambers[4].height).toBe(16)
-				expect(chambers[4].hasCorridor).toBe(false)
-				expect(chambers[3].hasCorridor).toBe(true)
-				for index, chamber in chambers do
-					expect(chamber.unlockCampLevel).toBe(index)
-				end
-				expect(chambers[1].depthStart).toBe(1)
-				expect(chambers[2].depthStart).toBe(1 + 20 + 1)
-				expect(chambers[4].depthStart).toBe(1 + 20 + 1 + 24 + 1 + 24 + 1)
-				expect(chambers[1].heightStart).toBe(1)
-				expect(chambers[1].widthStart).toBe(1)
+				local zones = result.zones
+				expect(#zones).toBe(4)
+				expect(zones[2].height).toBe(8)
+				expect(zones[2].width).toBe(24)
+				expect(zones[2].veins[RawResource.URANIUM_ORE]).toBe(4)
+				expect(zones[2].pockets).toBe(3)
+				expect(zones[4].height).toBe(16)
+				expect(zones[1].depthStart).toBe(1)
+				expect(zones[2].depthStart).toBe(1 + 20)
+				expect(zones[4].depthStart).toBe(1 + 20 + 24 + 24)
+				expect(zones[1].heightStart).toBe(1)
+				expect(zones[1].widthStart).toBe(1)
 			end
 		)
 
 		it(
-			"seals every chamber in bedrock except where the corridor passes",
+			"wraps the whole mine in a bedrock shell with only the mouth open",
 			function()
 				local result = generateOrFail(makeMine())
 				local grid = result.grid
@@ -207,16 +206,29 @@ describe(
 						expect(MineGenerator.getCell(grid, depth, height, grid.width - 1)).toBe(RockName.BEDROCK)
 					end
 				end
-				-- the far wall behind chamber 4 is solid
+				-- the far wall is solid
 				for height = 0, grid.height - 1 do
 					for width = 0, grid.width - 1 do
 						expect(MineGenerator.getCell(grid, grid.depth - 1, height, width)).toBe(RockName.BEDROCK)
 					end
 				end
-				-- chamber 1 is 8 tall inside an 18-tall grid, so everything above it is bedrock
-				local chamber1 = result.chambers[1]
-				for depth = chamber1.depthStart, chamber1.depthStart + chamber1.depth - 1 do
-					for height = chamber1.heightStart + chamber1.height, grid.height - 1 do
+				-- the front face is bedrock everywhere except the mouth
+				local mouth = 0
+				for height = 0, grid.height - 1 do
+					for width = 0, grid.width - 1 do
+						local cell = MineGenerator.getCell(grid, 0, height, width)
+						if cell == AIR then
+							mouth += 1
+						else
+							expect(cell).toBe(RockName.BEDROCK)
+						end
+					end
+				end
+				expect(mouth).toBe(3 * 3)
+				-- zone 1 is 8 tall inside an 18-tall grid, so everything above it is bedrock
+				local zone1 = result.zones[1]
+				for depth = zone1.depthStart, zone1.depthStart + zone1.depth - 1 do
+					for height = zone1.heightStart + zone1.height, grid.height - 1 do
 						for width = 0, grid.width - 1 do
 							expect(MineGenerator.getCell(grid, depth, height, width)).toBe(RockName.BEDROCK)
 						end
@@ -226,60 +238,52 @@ describe(
 		)
 
 		it(
-			"opens the mine mouth, carves corridors as air, and gates the dividers",
+			"carves the entrance tunnel through the front face and entranceDepth blocks in",
 			function()
 				local result = generateOrFail(makeMine())
 				local grid = result.grid
-				local chamber1 = result.chambers[1]
-				-- the corridor is 3 wide centred on width 12 (centreline of 24 leaning positive), 3 tall from the floor
-				local corridorWidths = { 11, 12, 13 }
-				expect(chamber1.corridorWidthStart).toBe(11)
-				for _, width in corridorWidths do
+				for _, width in ENTRANCE_WIDTHS do
 					for height = 1, 3 do
-						-- mouth through the front bedrock
-						expect(MineGenerator.getCell(grid, 0, height, width)).toBe(AIR)
-						-- corridor through chamber 1
-						expect(MineGenerator.getCell(grid, 10, height, width)).toBe(AIR)
-						-- gate in the divider between chambers 1 and 2
-						expect(MineGenerator.getCell(grid, 21, height, width)).toBe(RockName.GATE)
+						for depth = 0, 3 do
+							expect(MineGenerator.getCell(grid, depth, height, width)).toBe(AIR)
+						end
 					end
-					-- above the corridor the mouth stays bedrock and the divider stays bedrock
+					-- above the tunnel the mouth stays bedrock
 					expect(MineGenerator.getCell(grid, 0, 4, width)).toBe(RockName.BEDROCK)
-					expect(MineGenerator.getCell(grid, 21, 4, width)).toBe(RockName.BEDROCK)
 				end
-				-- beside the corridor the front face is bedrock
+				-- beside the tunnel the front face is bedrock
 				expect(MineGenerator.getCell(grid, 0, 1, 10)).toBe(RockName.BEDROCK)
 				expect(MineGenerator.getCell(grid, 0, 1, 14)).toBe(RockName.BEDROCK)
-				-- chamber 3's corridor is 5 tall, so its gate is 5 tall
-				local chamber3 = result.chambers[3]
-				local divider3 = chamber3.depthStart + chamber3.depth
-				expect(MineGenerator.getCell(grid, divider3, 5, 12)).toBe(RockName.GATE)
-				expect(MineGenerator.getCell(grid, divider3, 6, 12)).toBe(RockName.BEDROCK)
-				-- chamber 4 has no corridor: a player past the last gate faces solid rock
-				local chamber4 = result.chambers[4]
-				expect(countRock(grid, boxOf(chamber4), AIR)).toBe(0)
-				expect(countRock(grid, boxOf(chamber4), RockName.GATE)).toBe(0)
-				-- gate count: three dividers, each 3 x 3 except the third which is 3 x 5
-				local gates = 0
-				for _, cell in grid.cells do
-					if cell == RockName.GATE then
-						gates += 1
-					end
-				end
-				expect(gates).toBe(9 + 9 + 15)
 			end
 		)
 
 		it(
-			"fills chamber interiors with only filler and resource rock",
+			"leaves no walls between zones, so a player can dig straight through",
+			function()
+				local result = generateOrFail(makeMine())
+				local grid = result.grid
+				local rocks = makeRockTable().ROCKS
+				for zoneIndex = 1, 3 do
+					local boundary = result.zones[zoneIndex + 1].depthStart
+					for height = 1, 8 do
+						for width = 1, 24 do
+							local cell = MineGenerator.getCell(grid, boundary, height, width)
+							expect(cell == AIR or rocks[cell].kind ~= RockKind.BEDROCK).toBe(true)
+						end
+					end
+				end
+			end
+		)
+
+		it(
+			"fills zone interiors with filler, resource rock, and pocket air",
 			function()
 				local result = generateOrFail(makeMine())
 				local rocks = makeRockTable().ROCKS
-				local chamber2 = result.chambers[2]
-				local box = boxOf(chamber2)
-				local corridorCells = chamber2.depth * chamber2.corridorHeight * chamber2.corridorWidth
+				local zone2 = result.zones[2]
+				local box = boxOf(zone2)
 				local air = 0
-				local seenBasalt = false
+				local seenHardStone = false
 				for depth = box.depthStart, box.depthEnd do
 					for height = box.heightStart, box.heightEnd do
 						for width = box.widthStart, box.widthEnd do
@@ -290,15 +294,57 @@ describe(
 							end
 							local kind = rocks[cell].kind
 							expect(kind == RockKind.FILLER or kind == RockKind.RESOURCE).toBe(true)
-							if cell == RockName.BASALT then
-								seenBasalt = true
+							if cell == RockName.STONE_4 or cell == RockName.STONE_5 then
+								seenHardStone = true
 							end
 						end
 					end
 				end
-				expect(air).toBe(corridorCells)
-				-- hardness 2.1 never reaches basalt at spread 1.5
-				expect(seenBasalt).toBe(false)
+				-- three pockets of radius 1 to 2: at least 3 cells, at most 3 x 33
+				expect(air).toBeGreaterThan(2)
+				expect(air).toBeLessThan(100)
+				expect(result.report.zones[2].pocketVolume).toBe(air)
+				-- hardness 2.0 never reaches stone 4 or 5 at spread 1.2
+				expect(seenHardStone).toBe(false)
+			end
+		)
+
+		it(
+			"carves no pockets when a zone asks for none",
+			function()
+				local mine = makeMine()
+				for _, zone in mine.zones do
+					zone.pockets = 0
+				end
+				local result = generateOrFail(mine)
+				for index, zone in result.zones do
+					local expectedAir = if index == 1 then 3 * 3 * 3 else 0
+					expect(countRock(result.grid, boxOf(zone), AIR)).toBe(expectedAir)
+				end
+			end
+		)
+
+		it(
+			"never places a vein inside a pocket",
+			function()
+				-- with every cell a pocket candidate, veins must still land on rock:
+				-- generate, then check no resource rock sits where the same seed's
+				-- pocket-only pass carved air
+				local pocketsOnly = makeMine()
+				for _, zone in pocketsOnly.zones do
+					zone.iron = 0
+					zone.gold = 0
+					zone.crystal = 0
+					zone.handPlaced = {}
+				end
+				pocketsOnly.uraniumTarget = 1
+				local bare = generateOrFail(pocketsOnly)
+				local full = generateOrFail(makeMine())
+				for index, cell in bare.grid.cells do
+					if cell == AIR then
+						expect(full.grid.cells[index]).toBe(AIR)
+					end
+				end
 			end
 		)
 
@@ -306,11 +352,11 @@ describe(
 			"stamps the hand-placed Crystal 3 where the designer put it",
 			function()
 				local mine = makeMine()
-				mine.chambers[1].handPlaced[1].cluster = 0
+				mine.zones[1].handPlaced[1].cluster = 0
 				local result = generateOrFail(mine)
-				local chamber1 = result.chambers[1]
-				-- depth 6 from the front face, height 1 up from the floor, 2 right of the corridor centreline (12)
-				expect(MineGenerator.getCell(result.grid, chamber1.depthStart + 6, chamber1.heightStart + 1, 14)).toBe(RockName.CRYSTAL_3)
+				local zone1 = result.zones[1]
+				-- depth 6 from the front face, height 1 up from the floor, 2 right of the centreline (12)
+				expect(MineGenerator.getCell(result.grid, zone1.depthStart + 6, zone1.heightStart + 1, 14)).toBe(RockName.CRYSTAL_3)
 			end
 		)
 
@@ -336,14 +382,15 @@ describe(
 		)
 
 		it(
-			"leaves chamber 1 untouched when chamber 2 is edited",
+			"leaves zone 1 untouched when zone 2 is edited",
 			function()
 				local before = generateOrFail(makeMine())
 				local edited = makeMine()
-				edited.chambers[2].iron = 5
-				edited.chambers[2].hardness = 3.5
+				edited.zones[2].iron = 5
+				edited.zones[2].hardness = 3.5
+				edited.zones[2].pockets = 0
 				local after = generateOrFail(edited)
-				local box = boxOf(before.chambers[1])
+				local box = boxOf(before.zones[1])
 				for depth = box.depthStart, box.depthEnd do
 					for height = box.heightStart, box.heightEnd do
 						for width = box.widthStart, box.widthEnd do
@@ -355,18 +402,18 @@ describe(
 		)
 
 		it(
-			"keeps veins clear of the corridor when clearance is set",
+			"keeps veins clear of the entrance when clearance is set",
 			function()
 				local mine = makeMine()
-				mine.veinCorridorClearance = 2
-				mine.chambers[1].handPlaced = {}
+				mine.veinEntranceClearance = 2
+				mine.zones[1].handPlaced = {}
+				mine.zones[1].pockets = 0
 				local result = generateOrFail(mine)
 				local rocks = makeRockTable().ROCKS
-				local chamber1 = result.chambers[1]
-				-- every cell within 2 blocks of the corridor volume must be filler or air
-				for depth = chamber1.depthStart, chamber1.depthStart + chamber1.depth - 1 do
-					for height = chamber1.heightStart, chamber1.heightStart + chamber1.corridorHeight - 1 + 2 do
-						for width = chamber1.corridorWidthStart - 2, chamber1.corridorWidthStart + chamber1.corridorWidth - 1 + 2 do
+				-- every cell within 2 blocks of the tunnel volume must be filler or air
+				for depth = 1, 3 + 2 do
+					for height = 1, 3 + 2 do
+						for width = 11 - 2, 13 + 2 do
 							local cell = MineGenerator.getCell(result.grid, depth, height, width)
 							if cell ~= AIR then
 								expect(rocks[cell].kind).toBe(RockKind.FILLER)
@@ -378,43 +425,43 @@ describe(
 		)
 
 		it(
-			"reports diggable volume, reach, and placed versus requested ore",
+			"reports diggable volume, reach, pockets, and placed versus requested ore",
 			function()
 				local result = generateOrFail(makeMine())
 				local report = result.report
-				expect(#report.chambers).toBe(4)
-				local chamber1 = report.chambers[1]
-				expect(chamber1.diggableVolume).toBe(20 * 8 * 24 - 20 * 3 * 3)
-				-- 3 of 8 rows are within reach, minus the corridor rows which are air
-				expect(chamber1.reachableShare).toBeCloseTo((20 * 3 * 24 - 20 * 3 * 3) / chamber1.diggableVolume, 6)
-				expect(chamber1.placedOre[RawResource.IRON_ORE]).toBeGreaterThan(0)
-				expect(chamber1.requestedOre[RawResource.IRON_ORE]).toBeGreaterThan(0)
-				expect(chamber1.placedOre[RawResource.URANIUM_ORE]).toBe(2)
-				expect(chamber1.placedHp).toBeGreaterThan(0)
-				-- uranium clusters are single blocks that yield one, so placed matches requested unless overwritten
-				local chamber4 = report.chambers[4]
-				expect(chamber4.requestedOre[RawResource.URANIUM_ORE]).toBe(14)
-				expect(chamber4.placedOre[RawResource.URANIUM_ORE]).toBe(14)
-				-- the counter climbs through every chamber and only clears the target at the last
-				expect(report.chambers[1].uraniumSoFar).toBe(2)
-				expect(report.chambers[2].uraniumSoFar).toBe(6)
-				expect(report.chambers[3].uraniumSoFar).toBe(14)
-				expect(chamber4.uraniumSoFar).toBe(28)
-				-- the cathedral is mostly decoration from a standing start
-				expect(chamber4.reachableShare).toBeLessThan(0.25)
-				expect(MineGenerator.formatReport(report)).toContain("chamber 4")
+				expect(#report.zones).toBe(4)
+				local zone1 = report.zones[1]
+				expect(zone1.diggableVolume + zone1.pocketVolume).toBe(20 * 8 * 24)
+				expect(zone1.pocketVolume).toBeGreaterThan(3 * 3 * 3 - 1)
+				expect(zone1.reachableShare).toBeGreaterThan(0.3)
+				expect(zone1.reachableShare).toBeLessThan(0.45)
+				expect(zone1.placedOre[RawResource.IRON_ORE]).toBeGreaterThan(0)
+				expect(zone1.requestedOre[RawResource.IRON_ORE]).toBeGreaterThan(0)
+				expect(zone1.placedOre[RawResource.URANIUM_ORE]).toBe(2)
+				expect(zone1.placedHp).toBeGreaterThan(0)
+				-- uranium clusters are single blocks that yield one, so placed matches requested
+				local zone4 = report.zones[4]
+				expect(zone4.requestedOre[RawResource.URANIUM_ORE]).toBe(14)
+				expect(zone4.placedOre[RawResource.URANIUM_ORE]).toBe(14)
+				-- the counter climbs through every zone
+				expect(report.zones[1].uraniumSoFar).toBe(2)
+				expect(report.zones[2].uraniumSoFar).toBe(6)
+				expect(report.zones[3].uraniumSoFar).toBe(14)
+				expect(zone4.uraniumSoFar).toBe(28)
+				-- the cathedral is mostly out of reach from a standing start
+				expect(zone4.reachableShare).toBeLessThan(0.25)
+				expect(MineGenerator.formatReport(report)).toContain("zone 4")
 			end
 		)
 
 		it(
-			"counts hand-placed rock in requested ore and never warns about the last chamber's corridor",
+			"counts hand-placed rock in requested ore",
 			function()
 				local mine = makeMine()
-				mine.chambers[1].handPlaced[1].cluster = 1
-				local result, warnings = generateOrFail(mine)
-				-- 2 crystal 1 clusters (1 cell each at radius 1 = 7 cells x 3) plus one 7-cell Crystal 3 at 24 yield
-				expect(result.report.chambers[1].requestedOre[RawResource.CRYSTAL]).toBeCloseTo(2 * 7 * 3 + 7 * 24, 6)
-				expect(table.concat(warnings, "\n")).never.toContain("chamber 4")
+				mine.zones[1].handPlaced[1].cluster = 1
+				local result = generateOrFail(mine)
+				-- 2 crystal 1 clusters (7 cells x 2) plus one 7-cell Crystal 3 at 14 yield
+				expect(result.report.zones[1].requestedOre[RawResource.CRYSTAL]).toBeCloseTo(2 * 7 * 2 + 7 * 14, 6)
 			end
 		)
 
@@ -422,17 +469,17 @@ describe(
 			"applies the vein divisor to every ore except uranium",
 			function()
 				local result = generateOrFail(makeMine(), makeConfig({ veinDivisor = 1.4, difficultyValue = 1.9 }))
-				local chamber2 = result.chambers[2]
-				expect(chamber2.hardness).toBeCloseTo(2.1, 9)
-				expect(chamber2.veins[RawResource.IRON_ORE]).toBe(21)
-				expect(chamber2.veins[RawResource.GOLD_ORE]).toBe(13)
-				expect(chamber2.veins[RawResource.CRYSTAL]).toBe(4)
-				expect(result.chambers[4].veins[RawResource.URANIUM_ORE]).toBe(14)
+				local zone2 = result.zones[2]
+				expect(zone2.hardness).toBeCloseTo(2.0, 9)
+				expect(zone2.veins[RawResource.IRON_ORE]).toBe(21)
+				expect(zone2.veins[RawResource.GOLD_ORE]).toBe(13)
+				expect(zone2.veins[RawResource.CRYSTAL]).toBe(4)
+				expect(result.zones[4].veins[RawResource.URANIUM_ORE]).toBe(14)
 			end
 		)
 
 		it(
-			"places every uranium rock within pickaxe reach of the chamber floor",
+			"places every uranium rock within pickaxe reach of the floor",
 			function()
 				local result = generateOrFail(makeMine())
 				local grid = result.grid
@@ -442,13 +489,13 @@ describe(
 						for width = 0, grid.width - 1 do
 							if MineGenerator.getCell(grid, depth, height, width) == RockName.URANIUM then
 								found += 1
-								-- every chamber floor sits on the 1-block bedrock floor
+								-- the floor sits on the 1-block bedrock floor
 								expect(height - 1).toBeLessThan(3)
 							end
 						end
 					end
 				end
-				expect(found).toBe(result.report.chambers[4].uraniumSoFar)
+				expect(found).toBe(result.report.zones[4].uraniumSoFar)
 			end
 		)
 	end
@@ -468,44 +515,53 @@ describe(
 			"refuses a mine whose uranium cannot cover the target for the largest party",
 			function()
 				local mine = makeMine()
-				mine.chambers[4].uranium = 6
+				mine.zones[4].uranium = 6
 				expectFatal(mine, "uranium")
 			end
 		)
 
 		it(
-			"refuses a mine that can be finished before the last chamber",
+			"refuses a zone dimension below 1, naming the zone",
 			function()
 				local mine = makeMine()
-				mine.chambers[3].uranium = 14
-				expectFatal(mine, "the last chamber must be required")
+				mine.zones[3].height = 0
+				expectFatal(mine, "zone 3: height")
 			end
 		)
 
 		it(
-			"refuses a chamber dimension below 1, naming the chamber",
+			"refuses a negative pocket count, naming the zone",
 			function()
 				local mine = makeMine()
-				mine.chambers[3].height = 0
-				expectFatal(mine, "chamber 3: height")
+				mine.zones[2].pockets = -1
+				expectFatal(mine, "zone 2: pockets")
 			end
 		)
 
 		it(
-			"refuses a corridor as wide as its chamber",
+			"refuses an entrance wider or taller than zone 1, or deeper than it",
 			function()
-				local mine = makeMine()
-				mine.chambers[2].corridorWidth = 24
-				expectFatal(mine, "chamber 2: corridorWidth")
+				local wide = makeMine()
+				wide.entranceWidth = 25
+				expectFatal(wide, "entranceWidth")
+				local tall = makeMine()
+				tall.entranceHeight = 9
+				expectFatal(tall, "entranceHeight")
+				local deep = makeMine()
+				deep.entranceDepth = 21
+				expectFatal(deep, "entranceDepth")
 			end
 		)
 
 		it(
-			"refuses a starting camp level that opens nothing",
+			"refuses pocket radii that are negative or inverted",
 			function()
-				local mine = makeMine()
-				mine.startingCampLevel = 0
-				expectFatal(mine, "startingCampLevel")
+				local negative = makeMine()
+				negative.pocketRadiusMin = -1
+				expectFatal(negative, "pocketRadiusMin")
+				local inverted = makeMine()
+				inverted.pocketRadiusMax = 0
+				expectFatal(inverted, "pocketRadiusMax")
 			end
 		)
 
@@ -519,40 +575,31 @@ describe(
 		)
 
 		it(
-			"refuses a first chamber missing a required field",
+			"refuses a first zone missing its depth",
 			function()
 				local mine = makeMine()
-				mine.chambers[1].corridorWidth = nil
-				expectFatal(mine, "chamber 1: corridorWidth")
+				mine.zones[1].depth = nil
+				expectFatal(mine, "zone 1: depth")
 			end
 		)
 
 		it(
-			"refuses an empty chamber list",
+			"refuses an empty zone list",
 			function()
 				local mine = makeMine()
-				mine.chambers = {}
-				expectFatal(mine, "chambers")
+				mine.zones = {}
+				expectFatal(mine, "zones")
 			end
 		)
 
 		it(
-			"warns and clamps a corridor taller than its chamber",
+			"warns about an entrance above reach without climbing",
 			function()
 				local mine = makeMine()
-				mine.chambers[2].corridorHeight = 50
-				local result, warnings = generateOrFail(mine)
-				expect(result.chambers[2].corridorHeight).toBe(8)
-				expect(table.concat(warnings, "\n")).toContain("chamber 2: corridorHeight")
-			end
-		)
-
-		it(
-			"warns about a corridor above reach but below full without climbing",
-			function()
-				local _, warnings = generateOrFail(makeMine())
-				expect(table.concat(warnings, "\n")).toContain("chamber 3: corridorHeight 5 is above pickaxe reach")
-				local _, climbingWarnings = generateOrFail(makeMine(), makeConfig({ isClimbingEnabled = true }))
+				mine.entranceHeight = 5
+				local _, warnings = generateOrFail(mine)
+				expect(table.concat(warnings, "\n")).toContain("entranceHeight 5 is above pickaxe reach")
+				local _, climbingWarnings = generateOrFail(mine, makeConfig({ isClimbingEnabled = true }))
 				expect(table.concat(climbingWarnings, "\n")).never.toContain("above pickaxe reach")
 			end
 		)
@@ -561,43 +608,29 @@ describe(
 			"warns and clamps hardness and tierBias outside the range",
 			function()
 				local mine = makeMine()
-				mine.chambers[2].hardness = 6
-				mine.chambers[2].tierBias = 0.2
+				mine.zones[2].hardness = 7
+				mine.zones[2].tierBias = 0.2
 				local result, warnings = generateOrFail(mine)
-				expect(result.chambers[2].hardness).toBe(4)
-				expect(result.chambers[2].tierBias).toBe(1)
+				expect(result.zones[2].hardness).toBe(5)
+				expect(result.zones[2].tierBias).toBe(1)
 				local joined = table.concat(warnings, "\n")
-				expect(joined).toContain("chamber 2: hardness")
-				expect(joined).toContain("chamber 2: tierBias")
+				expect(joined).toContain("zone 2: hardness")
+				expect(joined).toContain("zone 2: tierBias")
 			end
 		)
 
 		it(
-			"warns when hand-placed rock is outside its chamber or inside the corridor",
+			"warns when hand-placed rock is outside its zone or inside the entrance",
 			function()
 				local mine = makeMine()
-				mine.chambers[1].handPlaced = {
-					{ rock = RockName.GOLD_4, depth = 6, height = 1, widthOffset = 0 },
+				mine.zones[1].handPlaced = {
+					{ rock = RockName.GOLD_4, depth = 1, height = 1, widthOffset = 0 },
 					{ rock = RockName.GOLD_4, depth = 99, height = 1, widthOffset = 0 },
 				}
 				local _, warnings = generateOrFail(mine)
 				local joined = table.concat(warnings, "\n")
-				expect(joined).toContain("handPlaced[1]: falls inside the corridor")
-				expect(joined).toContain("handPlaced[2]: falls outside the chamber")
-			end
-		)
-
-		it(
-			"treats a full corridor as the chamber height",
-			function()
-				local mine = makeMine()
-				mine.chambers[2].corridorHeight = MineGenerator.CORRIDOR_HEIGHT_FULL
-				local result = generateOrFail(mine)
-				expect(result.chambers[2].corridorHeight).toBe(8)
-				-- the gate reaches the ceiling
-				local divider = result.chambers[2].depthStart + result.chambers[2].depth
-				expect(MineGenerator.getCell(result.grid, divider, 8, 12)).toBe(RockName.GATE)
-				expect(MineGenerator.getCell(result.grid, divider, 9, 12)).toBe(RockName.BEDROCK)
+				expect(joined).toContain("handPlaced[1]: falls inside the entrance")
+				expect(joined).toContain("handPlaced[2]: falls outside the zone")
 			end
 		)
 
@@ -607,9 +640,9 @@ describe(
 				local mine = makeMine()
 				mine.bedrockOverrides = { far = 3, side = 2 }
 				local result = generateOrFail(mine)
-				expect(result.grid.depth).toBe(1 + 96 + 3 + 3)
+				expect(result.grid.depth).toBe(1 + 96 + 3)
 				expect(result.grid.width).toBe(24 + 4)
-				expect(result.chambers[1].widthStart).toBe(2)
+				expect(result.zones[1].widthStart).toBe(2)
 			end
 		)
 	end
@@ -626,11 +659,11 @@ describe(
 				local result = generateOrFail(makeMine())
 				for index, preview in previews do
 					for _, resource in Enums.getAllValues(RawResource) do
-						expect(preview.requestedOre[resource]).toBeCloseTo(result.report.chambers[index].requestedOre[resource], 6)
+						expect(preview.requestedOre[resource]).toBeCloseTo(result.report.zones[index].requestedOre[resource], 6)
 					end
 					expect(preview.expectedHp).toBeGreaterThan(0)
 				end
-				-- chamber 4 is bigger and harder than chamber 1, so it costs more hp
+				-- zone 4 is bigger and harder than zone 1, so it costs more hp
 				expect(previews[4].expectedHp).toBeGreaterThan(previews[1].expectedHp)
 			end
 		)
@@ -639,8 +672,8 @@ describe(
 			"reports the same fatal errors as generate",
 			function()
 				local mine = makeMine()
-				mine.chambers[4].uranium = 0
-				mine.chambers[3].uranium = 0
+				mine.zones[4].uranium = 0
+				mine.zones[3].uranium = 0
 				local previews, errors = MineGenerator.preview(mine, makeConfig())
 				expect(previews).toBeNil()
 				expect(table.concat(errors, "\n")).toContain("uranium")
@@ -663,21 +696,21 @@ describe(
 					if rock == MineGenerator.FILLER_PLACEHOLDER then
 						placeholders += 1
 					end
-					expect(rock ~= RockName.SHALE and rock ~= RockName.SANDSTONE and rock ~= RockName.GRANITE and rock ~= RockName.BASALT).toBe(true)
+					expect(rock < RockName.STONE_1 or rock > RockName.STONE_5).toBe(true)
 				end
 				expect(placeholders).toBeGreaterThan(10000)
 
 				local fills = {}
-				for _, chamber in result.chambers do
+				for _, zone in result.zones do
 					table.insert(fills, {
-						index = chamber.index,
-						depthStart = chamber.depthStart,
-						depth = chamber.depth,
-						heightStart = chamber.heightStart,
-						height = chamber.height,
-						widthStart = chamber.widthStart,
-						width = chamber.width,
-						fillerWeights = chamber.fillerWeights,
+						index = zone.index,
+						depthStart = zone.depthStart,
+						depth = zone.depth,
+						heightStart = zone.heightStart,
+						height = zone.height,
+						widthStart = zone.widthStart,
+						width = zone.width,
+						fillerWeights = zone.fillerWeights,
 					})
 				end
 				local rebuilt = {

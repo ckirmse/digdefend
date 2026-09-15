@@ -9,7 +9,7 @@ local Enums = require(game:GetService("ReplicatedStorage").Shared.Enums)
 local MiningRules = require(game:GetService("ReplicatedStorage").Shared.MiningRules)
 
 -- mirrors GameData/Mining/PickAxe and GameData/Control/PartyScaling
-local DAMAGE_BY_LEVEL = { 5, 12, 25, 50 }
+local DAMAGE_BY_LEVEL = { 5, 12, 25, 50, 100 }
 local ORE_YIELD_BY_COUNT = { 1.0, 1.15, 1.3, 1.45, 1.6, 1.75 }
 
 describe(
@@ -19,9 +19,9 @@ describe(
 			"reads the level's damage and clamps out-of-range levels",
 			function()
 				expect(MiningRules.damageForLevel(DAMAGE_BY_LEVEL, 1)).toBe(5)
-				expect(MiningRules.damageForLevel(DAMAGE_BY_LEVEL, 4)).toBe(50)
+				expect(MiningRules.damageForLevel(DAMAGE_BY_LEVEL, 5)).toBe(100)
 				expect(MiningRules.damageForLevel(DAMAGE_BY_LEVEL, 0)).toBe(5)
-				expect(MiningRules.damageForLevel(DAMAGE_BY_LEVEL, 9)).toBe(50)
+				expect(MiningRules.damageForLevel(DAMAGE_BY_LEVEL, 9)).toBe(100)
 				expect(MiningRules.damageForLevel(DAMAGE_BY_LEVEL, 2.7)).toBe(12)
 			end
 		)

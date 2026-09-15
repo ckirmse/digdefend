@@ -8,13 +8,16 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 -- of the rock, not the mine: Iron 3 clusters the same way everywhere.
 --
 -- FILLER_ORDER is load-bearing: the hardness kernel maps a center of 1.0 to
--- the first entry and 4.0 to the last, so it must stay sorted by HP.
+-- the first entry and a center equal to the list length to the last, so it
+-- must stay sorted by HP. One filler rock, Stone, in five tiers (decided
+-- 2026-09-15): several filler kinds did the same job and hid the ore.
 return {
 	FILLER_ORDER = {
-		Enums.RockName.SHALE,
-		Enums.RockName.SANDSTONE,
-		Enums.RockName.GRANITE,
-		Enums.RockName.BASALT,
+		Enums.RockName.STONE_1,
+		Enums.RockName.STONE_2,
+		Enums.RockName.STONE_3,
+		Enums.RockName.STONE_4,
+		Enums.RockName.STONE_5,
 	},
 
 	-- resource -> tier -> rock, in the order the tierBias kernel walks them
@@ -44,17 +47,18 @@ return {
 	},
 
 	ROCKS = {
-		[Enums.RockName.SHALE] = { kind = Enums.RockKind.FILLER, hp = 10 },
-		[Enums.RockName.SANDSTONE] = { kind = Enums.RockKind.FILLER, hp = 20 },
-		[Enums.RockName.GRANITE] = { kind = Enums.RockKind.FILLER, hp = 40 },
-		[Enums.RockName.BASALT] = { kind = Enums.RockKind.FILLER, hp = 80 },
+		[Enums.RockName.STONE_1] = { kind = Enums.RockKind.FILLER, hp = 10 },
+		[Enums.RockName.STONE_2] = { kind = Enums.RockKind.FILLER, hp = 20 },
+		[Enums.RockName.STONE_3] = { kind = Enums.RockKind.FILLER, hp = 40 },
+		[Enums.RockName.STONE_4] = { kind = Enums.RockKind.FILLER, hp = 80 },
+		[Enums.RockName.STONE_5] = { kind = Enums.RockKind.FILLER, hp = 160 },
 
 		[Enums.RockName.IRON_1] = {
 			kind = Enums.RockKind.RESOURCE,
 			resource = Enums.RawResource.IRON_ORE,
 			tier = 1,
 			hp = 15,
-			yield = 5,
+			yield = 3,
 			clusterRadiusMin = 1,
 			clusterRadiusMax = 2,
 		},
@@ -63,7 +67,7 @@ return {
 			resource = Enums.RawResource.IRON_ORE,
 			tier = 2,
 			hp = 30,
-			yield = 16,
+			yield = 10,
 			clusterRadiusMin = 1,
 			clusterRadiusMax = 2,
 		},
@@ -72,7 +76,7 @@ return {
 			resource = Enums.RawResource.IRON_ORE,
 			tier = 3,
 			hp = 60,
-			yield = 48,
+			yield = 29,
 			clusterRadiusMin = 1,
 			clusterRadiusMax = 2,
 		},
@@ -81,7 +85,7 @@ return {
 			resource = Enums.RawResource.IRON_ORE,
 			tier = 4,
 			hp = 110,
-			yield = 130,
+			yield = 78,
 			clusterRadiusMin = 0,
 			clusterRadiusMax = 1,
 		},
@@ -91,7 +95,7 @@ return {
 			resource = Enums.RawResource.GOLD_ORE,
 			tier = 1,
 			hp = 20,
-			yield = 5,
+			yield = 3,
 			clusterRadiusMin = 1,
 			clusterRadiusMax = 2,
 		},
@@ -100,7 +104,7 @@ return {
 			resource = Enums.RawResource.GOLD_ORE,
 			tier = 2,
 			hp = 40,
-			yield = 17,
+			yield = 10,
 			clusterRadiusMin = 1,
 			clusterRadiusMax = 2,
 		},
@@ -109,7 +113,7 @@ return {
 			resource = Enums.RawResource.GOLD_ORE,
 			tier = 3,
 			hp = 75,
-			yield = 50,
+			yield = 30,
 			clusterRadiusMin = 1,
 			clusterRadiusMax = 1,
 		},
@@ -118,7 +122,7 @@ return {
 			resource = Enums.RawResource.GOLD_ORE,
 			tier = 4,
 			hp = 140,
-			yield = 145,
+			yield = 87,
 			clusterRadiusMin = 0,
 			clusterRadiusMax = 1,
 		},
@@ -128,7 +132,7 @@ return {
 			resource = Enums.RawResource.CRYSTAL,
 			tier = 1,
 			hp = 30,
-			yield = 3,
+			yield = 2,
 			clusterRadiusMin = 1,
 			clusterRadiusMax = 1,
 		},
@@ -137,7 +141,7 @@ return {
 			resource = Enums.RawResource.CRYSTAL,
 			tier = 2,
 			hp = 60,
-			yield = 9,
+			yield = 5,
 			clusterRadiusMin = 1,
 			clusterRadiusMax = 1,
 		},
@@ -146,7 +150,7 @@ return {
 			resource = Enums.RawResource.CRYSTAL,
 			tier = 3,
 			hp = 110,
-			yield = 24,
+			yield = 14,
 			clusterRadiusMin = 0,
 			clusterRadiusMax = 1,
 		},
@@ -155,7 +159,7 @@ return {
 			resource = Enums.RawResource.CRYSTAL,
 			tier = 4,
 			hp = 200,
-			yield = 65,
+			yield = 39,
 			clusterRadiusMin = 0,
 			clusterRadiusMax = 1,
 		},
@@ -170,9 +174,7 @@ return {
 			clusterRadiusMax = 0,
 		},
 
-		-- structural rock: indestructible, no HP. Gate becomes air when its
-		-- chamber unlocks.
+		-- structural rock: indestructible, no HP; the shell around the mine
 		[Enums.RockName.BEDROCK] = { kind = Enums.RockKind.BEDROCK },
-		[Enums.RockName.GATE] = { kind = Enums.RockKind.GATE },
 	},
 }

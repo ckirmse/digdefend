@@ -1,10 +1,11 @@
 --!strict
 
 -- The backpack (GDD "Backpack", "Collecting Ore"): raw ore capacity by level,
--- counted in ore units. Four levels by decision; the list length fixes it.
+-- counted in ore units. Five levels by decision (2026-09-15); the list
+-- length fixes it.
 -- Everyone is level 1 until the Mining Supplies Store (M21).
 return {
-	CAPACITY_BY_LEVEL = { 50, 100, 200, 400 },
+	CAPACITY_BY_LEVEL = { 15, 25, 40, 60, 90 },
 	-- ore that did not fit lands on the ground near the broken block and is
 	-- collected by any player walking within this distance with room
 	PICKUP_RADIUS_STUDS = 5,

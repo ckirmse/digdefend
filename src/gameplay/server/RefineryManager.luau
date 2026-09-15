@@ -112,7 +112,7 @@ function RefineryManager:credit(player: Player, refined: { [number]: number })
 		self.campLevel = level
 		self.diamondPool = pool
 		if gained > 0 then
-			-- chamber gates open on this at M22
+			-- store upgrade tiers unlock on this at M22
 			print(`[RefineryManager] camp level {level}`)
 		end
 	end
@@ -196,8 +196,7 @@ end
 
 -- a run (or a dev-tool restart) starts the shared progress over
 function RefineryManager:onRunStarted()
-	local definition = MineManager:getDefinition()
-	self.campLevel = if definition and definition.startingCampLevel then definition.startingCampLevel else DEFAULT_CAMP_LEVEL
+	self.campLevel = DEFAULT_CAMP_LEVEL
 	self.diamondPool = 0
 	self.uraniumTotal = 0
 	self:bindPrompt()
@@ -211,8 +210,7 @@ function RefineryManager:resetProgress()
 		balances.goldBars = 0
 		self:replicatePlayer(player)
 	end
-	local definition = MineManager:getDefinition()
-	self.campLevel = if definition and definition.startingCampLevel then definition.startingCampLevel else DEFAULT_CAMP_LEVEL
+	self.campLevel = DEFAULT_CAMP_LEVEL
 	self.diamondPool = 0
 	self.uraniumTotal = 0
 	self:replicateShared()

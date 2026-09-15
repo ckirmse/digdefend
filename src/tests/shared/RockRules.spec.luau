@@ -44,7 +44,7 @@ end
 -- mirrors GameData/Rocks/RockDefinitions, transcribed from the GDD tables
 local function makeRockTable()
 	return {
-		FILLER_ORDER = { RockName.SHALE, RockName.SANDSTONE, RockName.GRANITE, RockName.BASALT },
+		FILLER_ORDER = { RockName.STONE_1, RockName.STONE_2, RockName.STONE_3, RockName.STONE_4, RockName.STONE_5 },
 		RESOURCE_TIERS = {
 			[RawResource.IRON_ORE] = { RockName.IRON_1, RockName.IRON_2, RockName.IRON_3, RockName.IRON_4 },
 			[RawResource.GOLD_ORE] = { RockName.GOLD_1, RockName.GOLD_2, RockName.GOLD_3, RockName.GOLD_4 },
@@ -52,25 +52,25 @@ local function makeRockTable()
 			[RawResource.URANIUM_ORE] = { RockName.URANIUM },
 		},
 		ROCKS = {
-			[RockName.SHALE] = { kind = RockKind.FILLER, hp = 10 },
-			[RockName.SANDSTONE] = { kind = RockKind.FILLER, hp = 20 },
-			[RockName.GRANITE] = { kind = RockKind.FILLER, hp = 40 },
-			[RockName.BASALT] = { kind = RockKind.FILLER, hp = 80 },
-			[RockName.IRON_1] = makeResource(RawResource.IRON_ORE, 1, 15, 5, 1, 2),
-			[RockName.IRON_2] = makeResource(RawResource.IRON_ORE, 2, 30, 16, 1, 2),
-			[RockName.IRON_3] = makeResource(RawResource.IRON_ORE, 3, 60, 48, 1, 2),
-			[RockName.IRON_4] = makeResource(RawResource.IRON_ORE, 4, 110, 130, 0, 1),
-			[RockName.GOLD_1] = makeResource(RawResource.GOLD_ORE, 1, 20, 5, 1, 2),
-			[RockName.GOLD_2] = makeResource(RawResource.GOLD_ORE, 2, 40, 17, 1, 2),
-			[RockName.GOLD_3] = makeResource(RawResource.GOLD_ORE, 3, 75, 50, 1, 1),
-			[RockName.GOLD_4] = makeResource(RawResource.GOLD_ORE, 4, 140, 145, 0, 1),
-			[RockName.CRYSTAL_1] = makeResource(RawResource.CRYSTAL, 1, 30, 3, 1, 1),
-			[RockName.CRYSTAL_2] = makeResource(RawResource.CRYSTAL, 2, 60, 9, 1, 1),
-			[RockName.CRYSTAL_3] = makeResource(RawResource.CRYSTAL, 3, 110, 24, 0, 1),
-			[RockName.CRYSTAL_4] = makeResource(RawResource.CRYSTAL, 4, 200, 65, 0, 1),
+			[RockName.STONE_1] = { kind = RockKind.FILLER, hp = 10 },
+			[RockName.STONE_2] = { kind = RockKind.FILLER, hp = 20 },
+			[RockName.STONE_3] = { kind = RockKind.FILLER, hp = 40 },
+			[RockName.STONE_4] = { kind = RockKind.FILLER, hp = 80 },
+			[RockName.STONE_5] = { kind = RockKind.FILLER, hp = 160 },
+			[RockName.IRON_1] = makeResource(RawResource.IRON_ORE, 1, 15, 3, 1, 2),
+			[RockName.IRON_2] = makeResource(RawResource.IRON_ORE, 2, 30, 10, 1, 2),
+			[RockName.IRON_3] = makeResource(RawResource.IRON_ORE, 3, 60, 29, 1, 2),
+			[RockName.IRON_4] = makeResource(RawResource.IRON_ORE, 4, 110, 78, 0, 1),
+			[RockName.GOLD_1] = makeResource(RawResource.GOLD_ORE, 1, 20, 3, 1, 2),
+			[RockName.GOLD_2] = makeResource(RawResource.GOLD_ORE, 2, 40, 10, 1, 2),
+			[RockName.GOLD_3] = makeResource(RawResource.GOLD_ORE, 3, 75, 30, 1, 1),
+			[RockName.GOLD_4] = makeResource(RawResource.GOLD_ORE, 4, 140, 87, 0, 1),
+			[RockName.CRYSTAL_1] = makeResource(RawResource.CRYSTAL, 1, 30, 2, 1, 1),
+			[RockName.CRYSTAL_2] = makeResource(RawResource.CRYSTAL, 2, 60, 5, 1, 1),
+			[RockName.CRYSTAL_3] = makeResource(RawResource.CRYSTAL, 3, 110, 14, 0, 1),
+			[RockName.CRYSTAL_4] = makeResource(RawResource.CRYSTAL, 4, 200, 39, 0, 1),
 			[RockName.URANIUM] = makeResource(RawResource.URANIUM_ORE, 1, 100, 1, 0, 0),
 			[RockName.BEDROCK] = { kind = RockKind.BEDROCK },
-			[RockName.GATE] = { kind = RockKind.GATE },
 		},
 	}
 end
@@ -199,10 +199,11 @@ describe(
 			"keys the kernel by filler rock in table order",
 			function()
 				local byRock = RockRules.resolveHardnessWeights(3.0, makeRockTable().FILLER_ORDER, SPREAD)
-				expect(byRock[RockName.SHALE]).toBeCloseTo(0, 6)
-				expect(byRock[RockName.SANDSTONE]).toBeCloseTo(0.2, 6)
-				expect(byRock[RockName.GRANITE]).toBeCloseTo(0.6, 6)
-				expect(byRock[RockName.BASALT]).toBeCloseTo(0.2, 6)
+				expect(byRock[RockName.STONE_1]).toBeCloseTo(0, 6)
+				expect(byRock[RockName.STONE_2]).toBeCloseTo(0.2, 6)
+				expect(byRock[RockName.STONE_3]).toBeCloseTo(0.6, 6)
+				expect(byRock[RockName.STONE_4]).toBeCloseTo(0.2, 6)
+				expect(byRock[RockName.STONE_5]).toBeCloseTo(0, 6)
 			end
 		)
 	end
@@ -382,10 +383,10 @@ describe(
 			"rejects filler rocks out of hardness order",
 			function()
 				local rockTable = makeRockTable()
-				rockTable.FILLER_ORDER = { RockName.SHALE, RockName.GRANITE, RockName.SANDSTONE, RockName.BASALT }
+				rockTable.FILLER_ORDER = { RockName.STONE_1, RockName.STONE_3, RockName.STONE_2, RockName.STONE_4, RockName.STONE_5 }
 				local isValid, message = RockRules.validateRockTable(rockTable)
 				expect(isValid).toBe(false)
-				expect(message).toContain("SANDSTONE")
+				expect(message).toContain("STONE_2")
 			end
 		)
 
@@ -415,7 +416,7 @@ describe(
 			"rejects bad numbers and extra fields",
 			function()
 				local rockTable = makeRockTable()
-				rockTable.ROCKS[RockName.SHALE].hp = 0
+				rockTable.ROCKS[RockName.STONE_1].hp = 0
 				expect((RockRules.validateRockTable(rockTable))).toBe(false)
 
 				rockTable = makeRockTable()

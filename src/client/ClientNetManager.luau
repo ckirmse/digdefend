@@ -13,14 +13,19 @@ export type ClientNetManager = typeof(setmetatable(
 	{} :: {
 		remoteEvent: RemoteEvent?,
 		handlers: { [string]: NotifyHandler },
+		-- messages sent before init, flushed in order once the event exists
+		pendingSends: { { eventName: string, payload: { [string]: any } } },
 	},
 	ClientNetManager
 ))
 
+-- gameplay managers start in parallel with the shared client, which is
+-- still preloading assets when they ask for things, so an early send waits
+-- for init rather than being dropped
 function ClientNetManager:fireServer(eventName: string, payload: { [string]: any })
 	local remoteEvent = self.remoteEvent
 	if not remoteEvent then
-		warn("ClientNetManager: fireServer before init", eventName)
+		table.insert(self.pendingSends, { eventName = eventName, payload = payload })
 		return
 	end
 	remoteEvent:FireServer(eventName, payload)
@@ -54,12 +59,17 @@ function ClientNetManager:init()
 			self:onClientEvent(eventName, payload)
 		end
 	)
+	for _, pending in self.pendingSends do
+		remoteEvent:FireServer(pending.eventName, pending.payload)
+	end
+	self.pendingSends = {}
 end
 
 function ClientNetManager.new(): ClientNetManager
 	local self = setmetatable({}, ClientNetManager) :: ClientNetManager
 	self.remoteEvent = nil
 	self.handlers = {}
+	self.pendingSends = {}
 	return self
 end
 

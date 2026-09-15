@@ -2,53 +2,60 @@
 
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 
--- The GDD worked example (mine spec section 13). Chambers inherit every
--- unspecified value from the previous chamber; chamber 1 from the defaults.
--- Uranium is spread over every chamber (GDD example had 3 / 8) so the
--- counter moves from chamber 1, while chambers 1-3 stay under uraniumTarget
--- so the last chamber is always required (decided 2026-09-12).
+-- The GDD worked example (mine spec section 13). One open mine in a bedrock
+-- shell: zones are consecutive depth bands that inherit every unspecified
+-- value from the previous zone (zone 1 from the defaults), so the rock gets
+-- harder and the ore better the deeper a crew digs. Pockets are pre-carved
+-- caverns to discover. Uranium is spread over every zone so the counter
+-- moves from the first swing; the depth HP curve, not a gate, is what keeps
+-- the deep uranium from being rushed (decided 2026-09-15).
 return {
 	mineId = "canyon_default",
 	seed = nil,
 	origin = Vector3.new(-359.259, -6, -20.911),
 	facing = Enums.MineFacing.NEGATIVE_X,
 
-	startingCampLevel = 1,
 	bedrockThickness = 1,
-	veinCorridorClearance = 0,
+	-- the mouth: a short tunnel so the crew can walk in and pick a direction
+	entranceWidth = 3,
+	entranceHeight = 3,
+	entranceDepth = 3,
+	veinEntranceClearance = 0,
+	pocketRadiusMin = 1,
+	pocketRadiusMax = 2,
 	-- uranium rocks needed to call the rescue helicopter, solo
 	uraniumTarget = 20,
 
-	defaultChamberHeight = 8,
-	defaultChamberWidth = 24,
+	defaultZoneHeight = 8,
+	defaultZoneWidth = 24,
 
-	chambers = {
+	zones = {
 		{
 			-- 1: soft, generous, everything reachable
 			depth = 20,
-			hardness = 1.2,
+			hardness = 1.0,
 			tierBias = 1.0,
 			iron = 34,
 			gold = 12,
 			crystal = 2,
 			uranium = 2,
-			corridorWidth = 3,
-			corridorHeight = 3,
+			pockets = 2,
 			handPlaced = {
-				-- the upgrade advertisement: visible from the corridor, barely
-				-- dentable with a starting pickaxe
+				-- the upgrade advertisement: a few blocks past the mouth,
+				-- barely dentable with a starting pickaxe
 				{ rock = Enums.RockName.CRYSTAL_3, depth = 6, height = 1, widthOffset = 2 },
 			},
 		},
 		{
 			-- 2: mixed rock, better ore
 			depth = 24,
-			hardness = 2.1,
+			hardness = 2.0,
 			tierBias = 2.0,
 			iron = 30,
 			gold = 18,
 			crystal = 6,
 			uranium = 4,
+			pockets = 3,
 		},
 		{
 			-- 3: taller, harder
@@ -60,18 +67,19 @@ return {
 			gold = 22,
 			crystal = 12,
 			uranium = 8,
-			corridorHeight = 5,
+			pockets = 4,
 		},
 		{
-			-- 4: cathedral. No corridor, just solid rock.
+			-- 4: cathedral, the deepest and richest rock
 			depth = 28,
 			height = 16,
-			hardness = 3.7,
+			hardness = 4.0,
 			tierBias = 4.0,
 			iron = 16,
 			gold = 20,
 			crystal = 18,
 			uranium = 14,
+			pockets = 5,
 		},
 	},
 }

@@ -1,11 +1,12 @@
 --!strict
 
--- The pick axe (GDD "Pick Axe", "Mining Rock"). Four levels by decision, but
--- the list length is the only thing that fixes it. Everyone is level 1 until
+-- The pick axe (GDD "Pick Axe", "Mining Rock"). Five levels by decision
+-- (2026-09-15: level 2 is a plain Gold buy, level N+1 needs Camp Level N),
+-- but the list length is the only thing that fixes it. Everyone is level 1 until
 -- the Mining Supplies Store (M21).
 return {
 	-- HP removed from a rock per hit, by pick axe level
-	DAMAGE_BY_LEVEL = { 5, 12, 25, 50 },
+	DAMAGE_BY_LEVEL = { 5, 12, 25, 50, 100 },
 	-- how often a held input swings
 	HIT_INTERVAL_SEC = 0.45,
 	-- the server refuses hits faster than this; a little under the client

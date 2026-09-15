@@ -13,8 +13,9 @@
 --           is removed first so it never ends up inside a map.
 --   "preview_mine": with the map in Workspace, generates its mine from
 --           Mine.Entrance exactly as the server would and draws translucent
---           boxes for the bedrock envelope, each chamber, each corridor, and
---           each hand-placed rock into Workspace/MinePreview, so the camp can
+--           boxes for the bedrock envelope, each zone, the entrance tunnel,
+--           every pocket cell, and each hand-placed rock into
+--           Workspace/MinePreview, so the camp can
 --           be built around the real mine footprint. Rerun after moving the
 --           entrance. The preview is only a guide; the server deletes it at run start.
 --   "clear_preview": removes Workspace/MinePreview.
@@ -148,16 +149,35 @@ local function previewMine(mapFolder: Folder)
 	local folder = Instance.new("Folder")
 	folder.Name = Constants.MINE_PREVIEW_FOLDER
 	addPreviewBox(folder, "Bedrock", space, 0, grid.depth, 0, grid.height, 0, grid.width, Color3.fromRGB(120, 120, 120), 0.85, "Mine envelope " .. tostring(Enums.getName(Enums.MineFacing, facing)))
-	for _, chamber in result.chambers do
-		local label = "Chamber " .. chamber.index .. " (camp level " .. chamber.unlockCampLevel .. ")"
-		addPreviewBox(folder, "Chamber" .. chamber.index, space, chamber.depthStart, chamber.depth, chamber.heightStart, chamber.height, chamber.widthStart, chamber.width, Color3.fromRGB(80, 160, 255), 0.7, label)
-		if chamber.hasCorridor then
-			addPreviewBox(folder, "Corridor" .. chamber.index, space, chamber.depthStart, chamber.depth, chamber.heightStart, chamber.corridorHeight, chamber.corridorWidthStart, chamber.corridorWidth, Color3.fromRGB(255, 200, 60), 0.5, nil)
-		end
-		local centreline = chamber.corridorWidthStart + math.floor((chamber.corridorWidth - 1) / 2)
-		for entryIndex, entry in chamber.handPlaced do
+	local entranceWidthStart = grid.centrelineWidth - math.floor((definition.entranceWidth - 1) / 2)
+	addPreviewBox(folder, "Entrance", space, 0, result.zones[1].depthStart + definition.entranceDepth, grid.floorHeight, definition.entranceHeight, entranceWidthStart, definition.entranceWidth, Color3.fromRGB(255, 200, 60), 0.5, "Entrance")
+	for _, zone in result.zones do
+		local label = "Zone " .. zone.index
+		addPreviewBox(folder, "Zone" .. zone.index, space, zone.depthStart, zone.depth, zone.heightStart, zone.height, zone.widthStart, zone.width, Color3.fromRGB(80, 160, 255), 0.7, label)
+		for entryIndex, entry in zone.handPlaced do
 			local rockName = Enums.getName(Enums.RockName, entry.rock) or tostring(entry.rock)
-			addPreviewBox(folder, "HandPlaced" .. chamber.index .. "_" .. entryIndex, space, chamber.depthStart + entry.depth, 1, chamber.heightStart + entry.height, 1, centreline + entry.widthOffset, 1, Color3.fromRGB(255, 80, 200), 0.2, rockName)
+			addPreviewBox(folder, "HandPlaced" .. zone.index .. "_" .. entryIndex, space, zone.depthStart + entry.depth, 1, zone.heightStart + entry.height, 1, grid.centrelineWidth + entry.widthOffset, 1, Color3.fromRGB(255, 80, 200), 0.2, rockName)
+		end
+	end
+	-- pockets: every air cell inside a zone that is not the entrance tunnel
+	local entranceDepthEnd = result.zones[1].depthStart + definition.entranceDepth - 1
+	local entranceWidthEnd = entranceWidthStart + definition.entranceWidth - 1
+	local pocketCells = 0
+	for _, zone in result.zones do
+		for depth = zone.depthStart, zone.depthStart + zone.depth - 1 do
+			for height = zone.heightStart, zone.heightStart + zone.height - 1 do
+				for width = zone.widthStart, zone.widthStart + zone.width - 1 do
+					if MineGenerator.getCell(grid, depth, height, width) ~= MineGenerator.AIR then
+						continue
+					end
+					local isEntrance = depth <= entranceDepthEnd and height < grid.floorHeight + definition.entranceHeight and width >= entranceWidthStart and width <= entranceWidthEnd
+					if isEntrance then
+						continue
+					end
+					pocketCells += 1
+					addPreviewBox(folder, "Pocket" .. pocketCells, space, depth, 1, height, 1, width, 1, Color3.fromRGB(90, 230, 200), 0.4, nil)
+				end
+			end
 		end
 	end
 	folder.Parent = workspace

@@ -12,7 +12,7 @@ local Enums = require(game:GetService("ReplicatedStorage").Shared.Enums)
 local RawResource = Enums.RawResource
 
 -- mirrors GameData/Mining/Backpack and GameData/Control/PartyScaling
-local CAPACITY_BY_LEVEL = { 50, 100, 200, 400 }
+local CAPACITY_BY_LEVEL = { 15, 25, 40, 60, 90 }
 local ORE_YIELD_BY_COUNT = { 1.0, 1.15, 1.3, 1.45, 1.6, 1.75 }
 
 describe(
@@ -21,10 +21,10 @@ describe(
 		it(
 			"reads and clamps",
 			function()
-				expect(BackpackRules.capacityForLevel(CAPACITY_BY_LEVEL, 1)).toBe(50)
-				expect(BackpackRules.capacityForLevel(CAPACITY_BY_LEVEL, 4)).toBe(400)
-				expect(BackpackRules.capacityForLevel(CAPACITY_BY_LEVEL, 7)).toBe(400)
-				expect(BackpackRules.capacityForLevel(CAPACITY_BY_LEVEL, 0)).toBe(50)
+				expect(BackpackRules.capacityForLevel(CAPACITY_BY_LEVEL, 1)).toBe(15)
+				expect(BackpackRules.capacityForLevel(CAPACITY_BY_LEVEL, 5)).toBe(90)
+				expect(BackpackRules.capacityForLevel(CAPACITY_BY_LEVEL, 7)).toBe(90)
+				expect(BackpackRules.capacityForLevel(CAPACITY_BY_LEVEL, 0)).toBe(15)
 			end
 		)
 	end

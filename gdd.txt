@@ -8,7 +8,7 @@ Overview
 * Apocalyptic Mining Co has decided to send its crews to remote and dangerous mining locations to extract Uranium
 * For each run, a group of 1-6 players are dropped off at one of these remote mining camps
 * Every mining camp has a mine, a processing machine, a segmented wall, 6 mannable posts, a gate, a mining supplies building, a defense building, and a helicopter landing pad.
-* The team’s ultimate goal is to collect x amount of Uranium, hidden within different chambers of the mine
+* The team’s ultimate goal is to collect x amount of Uranium, hidden ever deeper in the mine
 * The challenge is that every night a wave of enemies descends on the camp, bent on destroying it, with each wave getting progressively harder
 * Players must use the ores and materials they find mining to build and upgrade their camp defenses to keep the enemy hordes at bay at night, so they can mine in the day
 * To win, players will need to extract the required amount of Uranium and survive long enough to be airlifted out by the company’s rescue helicopter
@@ -287,7 +287,7 @@ Gameplay Overview
 * The deeper players get into the mine, the harder the rock becomes and the more valuable the ore becomes
 * After being refined, players can spend their currency on upgrading their mining abilities, upgrading their defense posts, buying/placing defenses, or repairing existing damage
 * Gold is used on personal items/upgrades, Iron is used on shared resources, and Diamonds are a collective currency used to upgrade the camp level
-* Upgrading the camp level unlocks new mining chambers, mining upgrades, and post upgrades
+* Upgrading the camp level unlocks mining upgrades and post upgrades (decided 2026-09-15: the mine itself is never locked; depth is gated by rock hardness alone)
 * At night, waves of enemies spawn outside the camp, bent on destruction 
 * Players must use their weapons, posts, and defenses to kill the horde before the horde destroys the refinery or kills all the players
 * Waves get progressively harder every night, forcing players to think through their defenses and decide whether its better to improve mining speed or defense strength
@@ -307,7 +307,7 @@ Map authoring (decided 2026-09-12)
 * All maps live in the one gameplay place. Each map is a Folder under ServerStorage/Maps named by its Enums.Map key (DEADMANS_CANYON, FROSTBITE_PASS). Folders, not Models, so clicking a part in the Explorer selects only that part; things that should move as one unit (the helicopter pad) stay Models inside the folder.
 * At run start the server clones the chosen map folder into Workspace as Camp. Only the active map exists in memory. Its scenery is static geometry and is the one place server-side parts are the right call.
 * Every map folder carries the same required named parts, validated at startup with the map’s name in every message: HelicopterPad (with HelicopterSpawn and Spawns 1–6), Mine.Entrance (an anchored part whose position is the mine origin and whose look direction is the mine facing, snapped to the nearest axis), Refinery (a Model whose anchored Prompt part carries the refine ProximityPrompt), and later walls and store spots.
-* Editing a map: run scripts/studio/map_tools.luau in Edit mode with ACTION = "load" to move the map folder into Workspace, edit, then run it with ACTION = "save" to move it back. Pressing Play with a map folder still in Workspace uses it as-is with a warning, so an unsaved edit still plays and is never lost. With the map loaded, ACTION = "preview_mine" generates its mine from Mine.Entrance exactly as the server would and draws translucent labelled boxes (bedrock envelope, each chamber and camp level, each corridor, each hand-placed rock) into Workspace/MinePreview so the camp can be built around the real footprint; rerun it after moving the entrance, ACTION = "clear_preview" removes it, "save" removes it, and the server deletes any copy left behind at run start so it never shows in Play.
+* Editing a map: run scripts/studio/map_tools.luau in Edit mode with ACTION = "load" to move the map folder into Workspace, edit, then run it with ACTION = "save" to move it back. Pressing Play with a map folder still in Workspace uses it as-is with a warning, so an unsaved edit still plays and is never lost. With the map loaded, ACTION = "preview_mine" generates its mine from Mine.Entrance exactly as the server would and draws translucent labelled boxes (bedrock envelope, the entrance tunnel, each zone, each hand-placed rock) into Workspace/MinePreview so the camp can be built around the real footprint; rerun it after moving the entrance, ACTION = "clear_preview" removes it, "save" removes it, and the server deletes any copy left behind at run start so it never shows in Play.
 * Terrain is optional per map. A map that wants terrain adds a TerrainBounds part sized around it; “save” snapshots the terrain inside the bounds into a TerrainRegion in the map folder and “load” pastes it back. A map without TerrainBounds is a plain folder and the tools skip terrain. Terrain lives in the place file only.
 * What a map cannot change: rock definitions, the weight kernel, block size, difficulty and party scaling, and the generator. Balance stays comparable between maps.
 * A new map is: one Enums.Map entry with a public name, one row in the pad’s map carousel (thumbnail and unlock requirement), one mine file in GameData/Mines plus its registry entry, one wave file in GameData/Waves, and one folder under ServerStorage/Maps.
@@ -324,7 +324,7 @@ Party scaling
    * Wave count and enemy HP multipliers. The main lever: a bigger crew digs faster and attracts bigger nights.
    * Uranium rescue target multiplier, kept modest (about 1.0 solo to 1.25 at six). Every mine must author enough uranium for the largest party; the generator validates supply against target × the six-player multiplier.
    * Per-player ore yield multiplier, applied only to Iron and Gold drops because those balances are per player. Diamonds and Uranium are shared and never scaled, so the mine’s authored totals stay their reference.
-   * Rock HP is never scaled by party size. A crew of six clears a chamber faster, and the bigger night that follows is the balance.
+   * Rock HP is never scaled by party size. A crew of six clears rock faster, and the bigger night that follows is the balance.
 * Multipliers are sublinear: six players are not six times as effective.
 * The count is sampled once per day cycle at dawn, never continuously, so no wave changes under a player. The day-start message states it plainly (“Crew of 4. Waves 2.0x”).
 * The scaling count only ever goes down after a run starts. A player leaving eases the run at the next dawn; nothing ever gets harder mid-run.
@@ -359,11 +359,10 @@ These currencies survive a run and are used to buy permanent unlocks/upgrades/et
 Camp Locations
 Every camp consists of a few primary structures, each with a different purpose:
 Mines
-* Every camp has a mine consisting of an entrance, a central tunnel, and sequential chambers. 
-* The mine entrance goes directly into chamber one, with an open central tunnel leading to a closed chamber #2. 
-* Players can mine all rock blocks on either side of the central tunnel
-* New chambers are unlocked by upgrading the camp level
-* Each chamber has progressively harder rock, but more valuable resources/uranium
+* Every camp has a mine: one open volume of rock behind a short entrance tunnel, sealed in bedrock
+* Players can dig in any direction from the entrance; there are no walls, gates, or set paths inside
+* The mine is authored as depth zones: the deeper a zone, the harder its rock and the more valuable its ore and uranium
+* Pre-carved pockets (small caverns with ore on their walls) are scattered through every zone, so digging finds things and a crew has reasons to call each other over
 
 
 
@@ -444,50 +443,51 @@ Mining is half the game and is the only way players can win a run. However the g
 
 
 Rocks
-Every mine consists of a grid of cube Rocks (4x4 Studs). Every Rock will use the same 4x4 cube mesh, but will have a different texture based on the Rock Type. Every Rock mesh will be located in ReplicatedStorage/GameAssets/Rocks (the central asset folder) named by its RockName enum key (IRON_3, SHALE, BEDROCK); the player-facing name (“Iron 3”) is the enum’s public name. Clients clone from here; the server never holds rock parts.  
+Every mine consists of a grid of cube Rocks (4x4 Studs). Every Rock will use the same 4x4 cube mesh, but will have a different texture based on the Rock Type. Every Rock mesh will be located in ReplicatedStorage/GameAssets/Rocks (the central asset folder) named by its RockName enum key (IRON_3, STONE_1, BEDROCK); the player-facing name (“Iron 3”) is the enum’s public name. Clients clone from here; the server never holds rock parts.  
 Rock Types
 There are three types of Rock: Filler Rock, Resource Rocks, and Bedrock.  
 Filler Rock
 These Rocks do not give any resources, but fill empty space and slow progress. The vast majority of the mine will be filled with Filler Rocks. All Filler Rocks are breakable, but some are harder to break than others:
 
 
-* Shale (10 HP)
-* Sandstone (20 HP)
-* Granite (40 HP)
-* Basalt (80 HP)
+* One filler rock, Stone, in five tiers (decided 2026-09-15: several filler kinds did the same job and made ore harder to spot). Same mesh, darker as the tier rises
+* Stone 1 (10 HP)
+* Stone 2 (20 HP)
+* Stone 3 (40 HP)
+* Stone 4 (80 HP)
+* Stone 5 (160 HP)
 Resource Rocks
-These Rocks give any raw resources when destroyed. More valuable Resource Rocks appear more often in later chambers. Resource Rocks also have multiple tiers, with higher tiers taking longer to break but giving more resources: 
+These Rocks give any raw resources when destroyed. More valuable Resource Rocks appear more often in deeper zones. Resource Rocks also have multiple tiers, with higher tiers taking longer to break but giving more resources: 
 
 
 * Iron
-   * Iron 1 (15 HP, 5 Iron Ore)
-   * Iron 2 (30 HP, 16 Iron Ore)
-   * Iron 3 (60 HP, 48 Iron Ore)
-   * Iron 4 (110 HP, 130 Iron Ore) 
+   * Iron 1 (15 HP, 3 Iron Ore)
+   * Iron 2 (30 HP, 10 Iron Ore)
+   * Iron 3 (60 HP, 29 Iron Ore)
+   * Iron 4 (110 HP, 78 Iron Ore) 
 * Gold 
-   * Gold 1 (20 HP, 5 Gold Ore)
-   * Gold 2 (40 HP, 17 Gold Ore)
-   * Gold 3 (75 HP, 50 Gold Ore)
-   * Gold 4 (140 HP, 145 Gold Ore) 
+   * Gold 1 (20 HP, 3 Gold Ore)
+   * Gold 2 (40 HP, 10 Gold Ore)
+   * Gold 3 (75 HP, 30 Gold Ore)
+   * Gold 4 (140 HP, 87 Gold Ore) 
 * Crystal
-   * Crystal 1 (30 HP, 3 Crystals)
-   * Crystal 2 (60 HP, 9 Crystals)
-   * Crystal 3 (110 HP, 24 Crystals)
-   * Crystal 4 (200 HP, 65 Crystals) 
+   * Crystal 1 (30 HP, 2 Crystals)
+   * Crystal 2 (60 HP, 5 Crystals)
+   * Crystal 3 (110 HP, 14 Crystals)
+   * Crystal 4 (200 HP, 39 Crystals) 
 * Uranium (100 HP, 1 Uranium Ore)
 
 
 Bedrock
-Bedrock is a Rock that cannot be destroyed by anything, but is used to define the boundaries of the mine and each mine chamber. Every mine will be fully surrounded by bedrock on all sides (except for the entrance), which ensures players cannot dig out into some unwanted area.  
-Mine Chambers
-* Mines are divided into separate Chambers to gate progression and ensure players can’t find shortcuts to victory. 
-* It also gives players a clear goal to work toward at every level
-* There are 4 chambers per mine, though the system needs to be built in a way that this is a customizable number
-* Each Chamber has a single entrance, closed while locked
-* Every time the Camp Level is upgraded, the next Chamber is unlocked and the entrance for the Chamber opens automatically 
-* Mines will be structured in a way so that there is a clear path from one entry to the next, with mineable Rocks on both sides of this path. 
-* This ensures players know there is another Chamber and have a clear goal
-* Rock Type spawn will be adjusted on a per Chamber basis, to ensure each Chamber gets progressively hard to mine, but offers better rewards
+Bedrock is a Rock that cannot be destroyed by anything, but is used to define the boundaries of the mine. Every mine will be fully surrounded by bedrock on all sides (except for the entrance), which ensures players cannot dig out into some unwanted area.  
+Mine Layout
+* The mine is one open, explorable volume. Decided 2026-09-15, replacing sealed chambers with camp-level gates: chambers made mining linear and killed the “look what I found over here, help me” moment, which needs room to split up and things to find
+* Depth zones: the mine file is an ordered list of zones running back into the mountain, and each zone sets how hard the rock is, which ore tiers dominate, how much ore and uranium it holds, and how many pockets it has. Rock gets harder and ore gets better the deeper a crew digs
+* Soft gating: nothing in the mine is ever locked. A starting pick axe against deep rock is a wall the crew can feel without a wall being there, and the Camp Level gates the pick axe tiers in the Mining Supplies Store, so depth is still paced by Diamonds
+* Pockets: pre-carved caverns of a few blocks, with ore exposed on their walls, scattered through every zone. They are what digging discovers and what a crew talks about
+* The entrance: a short tunnel through the front bedrock into the first zone, the only opening in the shell. Past it the crew chooses its own direction
+* Clear signal without walls: rock colour and material change with tier, so deeper rock looks different, and the camp level unlocks in the stores are the goal to work toward
+* There are 4 zones per mine, though the system needs to be built in a way that this is a customizable number
 * This is to encourage players to upgrade their mining equipment as the game progresses
 
 
@@ -518,7 +518,7 @@ Collecting Ore
 * When Ore is collected, it should make a pop sound, again like Minecraft
 * Players can tap their Backpack icon to bring up a Backpack inventory menu
 * This menu shows how much of each Ore is in their backpack (only showing Ore that the player actually has) 
-* Capacity is counted in ore units, so the HUD’s taken/total is total ore over capacity (“37/50”). Contents, level, and capacity are server run state replicated as private attributes; the backpack HUD button shows only while the pick axe is held and opens the contents menu as an overlay
+* Capacity is counted in ore units, so the HUD’s taken/total is total ore over capacity (“12/15”). Contents, level, and capacity are server run state replicated as private attributes; the backpack HUD button shows only while the pick axe is held and opens the contents menu as an overlay
 * A broken resource rock gives the breaker its yield. Iron and Gold are multiplied by the party table (PartyScaling) and rounded half up; Crystal and Uranium never are. Party size is the current player count until M28 samples it at dawn
 * Ore that does not fit lands by the block as a pickup (one invisible server part carrying resource and amount; clients draw a bobbing cube in the ore’s colour), scattered up to 1.5 studs. Any player with room within 5 studs collects it, partial amounts included; the server checks four times a second. A pickup nobody takes disappears after 120 s, and past 300 pickups the oldest go first (GameData/Mining/Backpack)
 Refining Ore
@@ -534,16 +534,16 @@ Refining Ore
 * The balance bars should shake and update as each icon hits it
 * This process should all feel very satisfying, both visually and audibly – lots of particle effects, sounds, etc
 * As built (M20, decided 2026-09-14): every ore refines one to one (GameData/Refinery, adjustable per ore). The prompt is heard by the server directly, never as a client message; it empties the whole backpack, disables itself for a 2 second grind, then pays out. Iron Bars and Gold Bars are private per-player balances; Diamonds go into the shared Camp Level pool and Uranium into the shared rescue count, both shown to every player. The Uranium row reads “total / target”, the target being the mine’s solo uraniumTarget times the PartyScaling multiplier for the current crew (sampled at dawn from M28), and turns green once reached
-* Placeholder sequence until Phase 9 polish: coloured discs (at most six per resource) fly from the backpack button into the Refinery on screen while RefineryGrind plays, then from the Refinery to each balance row (Diamonds to the Camp Level bar) with RefineryPayout; a row bumps as each icon lands and its value updates when the last one does. The Refinery must be visible on screen for the icons to aim at it; otherwise they aim at the screen centre
+* Placeholder sequence until Phase 9 polish: coloured discs (at most six per resource) fly from the backpack button into the Refinery on screen while RefineryGrind plays, then from the Refinery to each balance row (Diamonds to the Camp Level billboard above the Refinery) with RefineryPayout; a row bumps as each icon lands and its value updates when the last one does. The Refinery must be visible on screen for the icons to aim at it; otherwise they aim at the screen centre
 * Dev tools: Fill backpack spreads all four ores evenly; Reset refinery clears every balance and the camp progress
 Randomized Mine Creation
 
 
 1. What a mine is
 A mine is a single grid of 4×4×4 stud cube blocks, generated on the server when a run starts. It is never built by hand in Studio.
-The grid is divided into chambers running back into the mountain. Each chamber is a sealed bedrock box with one entrance. A corridor runs from each chamber’s entrance straight through to the next chamber’s entrance, with mineable rock on both sides. Chambers open as the camp level rises.
-The last chamber has no corridor, because there is nothing beyond it.
-A designer authors roughly 35 numbers per mine. Difficulty is one more.
+The grid is one open volume of rock inside a bedrock shell, entered through a short tunnel at the mouth. It is authored as zones: consecutive depth bands running back into the mountain, each setting the rock mix, ore, uranium, and pocket count for its band. Nothing inside the mine is walled or gated; the deeper rock is simply harder (decided 2026-09-15).
+Pockets are small caverns pre-carved into each zone so ore is exposed on their walls and there is something to discover.
+A designer authors roughly 40 numbers per mine. Difficulty is one more.
 ________________
 
 
@@ -564,7 +564,7 @@ Axis
 	* Origin is the centre of the entrance mouth, at floor level.
 * Facing is one of +X, -X, +Z, -Z — the direction a player walks to enter. Restricted to 90° steps so blocks stay axis-aligned.
 * The bedrock floor sits at origin height, so players can never dig below ground level. All mining is sideways and up.
-All chambers share the mine’s centreline. There is deliberately no per-chamber lateral offset: the corridor must run dead straight, or the sightline that justifies having a corridor is lost.
+All zones share the mine’s centreline and the floor. There is deliberately no per-zone lateral offset: a narrower or shorter zone simply gets thicker bedrock around it.
 ________________
 
 
@@ -576,17 +576,20 @@ Index
 	Rock
 	HP
 	1
-	Shale
+	Stone 1
 	10
 	2
-	Sandstone
+	Stone 2
 	20
 	3
-	Granite
+	Stone 3
 	40
 	4
-	Basalt
+	Stone 4
 	80
+	5
+	Stone 5
+	160
 	Resource rock
 Yields raw ore when destroyed. Cluster size is a property of the rock, not of the mine — Iron 3 clusters the same way everywhere.
 Rock
@@ -597,62 +600,62 @@ Rock
 	Iron
 	1
 	15
-	5 Iron Ore
+	3 Iron Ore
 	1–2
 	Iron
 	2
 	30
-	16 Iron Ore
+	10 Iron Ore
 	1–2
 	Iron
 	3
 	60
-	48 Iron Ore
+	29 Iron Ore
 	1–2
 	Iron
 	4
 	110
-	130 Iron Ore
+	78 Iron Ore
 	0–1
 	Gold
 	1
 	20
-	5 Gold Ore
+	3 Gold Ore
 	1–2
 	Gold
 	2
 	40
-	17 Gold Ore
+	10 Gold Ore
 	1–2
 	Gold
 	3
 	75
-	50 Gold Ore
+	30 Gold Ore
 	1–1
 	Gold
 	4
 	140
-	145 Gold Ore
+	87 Gold Ore
 	0–1
 	Crystal
 	1
 	30
-	3 Crystals
+	2 Crystals
 	1–1
 	Crystal
 	2
 	60
-	9 Crystals
+	5 Crystals
 	1–1
 	Crystal
 	3
 	110
-	24 Crystals
+	14 Crystals
 	0–1
 	Crystal
 	4
 	200
-	65 Crystals
+	39 Crystals
 	0–1
 	Uranium
 	—
@@ -665,8 +668,6 @@ Rock
 	Behaviour
 	Bedrock
 	Indestructible. Forms every boundary
-	Gate
-	Indestructible while closed. Becomes air when its chamber unlocks
 	________________
 
 
@@ -692,10 +693,6 @@ Parameter
 	enum
 	from Mine.Entrance
 	+X / -X / +Z / -Z, the entrance part’s look direction snapped to an axis
-	startingCampLevel
-	number
-	1
-	Which chambers are open at run start
 	bedrockThickness
 	number
 	1
@@ -703,29 +700,49 @@ Parameter
 	bedrockOverrides
 	table
 	empty
-	Per-face exceptions. Rarely needed
-	veinCorridorClearance
+	Per-face exceptions (front, far, floor, ceiling, side). Rarely needed
+	entranceWidth
+	number
+	3
+	Blocks, centred on the centreline. The mouth
+	entranceHeight
+	number
+	3
+	Blocks up from the floor. Keep it within pickaxe reach unless climbing exists
+	entranceDepth
+	number
+	3
+	Blocks of tunnel carved into zone 1 past the front bedrock, so the crew can walk in and pick a direction
+	veinEntranceClearance
 	number
 	0
-	Blocks of rock between a generated vein and the corridor surface
+	Blocks of rock between a generated vein and the entrance tunnel
+	pocketRadiusMin
+	number
+	1
+	Smallest pocket, as a cluster radius (0 is one block, 1 is 7, 2 is 33)
+	pocketRadiusMax
+	number
+	2
+	Largest pocket
 	uraniumTarget
 	number
 	—
 	Uranium rocks (each yields one ore) needed to call the rescue helicopter, solo. Party size scales it (see Party scaling)
-	defaultChamberHeight
+	defaultZoneHeight
 	number
 	—
-	Chambers inherit this unless they say otherwise
-	defaultChamberWidth
+	Zones inherit this unless they say otherwise
+	defaultZoneWidth
 	number
 	—
 	Same
-	veinCorridorClearance is a real design decision, not a technicality. At 0, resource rock breaks the corridor surface and a player reads a chamber’s worth the moment they walk in. Above 0, everything is discovery. Hand-placed veins (§9) ignore this.
+	veinEntranceClearance is a real design decision, not a technicality. At 0, resource rock can break the tunnel surface and a player reads the first zone’s worth the moment they walk in. Above 0, everything is discovery. Hand-placed veins (§9) ignore this.
 ________________
 
 
-5. Chamber parameters
-Chambers are authored as an ordered list. Chamber N inherits every unspecified value from chamber N−1; chamber 1 inherits from the mine defaults. In practice a later chamber is three or four lines.
+5. Zone parameters
+Zones are authored as an ordered list, front to back. Zone N inherits every unspecified value from zone N−1; zone 1 inherits from the mine defaults. In practice a later zone is three or four lines.
 Parameter
 	Type
 	Default
@@ -743,9 +760,9 @@ Parameter
 	inherited
 	Blocks
 	hardness
-	1.0–4.0
+	1.0–5.0
 	inherited
-	Filler mix. See §6
+	Stone tier mix. See §6
 	tierBias
 	1.0–4.0
 	inherited
@@ -753,7 +770,7 @@ Parameter
 	iron
 	number
 	inherited
-	Vein clusters of iron in this chamber
+	Vein clusters of iron in this zone
 	gold
 	number
 	inherited
@@ -766,14 +783,10 @@ Parameter
 	number
 	inherited
 	Vein clusters of uranium
-	corridorWidth
+	pockets
 	number
-	inherited
-	Blocks, centred
-	corridorHeight
-	number or "full"
-	inherited
-	Blocks up from the chamber floor
+	inherited (0)
+	Pre-carved caverns in this zone. See §8
 	handPlaced
 	list
 	empty
@@ -781,77 +794,69 @@ Parameter
 	Derived, never authored
 Value
 	Rule
-	unlockCampLevel
-	Equals the chamber’s index
-	hasCorridor
-	False for the last chamber only
-	Chamber position in the grid
-	Accumulated from earlier chamber depths and dividers
+	Zone position in the grid
+	Accumulated from earlier zone depths; zones abut with no divider
 	Grid dimensions
 	See §10
 	Ore totals
 	Reported by the generator, not authored
-	If a designer can type a derived value directly, it will drift out of sync with the chamber list. Keep them out of the data.
+	If a designer can type a derived value directly, it will drift out of sync with the zone list. Keep them out of the data.
 ________________
 
 
 6. The weight kernel
 hardness and tierBias both compress a set of weights into one number, and they use the same function. Build it once.
-weights(center, count, spread = 1.5):
+weights(center, count, spread = 1.2):
     for i in 1..count:
         w[i] = max(0, 1 - abs(i - center) / spread)
     normalise w so it sums to 1
     return w
-spread is a global tuning constant. It controls how much neighbouring categories bleed in. At spread = 1.5:
+spread is a global tuning constant. It controls how much neighbouring categories bleed in. At spread = 1.2 (decided 2026-09-15; 1.5 put too much tier 2 next to the entrance):
 hardness
-	Shale
-	Sandstone
-	Granite
-	Basalt
+	Stone 1
+	Stone 2
+	Stone 3
+	Stone 4
+	Stone 5
 	1.0
-	75%
-	25%
+	86%
+	14%
 	—
-	—
-	1.2
-	65%
-	35%
 	—
 	—
 	2.0
-	20%
-	60%
-	20%
+	12%
+	75%
+	12%
 	—
-	2.5
-	—
-	50%
-	50%
 	—
 	3.0
 	—
-	20%
-	60%
-	20%
-	3.7
+	12%
+	75%
+	12%
 	—
-	—
-	40%
-	60%
 	4.0
 	—
 	—
-	25%
+	12%
 	75%
-	Note that spread = 1.5 means a chamber never mixes more than three rock types, and at the exact midpoint between two types it mixes only those two. Raising spread to 2.0 brings all four types into play at mid hardness, at the cost of chambers feeling less distinct from each other. Tune it once, globally, after seeing a mine in-game.
-Do not drop spread toward zero. At spread = 1.0 a whole-number hardness produces a chamber of one single rock type, which reads as flat and artificial. The bleed is what makes rock look natural.
-tierBias works identically over the four ore tiers. A chamber’s iron = 30 with tierBias = 2.0 places 30 iron clusters split 6 / 18 / 6 / 0 across tiers 1–4. Fractional splits use largest-remainder rounding so the tiers always sum to exactly the authored count; a tie goes to the lower tier.
+	12%
+	5.0
+	—
+	—
+	—
+	14%
+	86%
+	Note that spread = 1.2 with whole-number hardness means a zone is three quarters its own tier with an occasional block of each neighbour, so “the rock gets harder as you go deeper” reads zone by zone. Raising spread toward 1.5 blends neighbouring zones into each other. Tune it once, globally, after seeing a mine in-game.
+Do not drop spread toward zero. At spread = 1.0 a whole-number hardness produces a zone of one single stone tier, which reads as flat and artificial. The bleed is what makes rock look natural.
+tierBias works identically over the four ore tiers. A zone’s iron = 30 with tierBias = 2.0 places 30 iron clusters split 4 / 22 / 4 / 0 across tiers 1–4. Fractional splits use largest-remainder rounding so the tiers always sum to exactly the authored count; a tie goes to the lower tier.
 Uranium ignores tierBias; its count is placed directly.
 ________________
 
 
 7. Difficulty
-Two numbers per difficulty, applied at generation time. Difficulty never changes layout — chamber count, sizes, and corridors are identical across difficulties. Difficulty lives mainly in the waves (see Difficulty under Maps); in the mine it only makes ore scarcer.
+Two numbers per difficulty, applied at generation time. Difficulty never changes layout — zone count, sizes, the entrance, and pockets are identical across difficulties. Difficulty lives mainly in the waves (see Difficulty under Maps); in the mine it only makes ore scarcer.
 Difficulty
 	Difficulty value
 	Vein divisor
@@ -866,130 +871,122 @@ Difficulty
 	1.4
 	The difficulty value is the general scalar other systems (waves) read. The vein divisor is the mine’s own lever. Two effects:
 effectiveHardness = clamp(
-    hardness + (difficulty - 1) * hardnessShift, 1, 4)
+    hardness + (difficulty - 1) * hardnessShift, 1, stoneTierCount)
 effectiveVeinCount = round(baseCount / veinDivisor)
-hardnessShift is a global constant, default 0.0, so rock hardness does not change with difficulty. The knob exists (GameData/Control/Difficulty, alongside the difficulty values and vein divisors; spread lives in GameData/Rocks/Weights) for a map that deliberately wants grittier rock at Nightmare. round is half-up. Uranium is exempt from the vein divisor: its count is always as authored, so the target-to-supply ratio is a plain designer choice on every difficulty. At Nightmare, a chamber authored with 30 iron veins generates 21.
+hardnessShift is a global constant, default 0.0, so rock hardness does not change with difficulty. The knob exists (GameData/Control/Difficulty, alongside the difficulty values and vein divisors; spread lives in GameData/Rocks/Weights) for a map that deliberately wants grittier rock at Nightmare. round is half-up. Uranium is exempt from the vein divisor: its count is always as authored, so the target-to-supply ratio is a plain designer choice on every difficulty. At Nightmare, a zone authored with 30 iron veins generates 21.
 Player count is not a generator input. The grid is identical for 1 or 6 players; party size scales waves, per-player ore yield, and the uranium target at the moment of effect (see Party scaling under Difficulty).
 ________________
 
 
-8. Corridors
-A corridor runs the full depth of its chamber, from that chamber’s entrance to the next chamber’s entrance, carved as air.
-* Width is centred on the mine centreline. An even width cannot centre on a single block, so it leans one block toward positive width.
-* Height is measured up from the chamber floor. "full" reaches the bedrock ceiling.
-* The final chamber has no corridor. A player stepping through the last gate faces solid rock.
-Corridor height is the strongest single lever on how a chamber plays:
-Height
-	Effect
-	At or below pickaxe reach (~3 blocks)
-	Every block including the ceiling is minable from a standing start. No climbing needed
-	Above reach, below full
-	A tunnel with a rock ceiling players can see but not touch. Only use this if climbing is a real mechanic
-	"full"
-	Splits the chamber into two facing walls. Dramatic, but all mining is sideways and most of it is above reach
-	Chamber height and corridor height together decide how much of a chamber is actually reachable. Two chambers of identical volume can differ enormously. It is easy to accidentally author a chamber that is 80% decoration.
+8. The entrance and pockets
+The entrance is the only opening in the bedrock shell: a tunnel entranceWidth blocks wide, centred on the centreline, entranceHeight blocks up from the floor, carved through the front bedrock and entranceDepth blocks into zone 1 so a crew can walk in and choose a direction.
+* An even width cannot centre on a single block, so it leans one block toward positive width.
+* Keep the height at or below pickaxe reach (~3 blocks) unless climbing is a real mechanic, or the tunnel has a ceiling players can see but not touch. The generator warns.
+* Past the tunnel a player faces solid rock in every direction. That is the point: from here on the crew makes its own tunnels.
+Pockets are pre-carved caverns: per zone, pockets discrete spheres of air with a radius drawn between pocketRadiusMin and pocketRadiusMax, dropped at random inside the zone. They are carved before veins, so ore lands around them and never inside them, and every pocket wall is a discovery. A pocket a player breaks into is the “look what I found” moment the open mine exists for, so a zone with no pockets is a uniform block that only ever gets tunnelled.
+Pocket count is the strongest single lever on how a zone plays: a few big pockets read as caverns, many small ones as honeycomb. Zone height and pocket count together decide how much of a zone is actually reachable from a standing start; the report shows both.
 ________________
 
 
 9. Hand-placed rock
-Optional per chamber, usually empty, never inherited.
+Optional per zone, usually empty, never inherited.
 Field
 	Notes
 	rock
 	Type and tier, e.g. Crystal 3
 	depth
-	Blocks from the chamber’s front face
+	Blocks from the zone’s front face
 	height
-	Blocks up from the chamber floor
+	Blocks up from the floor
 	widthOffset
 	Blocks from the centreline. Negative is left
 	cluster
 	Radius override. Optional
-	Hand-placed rock is stamped after generated veins and overwrites them. It ignores veinCorridorClearance.
-This exists for one reason worth protecting: a high-tier vein deliberately placed in shallow reach, visible from the corridor, that a starting pickaxe can barely dent. That block sells upgrades better than any UI, and no richness number will reliably produce it. Keep the escape hatch.
+	Hand-placed rock is stamped after generated veins and pockets and overwrites both. It ignores veinEntranceClearance.
+This exists for one reason worth protecting: a high-tier vein deliberately placed in shallow reach, a few blocks past the mouth, that a starting pickaxe can barely dent. That block sells upgrades better than any UI, and no richness number will reliably produce it. Keep the escape hatch.
 ________________
 
 
 10. Generation pipeline
 Ordered. The order is load-bearing and each step explains why.
 1. Resolve difficulty. Apply §7 to produce effective hardness and vein counts.
-2. Resolve inheritance. Walk the chamber list, filling unspecified values from the previous chamber, then from mine defaults.
+2. Resolve inheritance. Walk the zone list, filling unspecified values from the previous zone, then from mine defaults.
 3. Validate. See §11. Fail loudly before spending time generating.
 4. Size the grid.
-gridDepth  = frontBedrock + sum(chamberDepths)
-           + divider * (chamberCount - 1) + farBedrock
-gridHeight = max(chamberHeights) + floorBedrock + ceilingBedrock
-gridWidth  = max(chamberWidths) + sideBedrock * 2
-5. Fill the entire grid with bedrock. Everything is solid until carved. This is what makes “every chamber sealed on all sides” the default state rather than a rule to enforce. A chamber narrower or shorter than its neighbour simply has thicker bedrock around it, with no special handling.
-6. Carve each chamber and fill with filler rock. Hollow the chamber’s interior, roll each block against the §6 hardness weights.
-7. Stamp generated veins. Per chamber, per resource: split the count across tiers by tierBias, place each cluster at a random position inside the chamber’s rock volume, respecting veinCorridorClearance. Uranium is stamped last and gets two guarantees ordinary ore does not, because it is the win condition: every uranium rock sits within pickaxe reach of the chamber floor, so it is minable from a standing start with no step-carving, and no uranium rock lands on another, so placed always equals authored.
-8. Stamp hand-placed rock. After generated veins, so it always wins.
-9. Carve corridors. After veins, so a vein can never plug the path. Skip the final chamber.
-10. Place gates. Fill the corridor cross-section where it crosses into the next chamber with Gate blocks. Chamber 1’s entrance is the mine mouth and is always open.
-11. Report. Log the seed, grid size, per-chamber diggable volume, and derived ore totals per chamber, both requested (vein counts × tier split × mean cluster size × yield) and actually placed, since overlapping clusters overwrite each other and silently lower the count. Also report how much of each chamber’s diggable volume sits within pickaxe reach of the floor or corridor, so a chamber that is mostly decoration (§8) is caught in the log rather than in playtest. Also report cumulative uranium per chamber (“uranium so far”) so the designer can see the counter’s progression against uraniumTarget. The designer authors vein counts but cares about ore, so the generator has to close that loop.
+gridDepth  = frontBedrock + sum(zoneDepths) + farBedrock
+gridHeight = max(zoneHeights) + floorBedrock + ceilingBedrock
+gridWidth  = max(zoneWidths) + sideBedrock * 2
+5. Fill the entire grid with bedrock. Everything is solid until carved. This is what makes “sealed on all sides” the default state rather than a rule to enforce. A zone narrower or shorter than its neighbour simply has thicker bedrock around it, with no special handling.
+6. Fill each zone with filler rock. Roll each block of the zone’s volume against the §6 hardness weights. Zones abut, so no bedrock ever stands between them.
+7. Carve pockets. Per zone, pockets spheres of air at random positions inside the zone, radius between pocketRadiusMin and pocketRadiusMax. Before veins, so ore lands around pockets and never inside them.
+8. Stamp generated veins. Per zone, per resource: split the count across tiers by tierBias, place each cluster at a random rock position inside the zone, respecting veinEntranceClearance and skipping pocket air. Uranium is stamped last and gets two guarantees ordinary ore does not, because it is the win condition: every uranium rock sits within pickaxe reach of the floor, so it is minable from a standing start with no step-carving, and no uranium rock lands on another, so placed always equals authored.
+9. Stamp hand-placed rock. After generated veins and pockets, so it always wins.
+10. Carve the entrance. After veins and hand-placed rock, so nothing can plug the mouth. It is the only opening in the shell.
+11. Report. Log the seed, grid size, per-zone diggable volume and pocket volume, and derived ore totals per zone, both requested (vein counts × tier split × mean cluster size × yield) and actually placed, since overlapping clusters overwrite each other and silently lower the count. Also report how much of each zone’s diggable volume sits within pickaxe reach of the floor, so a zone that is mostly decoration is caught in the log rather than in playtest. Also report cumulative uranium per zone (“uranium so far”) so the designer can see the counter’s progression against uraniumTarget. The designer authors vein counts but cares about ore, so the generator has to close that loop.
 After the report, check the grid itself: if fewer uranium rocks survived than the largest party needs, refuse the result and name the seed. Validation checks the authored numbers; this checks what was actually built, so no seed can ever ship unwinnable.
-Randomness. One Random is seeded from the run seed, and each chamber draws from its own sub-seed derived from the run seed and the chamber index. Changing chamber 2’s numbers therefore never reshuffles chamber 1, so a designer sees only the effect of their edit.
+Randomness. One Random is seeded from the run seed, and each zone draws from its own sub-seed derived from the run seed and the zone index. Changing zone 2’s numbers therefore never reshuffles zone 1, so a designer sees only the effect of their edit.
 ________________
 
 
 11. Validation
-Every check must name the parameter and the chamber, so a misconfiguration is identifiable without reading code.
+Every check must name the parameter and the zone, so a misconfiguration is identifiable without reading code.
 Fatal — refuse to generate:
 * The authored uranium total is below the map’s uraniumTarget × the largest party multiplier. The run is unwinnable for a full crew
-* The uranium in every chamber except the last already meets uraniumTarget. The last chamber must be required, so the run cannot end before the final gate opens
-* A chamber has a dimension below 1
-* corridorWidth is greater than or equal to chamber width. No rock left to mine
-* Chamber 1’s unlock level exceeds startingCampLevel. The run begins with nothing open
+* A zone has a dimension below 1, or a negative pocket count
+* entranceWidth or entranceHeight exceeds zone 1, or entranceDepth exceeds zone 1’s depth. The mouth would cut bedrock
+* pocketRadiusMin is negative or pocketRadiusMax is below it
 * facing is not one of the four permitted values
 Warn and continue:
-* corridorHeight exceeds chamber height. Clamp to "full"
-* A hand-placed entry falls inside the corridor volume. It will be carved away
-* A hand-placed entry falls outside its chamber bounds
-* Bedrock thickness leaves a chamber with no diggable volume
-* A chamber’s corridor height is above reach but below full, with no climbing mechanic enabled
-* hardness or tierBias outside 1.0–4.0. Clamp
+* entranceHeight is above pickaxe reach with no climbing mechanic enabled
+* A hand-placed entry falls inside the entrance tunnel. It will be carved away
+* A hand-placed entry falls outside its zone bounds
+* Pockets and the entrance leave a zone with no diggable volume
+* hardness outside 1.0–5.0 (one per stone tier) or tierBias outside 1.0–4.0 (one per ore tier). Clamp
 ________________
 
 
 12. Runtime
-Gates. When the camp level reaches a chamber’s unlock level, that chamber’s gate blocks become air. This is the pacing beat of a run and should not happen silently — it needs an audible and visible moment.
+Camp level. Reaching a camp level unlocks store tiers, not mine volume (M22). It is still the pacing beat of a run and should not happen silently — it needs an audible and visible moment for the whole crew, wherever they are.
 Damage. Rock HP is tracked server-side by grid position, not on the rendered block. Blocks are pooled and streamed, so a part that showed a half-mined block may be recycled or unloaded; damage keyed to position survives both.
 Visual damage states. Three states per the GDD: untouched, 60%, 30%. Author these as a crack overlay applied on top of any rock, not as separate textures per rock type. Seventeen rock types × 3 states is 51 assets to author and maintain; a shared overlay is 2, and it works automatically on rock types added later.
 Designer tooling. A dev tool regenerates the mine in a running session, with an optional seed, without restarting the run. This is the tuning loop: edit the mine file, sync, regenerate, walk in. A pure expected-ore preview computes the report’s requested-ore and HP totals from the mine file alone, so a designer can read the balance sheet of an edit before generating anything.
 Open questions, to revisit only on real feedback:
 * Independent per-block filler rolls may read as static noise rather than strata. If so, roll per 2×2×2 cell or bias toward a neighbour’s rock. Visual only; balance is untouched.
-* Fixed layout may feel same-shaped after many runs. If so, add bounded jitter to chamber depths rather than freer generation, so balance stays authored.
+* Fixed layout may feel same-shaped after many runs. Pockets already vary per seed; if the envelope itself needs to, add bounded jitter to zone depths rather than freer generation, so balance stays authored.
 ________________
 
 
 13. Worked example
-A four-chamber mine. Note how short chambers 2–4 are — everything unspecified is inherited.
+A four-zone mine. Note how short zones 2–4 are — everything unspecified is inherited.
 return {
     mineId = "canyon_default",
     seed = nil,
     origin = Vector3.new(-359.259, -6, -20.911),
     facing = "-X",
 
-    startingCampLevel = 1,
     bedrockThickness = 1,
-    veinCorridorClearance = 0,
+    entranceWidth = 3,
+    entranceHeight = 3,
+    entranceDepth = 3,
+    veinEntranceClearance = 0,
+    pocketRadiusMin = 1,
+    pocketRadiusMax = 2,
     uraniumTarget = 20,
 
-    defaultChamberHeight = 8,
-    defaultChamberWidth = 24,
+    defaultZoneHeight = 8,
+    defaultZoneWidth = 24,
 
-    chambers = {
+    zones = {
         {   -- 1: soft, generous, everything reachable
             depth = 20,
-            hardness = 1.2,
+            hardness = 1.0,
             tierBias = 1.0,
             iron = 34, gold = 12, crystal = 2, uranium = 2,
-            corridorWidth = 3,
-            corridorHeight = 3,
+            pockets = 2,
 
             handPlaced = {
-                -- The upgrade advertisement. Visible
-                -- from the corridor, barely dentable
+                -- The upgrade advertisement. A few
+                -- blocks past the mouth, barely dentable
                 -- with a starting pickaxe.
                 { rock = "Crystal 3", depth = 6,
                   height = 1, widthOffset = 2 },
@@ -998,9 +995,10 @@ return {
 
         {   -- 2: mixed rock, better ore
             depth = 24,
-            hardness = 2.1,
+            hardness = 2.0,
             tierBias = 2.0,
             iron = 30, gold = 18, crystal = 6, uranium = 4,
+            pockets = 3,
         },
 
         {   -- 3: taller, harder
@@ -1009,42 +1007,60 @@ return {
             hardness = 3.0,
             tierBias = 3.0,
             iron = 22, gold = 22, crystal = 12, uranium = 8,
-            corridorHeight = 5,
+            pockets = 4,
         },
 
-        {   -- 4: cathedral. No corridor, just solid rock.
+        {   -- 4: cathedral, the deepest and richest rock
             depth = 28,
             height = 16,
-            hardness = 3.7,
+            hardness = 4.0,
             tierBias = 4.0,
             iron = 16, gold = 20, crystal = 18, uranium = 14,
+            pockets = 5,
         },
     },
 }
-Chamber 4 needs no corridorWidth or corridorHeight — it has no corridor, and hasCorridor is derived from being last.
-Uranium is spread 2 / 4 / 8 / 14 so the counter moves from the first chamber, while chambers 1–3 hold 14, under the target of 20, so the run cannot finish until the last gate opens. The total of 28 covers the six-player target of 25.
-At Nightmare (vein divisor 1.4), the same file generates chamber 2 with the same rock, 21 iron, 13 gold, and 4 crystal clusters, and unchanged uranium. No second file, no overrides.
+Uranium is spread 2 / 4 / 8 / 14 so the counter moves from the first zone. Nothing stops a crew tunnelling straight for zone 4, except that its rock is hardness 4.0 against a level 1 pick axe; that curve, and the camp level gating the pick axe tiers, is the pacing.
+At Nightmare (vein divisor 1.4), the same file generates zone 2 with the same rock, 21 iron, 13 gold, and 4 crystal clusters, and unchanged uranium. No second file, no overrides.
 Mining Attributes
 
 
 Pick Axe
 * A player’s Pick Axe determines how much HP is removed from a Rock per hit
-* There are 4 Pick Axe Levels (though this should be easily adjustable)
-* Damage per hit by level: 5 / 12 / 25 / 50 (GameData/Mining/PickAxe, DAMAGE_BY_LEVEL; the list length is the level count). Level 1 breaks Shale in two swings and needs 22 for Iron 4, which is what sells the upgrade. Everyone is level 1 until the Mining Supplies Store (M21)
+* There are 5 Pick Axe Levels (though this should be easily adjustable). Level 2 is a plain Gold purchase; from there, level N+1 requires Camp Level N (decided 2026-09-15), so the first upgrade teaches the store before the camp level matters
+* Damage per hit by level: 5 / 12 / 25 / 50 / 100 (GameData/Mining/PickAxe, DAMAGE_BY_LEVEL; the list length is the level count; level 5 is a placeholder until tuned). Level 1 breaks Stone 1 in two swings and needs 22 for Iron 4, which is what sells the upgrade. Everyone is level 1 until the Mining Supplies Store (M21)
 
 
 
 
 Backpack
-* Capacity by level, in ore units: 50 / 100 / 200 / 400 (GameData/Mining/Backpack, CAPACITY_BY_LEVEL; the list length is the level count). Everyone is level 1 until the Mining Supplies Store (M21)
-Boots        
+* Capacity by level, in ore units: 15 / 25 / 40 / 60 / 90 (GameData/Mining/Backpack, CAPACITY_BY_LEVEL; the list length is the level count; decided 2026-09-15 to start small so refining trips are frequent; tune in play). Five levels, level N+1 needing Camp Level N, like the pick axe. Everyone is level 1 until the Mining Supplies Store (M21)
+Boots
+* The second mining attribute, bought and upgraded in the Mining Supplies Store like the others: five levels, level 2 a plain Gold buy, level N+1 needing Camp Level N. Boots only do one thing: walk speed (decided 2026-09-15)
+* Walk speed by level, in studs per second: 16 / 18 / 20 / 22 / 24 (GameData/Mining/Boots, WALK_SPEED_BY_LEVEL; the list length is the level count; placeholders until tuned in play). Level 1 is Roblox’s default, so a new player moves exactly as they expect
+* The level is run state like the pick axe level, held by the server and applied to the character’s Humanoid on upgrade and on every respawn, so nothing about speed is ever trusted from the client
+* Boots change no other stat: no jump, no fall damage, no carry. Those belong to the Jet Pack and the Backpack
+Jet Pack
+* The fourth mining attribute (added 2026-09-15), bought and upgraded in the Mining Supplies Store like Pick Axe, Boots, and Backpack: five levels, level 2 a plain Gold buy, level N+1 needing Camp Level N. It is the climbing mechanic the mine generator has been waiting for (IS_CLIMBING_ENABLED), so mines can go taller and more vertical, and a player at the bottom of a shaft they dug has a way out
+* Controls, kept to one gesture. Keyboard and gamepad: double-tap Jump and keep holding it; the jet pack burns while Jump is held and stops the moment it is released. Touch: a Jet Pack button sits above the jump button; holding it burns, releasing it stops. No hover, no descend input, no toggle state to remember: burn is up, release is down
+* Fuel is the whole design. The tank starts at 3 seconds of burn and each upgrade adds 1 second (level 5 holds 7 seconds); both numbers are tunable in GameData/Mining/JetPack. Fuel drains only while burning and the pack cuts out when the tank is empty, so the player falls. It refills only while standing on the ground, after a short delay, so the jet pack is a hop and an escape, never flight
+* Burning lifts the player straight up at a fixed climb speed while the normal walk controls still steer, so a hop can be aimed onto a ledge
+* The tank shows as a small bar on the HUD next to the backpack button, only while burning or refilling, so the screen stays clear the rest of the time
+* No restrictions on when it can be used (decided 2026-09-15): in the mine, in the camp, during combat, at night. The fuel limit is the only guard against abuse; if a hop over the wall turns out to be a problem in play, the fix is tuning fuel, not adding rules. The mine’s bedrock and the map’s own edges are the only bounds. Fall damage rules are decided with Revives (M32); until then the cut-out height must stay survivable
+* Server authority follows the tools rule: the client asks to start and stop burning, the server owns the fuel and refuses a start on an empty tank; the client animates thrust from the replicated state. Every player sees the pack on the character’s back and a flame while it burns
 Posts
 Defenses
 Traps
 Wall Repair
 Camp Level
-* The Camp Level is shared by the whole crew and starts at the mine’s startingCampLevel. Diamonds from the Refinery fill it like an XP bar: the HUD shows “CAMP LEVEL n” over a bar reading “pool / needed”, and a full bar rolls over into the next level with the remainder carried, several levels at once if one payout is big enough. At the top level the pool reads MAX
-* Diamonds needed per level live in GameData/Camp/Level (placeholder pacing 20, 80, 250 until this section is designed). What each level unlocks (chamber gates, mining and post upgrade tiers) is M22 and still to be written here
+* The Camp Level is shared by the whole crew and starts at level 1. Diamonds from the Refinery fill it like an XP bar: the display shows “CAMP LEVEL n” over a bar reading “pool / needed”, and a full bar rolls over into the next level with the remainder carried, several levels at once if one payout is big enough. At the top level the pool reads MAX
+* What a level unlocks (decided 2026-09-15): the next tier of every upgrade track, in both stores. Pick Axe, Boots, and Backpack in the Mining Supplies Store have five levels each and level N+1 requires Camp Level N, so level 2 is always a plain Gold buy: players learn mining upgrades before the camp level ever matters. Post upgrades at the posts are sold by tier and tier N requires Camp Level N. Diamonds are the only collective currency, so the collective decision of when to level the camp is what paces both halves of the loop: how deep the crew can dig by day, and how hard the posts hit by night
+* Never capped: consumables (Torch, Dynamite), Traps, Defensive Units, and wall repair. Those are priced by Gold or Iron alone so the stores never feel closed
+* Nothing in the mine is ever locked by Camp Level. Depth is paced by rock hardness against the pick axe tier the camp level allows (see Mine Layout)
+* A store item above the cap still shows, with its price greyed and “Camp Level N required” in place of the buy prompt, so the goal is always visible
+* Display: the bar and level live on a billboard above the Refinery, the camp’s focal point, not in the HUD; the info is only needed while refining, and the top of the screen is kept for the day clock and wave state. Diamonds fly from the Refinery into the billboard bar during a payout
+* Level up is the pacing beat of a run and never happens silently: every player, wherever they are, hears the CampLevelUp sound and sees a “CAMP LEVEL n” toast slide in at the top of the screen, and the Refinery billboard rolls over
+* Diamonds needed per level live in GameData/Camp/Level (placeholder pacing 20, 80, 250 until tuned in play); the tier-per-level table lives in GameData too (M22), so lifting or loosening the cap is a one-line change
 Wave Cycle
 Monsters
 Random Events

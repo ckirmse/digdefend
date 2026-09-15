@@ -73,7 +73,7 @@ function RockRules.weights(center: number, count: number, spread: number): { num
 end
 
 -- Returns the clamped center and whether clamping happened, so the generator
--- can warn naming the parameter and chamber (GDD "Validation").
+-- can warn naming the parameter and zone (GDD "Validation").
 function RockRules.clampCenter(value: number, minCenter: number, maxCenter: number): (number, boolean)
 	local clamped = math.clamp(value, minCenter, maxCenter)
 	return clamped, clamped ~= value
@@ -184,7 +184,7 @@ function RockRules.validateRockTable(rockTable: any): (boolean, string?)
 			shape = FILLER_SHAPE
 		elseif definition.kind == Enums.RockKind.RESOURCE then
 			shape = RESOURCE_SHAPE
-		elseif definition.kind == Enums.RockKind.BEDROCK or definition.kind == Enums.RockKind.GATE then
+		elseif definition.kind == Enums.RockKind.BEDROCK then
 			shape = STRUCTURAL_SHAPE
 		else
 			return false, label .. " has unknown kind " .. tostring(definition.kind)

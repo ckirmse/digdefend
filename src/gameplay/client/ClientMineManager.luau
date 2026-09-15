@@ -3,7 +3,7 @@
 -- The mine on this client: receives the header and encoded chunks from
 -- MineManager, rebuilds the grid, and renders it as pooled block parts. Only
 -- exposed blocks (those with an air face) within the streaming radius of the
--- player exist as parts, so a solid chamber costs its surfaces, not its
+-- player exist as parts, so solid rock costs its surfaces, not its
 -- volume, and digging exposes new faces. Rendered parts collide, which is
 -- enough because character physics is client-owned. The server never holds a
 -- rock part.
@@ -43,7 +43,7 @@ export type Header = {
 	fillerOrder: { number },
 	rockHp: { [number]: number },
 	rockKind: { [number]: number },
-	chambers: { MineGenerator.ChamberFill },
+	zones: { MineGenerator.ZoneFill },
 }
 
 export type Stats = {
@@ -449,7 +449,7 @@ function ClientMineManager:onMineComplete()
 		cells = cells,
 	}
 	local startClock = workspace:GetServerTimeNow()
-	MineGenerator.expandFiller(grid, header.chambers, header.seed, header.fillerOrder)
+	MineGenerator.expandFiller(grid, header.zones, header.seed, header.fillerOrder)
 	self.grid = grid
 	self.crackStageByCell = {}
 	local exposedCount = self:rebuildExposedCells()
@@ -508,6 +508,9 @@ function ClientMineManager:init()
 			self:onChunk(payload)
 		end
 	)
+	-- ask only now: anything the server sent before these handlers existed
+	-- would have been dropped
+	ClientNetManager:fireServer(NetEventNames.TRY_REQUEST_MINE, {})
 end
 
 function ClientMineManager.new(): ClientMineManager
