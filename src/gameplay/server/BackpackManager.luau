@@ -63,8 +63,9 @@ function BackpackManager:replicate(player: Player)
 	end
 end
 
--- adds what fits, tells the player so the pop plays, returns (added, overflow)
-function BackpackManager:add(player: Player, resource: number, amount: number): (number, number)
+-- adds what fits and tells the player where it came from, so the icon can fly
+-- from that spot into the backpack; returns (added, overflow)
+function BackpackManager:add(player: Player, resource: number, amount: number, position: Vector3): (number, number)
 	local state = self.stateByPlayer[player]
 	if not state then
 		return 0, amount
@@ -75,6 +76,7 @@ function BackpackManager:add(player: Player, resource: number, amount: number): 
 		NetManager:notifyClient(player, NetEventNames.NOTIFY_ORE_COLLECTED, {
 			resource = resource,
 			amount = added,
+			position = position,
 		})
 	end
 	return added, overflow

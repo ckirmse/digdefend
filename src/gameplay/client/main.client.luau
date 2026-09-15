@@ -4,6 +4,7 @@
 -- StarterPlayerScripts/Client/main; this script wires the gameplay's own managers.
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
+local ClientIconFlightManager = require(script.Parent.ClientIconFlightManager)
 local ClientMineDevTools = require(script.Parent.ClientMineDevTools)
 local ClientMineManager = require(script.Parent.ClientMineManager)
 local ClientMiningManager = require(script.Parent.ClientMiningManager)
@@ -19,6 +20,8 @@ ClientMineManager:init()
 ClientToolBarManager:init()
 ClientToolModelManager:init()
 ClientMiningManager:init()
+-- before the backpack and refinery, which fly icons across its layer
+ClientIconFlightManager:init()
 ClientBackpackManager:init()
 ClientOrePickupManager:init()
 ClientRefineryManager:init()

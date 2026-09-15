@@ -135,17 +135,25 @@ Constants.HUD_BALANCE_URANIUM_ROW = "UraniumRow"
 Constants.HUD_BALANCE_ICON = "Icon"
 Constants.HUD_BALANCE_VALUE_LABEL = "ValueLabel"
 -- camp level (top centre): title, XP-style bar with fill and "pool / required"
-Constants.HUD_CAMP_LEVEL_FRAME = "CampLevel"
-Constants.HUD_CAMP_LEVEL_TITLE_LABEL = "TitleLabel"
-Constants.HUD_CAMP_LEVEL_BAR = "Bar"
-Constants.HUD_CAMP_LEVEL_FILL = "Fill"
-Constants.HUD_CAMP_LEVEL_PROGRESS_LABEL = "ProgressLabel"
+-- the Camp Level BillboardGui template under GameAssets/Gui, cloned by each
+-- client onto the Refinery (scripts/studio/build_camp_level_billboard.luau)
+Constants.GUI_TEMPLATES_FOLDER = "Gui"
+Constants.CAMP_LEVEL_BILLBOARD = "CampLevel"
+Constants.CAMP_LEVEL_ROOT_FRAME = "Root"
+Constants.CAMP_LEVEL_TITLE_LABEL = "TitleLabel"
+Constants.CAMP_LEVEL_BAR = "Bar"
+Constants.CAMP_LEVEL_FILL = "Fill"
+Constants.CAMP_LEVEL_PROGRESS_LABEL = "ProgressLabel"
+Constants.CAMP_LEVEL_ICON = "Icon"
+-- how far above the Refinery's top the billboard floats, in studs
+Constants.CAMP_LEVEL_BILLBOARD_LIFT_STUDS = 5.5
 -- full-screen frame the refinery's flying icons are parented to
 Constants.HUD_FLY_LAYER = "FlyLayer"
 -- backpack contents menu (built by scripts/studio/build_backpack_menu_gui.luau)
 Constants.BACKPACK_MENU_GUI_NAME = "Backpack"
 Constants.BACKPACK_MENU_LIST = "List"
 Constants.BACKPACK_MENU_ROW_TEMPLATE = "RowTemplate"
+Constants.BACKPACK_ROW_ICON = "Icon"
 Constants.BACKPACK_ROW_NAME_LABEL = "NameLabel"
 Constants.BACKPACK_ROW_AMOUNT_LABEL = "AmountLabel"
 Constants.BACKPACK_MENU_EMPTY_LABEL = "EmptyLabel"

@@ -147,6 +147,9 @@ describe(
 				expect((Validate.isValueType(-1, "nonnegativeInteger"))).toBe(false)
 				expect(Validate.isValueType(1, "positiveInteger")).toBe(true)
 				expect((Validate.isValueType(0, "positiveInteger"))).toBe(false)
+				expect(Validate.isValueType(Vector3.new(1, 2, 3), "vector3")).toBe(true)
+				expect((Validate.isValueType(Vector3.new(1, math.huge, 3), "vector3"))).toBe(false)
+				expect((Validate.isValueType({ 1, 2, 3 }, "vector3"))).toBe(false)
 				expect((Validate.isValueType(1.5, "integer"))).toBe(false)
 			end
 		)

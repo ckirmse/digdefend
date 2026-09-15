@@ -6,12 +6,12 @@
 -- and the contents menu (an overlay) listing only the ores carried. All
 -- numbers come from the CurrentPlayer attributes BackpackManager writes.
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local BackpackRules = require("@game/ReplicatedStorage/Shared/BackpackRules")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
@@ -20,6 +20,7 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
+local ClientIconFlightManager = require(script.Parent.ClientIconFlightManager)
 
 local ClientBackpackManager = {}
 ClientBackpackManager.__index = ClientBackpackManager
@@ -31,6 +32,9 @@ export type ClientBackpackManager = typeof(setmetatable(
 		countLabel: TextLabel?,
 		fullLabel: TextLabel?,
 		buttonBasePosition: UDim2?,
+		-- the total shown while icons are in flight; nil shows the attributes
+		heldTotal: number?,
+		flightsInProgress: number,
 		menuGui: ScreenGui?,
 		menuDialog: Frame?,
 		list: Frame?,
@@ -47,6 +51,19 @@ export type ClientBackpackManager = typeof(setmetatable(
 local NOTIFY_ORE_COLLECTED_SHAPE = {
 	resource = { type = "enum", name = "RawResource" },
 	amount = "positiveInteger",
+	-- where the ore came from: the broken block's centre or the pickup
+	position = "vector3",
+}
+
+-- icons per collection, so a rich block does not spawn fifty
+local MAX_ICONS_PER_COLLECTION = 6
+local ICON_STAGGER_SEC = 0.08
+-- fallback disc colours for any resource whose Icons entry is still the placeholder
+local COLOR_BY_RAW: { [number]: Color3 } = {
+	[Enums.RawResource.IRON_ORE] = Color3.fromRGB(120, 125, 135),
+	[Enums.RawResource.GOLD_ORE] = Color3.fromRGB(200, 160, 40),
+	[Enums.RawResource.CRYSTAL] = Color3.fromRGB(150, 220, 255),
+	[Enums.RawResource.URANIUM_ORE] = Color3.fromRGB(90, 200, 70),
 }
 
 local COUNT_FORMAT = "%d/%d"
@@ -82,7 +99,7 @@ function ClientBackpackManager:renderHud()
 		return
 	end
 	local capacity = readNumber(Attributes.BACKPACK_CAPACITY)
-	local total = BackpackRules.getTotal(self:readContents())
+	local total = self.heldTotal or BackpackRules.getTotal(self:readContents())
 	local isFull = capacity > 0 and total >= capacity
 	countLabel.Text = string.format(COUNT_FORMAT, total, capacity)
 	countLabel.TextColor3 = if isFull then UiStyle.NEGATIVE_COLOR else UiStyle.TEXT_COLOR
@@ -113,6 +130,12 @@ function ClientBackpackManager:renderMenu()
 		row.Name = "Row" .. order
 		row.LayoutOrder = order
 		row.Visible = true
+		local icon = row:FindFirstChild(Constants.BACKPACK_ROW_ICON)
+		if icon and icon:IsA("ImageLabel") then
+			local imageId = Icons.RAW_RESOURCE[resource]
+			local imageLabel = icon :: ImageLabel
+			imageLabel.Image = if Icons.isPlaceholder(imageId) then "" else imageId
+		end
 		local nameLabel = row:FindFirstChild(Constants.BACKPACK_ROW_NAME_LABEL)
 		if nameLabel and nameLabel:IsA("TextLabel") then
 			(nameLabel :: TextLabel).Text = Enums.getPublicName(Enums.RawResource, resource) or "?"
@@ -182,14 +205,65 @@ function ClientBackpackManager:onOreCollected(payload: any)
 		warn("ClientBackpackManager: malformed NotifyOreCollected")
 		return
 	end
-	ClientSoundManager:playSfx(SoundNames.Sfx.ORE_PICKUP)
 	local button = self.button
-	if button and button.Visible then
-		-- a quick bump so the number change reads as the ore landing
-		local base = self.buttonBasePosition or button.Position
-		button.Position = base + UDim2.fromScale(0, -0.01)
-		TweenService:Create(button, TweenInfo.new(UiStyle.HUD_TWEEN_SEC, Enum.EasingStyle.Quad), { Position = base }):Play()
+	local from = ClientIconFlightManager:worldToScreen(payload.position)
+	if not button or not button.Visible or not from then
+		-- nothing to fly to (or from): one pop still confirms the pickup
+		ClientSoundManager:playSfx(SoundNames.Sfx.ORE_PICKUP)
+		return
 	end
+	local to = ClientIconFlightManager:screenCenterOf(button)
+	local imageId = Icons.RAW_RESOURCE[payload.resource]
+	local color = COLOR_BY_RAW[payload.resource] or UiStyle.TEXT_MUTED_COLOR
+	local count = math.clamp(payload.amount, 1, MAX_ICONS_PER_COLLECTION)
+	-- the attributes already hold the new total; show the old one until the
+	-- icons land, then step up with each
+	local shares = ClientIconFlightManager.splitAmount(payload.amount, count)
+	self:holdTotal(BackpackRules.getTotal(self:readContents()) - payload.amount, count)
+	local delaySec = 0
+	for index = 1, count do
+		ClientIconFlightManager:fly(
+			imageId,
+			color,
+			from,
+			to,
+			delaySec,
+			function()
+				ClientSoundManager:playSfx(SoundNames.Sfx.ORE_PICKUP)
+				local landedOn = self.button
+				if landedOn and landedOn.Visible then
+					ClientIconFlightManager:bump(landedOn)
+				end
+				self:stepHeldTotal(shares[index])
+			end
+		)
+		delaySec += ICON_STAGGER_SEC
+	end
+end
+
+-- freezes the HUD total at a value while iconCount icons are in flight; the
+-- refinery uses this too while ore is being sucked out
+function ClientBackpackManager:holdTotal(total: number, iconCount: number)
+	if self.heldTotal == nil then
+		self.heldTotal = total
+	end
+	self.flightsInProgress += iconCount
+	self:renderHud()
+end
+
+-- one icon arrived or left: move the shown total by its share; the last one
+-- releases the hold so the attributes show again
+function ClientBackpackManager:stepHeldTotal(delta: number)
+	local held = self.heldTotal
+	if held == nil then
+		return
+	end
+	self.heldTotal = math.max(held + delta, 0)
+	self.flightsInProgress = math.max(self.flightsInProgress - 1, 0)
+	if self.flightsInProgress == 0 then
+		self.heldTotal = nil
+	end
+	self:renderHud()
 end
 
 function ClientBackpackManager:findHud()
@@ -281,7 +355,13 @@ function ClientBackpackManager:init()
 		ClientDataManager:subscribeCurrentPlayerAttribute(
 			key,
 			function()
-				self:renderHud()
+				-- deferred so a NotifyOreCollected in the same step can hold
+				-- the old total before this render runs
+				task.defer(
+					function()
+						self:renderHud()
+					end
+				)
 				if self.isMenuOpen then
 					self:renderMenu()
 				end
@@ -305,6 +385,8 @@ function ClientBackpackManager.new(): ClientBackpackManager
 	self.countLabel = nil
 	self.fullLabel = nil
 	self.buttonBasePosition = nil
+	self.heldTotal = nil
+	self.flightsInProgress = 0
 	self.menuGui = nil
 	self.menuDialog = nil
 	self.list = nil

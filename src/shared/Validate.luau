@@ -201,6 +201,13 @@ function Validate.isValueType(value: any, testType: any): (boolean, string?)
 		if not Validate.isTable(value) then
 			return false, string.format("%s not a table", tostring(value))
 		end
+	elseif testType == "vector3" then
+		if typeof(value) ~= "Vector3" then
+			return false, string.format("%s not a Vector3", tostring(value))
+		end
+		if value ~= value or math.abs(value.X) == math.huge or math.abs(value.Y) == math.huge or math.abs(value.Z) == math.huge then
+			return false, "Vector3 not finite"
+		end
 	else
 		warn("isValueType given unknown test type", testType)
 		return false, string.format("validation data invalid: unknown test type %s", tostring(testType))

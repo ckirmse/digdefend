@@ -115,7 +115,7 @@ function OrePickupManager:poll()
 				index += 1
 				continue
 			end
-			local added = BackpackManager:add(player, pickup.resource, pickup.amount)
+			local added = BackpackManager:add(player, pickup.resource, pickup.amount, pickup.part.Position)
 			if added >= pickup.amount then
 				self:remove(index)
 			else

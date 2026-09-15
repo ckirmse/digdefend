@@ -127,9 +127,23 @@ rowPadding.PaddingLeft = UDim.new(0, 12)
 rowPadding.PaddingRight = UDim.new(0, 12)
 rowPadding.Parent = row
 
+-- the ore icon, filled in per row by ClientBackpackManager from Icons
+local rowIcon = Instance.new("ImageLabel")
+rowIcon.Name = "Icon"
+rowIcon.AnchorPoint = Vector2.new(0, 0.5)
+rowIcon.Position = UDim2.fromScale(0, 0.5)
+rowIcon.Size = UDim2.fromScale(0.8, 0.8)
+rowIcon.BackgroundTransparency = 1
+rowIcon.ScaleType = Enum.ScaleType.Fit
+local rowIconAspect = Instance.new("UIAspectRatioConstraint")
+rowIconAspect.AspectRatio = 1
+rowIconAspect.DominantAxis = Enum.DominantAxis.Height
+rowIconAspect.Parent = rowIcon
+rowIcon.Parent = row
+
 local nameLabel = makeLabel("NameLabel", "Iron Ore", UiStyle.BODY_FONT, UiStyle.TEXT_COLOR, UiStyle.BODY_TEXT_MIN_PX, UiStyle.BODY_TEXT_MAX_PX)
-nameLabel.Position = UDim2.fromScale(0, 0.1)
-nameLabel.Size = UDim2.fromScale(0.65, 0.8)
+nameLabel.Position = UDim2.fromScale(0.14, 0.1)
+nameLabel.Size = UDim2.fromScale(0.51, 0.8)
 nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 nameLabel.Parent = row
 

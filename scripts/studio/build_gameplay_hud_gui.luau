@@ -1,8 +1,8 @@
 -- Rebuilds the "GameplayHud" ScreenGui under StarterGui: the backpack button
 -- (icon, "taken/total", and the "Backpack full" label) that
 -- ClientBackpackManager shows while the pick axe is held (GDD "Mining
--- Rock"); the balance rows top left and the Camp Level bar top centre that
--- ClientRefineryManager keeps current (GDD "Refining Ore"); and the FlyLayer
+-- Rock"); the balance rows top left that ClientRefineryManager keeps
+-- current (GDD "Refining Ore"); and the FlyLayer
 -- its icons travel across. Run from the Studio command bar (or the MCP
 -- execute_luau tool) in the gameplay place; it replaces any existing copy.
 -- Names must match Constants.GAMEPLAY_HUD_* / HUD_*.
@@ -10,6 +10,8 @@ local StarterGui = game:GetService("StarterGui")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
 local UiStyle = require(game.ReplicatedStorage.Shared.UiStyle)
+local Icons = require(game.ReplicatedStorage.Shared.Icons)
+local Enums = require(game.ReplicatedStorage.Shared.Enums)
 
 ChangeHistoryService:SetWaypoint("Before GameplayHud gui")
 
@@ -77,7 +79,7 @@ count.Name = "CountLabel"
 count.Position = UDim2.fromScale(0.36, 0.12)
 count.Size = UDim2.fromScale(0.6, 0.5)
 count.BackgroundTransparency = 1
-count.Text = "0/50"
+count.Text = "0/15"
 count.TextColor3 = UiStyle.TEXT_COLOR
 count.TextScaled = true
 count.TextXAlignment = Enum.TextXAlignment.Left
@@ -99,17 +101,18 @@ full.Visible = false
 addTextSizeBounds(full, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.LABEL_TEXT_MAX_PX)
 full.Parent = button
 
--- balances, top left, one row per resource; the icon is a coloured disc
--- until ore art exists
+-- balances, top left, one row per resource; the icon comes from Icons, with
+-- a coloured disc for any entry still at the placeholder
 local balances = Instance.new("Frame")
 balances.Name = "Balances"
 balances.AnchorPoint = Vector2.new(0, 0)
-balances.Position = UDim2.fromScale(0.015, 0.03)
-balances.Size = UDim2.fromScale(0.13, 0.16)
+-- below the open chat window, which owns the top-left corner
+balances.Position = UDim2.fromScale(0.015, 0.4)
+balances.Size = UDim2.fromScale(0.18, 0.32)
 balances.BackgroundTransparency = 1
 local balancesSize = Instance.new("UISizeConstraint")
-balancesSize.MinSize = Vector2.new(120, 96)
-balancesSize.MaxSize = Vector2.new(300, 240)
+balancesSize.MinSize = Vector2.new(170, 192)
+balancesSize.MaxSize = Vector2.new(420, 480)
 balancesSize.Parent = balances
 local balancesLayout = Instance.new("UIListLayout")
 balancesLayout.FillDirection = Enum.FillDirection.Vertical
@@ -119,9 +122,9 @@ balancesLayout.Parent = balances
 balances.Parent = gui
 
 local ROWS = {
-	{ name = "IronRow", color = Color3.fromRGB(160, 165, 175), text = "0" },
-	{ name = "GoldRow", color = Color3.fromRGB(240, 200, 60), text = "0" },
-	{ name = "UraniumRow", color = Color3.fromRGB(120, 240, 90), text = "0 / 0" },
+	{ name = "IronRow", image = Icons.REFINED_RESOURCE[Enums.RefinedResource.IRON_BAR], color = Color3.fromRGB(160, 165, 175), text = "0" },
+	{ name = "GoldRow", image = Icons.REFINED_RESOURCE[Enums.RefinedResource.GOLD_BAR], color = Color3.fromRGB(240, 200, 60), text = "0" },
+	{ name = "UraniumRow", image = Icons.REFINED_RESOURCE[Enums.RefinedResource.URANIUM], color = Color3.fromRGB(120, 240, 90), text = "0 / 0" },
 }
 for order, spec in ROWS do
 	local row = Instance.new("Frame")
@@ -132,20 +135,26 @@ for order, spec in ROWS do
 	row.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
 	row.BorderSizePixel = 0
 	addCorner(row)
-	local rowIcon = Instance.new("Frame")
+	local isImage = not Icons.isPlaceholder(spec.image)
+	local rowIcon = Instance.new("ImageLabel")
 	rowIcon.Name = "Icon"
 	rowIcon.AnchorPoint = Vector2.new(0, 0.5)
 	rowIcon.Position = UDim2.fromScale(0.05, 0.5)
 	rowIcon.Size = UDim2.fromScale(0.7, 0.7)
+	rowIcon.Image = if isImage then spec.image else ""
+	rowIcon.ScaleType = Enum.ScaleType.Fit
 	rowIcon.BackgroundColor3 = spec.color
+	rowIcon.BackgroundTransparency = if isImage then 1 else 0
 	rowIcon.BorderSizePixel = 0
 	local iconAspect = Instance.new("UIAspectRatioConstraint")
 	iconAspect.AspectRatio = 1
 	iconAspect.DominantAxis = Enum.DominantAxis.Height
 	iconAspect.Parent = rowIcon
-	local iconCorner = Instance.new("UICorner")
-	iconCorner.CornerRadius = UDim.new(0.5, 0)
-	iconCorner.Parent = rowIcon
+	if not isImage then
+		local iconCorner = Instance.new("UICorner")
+		iconCorner.CornerRadius = UDim.new(0.5, 0)
+		iconCorner.Parent = rowIcon
+	end
 	rowIcon.Parent = row
 	local value = Instance.new("TextLabel")
 	value.Name = "ValueLabel"
@@ -163,72 +172,6 @@ for order, spec in ROWS do
 	value.Parent = row
 	row.Parent = balances
 end
-
--- camp level, top centre: title above an XP-style bar
-local campLevel = Instance.new("Frame")
-campLevel.Name = "CampLevel"
-campLevel.AnchorPoint = Vector2.new(0.5, 0)
-campLevel.Position = UDim2.fromScale(0.5, 0.03)
-campLevel.Size = UDim2.fromScale(0.26, 0.09)
-campLevel.BackgroundTransparency = 1
-local campSize = Instance.new("UISizeConstraint")
-campSize.MinSize = Vector2.new(200, 54)
-campSize.MaxSize = Vector2.new(560, 140)
-campSize.Parent = campLevel
-campLevel.Parent = gui
-
-local title = Instance.new("TextLabel")
-title.Name = "TitleLabel"
-title.Position = UDim2.fromScale(0, 0)
-title.Size = UDim2.fromScale(1, 0.42)
-title.BackgroundTransparency = 1
-title.Text = UiStyle.formatTitle("Camp Level 1")
-title.TextColor3 = UiStyle.ACCENT_COLOR
-title.TextScaled = true
-title.FontFace = UiStyle.TITLE_FONT
-addTextSizeBounds(title, UiStyle.BODY_TEXT_MIN_PX, 34)
-local titleStroke = Instance.new("UIStroke")
-titleStroke.Color = UiStyle.ACCENT_STROKE_COLOR
-titleStroke.Thickness = UiStyle.STROKE_PX
-titleStroke.Parent = title
-title.Parent = campLevel
-
-local bar = Instance.new("Frame")
-bar.Name = "Bar"
-bar.AnchorPoint = Vector2.new(0.5, 1)
-bar.Position = UDim2.fromScale(0.5, 1)
-bar.Size = UDim2.fromScale(1, 0.5)
-bar.BackgroundColor3 = UiStyle.EMPTY_SLOT_COLOR
-bar.BorderSizePixel = 0
-bar.ClipsDescendants = true
-addCorner(bar)
-local barStroke = Instance.new("UIStroke")
-barStroke.Color = UiStyle.ACCENT_STROKE_COLOR
-barStroke.Thickness = UiStyle.STROKE_PX
-barStroke.Parent = bar
-local fill = Instance.new("Frame")
-fill.Name = "Fill"
-fill.Size = UDim2.fromScale(0, 1)
-fill.BackgroundColor3 = Color3.fromRGB(120, 200, 255)
-fill.BorderSizePixel = 0
-addCorner(fill)
-fill.Parent = bar
-local progress = Instance.new("TextLabel")
-progress.Name = "ProgressLabel"
-progress.Size = UDim2.fromScale(1, 1)
-progress.BackgroundTransparency = 1
-progress.Text = "0 / 0"
-progress.TextColor3 = UiStyle.TEXT_COLOR
-progress.TextScaled = true
-progress.FontFace = UiStyle.BODY_BOLD_FONT
-progress.ZIndex = 2
-addTextSizeBounds(progress, UiStyle.LABEL_TEXT_MIN_PX, 24)
-local progressStroke = Instance.new("UIStroke")
-progressStroke.Color = UiStyle.BACKGROUND_COLOR
-progressStroke.Thickness = 1
-progressStroke.Parent = progress
-progress.Parent = bar
-bar.Parent = campLevel
 
 -- the layer flying icons cross; above everything else in this gui
 local flyLayer = Instance.new("Frame")

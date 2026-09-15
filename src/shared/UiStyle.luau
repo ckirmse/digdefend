@@ -39,6 +39,8 @@ UiStyle.LABEL_TEXT_MIN_PX = 10
 UiStyle.LABEL_TEXT_MAX_PX = 18
 
 UiStyle.HUD_TWEEN_SEC = 0.2
+-- how much a HUD element swells (1 = none) when a flying icon lands on it
+UiStyle.HUD_BUMP_SCALE = 1.12
 UiStyle.BALANCE_FLASH_SEC = 0.6
 
 function UiStyle.formatTitle(text: string): string

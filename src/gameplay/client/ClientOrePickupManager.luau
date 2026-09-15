@@ -2,9 +2,10 @@
 
 -- Draws ore lying on the ground: every part tagged Tags.ORE_PICKUP is a
 -- server shadow carrying the resource and amount; this client gives it a
--- small cube in the ore's colour (borrowed from the tier-1 rock template)
--- that bobs and turns. One Heartbeat drives every caster and runs only
--- while there is something to animate.
+-- thin plate showing the ore's 2D icon (from Icons, both faces) that bobs
+-- and spins like a coin. A resource with no icon yet falls back to a cube in
+-- its rock colour. One Heartbeat drives every caster and runs only while
+-- there is something to animate.
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -12,6 +13,7 @@ local RunService = game:GetService("RunService")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 
 local ClientOrePickupManager = {}
@@ -35,13 +37,16 @@ export type ClientOrePickupManager = typeof(setmetatable(
 ))
 
 local CASTERS_FOLDER_NAME = "OrePickupCasters"
+-- the icon plate: a coin-thin square showing the ore on both faces
+local PLATE_SIZE = 1.8
+local PLATE_THICKNESS = 0.05
 local CUBE_SIZE = 0.8
 local BOB_STUDS = 0.25
 local BOB_PER_SEC = 2
 local TURN_RAD_PER_SEC = 1.5
 local FALLBACK_COLOR = Color3.fromRGB(200, 200, 200)
 
--- the rock whose template colour stands in for each ore until ore art exists
+-- the rock whose template colour stands in for an ore with no icon
 local ROCK_FOR_RESOURCE: { [number]: number } = {
 	[Enums.RawResource.IRON_ORE] = Enums.RockName.IRON_1,
 	[Enums.RawResource.GOLD_ORE] = Enums.RockName.GOLD_1,
@@ -59,6 +64,41 @@ local function colorForResource(resource: number): (Color3, Enum.Material)
 		return template.Color, template.Material
 	end
 	return FALLBACK_COLOR, Enum.Material.SmoothPlastic
+end
+
+local function addFaceDecal(part: BasePart, face: Enum.NormalId, imageId: string)
+	local decal = Instance.new("Decal")
+	decal.Name = face.Name
+	decal.Face = face
+	decal.Texture = imageId
+	decal.Parent = part
+end
+
+-- an invisible plate carrying the icon on its front and back faces, or the
+-- old coloured cube when the icon is still a placeholder
+local function makeCasterPart(resource: number): BasePart
+	local part = Instance.new("Part")
+	part.Name = "OrePickup"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	local imageId = Icons.RAW_RESOURCE[resource]
+	if Icons.isPlaceholder(imageId) then
+		local color, material = colorForResource(resource)
+		part.Size = Vector3.new(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE)
+		part.Color = color
+		part.Material = material
+		return part
+	end
+	part.Size = Vector3.new(PLATE_SIZE, PLATE_SIZE, PLATE_THICKNESS)
+	part.Transparency = 1
+	addFaceDecal(part, Enum.NormalId.Front, imageId :: string)
+	addFaceDecal(part, Enum.NormalId.Back, imageId :: string)
+	return part
 end
 
 function ClientOrePickupManager:getFolder(): Folder
@@ -104,16 +144,7 @@ function ClientOrePickupManager:addCaster(shadow: Instance)
 		return
 	end
 	local resource = shadow:GetAttribute(Attributes.PICKUP_RESOURCE)
-	local color, material = colorForResource(if typeof(resource) == "number" then resource else 0)
-	local part = Instance.new("Part")
-	part.Name = "OrePickup"
-	part.Size = Vector3.new(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE)
-	part.Anchored = true
-	part.CanCollide = false
-	part.CanQuery = false
-	part.CanTouch = false
-	part.Color = color
-	part.Material = material
+	local part = makeCasterPart(if typeof(resource) == "number" then resource else 0)
 	part.CFrame = shadow.CFrame
 	part.Parent = self:getFolder()
 	self.casters[shadow] = { shadow = shadow, part = part, phase = self.random:NextNumber(0, math.pi * 2) }

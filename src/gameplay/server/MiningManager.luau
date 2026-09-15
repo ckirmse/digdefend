@@ -58,7 +58,7 @@ function MiningManager:handleHit(player: Player, depth: number, height: number, 
 	end
 	local definition = RockDefinitionsData.ROCKS[rock]
 	if not definition or not definition.hp then
-		-- bedrock and gates: nothing to do, and no reason to warn
+		-- bedrock: nothing to do, and no reason to warn
 		return
 	end
 	local space = MineManager:getSpace()
@@ -107,7 +107,7 @@ function MiningManager:awardOre(player: Player, definition: any, blockCenter: Ve
 	end
 	local playerCount = #GameController:getReadyPlayers()
 	local amount = BackpackRules.yieldForBreak(definition.yield, definition.resource, playerCount, PartyScalingData.ORE_YIELD_MULTIPLIER_BY_PLAYER_COUNT)
-	local _, overflow = BackpackManager:add(player, definition.resource, amount)
+	local _, overflow = BackpackManager:add(player, definition.resource, amount, blockCenter)
 	if overflow > 0 then
 		OrePickupManager:drop(blockCenter, definition.resource, overflow)
 	end
