@@ -3,7 +3,10 @@
 -- Plays the designer-authored 2D audio under SoundService: AudioPlayers in
 -- the Sfx and Music folders, each wired to the AudioDeviceOutput. Names come
 -- from shared SoundNames; a missing player or an empty asset is reported once
--- and otherwise silent, so unfinished audio never breaks a feature.
+-- and otherwise silent, so unfinished audio never breaks a feature. Also
+-- keeps an AudioListener on the camera wired to the same output, so the 3D
+-- emitters the server attaches to objects (SpatialSoundManager) are heard
+-- from where they are.
 local SoundService = game:GetService("SoundService")
 
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -72,7 +75,33 @@ function ClientSoundManager:checkAuthoredSounds()
 	end
 end
 
+-- the ear: one listener that follows the camera, feeding the device output
+function ClientSoundManager:setupListener()
+	local output = SoundService:FindFirstChildOfClass("AudioDeviceOutput")
+	local camera = workspace.CurrentCamera
+	if not output or not camera then
+		return
+	end
+	local listener = Instance.new("AudioListener")
+	listener.Name = "CameraListener"
+	listener.Parent = camera
+	local wire = Instance.new("Wire")
+	wire.SourceInstance = listener
+	wire.TargetInstance = output
+	wire.Parent = listener
+	-- a new camera (a respawn) needs the listener moved onto it
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(
+		function()
+			local current = workspace.CurrentCamera
+			if current and listener.Parent ~= current then
+				listener.Parent = current
+			end
+		end
+	)
+end
+
 function ClientSoundManager:init()
+	self:setupListener()
 	self.sfxFolder = SoundService:FindFirstChild(Constants.SFX_FOLDER)
 	self.musicFolder = SoundService:FindFirstChild(Constants.MUSIC_FOLDER)
 	if not self.sfxFolder then

@@ -93,6 +93,23 @@ Constants.MINE_ENTRANCE_PART = "Entrance"
 -- client's ore icons fly to
 Constants.CAMP_REFINERY_MODEL = "Refinery"
 Constants.REFINERY_PROMPT_PART = "Prompt"
+-- Camp.MiningStore: one "<Item>Stand" Model per Enums.StoreItem (the name
+-- comes from StoreRules.standNameForItem), each with a Base part carrying
+-- the SurfaceGui the client fills in and the ProximityPrompt the server
+-- listens to, and an ItemSpawn part where the client spins the display model
+Constants.CAMP_MINING_STORE_MODEL = "MiningStore"
+Constants.STAND_BASE_PART = "Base"
+Constants.STAND_ITEM_SPAWN_PART = "ItemSpawn"
+Constants.STAND_GUI = "SurfaceGui"
+Constants.STAND_NAME_LABEL = "NameLabel"
+Constants.STAND_PRICE_BOX = "PriceBox"
+Constants.STAND_PRICE_LABEL = "Price"
+Constants.STAND_RESOURCE_ICON = "ResourceIcon"
+-- "Camp Level N required" under the price on an upgrade stand, shown in red only while unmet
+Constants.STAND_CAMP_LEVEL_LABEL = "CampLevel"
+-- display models for the store stands under GameAssets: "<KEY>_<level>" for
+-- upgrade tracks and "<KEY>" for consumables (scripts/studio/build_store_displays.luau)
+Constants.STORE_DISPLAY_TEMPLATES_FOLDER = "StoreDisplays"
 -- optional per-map terrain: the part bounding the terrain to snapshot and
 -- the TerrainRegion the snapshot is stored in (scripts/studio/map_tools.luau)
 Constants.MAP_TERRAIN_BOUNDS_PART = "TerrainBounds"
@@ -108,8 +125,14 @@ Constants.MINE_BLOCKS_FOLDER = "MineBlocks"
 Constants.MINE_BLOCK_SIZE_STUDS = 4
 -- held tool models under GameAssets, one per Enums.ToolKind key, each with a
 -- Handle part the client welds to the character's right hand
+-- the pick axe has one model per level, "PICK_AXE_<level>"
 Constants.TOOL_TEMPLATES_FOLDER = "Tools"
 Constants.TOOL_HANDLE_PART = "Handle"
+-- the jet pack worn on the back (GameAssets/Wearables/JET_PACK) and the
+-- attachment its Handle welds to; its Flame part is shown while burning
+Constants.WEARABLE_TEMPLATES_FOLDER = "Wearables"
+Constants.JET_PACK_TEMPLATE = "JET_PACK"
+Constants.JET_PACK_FLAME_PART = "Flame"
 -- the custom tool bar (built by scripts/studio/build_tool_bar_gui.luau)
 Constants.TOOL_BAR_GUI_NAME = "ToolBar"
 Constants.TOOL_BAR_SLOTS_FRAME = "Slots"
@@ -117,16 +140,30 @@ Constants.TOOL_BAR_SLOT_TEMPLATE = "SlotTemplate"
 Constants.TOOL_SLOT_ICON = "Icon"
 Constants.TOOL_SLOT_LABEL = "Label"
 Constants.TOOL_SLOT_KEY_LABEL = "KeyLabel"
+Constants.TOOL_SLOT_COUNT_LABEL = "CountLabel"
 Constants.MAX_TOOL_SLOTS = 9
 -- mining mode HUD (built by scripts/studio/build_mining_hud_gui.luau)
 Constants.MINING_HUD_GUI_NAME = "MiningHud"
 Constants.MINING_RETICLE = "Reticle"
 Constants.MINING_TARGET_LABEL = "TargetLabel"
+-- the rock's remaining HP as a bar under the name, no numbers (decided 2026-09-15)
+Constants.MINING_TARGET_BAR = "TargetBar"
+Constants.MINING_TARGET_FILL = "Fill"
 -- gameplay HUD (built by scripts/studio/build_gameplay_hud_gui.luau)
 Constants.GAMEPLAY_HUD_GUI_NAME = "GameplayHud"
+-- the right-edge stack, centred vertically: the backpack button with the
+-- jet pack bar directly under it (decided 2026-09-15; both always visible)
+Constants.HUD_RIGHT_STACK = "RightStack"
 Constants.HUD_BACKPACK_BUTTON = "BackpackButton"
 Constants.HUD_BACKPACK_COUNT_LABEL = "CountLabel"
 Constants.HUD_BACKPACK_FULL_LABEL = "FullLabel"
+-- jet pack fuel bar under the backpack button: an icon on the left and the
+-- fill track beside it; the touch-only burn button sits above the jump button
+Constants.HUD_JET_PACK_BAR = "JetPackBar"
+Constants.HUD_JET_PACK_ICON = "Icon"
+Constants.HUD_JET_PACK_TRACK = "Track"
+Constants.HUD_JET_PACK_FILL = "Fill"
+Constants.HUD_JET_PACK_BUTTON = "JetPackButton"
 -- balances (top left): one row per resource, Uranium as "total / target"
 Constants.HUD_BALANCES_FRAME = "Balances"
 Constants.HUD_BALANCE_IRON_ROW = "IronRow"

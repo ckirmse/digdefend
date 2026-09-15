@@ -40,6 +40,21 @@ function BackpackManager:getCapacity(player: Player): number
 	return BackpackRules.capacityForLevel(BackpackData.CAPACITY_BY_LEVEL, level)
 end
 
+function BackpackManager:getLevel(player: Player): number
+	local state = self.stateByPlayer[player]
+	return if state then state.level else STARTING_LEVEL
+end
+
+-- the store raised the level; contents are kept, the capacity grows
+function BackpackManager:setLevel(player: Player, level: number)
+	local state = self.stateByPlayer[player]
+	if not state then
+		return
+	end
+	state.level = level
+	self:replicate(player)
+end
+
 function BackpackManager:getContents(player: Player): BackpackRules.Contents?
 	local state = self.stateByPlayer[player]
 	return if state then state.contents else nil

@@ -68,6 +68,40 @@ function RefineryManager:getCampLevel(): number
 	return self.campLevel
 end
 
+function RefineryManager:getGoldBars(player: Player): number
+	local balances = self.balancesByPlayer[player]
+	return if balances then balances.goldBars else 0
+end
+
+-- the Mining Supplies Store pays from here; false leaves the balance untouched
+function RefineryManager:spendGoldBars(player: Player, amount: number): boolean
+	local balances = self.balancesByPlayer[player]
+	if not balances or amount < 0 or balances.goldBars < amount then
+		return false
+	end
+	balances.goldBars -= amount
+	self:replicatePlayer(player)
+	return true
+end
+
+-- dev tools: grant Gold and jump the camp level, so the store can be tested
+-- without a mining trip
+function RefineryManager:addGoldBars(player: Player, amount: number)
+	local balances = self.balancesByPlayer[player]
+	if not balances then
+		return
+	end
+	balances.goldBars = math.max(balances.goldBars + amount, 0)
+	self:replicatePlayer(player)
+end
+
+function RefineryManager:setCampLevel(level: number)
+	local topLevel = #LevelData.DIAMONDS_REQUIRED_BY_LEVEL + 1
+	self.campLevel = math.clamp(math.floor(level), DEFAULT_CAMP_LEVEL, topLevel)
+	self.diamondPool = 0
+	self:replicateShared()
+end
+
 function RefineryManager:getUraniumTotal(): number
 	return self.uraniumTotal
 end

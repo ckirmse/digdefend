@@ -382,6 +382,7 @@ Mining Supplies Store
 * It will also have a 3D representation of each consumable Mining Tool that can also be purchased by activating a proximity prompt:
    * Torch: Creates light for dark mining caverns
    * Dynamite: Destroys a large chunk of rock when activated
+* As built (M21, decided 2026-09-15): the store is Camp.MiningStore with one "<Item>Stand" Model per item (Pick Axe, Boots, Backpack, Jet Pack, Torch, Dynamite), each with a Base slab carrying a SurfaceGui (name, Gold price with icon, and a "Camp Level N required" line shown in red only while unmet) and an ItemSpawn part where the next level's model turns at 45 degrees per second. Every purchase is a ProximityPrompt held for one second, heard by the server directly; prices per level and consumable bundles live in GameData/Store/MiningSupplies (placeholders: Pick Axe 15/40/100/250, Boots 10/25/60/150, Backpack 10/30/80/200, Jet Pack 20/50/120/300 Gold for levels 2 to 5; Torch 5 Gold for four, Dynamite 12 Gold for one). Stands are drawn by each client from a catalogue published once as GameMetadata, because the next level differs per player; a locked stand disables its prompt locally, a maxed track reads "MAXED OUT" and keeps its top model on display. Gold Bars are spent from the refinery balance; the StorePurchase sound confirms a buy
 Defense Store
 * This is where players can buy consumable Traps
 * Traps are consumable items that can be purchased with Iron and placed down outside the base. Once used, they disappear. They don’t directly attack enemies, but help corral, slow, or injure them when triggered. 
@@ -409,7 +410,7 @@ Placement Area
 Helicopter Pad
 * An empty Helicopter Pad made for the company rescue helicopter to drop off/pick up players
 * This is where players spawn in after being teleported to the gameplay server. The model is Workspace.Camp.HelicopterPad with a HelicopterSpawn part and a Spawns folder of parts named 1-6; players are placed on them in arrival order (first to arrive on 1).
-* On server start the company helicopter (ReplicatedStorage.GameAssets.Helicopter, the same template as the lobby) is spawned at HelicopterSpawn with its rotor already turning. Once every party member has loaded in (or 45 s after the first arrival), it waits 3 s and takes off exactly like a lobby departure.
+* On server start the company helicopter (ReplicatedStorage.GameAssets.Helicopter, the same template as the lobby) is spawned at HelicopterSpawn with its rotor already turning and the Helicopter sound looping on it as a 3D emitter from the first frame until the model is destroyed. Once every party member has loaded in (or 45 s after the first arrival), it waits 3 s and takes off exactly like a lobby departure.
 * If players make it to the end, this is where the rescue helicopter lands
 Tools
 Tools are items that allow players to perform an action when equipped. Players load in with a weapon and a pick axe as their primary tools, but can buy other tools from the in-run stores. 
@@ -420,12 +421,14 @@ Tool Bar System
 * Only one tool can be equipped at a time
 * Tapping another tool or tapping the currently equipped tool in the Tool Bar unequips the currently tool 
 * Keyboard: keys 1-9 toggle the slot with that number. Gamepad: the bumpers step through the bar; stepping past either end unequips. The number hint on each slot is shown only when a keyboard is present
-* The bar shows what the server says the player holds (tool slots and the equipped tool are server state replicated as attributes); every tap is a request. The equipped tool is public, so every client shows the held model on that player's right hand. The bar slides away while a menu is open
+* The bar shows what the server says the player holds (tool slots and the equipped tool are server state replicated as attributes); every tap is a request. The bar slides away while a menu is open
+* The held model is a real Roblox Tool (decided 2026-09-15, as in the reference games): the server builds it from the GameAssets/Tools template when a tool is equipped and destroys it when not, so the Humanoid grips it, plays the arm pose and the forward swing on every use, and keeps it visible in first person. The Tool is only the visual; slots and counts stay in server Lua state and it is never stored in the Roblox Backpack (a Roblox-side unequip counts as an unequip request). Roblox's own hotbar is switched off
+* Consumables (Torch, Dynamite) show how many are held as an "xN" badge on their slot and leave the bar when the last one is used
 Pick Axe (Default Tool)
 * Every player starts with a basic Pick Axe Tool by default
 * Equipping a Pick Axe puts a player in Mining Mode, allowing them to mine Rocks in the mine 
 * If a pick axe is not equipped, they cannot mine
-* Players can upgrade their pick axe in the Mining Store, at which point the pick axe model and Tool Icon change to reflect the upgrade
+* Players can upgrade their pick axe in the Mining Store, at which point the pick axe model and Tool Icon change to reflect the upgrade (as built: one held model per level, "PICK_AXE_<level>" under GameAssets/Tools, rebuilt in the hand on upgrade)
 * Pick Axes do not perform any other function than mining (they cannot be used as a weapon)
 Weapon (Default Tool)
 * Every player also starts every run with a weapon
@@ -438,6 +441,9 @@ Mining Tools
 * Includes Dynamite and a torch at launch
 * Once purchased, these tools are added to the tool bar (after Pick Axe and Weapon)
 * Tapping the tool icons for these equips the item and allows players to place/throw them at the desired spot
+* Torch (as built, M21): with a torch held, a tap places one on whatever surface the reticle points at within pick axe reach, like Minecraft. The server spends one, keeps the torch as an invisible part clients dress with a stick, a flame, and a shadowless point light (24 studs), and remembers which mine block it sits on: when that block is mined or blasted, the torch drops as a pickup anyone can walk over. Placement plays TorchPlace
+* Dynamite (as built, M21, decided 2026-09-15): with dynamite held, a tap throws a stick about ten studs ahead (GameData/Mining/Dynamite). The thrower's client simulates it, since only clients have the mine's blocks to land on; the server reads where it ended up (refusing a blast further than 60 studs from the throw) and after a 3 second fuse clears every breakable rock within one block of it (a 3x3x3 cube), broadcasting the breaks like swings. All ore from a blast drops on the ground; none goes to a backpack. The fuse hiss rides on the stick and the bang plays where it went off, both 3D so every player hears them in place; clients draw sparks, smoke, and a flash
+* Sounds for both are authored in SoundService.Sfx like every other sound; the server clones them onto objects with an AudioEmitter (SpatialSoundManager), and each client keeps an AudioListener on its camera
 Mining
 Mining is half the game and is the only way players can win a run. However the goal is to keep mining simple, lightly strategic, but tactilely rewarding. Every mine is randomly generated based on a set of parameters created for each map/difficulty level. We want mining to feel exactly like mining in Roblox, so players just intuitively know how to mine. 
 
@@ -495,7 +501,7 @@ Mining Rock
 * To mine Rock, players must first equip their Pick Axe – which puts them in “Mining Mode”
 * Mining is intended to feel just like Minecraft, so it is intuitive to a broad amount of players
 * There needs to be a small dot in the center screen, representing the player’s aim
-* With Pick Axed equipped, any rock in the center of the players screen is highlighted (Highlight, white borders, transparent fill)  and the name/HP of that Rock is shown to the right of the player’s central reticle 
+* With Pick Axed equipped, any rock in the center of the players screen is highlighted (Highlight, white borders, transparent fill)  and the name of that Rock is shown to the right of the player’s central reticle over a health bar; no numbers (decided 2026-09-15, as in Minecraft and Dome Keeper: the block and the bar are the readout). The bar turns red once the block is crumbling; bedrock shows no bar  
 * To start breaking the highlighted rock players:
    * Mobile: Tap Rock to hit once, hold to hit repeatedly 
    * PC: LMB click to hit once, hold LMB to hit continuously 
@@ -504,13 +510,13 @@ Mining Rock
 * Every swing is a request (TryHitRock with the block's grid cell). The server refuses it unless the pick axe is equipped, the cell is a diggable rock, the player's root is within reach plus a 6-stud tolerance of the block centre, and 0.35 s have passed since that player's last accepted swing. Damage is the pick axe level's value; the server then tells every client the block's remaining HP (crack state) or that it broke
 * Until M46 art, the crack overlay is a placeholder tint: the block darkens at 60% and again at 30% HP. Hit and break bursts are placeholder particles in the block's colour; the RockHit sound (filler) or ResourceHit sound (ore, metallic) plays on a hit and RockBreak on a break, for players within 60 studs
 * Only the Rock currently highlighted will be hit 
-* The Rock’s HP is updated to reflect its current health after each hit
+* The Rock’s health bar is updated to reflect its current health after each hit
 * There will be a particle effect with each hit (rock pieces flying) and noises to make it feel tactile and satisfying 
 * Once the Rock’s HP is at or below 0, it breaks
 * If any Ore is inside, it drops out (see Collecting Ore below) 
 * Players can mine as much a they want, they just can’t collect any additional Ore if their Backpack is full
-* When in “Mining Mode”, a backpack icon with current status will be shown in the HUD (taken slots/total slots).
-* When the Backpack is full, the Backpack Icon/numbers should turn red and a small text label should say “Backpack full” (see “A Game About Digging a Hole” for reference)
+* A backpack icon with current status is always shown in the HUD (taken slots/total slots), on the right edge at mid height with the jet pack fuel bar directly under it (decided 2026-09-15; it was Mining Mode only).
+* When the Backpack is full, the Backpack Icon/numbers should turn red and a small text label should say “Backpack full” (see “A Game About Digging a Hole” for reference), and the Fail sound plays once on the change to full
 Collecting Ore
 * Dropped resources are automatically given to the player who breaks the block. 
 * Any resources that the breaker doesn’t have room for in their Backpack (raw resource inventory) is dropped on the ground
@@ -518,9 +524,9 @@ Collecting Ore
 * When Ore is collected, it should make a pop sound, again like Minecraft
 * Players can tap their Backpack icon to bring up a Backpack inventory menu
 * This menu shows how much of each Ore is in their backpack (only showing Ore that the player actually has) 
-* Capacity is counted in ore units, so the HUD’s taken/total is total ore over capacity (“12/15”). Contents, level, and capacity are server run state replicated as private attributes; the backpack HUD button shows only while the pick axe is held and opens the contents menu as an overlay
+* Capacity is counted in ore units, so the HUD’s taken/total is total ore over capacity (“12/15”). Contents, level, and capacity are server run state replicated as private attributes; the backpack HUD button is always shown and opens the contents menu as an overlay
 * A broken resource rock gives the breaker its yield. Iron and Gold are multiplied by the party table (PartyScaling) and rounded half up; Crystal and Uranium never are. Party size is the current player count until M28 samples it at dawn
-* Ore that does not fit lands by the block as a pickup (one invisible server part carrying resource and amount; clients draw a bobbing cube in the ore’s colour), scattered up to 1.5 studs. Any player with room within 5 studs collects it, partial amounts included; the server checks four times a second. A pickup nobody takes disappears after 120 s, and past 300 pickups the oldest go first (GameData/Mining/Backpack)
+* Ore that does not fit lands by the block as a pickup (one invisible server part carrying resource and amount; clients draw a bobbing cube in the ore’s colour), scattered up to 1.5 studs and settled onto the ground beneath (inside the mine the server walks the grid column down to the next rock; outside it raycasts the camp), so drops never hang where the block was. Ore at the player's feet still flies into the HUD backpack from the nearest screen edge. Any player with room within 5 studs collects it, partial amounts included; the server checks four times a second. A pickup nobody takes disappears after 120 s, and past 300 pickups the oldest go first (GameData/Mining/Backpack)
 Refining Ore
 * Players refine Raw Resources by taking them to the Refinery
 * The Refinery is the main camp building, located just outside the Mine Entrance
@@ -591,7 +597,7 @@ Index
 	Stone 5
 	160
 	Resource rock
-Yields raw ore when destroyed. Cluster size is a property of the rock, not of the mine — Iron 3 clusters the same way everywhere.
+Yields raw ore when destroyed. Cluster size is a property of the rock, not of the mine — Iron 3 clusters the same way everywhere. Iron and Gold tiers 1 to 3 were shrunk to radius 0 to 1 (one to seven blocks) on 2026-09-15 after play showed them clumping; the table below still shows the original radii.
 Rock
 	Tier
 	HP
@@ -754,7 +760,11 @@ Parameter
 	height
 	number
 	inherited
-	Blocks
+	Blocks up from the entrance floor line
+	floorDrop
+	number
+	inherited (0)
+	Blocks the zone extends below the entrance floor line (added 2026-09-15), so a mine goes down as well as up. The grid's floor row sits above the deepest drop; hand-placed rock heights are measured from the floor line
 	width
 	number
 	inherited
@@ -1004,6 +1014,7 @@ return {
         {   -- 3: taller, harder
             depth = 24,
             height = 12,
+            floorDrop = 6,
             hardness = 3.0,
             tierBias = 3.0,
             iron = 22, gold = 22, crystal = 12, uranium = 8,
@@ -1013,6 +1024,7 @@ return {
         {   -- 4: cathedral, the deepest and richest rock
             depth = 28,
             height = 16,
+            floorDrop = 8,
             hardness = 4.0,
             tierBias = 4.0,
             iron = 16, gold = 20, crystal = 18, uranium = 14,
@@ -1021,6 +1033,8 @@ return {
     },
 }
 Uranium is spread 2 / 4 / 8 / 14 so the counter moves from the first zone. Nothing stops a crew tunnelling straight for zone 4, except that its rock is hardness 4.0 against a level 1 pick axe; that curve, and the camp level gating the pick axe tiers, is the pacing.
+As of 2026-09-15 the live file (GameData/Mines/DeadmansCanyon) also drops each zone below the entrance floor (floorDrop 2 / 4 / 6 / 8) and evens out zones 1 and 2 to 22 iron / 20 gold and 22 / 22, because Gold feeds the store now while Iron's sinks (walls, traps) arrive later.
+Darkness: the mine is lit by the client, not the sun. From the mouth to 100 studs in, each client blends the sun, ambient, and skybox light down to near black by how far along the mine's forward axis its character stands (ClientMineLightingManager), so torches are what light the deep mine and walking out never shows a step.
 At Nightmare (vein divisor 1.4), the same file generates zone 2 with the same rock, 21 iron, 13 gold, and 4 crystal clusters, and unchanged uranium. No second file, no overrides.
 Mining Attributes
 
@@ -1028,26 +1042,27 @@ Mining Attributes
 Pick Axe
 * A player’s Pick Axe determines how much HP is removed from a Rock per hit
 * There are 5 Pick Axe Levels (though this should be easily adjustable). Level 2 is a plain Gold purchase; from there, level N+1 requires Camp Level N (decided 2026-09-15), so the first upgrade teaches the store before the camp level matters
-* Damage per hit by level: 5 / 12 / 25 / 50 / 100 (GameData/Mining/PickAxe, DAMAGE_BY_LEVEL; the list length is the level count; level 5 is a placeholder until tuned). Level 1 breaks Stone 1 in two swings and needs 22 for Iron 4, which is what sells the upgrade. Everyone is level 1 until the Mining Supplies Store (M21)
+* Damage per hit by level: 5 / 12 / 25 / 50 / 100 (GameData/Mining/PickAxe, DAMAGE_BY_LEVEL; the list length is the level count; level 5 is a placeholder until tuned). Level 1 breaks Stone 1 in two swings and needs 22 for Iron 4, which is what sells the upgrade. Everyone is level 1 until the Mining Supplies Store (M21), where levels 2 to 5 cost 15 / 40 / 100 / 250 Gold (placeholders)
 
 
 
 
 Backpack
-* Capacity by level, in ore units: 15 / 25 / 40 / 60 / 90 (GameData/Mining/Backpack, CAPACITY_BY_LEVEL; the list length is the level count; decided 2026-09-15 to start small so refining trips are frequent; tune in play). Five levels, level N+1 needing Camp Level N, like the pick axe. Everyone is level 1 until the Mining Supplies Store (M21)
+* Capacity by level, in ore units: 15 / 25 / 40 / 60 / 90 (GameData/Mining/Backpack, CAPACITY_BY_LEVEL; the list length is the level count; decided 2026-09-15 to start small so refining trips are frequent; tune in play). Five levels, level N+1 needing Camp Level N, like the pick axe. Everyone is level 1 until the Mining Supplies Store (M21), where levels 2 to 5 cost 10 / 30 / 80 / 200 Gold (placeholders)
 Boots
 * The second mining attribute, bought and upgraded in the Mining Supplies Store like the others: five levels, level 2 a plain Gold buy, level N+1 needing Camp Level N. Boots only do one thing: walk speed (decided 2026-09-15)
 * Walk speed by level, in studs per second: 16 / 18 / 20 / 22 / 24 (GameData/Mining/Boots, WALK_SPEED_BY_LEVEL; the list length is the level count; placeholders until tuned in play). Level 1 is Roblox’s default, so a new player moves exactly as they expect
 * The level is run state like the pick axe level, held by the server and applied to the character’s Humanoid on upgrade and on every respawn, so nothing about speed is ever trusted from the client
 * Boots change no other stat: no jump, no fall damage, no carry. Those belong to the Jet Pack and the Backpack
+* Store prices for levels 2 to 5: 10 / 25 / 60 / 150 Gold (placeholders)
 Jet Pack
 * The fourth mining attribute (added 2026-09-15), bought and upgraded in the Mining Supplies Store like Pick Axe, Boots, and Backpack: five levels, level 2 a plain Gold buy, level N+1 needing Camp Level N. It is the climbing mechanic the mine generator has been waiting for (IS_CLIMBING_ENABLED), so mines can go taller and more vertical, and a player at the bottom of a shaft they dug has a way out
 * Controls, kept to one gesture. Keyboard and gamepad: double-tap Jump and keep holding it; the jet pack burns while Jump is held and stops the moment it is released. Touch: a Jet Pack button sits above the jump button; holding it burns, releasing it stops. No hover, no descend input, no toggle state to remember: burn is up, release is down
-* Fuel is the whole design. The tank starts at 3 seconds of burn and each upgrade adds 1 second (level 5 holds 7 seconds); both numbers are tunable in GameData/Mining/JetPack. Fuel drains only while burning and the pack cuts out when the tank is empty, so the player falls. It refills only while standing on the ground, after a short delay, so the jet pack is a hop and an escape, never flight
-* Burning lifts the player straight up at a fixed climb speed while the normal walk controls still steer, so a hop can be aimed onto a ledge
-* The tank shows as a small bar on the HUD next to the backpack button, only while burning or refilling, so the screen stays clear the rest of the time
+* Fuel is the whole design. The tank starts at 1.5 seconds of burn and each upgrade adds half a second (level 5 holds 3.5 seconds); both numbers are tunable in GameData/Mining/JetPack (retuned 2026-09-15 from 3 s plus 1 s, which cleared the mine at level 2). Fuel drains only while burning and the pack cuts out when the tank is empty, so the player falls. It refills whenever the pack is not burning, anywhere, at half a second of fuel per second, and a tank run dry locks the pack until it is full again (decided 2026-09-15, replacing an on-the-ground rule that felt inconsistent); stopping early keeps the remaining fuel. That lock is what keeps a hop from becoming flight
+* Burning lifts the player straight up at a fixed climb speed (12 studs per second, so a level 1 burn lifts about four blocks and level 5 about ten, under the 72-stud mine) while the normal walk controls still steer, so a hop can be aimed onto a ledge
+* The tank shows as a bar with a jet pack icon directly under the backpack button on the right edge of the HUD, always visible (decided 2026-09-15): green while the pack answers, red while it is locked and refilling. The Fail sound plays the moment the tank runs dry
 * No restrictions on when it can be used (decided 2026-09-15): in the mine, in the camp, during combat, at night. The fuel limit is the only guard against abuse; if a hop over the wall turns out to be a problem in play, the fix is tuning fuel, not adding rules. The mine’s bedrock and the map’s own edges are the only bounds. Fall damage rules are decided with Revives (M32); until then the cut-out height must stay survivable
-* Server authority follows the tools rule: the client asks to start and stop burning, the server owns the fuel and refuses a start on an empty tank; the client animates thrust from the replicated state. Every player sees the pack on the character’s back and a flame while it burns
+* Server authority follows the tools rule: the client asks to start and stop burning, the server owns the fuel and refuses a start on an empty or locked tank; the owning client applies the lift itself (it owns its character's physics) from the replicated burning flag. Every player sees the pack on the character’s back (GameAssets/Wearables/JET_PACK) with a flame and light while it burns, and hears the burn as a 3D loop on that character. Store prices for levels 2 to 5: 20 / 50 / 120 / 300 Gold (placeholders)
 Posts
 Defenses
 Traps
@@ -1057,7 +1072,7 @@ Camp Level
 * What a level unlocks (decided 2026-09-15): the next tier of every upgrade track, in both stores. Pick Axe, Boots, and Backpack in the Mining Supplies Store have five levels each and level N+1 requires Camp Level N, so level 2 is always a plain Gold buy: players learn mining upgrades before the camp level ever matters. Post upgrades at the posts are sold by tier and tier N requires Camp Level N. Diamonds are the only collective currency, so the collective decision of when to level the camp is what paces both halves of the loop: how deep the crew can dig by day, and how hard the posts hit by night
 * Never capped: consumables (Torch, Dynamite), Traps, Defensive Units, and wall repair. Those are priced by Gold or Iron alone so the stores never feel closed
 * Nothing in the mine is ever locked by Camp Level. Depth is paced by rock hardness against the pick axe tier the camp level allows (see Mine Layout)
-* A store item above the cap still shows, with its price greyed and “Camp Level N required” in place of the buy prompt, so the goal is always visible
+* A store item above the cap still shows, with its price greyed, its prompt disabled, and a red “Camp Level N required” line under the price, so the goal is always visible; the line disappears once the level is met
 * Display: the bar and level live on a billboard above the Refinery, the camp’s focal point, not in the HUD; the info is only needed while refining, and the top of the screen is kept for the day clock and wave state. Diamonds fly from the Refinery into the billboard bar during a payout
 * Level up is the pacing beat of a run and never happens silently: every player, wherever they are, hears the CampLevelUp sound and sees a “CAMP LEVEL n” toast slide in at the top of the screen, and the Refinery billboard rolls over
 * Diamonds needed per level live in GameData/Camp/Level (placeholder pacing 20, 80, 250 until tuned in play); the tier-per-level table lives in GameData too (M22), so lifting or loosening the cap is a one-line change

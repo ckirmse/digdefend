@@ -2,7 +2,7 @@
 
 -- Mining Mode (GDD "Mining Rock"), active while the local player holds the
 -- pick axe: a centre reticle, the block under it highlighted with its name
--- and HP beside the reticle, and a swing per press or per interval while
+-- and a health bar (no numbers, decided 2026-09-15) beside the reticle, and a swing per press or per interval while
 -- held (mouse button, touch, gamepad right trigger). Swings are only ever
 -- requests (TryHitRock); the crack state and the removal every client shows
 -- come back from the server.
@@ -16,11 +16,13 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local MiningRules = require("@game/ReplicatedStorage/Shared/MiningRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
+local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
+local ClientHeldToolManager = require(script.Parent.ClientHeldToolManager)
 local ClientMineManager = require(script.Parent.ClientMineManager)
 
 local ClientMiningManager = {}
@@ -39,6 +41,8 @@ export type ClientMiningManager = typeof(setmetatable(
 		gui: ScreenGui?,
 		reticle: GuiObject?,
 		targetLabel: TextLabel?,
+		targetBar: GuiObject?,
+		targetFill: GuiObject?,
 		highlight: Highlight?,
 		target: Target?,
 		isHolding: boolean,
@@ -94,6 +98,8 @@ end
 
 function ClientMiningManager:renderTargetLabel()
 	local label = self.targetLabel
+	local bar = self.targetBar
+	local fill = self.targetFill
 	if not label then
 		return
 	end
@@ -101,19 +107,28 @@ function ClientMiningManager:renderTargetLabel()
 	local grid = ClientMineManager:getGrid()
 	if not target or not grid then
 		label.Visible = false
+		if bar then
+			bar.Visible = false
+		end
 		return
 	end
 	local cellIndex = (target.depth * grid.height + target.height) * grid.width + target.width + 1
 	local rock = grid.cells[cellIndex]
-	local name = Enums.getPublicName(Enums.RockName, rock) or "Rock"
-	local maxHp = ClientMineManager:getRockMaxHp(rock)
-	if maxHp then
-		local remaining = self.remainingHpByCell[cellIndex] or maxHp
-		label.Text = `{name}  {math.ceil(remaining)}/{maxHp}`
-	else
-		label.Text = name
-	end
+	label.Text = Enums.getPublicName(Enums.RockName, rock) or "Rock"
 	label.Visible = true
+	-- bedrock has no hp and so no bar; the fill turns red once the block is crumbling
+	local maxHp = ClientMineManager:getRockMaxHp(rock)
+	if bar and fill then
+		if maxHp then
+			local remaining = self.remainingHpByCell[cellIndex] or maxHp
+			local fraction = math.clamp(remaining / maxHp, 0, 1)
+			fill.Size = UDim2.fromScale(fraction, 1)
+			fill.BackgroundColor3 = if MiningRules.crackStage(remaining, maxHp) >= 2 then UiStyle.NEGATIVE_COLOR else UiStyle.POSITIVE_COLOR
+			bar.Visible = true
+		else
+			bar.Visible = false
+		end
+	end
 end
 
 -- what the camera centre is looking at, within reach, among rendered blocks
@@ -148,6 +163,7 @@ function ClientMiningManager:swing()
 		return
 	end
 	self.lastSwingTime = workspace:GetServerTimeNow()
+	ClientHeldToolManager:playSwing()
 	ClientNetManager:fireServer(
 		NetEventNames.TRY_HIT_ROCK,
 		{
@@ -335,6 +351,10 @@ function ClientMiningManager:init()
 		self.reticle = if reticle and reticle:IsA("GuiObject") then reticle else nil
 		local label = gui:FindFirstChild(Constants.MINING_TARGET_LABEL)
 		self.targetLabel = if label and label:IsA("TextLabel") then label else nil
+		local bar = gui:FindFirstChild(Constants.MINING_TARGET_BAR)
+		self.targetBar = if bar and bar:IsA("GuiObject") then bar else nil
+		local fill = if bar then bar:FindFirstChild(Constants.MINING_TARGET_FILL) else nil
+		self.targetFill = if fill and fill:IsA("GuiObject") then fill else nil
 	else
 		warn("ClientMiningManager: no MiningHud ScreenGui; run scripts/studio/build_mining_hud_gui.luau")
 	end
@@ -396,6 +416,8 @@ function ClientMiningManager.new(): ClientMiningManager
 	self.gui = nil
 	self.reticle = nil
 	self.targetLabel = nil
+	self.targetBar = nil
+	self.targetFill = nil
 	self.highlight = nil
 	self.target = nil
 	self.isHolding = false

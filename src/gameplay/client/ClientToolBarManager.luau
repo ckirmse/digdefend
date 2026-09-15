@@ -3,7 +3,8 @@
 -- The custom tool bar (GDD "Tool Bar System"): one slot per tool in the
 -- order the server lists them, more than three on mobile, one equipped at a
 -- time. Tap a slot to equip, tap it again or another to switch; keys 1-9
--- and the gamepad bumpers do the same. The bar only asks (TryEquipTool);
+-- and the gamepad bumpers do the same. Consumables show how many are held
+-- in a corner badge and leave the bar at zero. The bar only asks (TryEquipTool);
 -- what it shows is the server's answer in the CurrentPlayer attributes.
 -- Slides away while a menu is open.
 local Players = game:GetService("Players")
@@ -35,6 +36,7 @@ export type ClientToolBarManager = typeof(setmetatable(
 		slotTemplate: GuiButton?,
 		basePosition: UDim2?,
 		slots: { number },
+		countByTool: { [number]: number },
 		equipped: number,
 		slotViews: { SlotView },
 	},
@@ -125,7 +127,24 @@ function ClientToolBarManager:renderSlots()
 		frame.Parent = slotsFrame
 		table.insert(self.slotViews, { tool = tool, frame = frame })
 	end
+	self:renderCounts()
 	self:renderEquipped()
+end
+
+function ClientToolBarManager:renderCounts()
+	for _, view in self.slotViews do
+		local countLabel = view.frame:FindFirstChild(Constants.TOOL_SLOT_COUNT_LABEL)
+		if not countLabel or not countLabel:IsA("TextLabel") then
+			continue
+		end
+		local count = self.countByTool[view.tool]
+		if MiningRules.isConsumable(view.tool) and count then
+			countLabel.Text = `x{count}`
+			countLabel.Visible = true
+		else
+			countLabel.Visible = false
+		end
+	end
 end
 
 function ClientToolBarManager:renderEquipped()
@@ -199,6 +218,7 @@ function ClientToolBarManager:init()
 	template.Visible = false
 
 	self.slots = MiningRules.decodeToolSlots(ClientDataManager:getCurrentPlayerAttribute(Attributes.TOOL_SLOTS))
+	self.countByTool = MiningRules.decodeToolCounts(ClientDataManager:getCurrentPlayerAttribute(Attributes.TOOL_COUNTS))
 	local equipped = ClientDataManager:getCurrentPlayerAttribute(Attributes.EQUIPPED_TOOL)
 	self.equipped = if typeof(equipped) == "number" then equipped else MiningRules.NO_TOOL
 	self:renderSlots()
@@ -208,6 +228,13 @@ function ClientToolBarManager:init()
 		function(value: any)
 			self.slots = MiningRules.decodeToolSlots(value)
 			self:renderSlots()
+		end
+	)
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.TOOL_COUNTS,
+		function(value: any)
+			self.countByTool = MiningRules.decodeToolCounts(value)
+			self:renderCounts()
 		end
 	)
 	ClientDataManager:subscribeCurrentPlayerAttribute(
@@ -232,6 +259,7 @@ function ClientToolBarManager.new(): ClientToolBarManager
 	self.slotTemplate = nil
 	self.basePosition = nil
 	self.slots = {}
+	self.countByTool = {}
 	self.equipped = MiningRules.NO_TOOL
 	self.slotViews = {}
 	return self

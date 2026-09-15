@@ -68,6 +68,39 @@ function MiningRules.decodeToolSlots(encoded: any): { number }
 	return slots
 end
 
+-- consumable counts travel as JSON { [toolKind] = count }; JSON keys are
+-- strings, so they are restored to numbers on decode
+function MiningRules.encodeToolCounts(countByTool: { [number]: number }): string
+	local encodable: { [string]: number } = {}
+	for tool, count in countByTool do
+		encodable[tostring(tool)] = count
+	end
+	return HttpService:JSONEncode(encodable)
+end
+
+function MiningRules.decodeToolCounts(encoded: any): { [number]: number }
+	local counts: { [number]: number } = {}
+	if typeof(encoded) ~= "string" or encoded == "" then
+		return counts
+	end
+	local isSuccess, decoded = pcall(HttpService.JSONDecode, HttpService, encoded)
+	if not isSuccess or typeof(decoded) ~= "table" then
+		return counts
+	end
+	for key, count in decoded :: { [any]: any } do
+		local tool = tonumber(key)
+		if tool and Enums.isValidValue(Enums.ToolKind, tool) and typeof(count) == "number" and count > 0 then
+			counts[tool] = count
+		end
+	end
+	return counts
+end
+
+-- consumables live in the bar only while some are held (GDD "Mining Tools")
+function MiningRules.isConsumable(tool: number): boolean
+	return tool == Enums.ToolKind.TORCH or tool == Enums.ToolKind.DYNAMITE
+end
+
 -- the per-player Iron and Gold yield multiplier for a party size; sizes past
 -- the table use its last row
 function MiningRules.getOreYieldMultiplier(multiplierByPlayerCount: { number }, playerCount: number): number

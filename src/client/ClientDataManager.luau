@@ -18,6 +18,9 @@ export type PublicData = {
 	isReady: boolean,
 	-- Enums.ToolKind, 0 when nothing is held
 	equippedTool: number,
+	-- run state every client may show (gameplay place)
+	pickAxeLevel: number,
+	isJetPackBurning: boolean,
 }
 
 export type AllPlayersHandlers = {
@@ -51,6 +54,8 @@ local function readPublicData(folder: Instance): PublicData
 		displayName = (folder:GetAttribute(Attributes.DISPLAY_NAME) :: string?) or "",
 		isReady = folder:GetAttribute(Attributes.IS_READY) == true,
 		equippedTool = (folder:GetAttribute(Attributes.EQUIPPED_TOOL) :: number?) or 0,
+		pickAxeLevel = (folder:GetAttribute(Attributes.PICK_AXE_LEVEL) :: number?) or 1,
+		isJetPackBurning = folder:GetAttribute(Attributes.IS_JET_PACK_BURNING) == true,
 	}
 end
 

@@ -112,3 +112,33 @@ describe(
 		)
 	end
 )
+
+describe(
+	"MiningRules tool counts codec",
+	function()
+		it(
+			"round-trips counts with numeric tool keys",
+			function()
+				local decoded = MiningRules.decodeToolCounts(MiningRules.encodeToolCounts({ [Enums.ToolKind.TORCH] = 4, [Enums.ToolKind.DYNAMITE] = 1 }))
+				expect(decoded[Enums.ToolKind.TORCH]).toBe(4)
+				expect(decoded[Enums.ToolKind.DYNAMITE]).toBe(1)
+			end
+		)
+		it(
+			"drops zero counts, unknown tools, and garbage",
+			function()
+				local decoded = MiningRules.decodeToolCounts(MiningRules.encodeToolCounts({ [Enums.ToolKind.TORCH] = 0, [99] = 3 }))
+				expect(next(decoded)).toBe(nil)
+				expect(next(MiningRules.decodeToolCounts("nope"))).toBe(nil)
+				expect(next(MiningRules.decodeToolCounts(nil))).toBe(nil)
+			end
+		)
+		it(
+			"knows which tools are consumable",
+			function()
+				expect(MiningRules.isConsumable(Enums.ToolKind.TORCH)).toBe(true)
+				expect(MiningRules.isConsumable(Enums.ToolKind.PICK_AXE)).toBe(false)
+			end
+		)
+	end
+)

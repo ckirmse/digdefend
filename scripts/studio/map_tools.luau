@@ -156,7 +156,7 @@ local function previewMine(mapFolder: Folder)
 		addPreviewBox(folder, "Zone" .. zone.index, space, zone.depthStart, zone.depth, zone.heightStart, zone.height, zone.widthStart, zone.width, Color3.fromRGB(80, 160, 255), 0.7, label)
 		for entryIndex, entry in zone.handPlaced do
 			local rockName = Enums.getName(Enums.RockName, entry.rock) or tostring(entry.rock)
-			addPreviewBox(folder, "HandPlaced" .. zone.index .. "_" .. entryIndex, space, zone.depthStart + entry.depth, 1, zone.heightStart + entry.height, 1, grid.centrelineWidth + entry.widthOffset, 1, Color3.fromRGB(255, 80, 200), 0.2, rockName)
+			addPreviewBox(folder, "HandPlaced" .. zone.index .. "_" .. entryIndex, space, zone.depthStart + entry.depth, 1, grid.floorHeight + entry.height, 1, grid.centrelineWidth + entry.widthOffset, 1, Color3.fromRGB(255, 80, 200), 0.2, rockName)
 		end
 	end
 	-- pockets: every air cell inside a zone that is not the entrance tunnel

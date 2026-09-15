@@ -36,7 +36,27 @@ module = {
 	-- on CurrentPlayer; the slot list and pick axe level are private
 	EQUIPPED_TOOL = "EquippedTool",
 	TOOL_SLOTS = "ToolSlots",
+	-- JSON of { [toolKind] = count } for consumables (MiningRules codec)
+	TOOL_COUNTS = "ToolCounts",
+	-- public as well, for the tool bar and store displays
 	PICK_AXE_LEVEL = "PickAxeLevel",
+	-- on the held Tool instance ToolManager builds: the GameAssets/Tools
+	-- template it came from, so an upgrade rebuilds it
+	TOOL_TEMPLATE = "ToolTemplate",
+	-- Mining Supplies Store upgrade tracks (M21): private run state
+	BOOTS_LEVEL = "BootsLevel",
+	JET_PACK_LEVEL = "JetPackLevel",
+	-- jet pack (JetPackManager): the tank is private, the burning flag is
+	-- public so every client shows the flame
+	JET_PACK_FUEL_SEC = "JetPackFuelSec",
+	JET_PACK_FUEL_MAX_SEC = "JetPackFuelMaxSec",
+	-- true from running dry until the tank is full again
+	IS_JET_PACK_LOCKED = "IsJetPackLocked",
+	IS_JET_PACK_BURNING = "IsJetPackBurning",
+	-- GameMetadata (gameplay): the store catalogue as JSON (StoreRules codec)
+	-- and the jet pack tuning the client animates from
+	STORE_CATALOG = "StoreCatalog",
+	JET_PACK_CLIMB_SPEED = "JetPackClimbSpeed",
 	-- GameMetadata (gameplay): pick axe input tuning the client needs
 	PICK_AXE_HIT_INTERVAL_SEC = "PickAxeHitIntervalSec",
 	PICK_AXE_REACH_STUDS = "PickAxeReachStuds",
@@ -62,6 +82,10 @@ module = {
 	-- on each ore pickup shadow part (Tags.ORE_PICKUP): what lies there
 	PICKUP_RESOURCE = "PickupResource",
 	PICKUP_AMOUNT = "PickupAmount",
+	-- a dropped consumable instead: the Enums.ToolKind lying there
+	PICKUP_TOOL = "PickupTool",
+	-- on each thrown dynamite part (Tags.DYNAMITE): server time it explodes
+	DYNAMITE_EXPLODE_TIME = "DynamiteExplodeTime",
 	-- on every helicopter model (Tags.HELICOPTER): Enums.HelicopterPhase
 	HELICOPTER_PHASE = "HelicopterPhase",
 	-- on each helicopter pad model: PadIndex is Studio-authored, the rest is

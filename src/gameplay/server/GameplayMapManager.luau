@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
 local HelicopterManager = require(script.Parent.Parent.Server.HelicopterManager)
 
 local GameplayMapManager = {}
@@ -100,6 +101,35 @@ function GameplayMapManager:checkRefinery(camp: Folder)
 	end
 end
 
+-- one "<Item>Stand" per store item, each with the Base the prompt and
+-- SurfaceGui live on and the ItemSpawn the display model spins over
+function GameplayMapManager:checkMiningStore(camp: Folder)
+	-- a Model or a Folder both serve; the stands inside are what matter
+	local store = self:requireChild(camp, Constants.CAMP_MINING_STORE_MODEL)
+	if not store then
+		return
+	end
+	for _, item in Enums.getAllValues(Enums.StoreItem) do
+		local stand = self:requireChild(store, StoreRules.standNameForItem(item) :: string, "Model")
+		if not stand then
+			continue
+		end
+		local base = self:requireChild(stand, Constants.STAND_BASE_PART, "BasePart")
+		if base and base:IsA("BasePart") then
+			if not base.Anchored then
+				self:report(`{base:GetFullName()} must be anchored`)
+			end
+			if not base:FindFirstChild(Constants.STAND_GUI) then
+				self:report(`{base:GetFullName()} needs a {Constants.STAND_GUI}`)
+			end
+		end
+		local itemSpawn = self:requireChild(stand, Constants.STAND_ITEM_SPAWN_PART, "BasePart")
+		if itemSpawn and itemSpawn:IsA("BasePart") and not itemSpawn.Anchored then
+			self:report(`{itemSpawn:GetFullName()} must be anchored`)
+		end
+	end
+end
+
 -- one template part per rock, so a client can clone every rock the generator
 -- can place; missing ones render as a plain grey cube with a warning
 function GameplayMapManager:checkRockTemplates()
@@ -127,6 +157,7 @@ function GameplayMapManager:checkCamp(camp: Folder, mapName: string)
 	self:checkHelicopterPad(camp)
 	self:checkMineEntrance(camp)
 	self:checkRefinery(camp)
+	self:checkMiningStore(camp)
 	local found = #self.problems - before
 	if found == 0 then
 		print(`[GameplayMapManager] map {mapName} check passed`)

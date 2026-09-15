@@ -121,11 +121,43 @@ module = {
 	ToolKind = {
 		PICK_AXE = 1,
 		WEAPON = 2,
+		-- consumables bought at the Mining Supplies Store (M21); the count
+		-- held travels beside the slot list
+		TORCH = 3,
+		DYNAMITE = 4,
 
 		PublicNames = {
 			PICK_AXE = "Pick Axe",
 			WEAPON = "Weapon",
+			TORCH = "Torch",
+			DYNAMITE = "Dynamite",
 		},
+	},
+	-- one stand each in the Mining Supplies Store (GDD "Mining Supplies
+	-- Store"); keys double as the stand model names ("<KEY>Stand" in
+	-- PascalCase is looked up through StoreRules.standNameForItem)
+	StoreItem = {
+		PICK_AXE = 1,
+		BOOTS = 2,
+		BACKPACK = 3,
+		JET_PACK = 4,
+		TORCH = 5,
+		DYNAMITE = 6,
+
+		PublicNames = {
+			PICK_AXE = "Pick Axe",
+			BOOTS = "Boots",
+			BACKPACK = "Backpack",
+			JET_PACK = "Jet Pack",
+			TORCH = "Torch",
+			DYNAMITE = "Dynamite",
+		},
+	},
+	-- what a stand offers a given player right now (StoreRules.getOffer)
+	StoreOffer = {
+		AVAILABLE = 1,
+		LOCKED = 2,
+		MAXED = 3,
 	},
 	-- the direction a player walks to enter a mine; 90 degree steps keep
 	-- blocks axis-aligned (GDD "Coordinate model")

@@ -16,6 +16,16 @@ module = {
 		ORE_PICKUP = "OrePickup",
 		REFINERY_GRIND = "RefineryGrind",
 		REFINERY_PAYOUT = "RefineryPayout",
+		-- M21: store and consumables
+		STORE_PURCHASE = "StorePurchase",
+		DYNAMITE_FUSE = "DynamiteFuse",
+		DYNAMITE_EXPLODE = "DynamiteExplode",
+		TORCH_PLACE = "TorchPlace",
+		JET_PACK_BURN = "JetPackBurn",
+		-- 3D loop on every helicopter from spawn until it is destroyed
+		HELICOPTER = "Helicopter",
+		-- 2D: something just stopped working for you (backpack full, tank dry)
+		FAIL = "Fail",
 	},
 	Music = {},
 }

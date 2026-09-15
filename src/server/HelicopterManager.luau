@@ -12,7 +12,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
+local SpatialSoundManager = require(script.Parent.SpatialSoundManager)
 
 local HelicopterManager = {}
 HelicopterManager.__index = HelicopterManager
@@ -97,6 +99,11 @@ function HelicopterManager:spawnAt(spawnPart: BasePart, parent: Instance, phase:
 	self:setPhase(helicopter, phase)
 	CollectionService:AddTag(helicopter, Tags.HELICOPTER)
 	helicopter.Parent = parent
+	-- the rotor loop rides on the model from the first frame and dies with it
+	local soundPart = helicopter.PrimaryPart or helicopter:FindFirstChildWhichIsA("BasePart")
+	if soundPart then
+		SpatialSoundManager:attach(soundPart, SoundNames.Sfx.HELICOPTER, true)
+	end
 	return helicopter
 end
 

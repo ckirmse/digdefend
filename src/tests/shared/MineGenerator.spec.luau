@@ -741,3 +741,45 @@ describe(
 		)
 	end
 )
+
+describe(
+	"MineGenerator floorDrop",
+	function()
+		it(
+			"drops zones below the entrance floor line and keeps the mouth on it",
+			function()
+				local mine = makeMine()
+				mine.zones[1].floorDrop = 2
+				mine.zones[3].floorDrop = 6
+				local result = generateOrFail(mine)
+				local grid = result.grid
+				local zones = result.zones
+				-- bedrock floor 1 + the deepest drop 6
+				expect(grid.floorHeight).toBe(7)
+				expect(zones[1].heightStart).toBe(5)
+				expect(zones[1].height).toBe(10)
+				expect(zones[1].floorDrop).toBe(2)
+				-- zone 2 inherits the drop from zone 1, zone 4 from zone 3
+				expect(zones[2].floorDrop).toBe(2)
+				expect(zones[4].heightStart).toBe(1)
+				expect(zones[4].height).toBe(22)
+				-- tallest zone: 16 up from the floor line, plus ceiling bedrock
+				expect(grid.height).toBe(7 + 16 + 1)
+				-- the entrance opens at the floor line
+				expect(MineGenerator.getCell(grid, 0, grid.floorHeight, grid.centrelineWidth)).toBe(MineGenerator.AIR)
+				expect(MineGenerator.getCell(grid, 0, grid.floorHeight - 1, grid.centrelineWidth)).toBe(RockName.BEDROCK)
+				-- the hand-placed advert is measured from the floor line, not the zone bottom
+				expect(MineGenerator.getCell(grid, zones[1].depthStart + 6, grid.floorHeight + 1, 14)).toBe(RockName.CRYSTAL_3)
+			end
+		)
+		it(
+			"rejects a negative or fractional floorDrop",
+			function()
+				local mine = makeMine()
+				mine.zones[2].floorDrop = -1
+				local _, errors = MineGenerator.generate(mine, makeConfig(), SEED)
+				expect(table.concat(errors, "\n")).toContain("floorDrop")
+			end
+		)
+	end
+)

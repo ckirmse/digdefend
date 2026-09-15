@@ -2,7 +2,7 @@
 
 -- The backpack on this client (GDD "Mining Rock", "Collecting Ore"): the HUD
 -- button with "taken/total", red and "Backpack full" when there is no room,
--- shown while the pick axe is held; the pop sound when ore is collected;
+-- always shown (decided 2026-09-15); the pop sound when ore is collected;
 -- and the contents menu (an overlay) listing only the ores carried. All
 -- numbers come from the CurrentPlayer attributes BackpackManager writes.
 local Players = game:GetService("Players")
@@ -43,7 +43,8 @@ export type ClientBackpackManager = typeof(setmetatable(
 		rows: { Frame },
 		overlay: ClientOverlayManager.Overlay?,
 		isMenuOpen: boolean,
-		isPickAxeHeld: boolean,
+		-- so the fail sound plays once, on the change to full
+		wasFull: boolean,
 	},
 	ClientBackpackManager
 ))
@@ -101,6 +102,10 @@ function ClientBackpackManager:renderHud()
 	local capacity = readNumber(Attributes.BACKPACK_CAPACITY)
 	local total = self.heldTotal or BackpackRules.getTotal(self:readContents())
 	local isFull = capacity > 0 and total >= capacity
+	if isFull and not self.wasFull then
+		ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
+	end
+	self.wasFull = isFull
 	countLabel.Text = string.format(COUNT_FORMAT, total, capacity)
 	countLabel.TextColor3 = if isFull then UiStyle.NEGATIVE_COLOR else UiStyle.TEXT_COLOR
 	if fullLabel then
@@ -167,7 +172,7 @@ function ClientBackpackManager:setHudVisible()
 	if not button then
 		return
 	end
-	button.Visible = self.isPickAxeHeld and not self.isMenuOpen
+	button.Visible = not self.isMenuOpen
 end
 
 function ClientBackpackManager:closeMenu()
@@ -206,7 +211,9 @@ function ClientBackpackManager:onOreCollected(payload: any)
 		return
 	end
 	local button = self.button
-	local from = ClientIconFlightManager:worldToScreen(payload.position)
+	-- ore at the player's feet is off screen in first person; it still flies
+	-- in from the nearest edge
+	local from = ClientIconFlightManager:worldToScreenOrEdge(payload.position)
 	if not button or not button.Visible or not from then
 		-- nothing to fly to (or from): one pop still confirms the pickup
 		ClientSoundManager:playSfx(SoundNames.Sfx.ORE_PICKUP)
@@ -274,7 +281,7 @@ function ClientBackpackManager:findHud()
 		return
 	end
 	self.hudGui = gui
-	local button = gui:FindFirstChild(Constants.HUD_BACKPACK_BUTTON)
+	local button = gui:FindFirstChild(Constants.HUD_BACKPACK_BUTTON, true)
 	if not button or not button:IsA("GuiButton") then
 		warn("ClientBackpackManager: GameplayHud is missing BackpackButton")
 		return
@@ -340,12 +347,7 @@ function ClientBackpackManager:init()
 	self:findHud()
 	self:findMenu()
 
-	local function applyEquipped(value: any)
-		self.isPickAxeHeld = value == Enums.ToolKind.PICK_AXE
-		self:setHudVisible()
-	end
-	applyEquipped(ClientDataManager:getCurrentPlayerAttribute(Attributes.EQUIPPED_TOOL))
-	ClientDataManager:subscribeCurrentPlayerAttribute(Attributes.EQUIPPED_TOOL, applyEquipped)
+	self:setHudVisible()
 
 	local watched = { Attributes.BACKPACK_CAPACITY }
 	for _, resource in RESOURCE_ORDER do
@@ -395,7 +397,7 @@ function ClientBackpackManager.new(): ClientBackpackManager
 	self.rows = {}
 	self.overlay = nil
 	self.isMenuOpen = false
-	self.isPickAxeHeld = false
+	self.wasFull = false
 	return self
 end
 

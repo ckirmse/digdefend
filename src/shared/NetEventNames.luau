@@ -39,6 +39,19 @@ module = {
 	-- attributes. Refining itself is a ProximityPrompt trigger, not a message
 	NOTIFY_REFINE_STARTED = "NotifyRefineStarted",
 	NOTIFY_REFINE_COMPLETED = "NotifyRefineCompleted",
+	-- mining consumables (M21). Buying is a ProximityPrompt trigger on the
+	-- stand, not a message. Throwing and placing are requests; the results
+	-- are shadow parts (Tags.DYNAMITE / Tags.TORCH) and NotifyRockBroken
+	TRY_THROW_DYNAMITE = "TryThrowDynamite",
+	TRY_PLACE_TORCH = "TryPlaceTorch",
+	-- every client: a blast happened here (sound and smoke)
+	NOTIFY_DYNAMITE_EXPLODED = "NotifyDynamiteExploded",
+	-- to one client: a store purchase went through (the sound and the toast)
+	NOTIFY_STORE_PURCHASE = "NotifyStorePurchase",
+	-- jet pack: the client asks to start and stop burning; the fuel and the
+	-- burning flag come back as attributes
+	TRY_JET_PACK_START = "TryJetPackStart",
+	TRY_JET_PACK_STOP = "TryJetPackStop",
 }
 
 return module

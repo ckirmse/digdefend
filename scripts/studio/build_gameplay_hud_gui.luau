@@ -1,8 +1,8 @@
--- Rebuilds the "GameplayHud" ScreenGui under StarterGui: the backpack button
--- (icon, "taken/total", and the "Backpack full" label) that
--- ClientBackpackManager shows while the pick axe is held (GDD "Mining
--- Rock"); the balance rows top left that ClientRefineryManager keeps
--- current (GDD "Refining Ore"); and the FlyLayer
+-- Rebuilds the "GameplayHud" ScreenGui under StarterGui: the right-edge
+-- stack (the backpack button with icon, "taken/total", and the "Backpack
+-- full" label, always shown, and the jet pack fuel bar under it, GDD
+-- "Mining Rock" and "Jet Pack"); the balance rows top left that
+-- ClientRefineryManager keeps current (GDD "Refining Ore"); and the FlyLayer
 -- its icons travel across. Run from the Studio command bar (or the MCP
 -- execute_luau tool) in the gameplay place; it replaces any existing copy.
 -- Names must match Constants.GAMEPLAY_HUD_* / HUD_*.
@@ -40,12 +40,30 @@ gui.DisplayOrder = 0
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Enabled = true
 
--- bottom-right, clear of the tool bar in the centre
+-- the right-edge stack, centred vertically: backpack button, then the jet
+-- pack bar under it; a list layout keeps them stacked at every aspect
+local stack = Instance.new("Frame")
+stack.Name = "RightStack"
+stack.AnchorPoint = Vector2.new(1, 0.5)
+stack.Position = UDim2.fromScale(0.98, 0.5)
+stack.Size = UDim2.fromScale(0.11, 0.14)
+local stackSize = Instance.new("UISizeConstraint")
+stackSize.MinSize = Vector2.new(110, 80)
+stackSize.MaxSize = Vector2.new(260, 180)
+stackSize.Parent = stack
+stack.BackgroundTransparency = 1
+local stackLayout = Instance.new("UIListLayout")
+stackLayout.FillDirection = Enum.FillDirection.Vertical
+stackLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+stackLayout.SortOrder = Enum.SortOrder.LayoutOrder
+stackLayout.Padding = UDim.new(0.05, 0)
+stackLayout.Parent = stack
+stack.Parent = gui
+
 local button = Instance.new("TextButton")
 button.Name = "BackpackButton"
-button.AnchorPoint = Vector2.new(1, 1)
-button.Position = UDim2.fromScale(0.98, 0.97)
-button.Size = UDim2.fromScale(0.11, 0.08)
+button.LayoutOrder = 1
+button.Size = UDim2.fromScale(1, 0.6)
 local aspect = Instance.new("UIAspectRatioConstraint")
 aspect.AspectRatio = 2.2
 aspect.Parent = button
@@ -58,8 +76,8 @@ button.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
 button.BorderSizePixel = 0
 button.Text = ""
 button.AutoButtonColor = true
-button.Visible = false
-button.Parent = gui
+button.Visible = true
+button.Parent = stack
 addCorner(button)
 
 -- placeholder icon until art: a bag glyph
@@ -172,6 +190,82 @@ for order, spec in ROWS do
 	value.Parent = row
 	row.Parent = balances
 end
+
+-- jet pack fuel bar under the backpack button, always shown: an icon on the
+-- left so it reads as the jet pack, and the fill track beside it
+local jetBar = Instance.new("Frame")
+jetBar.Name = "JetPackBar"
+jetBar.LayoutOrder = 2
+jetBar.Size = UDim2.fromScale(1, 0.3)
+local jetAspectBar = Instance.new("UIAspectRatioConstraint")
+jetAspectBar.AspectRatio = 4.4
+jetAspectBar.Parent = jetBar
+local jetBarSize = Instance.new("UISizeConstraint")
+jetBarSize.MinSize = Vector2.new(110, 25)
+jetBarSize.MaxSize = Vector2.new(260, 59)
+jetBarSize.Parent = jetBar
+jetBar.BackgroundColor3 = UiStyle.PANEL_COLOR
+jetBar.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
+jetBar.BorderSizePixel = 0
+jetBar.Visible = true
+jetBar.Parent = stack
+addCorner(jetBar)
+-- placeholder icon until art: a rocket glyph
+local jetIcon = Instance.new("TextLabel")
+jetIcon.Name = "Icon"
+jetIcon.Position = UDim2.fromScale(0.05, 0.1)
+jetIcon.Size = UDim2.fromScale(0.2, 0.8)
+jetIcon.BackgroundTransparency = 1
+jetIcon.Text = "🚀"
+jetIcon.TextScaled = true
+jetIcon.FontFace = UiStyle.TITLE_FONT
+addTextSizeBounds(jetIcon, UiStyle.LABEL_TEXT_MIN_PX, 32)
+jetIcon.Parent = jetBar
+local jetTrack = Instance.new("Frame")
+jetTrack.Name = "Track"
+jetTrack.AnchorPoint = Vector2.new(0, 0.5)
+jetTrack.Position = UDim2.fromScale(0.3, 0.5)
+jetTrack.Size = UDim2.fromScale(0.65, 0.4)
+jetTrack.BackgroundColor3 = UiStyle.EMPTY_SLOT_COLOR
+jetTrack.BorderSizePixel = 0
+jetTrack.Parent = jetBar
+addCorner(jetTrack)
+local jetFill = Instance.new("Frame")
+jetFill.Name = "Fill"
+jetFill.Size = UDim2.fromScale(1, 1)
+jetFill.BackgroundColor3 = UiStyle.ACCENT_COLOR
+jetFill.BorderSizePixel = 0
+jetFill.Parent = jetTrack
+addCorner(jetFill)
+
+-- touch-only jet pack button above Roblox's jump button (bottom right);
+-- keyboard and gamepad players double-tap Jump instead
+local jetButton = Instance.new("TextButton")
+jetButton.Name = "JetPackButton"
+jetButton.AnchorPoint = Vector2.new(1, 1)
+jetButton.Position = UDim2.fromScale(0.98, 0.62)
+jetButton.Size = UDim2.fromScale(0.09, 0.09)
+local jetAspect = Instance.new("UIAspectRatioConstraint")
+jetAspect.AspectRatio = 1
+jetAspect.Parent = jetButton
+local jetButtonSize = Instance.new("UISizeConstraint")
+jetButtonSize.MinSize = Vector2.new(56, 56)
+jetButtonSize.MaxSize = Vector2.new(110, 110)
+jetButtonSize.Parent = jetButton
+jetButton.BackgroundColor3 = UiStyle.PANEL_COLOR
+jetButton.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
+jetButton.BorderSizePixel = 0
+jetButton.Text = "JET"
+jetButton.TextColor3 = UiStyle.TEXT_COLOR
+jetButton.TextScaled = true
+jetButton.FontFace = UiStyle.TITLE_FONT
+jetButton.AutoButtonColor = true
+jetButton.Visible = false
+addTextSizeBounds(jetButton, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.BODY_TEXT_MAX_PX)
+jetButton.Parent = gui
+local jetCorner = Instance.new("UICorner")
+jetCorner.CornerRadius = UDim.new(0.5, 0)
+jetCorner.Parent = jetButton
 
 -- the layer flying icons cross; above everything else in this gui
 local flyLayer = Instance.new("Frame")

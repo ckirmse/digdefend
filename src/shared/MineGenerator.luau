@@ -39,7 +39,11 @@ export type HandPlaced = {
 
 export type ZoneDefinition = {
 	depth: number?,
+	-- blocks up from the entrance floor line
 	height: number?,
+	-- blocks the zone extends below the entrance floor line (added
+	-- 2026-09-15 so a mine goes down as well as up); inherited, default 0
+	floorDrop: number?,
 	width: number?,
 	hardness: number?,
 	tierBias: number?,
@@ -95,7 +99,10 @@ export type GeneratorConfig = {
 export type ResolvedZone = {
 	index: number,
 	depth: number,
+	-- the whole vertical span: floorDrop rows below the floor line plus the
+	-- authored height above it
 	height: number,
+	floorDrop: number,
 	width: number,
 	hardness: number,
 	tierBias: number,
@@ -187,6 +194,7 @@ local RESOURCE_FIELDS = {
 local INHERITED_FIELDS = {
 	"depth",
 	"height",
+	"floorDrop",
 	"width",
 	"hardness",
 	"tierBias",
@@ -280,13 +288,13 @@ local function zoneLabel(index: number): string
 end
 
 -- the entrance tunnel: through the front bedrock and entranceDepth blocks
--- into zone 1, centred on the centreline, up from the floor
+-- into zone 1, centred on the centreline, up from the floor line
 local function entranceBox(grid: MineGrid, definition: MineDefinition, bedrock: Bedrock): Box
 	return {
 		depthStart = 0,
 		depthEnd = bedrock.front + definition.entranceDepth - 1,
-		heightStart = bedrock.floor,
-		heightEnd = bedrock.floor + definition.entranceHeight - 1,
+		heightStart = grid.floorHeight,
+		heightEnd = grid.floorHeight + definition.entranceHeight - 1,
 		widthStart = centredSpanStart(grid.centrelineWidth, definition.entranceWidth),
 		widthEnd = centredSpanStart(grid.centrelineWidth, definition.entranceWidth) + definition.entranceWidth - 1,
 	}
@@ -300,6 +308,7 @@ local function resolveZones(definition: MineDefinition, config: GeneratorConfig,
 	local resolved: { ResolvedZone } = {}
 	local previous: { [string]: any } = {
 		height = definition.defaultZoneHeight,
+		floorDrop = 0,
 		width = definition.defaultZoneWidth,
 		hardness = 1.0,
 		tierBias = 1.0,
@@ -341,6 +350,10 @@ local function resolveZones(definition: MineDefinition, config: GeneratorConfig,
 			table.insert(errors, label .. ": pockets must be a non-negative number (got " .. tostring(values.pockets) .. ")")
 			values.pockets = 0
 		end
+		if typeof(values.floorDrop) ~= "number" or values.floorDrop < 0 or values.floorDrop % 1 ~= 0 then
+			table.insert(errors, label .. ": floorDrop must be a non-negative whole number (got " .. tostring(values.floorDrop) .. ")")
+			values.floorDrop = 0
+		end
 
 		-- hardness spans the stone tiers, tierBias the ore tiers
 		local maxHardness = #config.rockTable.FILLER_ORDER
@@ -371,7 +384,8 @@ local function resolveZones(definition: MineDefinition, config: GeneratorConfig,
 		table.insert(resolved, {
 			index = index,
 			depth = values.depth,
-			height = values.height,
+			height = values.height + values.floorDrop,
+			floorDrop = values.floorDrop,
 			width = values.width,
 			hardness = hardness,
 			tierBias = tierBias,
@@ -410,8 +424,8 @@ local function validateMine(definition: MineDefinition, zones: { ResolvedZone },
 	end
 	if typeof(definition.entranceHeight) ~= "number" or definition.entranceHeight < 1 then
 		table.insert(errors, "entranceHeight must be at least 1")
-	elseif definition.entranceHeight > firstZone.height then
-		table.insert(errors, "entranceHeight (" .. definition.entranceHeight .. ") must not exceed zone 1's height (" .. firstZone.height .. ")")
+	elseif definition.entranceHeight > firstZone.height - firstZone.floorDrop then
+		table.insert(errors, "entranceHeight (" .. definition.entranceHeight .. ") must not exceed zone 1's height above the floor line (" .. (firstZone.height - firstZone.floorDrop) .. ")")
 	elseif definition.entranceHeight > config.pickaxeReachBlocks and not config.isClimbingEnabled then
 		table.insert(warnings, "entranceHeight " .. definition.entranceHeight .. " is above pickaxe reach (" .. config.pickaxeReachBlocks .. ") with no climbing mechanic enabled; its ceiling cannot be mined from the floor")
 	end
@@ -453,24 +467,28 @@ local function layoutGrid(zones: { ResolvedZone }, bedrock: Bedrock): MineGrid
 	local sumDepth = 0
 	local maxHeight = 0
 	local maxWidth = 0
+	-- the floor line sits above the deepest drop; zones reach up and down from it
+	local maxFloorDrop = 0
 	for _, zone in zones do
 		sumDepth += zone.depth
-		maxHeight = math.max(maxHeight, zone.height)
+		maxHeight = math.max(maxHeight, zone.height - zone.floorDrop)
+		maxFloorDrop = math.max(maxFloorDrop, zone.floorDrop)
 		maxWidth = math.max(maxWidth, zone.width)
 	end
+	local floorLine = bedrock.floor + maxFloorDrop
 	local centreline = bedrock.side + math.floor((maxWidth - 1) / 2)
 	local grid: MineGrid = {
 		depth = bedrock.front + sumDepth + bedrock.far,
-		height = maxHeight + bedrock.floor + bedrock.ceiling,
+		height = floorLine + maxHeight + bedrock.ceiling,
 		width = maxWidth + bedrock.side * 2,
 		centrelineWidth = centreline,
-		floorHeight = bedrock.floor,
+		floorHeight = floorLine,
 		cells = {},
 	}
 	local depthCursor = bedrock.front
 	for _, zone in zones do
 		zone.depthStart = depthCursor
-		zone.heightStart = bedrock.floor
+		zone.heightStart = floorLine - zone.floorDrop
 		zone.widthStart = centredSpanStart(centreline, zone.width)
 		depthCursor += zone.depth
 	end
@@ -655,8 +673,10 @@ local function stampHandPlaced(grid: MineGrid, zones: { ResolvedZone }, config: 
 				table.insert(warnings, label .. ": rock " .. tostring(entry.rock) .. " is not a resource rock; skipped")
 				continue
 			end
+			-- heights are authored from the entrance floor line, what a player
+			-- walking in sees as ground level, not from the zone's lowest row
 			local depth = zone.depthStart + entry.depth
-			local height = zone.heightStart + entry.height
+			local height = grid.floorHeight + entry.height
 			local width = grid.centrelineWidth + entry.widthOffset
 			if not isInBox(bounds, depth, height, width) then
 				table.insert(warnings, label .. ": falls outside the zone bounds; clipped")

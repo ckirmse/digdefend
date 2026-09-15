@@ -119,6 +119,22 @@ keyLabel.FontFace = UiStyle.BODY_BOLD_FONT
 addTextSizeBounds(keyLabel, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.LABEL_TEXT_MAX_PX)
 keyLabel.Parent = template
 
+-- consumable count badge, bottom-right corner; hidden for tools without a count
+local countLabel = Instance.new("TextLabel")
+countLabel.Name = "CountLabel"
+countLabel.AnchorPoint = Vector2.new(1, 1)
+countLabel.Position = UDim2.fromScale(0.94, 0.96)
+countLabel.Size = UDim2.fromScale(0.45, 0.26)
+countLabel.BackgroundTransparency = 1
+countLabel.Text = "x0"
+countLabel.TextColor3 = UiStyle.ACCENT_COLOR
+countLabel.TextScaled = true
+countLabel.TextXAlignment = Enum.TextXAlignment.Right
+countLabel.FontFace = UiStyle.BODY_BOLD_FONT
+countLabel.Visible = false
+addTextSizeBounds(countLabel, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.LABEL_TEXT_MAX_PX)
+countLabel.Parent = template
+
 gui.Parent = StarterGui
 ChangeHistoryService:SetWaypoint("After ToolBar gui")
 print("build_tool_bar_gui: built StarterGui.ToolBar")

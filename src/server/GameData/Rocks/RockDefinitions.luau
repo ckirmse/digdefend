@@ -5,7 +5,9 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 -- The global rock table (GDD "Rock definitions"). Authored once for the whole
 -- game; mines never redefine these. Keyed by Enums.RockName, which is also the
 -- template name under ReplicatedStorage/Rocks. Cluster radius is a property
--- of the rock, not the mine: Iron 3 clusters the same way everywhere.
+-- of the rock, not the mine: Iron 3 clusters the same way everywhere. Iron
+-- and Gold clusters were shrunk a step on 2026-09-15 (radius 0-1, so one
+-- to seven blocks) after play showed them clumping.
 --
 -- FILLER_ORDER is load-bearing: the hardness kernel maps a center of 1.0 to
 -- the first entry and a center equal to the list length to the last, so it
@@ -59,8 +61,8 @@ return {
 			tier = 1,
 			hp = 15,
 			yield = 3,
-			clusterRadiusMin = 1,
-			clusterRadiusMax = 2,
+			clusterRadiusMin = 0,
+			clusterRadiusMax = 1,
 		},
 		[Enums.RockName.IRON_2] = {
 			kind = Enums.RockKind.RESOURCE,
@@ -68,8 +70,8 @@ return {
 			tier = 2,
 			hp = 30,
 			yield = 10,
-			clusterRadiusMin = 1,
-			clusterRadiusMax = 2,
+			clusterRadiusMin = 0,
+			clusterRadiusMax = 1,
 		},
 		[Enums.RockName.IRON_3] = {
 			kind = Enums.RockKind.RESOURCE,
@@ -77,8 +79,8 @@ return {
 			tier = 3,
 			hp = 60,
 			yield = 29,
-			clusterRadiusMin = 1,
-			clusterRadiusMax = 2,
+			clusterRadiusMin = 0,
+			clusterRadiusMax = 1,
 		},
 		[Enums.RockName.IRON_4] = {
 			kind = Enums.RockKind.RESOURCE,
@@ -96,8 +98,8 @@ return {
 			tier = 1,
 			hp = 20,
 			yield = 3,
-			clusterRadiusMin = 1,
-			clusterRadiusMax = 2,
+			clusterRadiusMin = 0,
+			clusterRadiusMax = 1,
 		},
 		[Enums.RockName.GOLD_2] = {
 			kind = Enums.RockKind.RESOURCE,
@@ -105,8 +107,8 @@ return {
 			tier = 2,
 			hp = 40,
 			yield = 10,
-			clusterRadiusMin = 1,
-			clusterRadiusMax = 2,
+			clusterRadiusMin = 0,
+			clusterRadiusMax = 1,
 		},
 		[Enums.RockName.GOLD_3] = {
 			kind = Enums.RockKind.RESOURCE,
@@ -114,7 +116,7 @@ return {
 			tier = 3,
 			hp = 75,
 			yield = 30,
-			clusterRadiusMin = 1,
+			clusterRadiusMin = 0,
 			clusterRadiusMax = 1,
 		},
 		[Enums.RockName.GOLD_4] = {

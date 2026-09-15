@@ -33,6 +33,9 @@ function ClientIconFlightManager:getLayer(): Frame?
 	return self.flyLayer
 end
 
+-- how far inside the viewport an off-screen origin is pushed
+local EDGE_MARGIN_PX = 24
+
 function ClientIconFlightManager:screenCenterOf(guiObject: GuiObject): Vector2
 	return guiObject.AbsolutePosition + guiObject.AbsoluteSize / 2
 end
@@ -48,6 +51,29 @@ function ClientIconFlightManager:worldToScreen(position: Vector3): Vector2?
 		return nil
 	end
 	return Vector2.new(point.X, point.Y)
+end
+
+-- the same point, but never nil: a world point the camera cannot see is
+-- pushed to the nearest viewport edge (mirrored when it is behind the
+-- camera), so ore collected at the player's feet in first person still
+-- flies in from the bottom of the screen
+function ClientIconFlightManager:worldToScreenOrEdge(position: Vector3): Vector2?
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return nil
+	end
+	local point, isOnScreen = camera:WorldToViewportPoint(position)
+	local viewport = camera.ViewportSize
+	if isOnScreen then
+		return Vector2.new(point.X, point.Y)
+	end
+	local x, y = point.X, point.Y
+	if point.Z < 0 then
+		x = viewport.X - x
+		y = viewport.Y - y
+	end
+	local margin = EDGE_MARGIN_PX
+	return Vector2.new(math.clamp(x, margin, viewport.X - margin), math.clamp(y, margin, viewport.Y - margin))
 end
 
 -- a layer-relative scale position from an absolute screen point, so icons

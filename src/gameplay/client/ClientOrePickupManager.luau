@@ -4,8 +4,9 @@
 -- server shadow carrying the resource and amount; this client gives it a
 -- thin plate showing the ore's 2D icon (from Icons, both faces) that bobs
 -- and spins like a coin. A resource with no icon yet falls back to a cube in
--- its rock colour. One Heartbeat drives every caster and runs only while
--- there is something to animate.
+-- its rock colour. A dropped tool (a torch off a broken block) shows as a
+-- small cube in the tool template's colour. One Heartbeat drives every
+-- caster and runs only while there is something to animate.
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -72,6 +73,33 @@ local function addFaceDecal(part: BasePart, face: Enum.NormalId, imageId: string
 	decal.Face = face
 	decal.Texture = imageId
 	decal.Parent = part
+end
+
+local function colorForTool(tool: number): (Color3, Enum.Material)
+	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
+	local tools = if gameAssets then gameAssets:FindFirstChild(Constants.TOOL_TEMPLATES_FOLDER) else nil
+	local key = Enums.getName(Enums.ToolKind, tool)
+	local template = if tools and key then tools:FindFirstChild(key) else nil
+	local handle = if template then template:FindFirstChild(Constants.TOOL_HANDLE_PART) else nil
+	if handle and handle:IsA("BasePart") then
+		return handle.Color, handle.Material
+	end
+	return FALLBACK_COLOR, Enum.Material.SmoothPlastic
+end
+
+local function makeToolCasterPart(tool: number): BasePart
+	local part = Instance.new("Part")
+	part.Name = "ToolPickup"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	local color, material = colorForTool(tool)
+	part.Size = Vector3.new(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE)
+	part.Color = color
+	part.Material = material
+	return part
 end
 
 -- an invisible plate carrying the icon on its front and back faces, or the
@@ -144,7 +172,10 @@ function ClientOrePickupManager:addCaster(shadow: Instance)
 		return
 	end
 	local resource = shadow:GetAttribute(Attributes.PICKUP_RESOURCE)
-	local part = makeCasterPart(if typeof(resource) == "number" then resource else 0)
+	local tool = shadow:GetAttribute(Attributes.PICKUP_TOOL)
+	local part = if typeof(tool) == "number"
+		then makeToolCasterPart(tool)
+		else makeCasterPart(if typeof(resource) == "number" then resource else 0)
 	part.CFrame = shadow.CFrame
 	part.Parent = self:getFolder()
 	self.casters[shadow] = { shadow = shadow, part = part, phase = self.random:NextNumber(0, math.pi * 2) }

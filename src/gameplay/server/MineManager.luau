@@ -42,6 +42,9 @@ export type MineManager = typeof(setmetatable(
 		space: MineSpace.MineSpace?,
 		-- damage dealt per cell index; a block breaks when it reaches the rock's hp
 		damageByCell: { [number]: number },
+		-- told whenever a cell becomes air (a break or a blast), so torches
+		-- on it can fall
+		cellClearedSubscribers: { (depth: number, height: number, width: number) -> () },
 	},
 	MineManager
 ))
@@ -239,12 +242,58 @@ function MineManager:applyDamage(depth: number, height: number, width: number, a
 	local cellIndex = MineGenerator.cellIndex(grid, depth, height, width)
 	local damage = (self.damageByCell[cellIndex] or 0) + amount
 	if damage >= definition.hp then
-		self.damageByCell[cellIndex] = nil
-		grid.cells[cellIndex] = MineGenerator.AIR
+		self:clearCell(depth, height, width)
 		return true, 0
 	end
 	self.damageByCell[cellIndex] = damage
 	return false, definition.hp - damage
+end
+
+-- turns a breakable cell to air outright (a dynamite blast); returns false
+-- for air, bedrock, and out-of-range cells
+function MineManager:clearCell(depth: number, height: number, width: number): boolean
+	local grid = self:getGrid()
+	local rock = self:getRockAt(depth, height, width)
+	if not grid or not rock or rock == MineGenerator.AIR then
+		return false
+	end
+	local definition = RockDefinitionsData.ROCKS[rock]
+	if not definition or not definition.hp then
+		return false
+	end
+	local cellIndex = MineGenerator.cellIndex(grid, depth, height, width)
+	self.damageByCell[cellIndex] = nil
+	grid.cells[cellIndex] = MineGenerator.AIR
+	for _, subscriber in self.cellClearedSubscribers do
+		subscriber(depth, height, width)
+	end
+	return true
+end
+
+-- the world Y of the top face of the first rock at or below a position's
+-- column, so a dropped pickup can rest on it; nil outside the grid or with
+-- nothing but air beneath (the bedrock floor makes that rare)
+function MineManager:findFloorBelow(position: Vector3): number?
+	local grid = self:getGrid()
+	local space = self:getSpace()
+	if not grid or not space then
+		return nil
+	end
+	local depth, height, width = MineSpace.worldToCell(space, position)
+	if depth < 0 or depth >= grid.depth or width < 0 or width >= grid.width then
+		return nil
+	end
+	local startHeight = math.min(height, grid.height - 1)
+	for row = startHeight, 0, -1 do
+		if MineGenerator.getCell(grid, depth, row, width) ~= MineGenerator.AIR then
+			return MineSpace.cellToWorld(space, depth, row, width).Y + space.blockSize / 2
+		end
+	end
+	return nil
+end
+
+function MineManager:subscribeCellCleared(subscriber: (depth: number, height: number, width: number) -> ())
+	table.insert(self.cellClearedSubscribers, subscriber)
 end
 
 function MineManager:onRunStarted(map: number, difficulty: number)
@@ -270,6 +319,7 @@ function MineManager.new(): MineManager
 	self.facing = nil
 	self.space = nil
 	self.damageByCell = {}
+	self.cellClearedSubscribers = {}
 	return self
 end
 
