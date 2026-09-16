@@ -30,13 +30,18 @@ UiStyle.EMPTY_SLOT_COLOR = Color3.fromRGB(52, 48, 44)
 UiStyle.CORNER_RADIUS_PX = 10
 UiStyle.STROKE_PX = 2
 
--- UITextSizeConstraint bounds; scaled text is always constrained by these
-UiStyle.TITLE_TEXT_MIN_PX = 20
+-- UITextSizeConstraint bounds; scaled text is always constrained by these.
+-- The minimums are 1 (no floor, decided 2026-09-16): a floor stops scaled
+-- text shrinking into a small phone label and clips it instead ("Weapo").
+-- Text too small to read is fixed by giving the label more room
+UiStyle.TITLE_TEXT_MIN_PX = 1
 UiStyle.TITLE_TEXT_MAX_PX = 110
-UiStyle.BODY_TEXT_MIN_PX = 14
+UiStyle.BODY_TEXT_MIN_PX = 1
 UiStyle.BODY_TEXT_MAX_PX = 26
-UiStyle.LABEL_TEXT_MIN_PX = 10
+UiStyle.LABEL_TEXT_MIN_PX = 1
 UiStyle.LABEL_TEXT_MAX_PX = 18
+-- the only pixel minimum a layout may carry: Roblox's touch-target floor
+UiStyle.TOUCH_TARGET_MIN_PX = 44
 
 UiStyle.HUD_TWEEN_SEC = 0.2
 -- how much a HUD element swells (1 = none) when a flying icon lands on it

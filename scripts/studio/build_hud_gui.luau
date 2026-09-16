@@ -29,11 +29,19 @@ local function addTextSizeBounds(label, minPx, maxPx)
 	constraint.Parent = label
 end
 
-local function addSizeBounds(frame, minSize, maxSize)
+-- max only: a pixel minimum would override scale on small screens (GUI
+-- standard, 2026-09-16); touch targets alone keep a floor, via addTouchTarget
+local function addMaxSize(frame, maxSize)
 	local constraint = Instance.new("UISizeConstraint")
-	constraint.MinSize = minSize
 	constraint.MaxSize = maxSize
 	constraint.Parent = frame
+end
+
+local function addTouchTarget(button, maxSize)
+	local constraint = Instance.new("UISizeConstraint")
+	constraint.MinSize = Vector2.new(UiStyle.TOUCH_TARGET_MIN_PX, UiStyle.TOUCH_TARGET_MIN_PX)
+	constraint.MaxSize = maxSize
+	constraint.Parent = button
 end
 
 local function addAspect(frame, ratio)
@@ -56,7 +64,7 @@ cashWallet.Name = "CashWallet"
 cashWallet.AnchorPoint = Vector2.new(0.5, 0)
 cashWallet.Position = UDim2.fromScale(0.5, 0.03)
 cashWallet.Size = UDim2.fromScale(0.16, 0.07)
-addSizeBounds(cashWallet, Vector2.new(140, 40), Vector2.new(320, 72))
+addTouchTarget(cashWallet, Vector2.new(320, 72))
 cashWallet.BackgroundColor3 = UiStyle.PANEL_COLOR
 cashWallet.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
 cashWallet.BorderSizePixel = 0
@@ -96,7 +104,7 @@ menuButtons.Name = "MenuButtons"
 menuButtons.AnchorPoint = Vector2.new(1, 0.5)
 menuButtons.Position = UDim2.fromScale(0.98, 0.5)
 menuButtons.Size = UDim2.fromScale(0.12, 0.3)
-addSizeBounds(menuButtons, Vector2.new(96, 150), Vector2.new(220, 330))
+addMaxSize(menuButtons, Vector2.new(220, 330))
 menuButtons.BackgroundTransparency = 1
 menuButtons.Parent = gui
 
@@ -153,7 +161,7 @@ loadoutStrip.Position = UDim2.fromScale(0.5, 0.97)
 loadoutStrip.Size = UDim2.fromScale(0.4, 0.14)
 -- the strip's aspect makes a square icon of ICON_ROW_HEIGHT exactly
 -- SLOT_WIDTH wide, so the label row lines up with the icons above it
-addSizeBounds(loadoutStrip, Vector2.new(280, 68), Vector2.new(640, 156))
+addMaxSize(loadoutStrip, Vector2.new(640, 156))
 addAspect(loadoutStrip, ICON_ROW_HEIGHT_SCALE / SLOT_WIDTH_SCALE)
 loadoutStrip.BackgroundTransparency = 1
 loadoutStrip.Parent = gui

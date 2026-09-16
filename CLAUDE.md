@@ -191,19 +191,20 @@ Defined in M10 and recorded here when decided: font choices, capitalization, cen
 Sizing and position:
 - **Scale** for the position and size of every container and label, never offset, so proportions hold across resolutions.
 - `UIAspectRatioConstraint` on any frame whose shape matters (images, buttons, cards, dialogs), so it does not stretch between phone and widescreen.
-- `UISizeConstraint` (min and max pixels) on elements that must stay usable on a phone and not balloon on a big screen (bars, boxes, buttons, icons).
-- `TextScaled = true` on every label, paired with a `UITextSizeConstraint` (min and max), so text is never unreadable or enormous. Long dynamic text gets `TextTruncate` rather than overflowing.
+- `UISizeConstraint` with a **max only** on elements that would balloon on a big screen (bars, boxes, buttons, icons). **No pixel minimums** (decided 2026-09-16): a minimum silently overrides scale on exactly the small screens it was meant to help, and it was the cause of the phone HUD covering the thumbstick. A layout must read correctly at 375×667 from its scale values alone. The single exception is `UiStyle.TOUCH_TARGET_MIN_PX` on touch buttons.
+- `TextScaled = true` on every label, paired with a `UITextSizeConstraint` with a **max only** (the `UiStyle` minimums are 1, decided 2026-09-16), so text never balloons; a text floor clips scaled text in a small phone label instead of shrinking it. Text too small to read means the label needs more room. Long dynamic text gets `TextTruncate` rather than overflowing.
 - **Offset only for hairlines:** strokes, corner radii, padding, and the pixel bounds inside a size constraint.
 - Lists and grids use `UIListLayout` / `UIGridLayout` with scale-based cell sizes plus constraints; never hand-placed rows.
 
 Device fit:
-- Full-screen overlays (loading, departure) set `IgnoreGuiInset = true`; everything else respects the inset so the top bar never covers it.
+- Full-screen overlays (loading, departure) set `IgnoreGuiInset = true` and `ScreenInsets = None` so they also cover a phone's notch and home-bar safe areas; everything else respects the inset so the top bar never covers it.
 - Anchor to edges or center with `AnchorPoint`, never to absolute coordinates, so notches and aspect changes cannot push content off screen.
-- Touch targets are at least 44 pixels on a side at the size constraint's minimum; anything smaller is a design bug.
+- Touch targets carry a `UISizeConstraint` minimum of `UiStyle.TOUCH_TARGET_MIN_PX` (44) on a side; anything smaller is a design bug.
+- **Nothing may sit where Roblox's own GUI can cover it** (decided 2026-09-16). Measured reserved regions: the top bar inset (respect it); the chat window, top-left, 40% of the viewport width by about 23% of its height when open; the touch jump button, bottom-right corner; the touch thumbstick, bottom-left quarter. Edge panels therefore sit a little above vertical centre, the top-left is empty, and touch buttons are placed against the live jump button by `ClientTouchLayoutManager` (read from `PlayerGui.TouchGui`), the one place offsets derived from Roblox's GUI are allowed. Check against a phone preset with chat open before closing a UI milestone.
 - Input-specific controls (keyboard hints, gamepad glyphs, touch buttons) are toggled per input type, not left visible everywhere.
 
 Authoring and verification:
-- ScreenGuis are authored by replayable build scripts in `scripts/studio/` (run through the Studio MCP), never hand-built, so both places get identical copies and a rebuild is one command. The script is the source of truth; edits in the Explorer are lost.
+- ScreenGuis are authored by replayable build scripts in `scripts/studio/` (run through the Studio MCP), never hand-built, so both places get identical copies and a rebuild is one command. **The designer tunes appearance in the Explorer** (decided 2026-09-16): before rebuilding any GUI, read the live instance in Studio, port every appearance difference (sizes, positions, colours, fonts, text bounds, corners, strokes, padding, constraints) into the script so it reproduces what is there, then rebuild. Never rebuild a GUI without saying so first. Copy and structure changes go in the script. GUIs that exist in both places are ported by the same read-then-rebuild step when the designer asks.
 - Before a UI milestone is closed, check the screen in Studio's Device Emulator at a phone, a tablet, a desktop, and an ultrawide preset, and confirm the captured `AbsoluteSize` values sit inside their constraints.
 
 Type and copy (decided 2026-09-11, M10; expected to change with real art):

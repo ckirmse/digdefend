@@ -4,6 +4,7 @@
 -- StarterPlayerScripts/Client/main; this script wires the gameplay's own managers.
 local StarterGui = game:GetService("StarterGui")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
+local ClientActionButtonManager = require(script.Parent.ClientActionButtonManager)
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
 local ClientDynamiteManager = require(script.Parent.ClientDynamiteManager)
 local ClientIconFlightManager = require(script.Parent.ClientIconFlightManager)
@@ -18,14 +19,17 @@ local ClientRefineryManager = require(script.Parent.ClientRefineryManager)
 local ClientRunDevTools = require(script.Parent.ClientRunDevTools)
 local ClientToolBarManager = require(script.Parent.ClientToolBarManager)
 local ClientTorchManager = require(script.Parent.ClientTorchManager)
+local ClientTouchLayoutManager = require(script.Parent.ClientTouchLayoutManager)
 
 ClientDataManager:awaitReady()
 
 -- held tools are real Tool instances (ToolManager) but the custom tool bar
--- is the only bar; Roblox's own hotbar stays off
+-- is the only bar; Roblox's own hotbar stays off. The player list is off
+-- too: a run's crew is at most six people already in view (2026-09-16)
 pcall(
 	function()
 		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
 	end
 )
 
@@ -41,7 +45,11 @@ ClientRefineryManager:init()
 ClientMiningStoreManager:init()
 ClientDynamiteManager:init()
 ClientTorchManager:init()
+-- after the tool managers it dispatches to
+ClientActionButtonManager:init()
 ClientJetPackManager:init()
+-- after both touch buttons exist; it places them around the jump button
+ClientTouchLayoutManager:init()
 
 if ClientDataManager:getIsAdmin() then
 	ClientRunDevTools:init()

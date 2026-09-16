@@ -31,11 +31,19 @@ local function addTextSizeBounds(label, minPx, maxPx)
 	constraint.Parent = label
 end
 
-local function addSizeBounds(frame, minSize, maxSize)
+-- max only: a pixel minimum would override scale on small screens (GUI
+-- standard, 2026-09-16); touch targets alone keep a floor, via addTouchTarget
+local function addMaxSize(frame, maxSize)
 	local constraint = Instance.new("UISizeConstraint")
-	constraint.MinSize = minSize
 	constraint.MaxSize = maxSize
 	constraint.Parent = frame
+end
+
+local function addTouchTarget(button, maxSize)
+	local constraint = Instance.new("UISizeConstraint")
+	constraint.MinSize = Vector2.new(UiStyle.TOUCH_TARGET_MIN_PX, UiStyle.TOUCH_TARGET_MIN_PX)
+	constraint.MaxSize = maxSize
+	constraint.Parent = button
 end
 
 local function makeLabel(name, text, font, color, minPx, maxPx)
@@ -66,7 +74,7 @@ dialog.Size = UDim2.fromScale(0.3, 0.5)
 local dialogAspect = Instance.new("UIAspectRatioConstraint")
 dialogAspect.AspectRatio = 0.85
 dialogAspect.Parent = dialog
-addSizeBounds(dialog, Vector2.new(240, 280), Vector2.new(480, 560))
+addMaxSize(dialog, Vector2.new(480, 560))
 dialog.BackgroundColor3 = UiStyle.PANEL_COLOR
 dialog.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
 dialog.BorderSizePixel = 0
@@ -115,7 +123,7 @@ listLayout.Parent = list
 local row = Instance.new("Frame")
 row.Name = "RowTemplate"
 row.Size = UDim2.fromScale(1, 0.14)
-addSizeBounds(row, Vector2.new(200, 28), Vector2.new(440, 56))
+addMaxSize(row, Vector2.new(440, 56))
 row.BackgroundColor3 = UiStyle.EMPTY_SLOT_COLOR
 row.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
 row.BorderSizePixel = 0
@@ -162,7 +170,7 @@ local close = Instance.new("TextButton")
 close.Name = "CloseButton"
 close.LayoutOrder = 4
 close.Size = UDim2.fromScale(0.6, 0.11)
-addSizeBounds(close, Vector2.new(120, 44), Vector2.new(320, 80))
+addTouchTarget(close, Vector2.new(320, 80))
 close.BackgroundColor3 = UiStyle.ACCENT_COLOR
 close.BorderSizePixel = 0
 close.Text = UiStyle.formatTitle("Close")

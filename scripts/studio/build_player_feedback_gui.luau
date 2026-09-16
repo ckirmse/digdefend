@@ -29,7 +29,6 @@ box.AnchorPoint = Vector2.new(0.5, 1)
 box.Position = UDim2.fromScale(0.5, 0.85)
 box.Size = UDim2.fromScale(0.4, 0.075)
 local boxSize = Instance.new("UISizeConstraint")
-boxSize.MinSize = Vector2.new(240, 40)
 boxSize.MaxSize = Vector2.new(640, 64)
 boxSize.Parent = box
 box.BackgroundColor3 = UiStyle.PANEL_COLOR

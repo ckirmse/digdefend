@@ -3,9 +3,16 @@
 -- Mining Mode (GDD "Mining Rock"), active while the local player holds the
 -- pick axe: a centre reticle, the block under it highlighted with its name
 -- and a health bar (no numbers, decided 2026-09-15) beside the reticle, and a swing per press or per interval while
--- held (mouse button, touch, gamepad right trigger). Swings are only ever
--- requests (TryHitRock); the crack state and the removal every client shows
--- come back from the server.
+-- held (mouse button, gamepad right trigger, the touch action button
+-- through beginHold/endHold, or a touch hold). Touch follows Minecraft
+-- Bedrock's split controls (researched 2026-09-16): a finger that rests
+-- still in the free screen area for a short dwell starts a hold on whatever
+-- the reticle points at, and dragging that finger afterwards turns the
+-- camera while the hold keeps mining; a quick tap or swipe never swings.
+-- After a break the hold waits until the reticle has rested on the next
+-- block for one interval, so every first hit is intended. Swings are only
+-- ever requests (TryHitRock); the crack state and the removal every client
+-- shows come back from the server.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -46,6 +53,15 @@ export type ClientMiningManager = typeof(setmetatable(
 		highlight: Highlight?,
 		target: Target?,
 		isHolding: boolean,
+		-- set when the held target breaks; cleared once a new target has
+		-- rested under the reticle for a full interval
+		isPausedAfterBreak: boolean,
+		targetSinceTime: number,
+		-- the touch that may become a hold, from TouchStarted until it lifts,
+		-- moves too far too soon, or passes the dwell
+		holdTouch: InputObject?,
+		holdTouchStartTime: number,
+		holdTouchStartPosition: Vector3,
 		lastSwingTime: number,
 		hitIntervalSec: number,
 		reachStuds: number,
@@ -75,6 +91,10 @@ local NOTIFY_ROCK_BROKEN_SHAPE = {
 
 local DEFAULT_HIT_INTERVAL_SEC = 0.45
 local DEFAULT_REACH_STUDS = 12
+-- a touch must rest this long, moving less than this, before it is a hold
+-- rather than a look or a tap (the feel constants, not gameplay tuning)
+local TOUCH_HOLD_DWELL_SEC = 0.25
+local TOUCH_HOLD_MAX_MOVE_PX = 12
 -- placeholder hit burst until M46 art
 local HIT_PARTICLE_COUNT = 8
 local BREAK_PARTICLE_COUNT = 24
@@ -88,6 +108,7 @@ function ClientMiningManager:setTarget(target: Target?)
 		return
 	end
 	self.target = target
+	self.targetSinceTime = workspace:GetServerTimeNow()
 	local highlight = self.highlight
 	if highlight then
 		highlight.Adornee = if target then target.part else nil
@@ -175,34 +196,95 @@ function ClientMiningManager:swing()
 end
 
 function ClientMiningManager:onSwingStep()
+	local now = workspace:GetServerTimeNow()
+	self:promoteHoldTouchIfNeeded(now)
 	if not self.isHolding or ClientOverlayManager:isOverlayActive() then
 		return
 	end
-	if workspace:GetServerTimeNow() - self.lastSwingTime >= self.hitIntervalSec then
+	if self.isPausedAfterBreak then
+		if not self.target or now - self.targetSinceTime < self.hitIntervalSec then
+			return
+		end
+		self.isPausedAfterBreak = false
+	end
+	if now - self.lastSwingTime >= self.hitIntervalSec then
 		self:swing()
 	end
 end
 
 local function isSwingInput(input: InputObject): boolean
 	return input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch
 		or input.KeyCode == Enum.KeyCode.ButtonR2
 end
 
-function ClientMiningManager:onInputBegan(input: InputObject, isGameProcessed: boolean)
-	if not self.isActive or isGameProcessed or not isSwingInput(input) or ClientOverlayManager:isOverlayActive() then
+-- a fresh press swings at once; holding repeats on the interval
+function ClientMiningManager:beginHold()
+	if not self.isActive or ClientOverlayManager:isOverlayActive() then
 		return
 	end
 	self.isHolding = true
-	-- a fresh press swings at once; holding repeats on the interval
+	-- a deliberate press means the player wants this block
+	self.isPausedAfterBreak = false
 	if workspace:GetServerTimeNow() - self.lastSwingTime >= self.hitIntervalSec then
 		self:swing()
 	end
 end
 
+function ClientMiningManager:endHold()
+	self.isHolding = false
+	self.isPausedAfterBreak = false
+end
+
+-- a touch in the free screen area (not a gui, not the thumbstick) is a
+-- hold candidate; it becomes a hold only after resting for the dwell
+function ClientMiningManager:onTouchStarted(touch: InputObject, isGameProcessed: boolean)
+	if not self.isActive or isGameProcessed or self.holdTouch ~= nil or self.isHolding then
+		return
+	end
+	self.holdTouch = touch
+	self.holdTouchStartTime = workspace:GetServerTimeNow()
+	self.holdTouchStartPosition = touch.Position
+end
+
+-- moving before the dwell is a look, and the touch stops being a candidate;
+-- moving after the hold began is a look that keeps mining
+function ClientMiningManager:onTouchMoved(touch: InputObject)
+	if touch ~= self.holdTouch or self.isHolding then
+		return
+	end
+	if (touch.Position - self.holdTouchStartPosition).Magnitude > TOUCH_HOLD_MAX_MOVE_PX then
+		self.holdTouch = nil
+	end
+end
+
+function ClientMiningManager:onTouchEnded(touch: InputObject)
+	if touch ~= self.holdTouch then
+		return
+	end
+	self.holdTouch = nil
+	self:endHold()
+end
+
+function ClientMiningManager:promoteHoldTouchIfNeeded(now: number)
+	local touch = self.holdTouch
+	if not touch or self.isHolding then
+		return
+	end
+	if now - self.holdTouchStartTime >= TOUCH_HOLD_DWELL_SEC then
+		self:beginHold()
+	end
+end
+
+function ClientMiningManager:onInputBegan(input: InputObject, isGameProcessed: boolean)
+	if isGameProcessed or not isSwingInput(input) then
+		return
+	end
+	self:beginHold()
+end
+
 function ClientMiningManager:onInputEnded(input: InputObject)
 	if isSwingInput(input) then
-		self.isHolding = false
+		self:endHold()
 	end
 end
 
@@ -297,6 +379,9 @@ function ClientMiningManager:onRockBroken(payload: any)
 	local target = self.target
 	if target and target.depth == payload.depth and target.height == payload.height and target.width == payload.width then
 		self:setTarget(nil)
+		if self.isHolding then
+			self.isPausedAfterBreak = true
+		end
 	end
 end
 
@@ -322,6 +407,8 @@ function ClientMiningManager:setActive(isActive: boolean)
 		)
 	else
 		self.isHolding = false
+		self.isPausedAfterBreak = false
+		self.holdTouch = nil
 		self:setTarget(nil)
 		if self.aimConnection then
 			self.aimConnection:Disconnect()
@@ -402,6 +489,21 @@ function ClientMiningManager:init()
 			self:onInputEnded(input)
 		end
 	)
+	UserInputService.TouchStarted:Connect(
+		function(touch: InputObject, isGameProcessed: boolean)
+			self:onTouchStarted(touch, isGameProcessed)
+		end
+	)
+	UserInputService.TouchMoved:Connect(
+		function(touch: InputObject)
+			self:onTouchMoved(touch)
+		end
+	)
+	UserInputService.TouchEnded:Connect(
+		function(touch: InputObject)
+			self:onTouchEnded(touch)
+		end
+	)
 
 	local function applyEquipped(value: any)
 		self:setActive(value == Enums.ToolKind.PICK_AXE)
@@ -421,6 +523,11 @@ function ClientMiningManager.new(): ClientMiningManager
 	self.highlight = nil
 	self.target = nil
 	self.isHolding = false
+	self.isPausedAfterBreak = false
+	self.targetSinceTime = 0
+	self.holdTouch = nil
+	self.holdTouchStartTime = 0
+	self.holdTouchStartPosition = Vector3.zero
 	self.lastSwingTime = 0
 	self.hitIntervalSec = DEFAULT_HIT_INTERVAL_SEC
 	self.reachStuds = DEFAULT_REACH_STUDS

@@ -22,7 +22,7 @@ module = {
 		DYNAMITE_EXPLODE = "DynamiteExplode",
 		TORCH_PLACE = "TorchPlace",
 		JET_PACK_BURN = "JetPackBurn",
-		-- 3D loop on every helicopter from spawn until it is destroyed
+		-- 3D loop on every helicopter while its rotor turns (ClientHelicopterManager)
 		HELICOPTER = "Helicopter",
 		-- 2D: something just stopped working for you (backpack full, tank dry)
 		FAIL = "Fail",

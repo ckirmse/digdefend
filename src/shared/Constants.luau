@@ -151,8 +151,9 @@ Constants.MINING_TARGET_BAR = "TargetBar"
 Constants.MINING_TARGET_FILL = "Fill"
 -- gameplay HUD (built by scripts/studio/build_gameplay_hud_gui.luau)
 Constants.GAMEPLAY_HUD_GUI_NAME = "GameplayHud"
--- the right-edge stack, centred vertically: the backpack button with the
--- jet pack bar directly under it (decided 2026-09-15; both always visible)
+-- the right-edge stack, hung from the top-right corner: the backpack button
+-- with the jet pack bar directly under it (decided 2026-09-15; both always
+-- visible; moved to the top on 2026-09-16 so it clears the touch buttons)
 Constants.HUD_RIGHT_STACK = "RightStack"
 Constants.HUD_BACKPACK_BUTTON = "BackpackButton"
 Constants.HUD_BACKPACK_COUNT_LABEL = "CountLabel"
@@ -164,6 +165,12 @@ Constants.HUD_JET_PACK_ICON = "Icon"
 Constants.HUD_JET_PACK_TRACK = "Track"
 Constants.HUD_JET_PACK_FILL = "Fill"
 Constants.HUD_JET_PACK_BUTTON = "JetPackButton"
+-- touch-only action button beside the jump button: one button that does
+-- whatever the equipped tool does (swing, throw, place), so moving the
+-- camera never swings the pick axe (decided 2026-09-16)
+Constants.HUD_ACTION_BUTTON = "ActionButton"
+Constants.HUD_ACTION_ICON = "Icon"
+Constants.HUD_ACTION_LABEL = "Label"
 -- balances (top left): one row per resource, Uranium as "total / target"
 Constants.HUD_BALANCES_FRAME = "Balances"
 Constants.HUD_BALANCE_IRON_ROW = "IronRow"

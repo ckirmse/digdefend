@@ -5,13 +5,17 @@
 -- (HelicopterManager). SPINNING turns the rotor, FLYING flies the helicopter
 -- away (climb, cruise, gone), IDLE winds the rotor down. The server never
 -- animates; a Heartbeat loop rather than tweens because everything ramps
--- and chains.
+-- and chains. The rotor loop (the AudioPlayer HelicopterManager attaches
+-- silent to the model) plays from the first turn of the rotor until it is
+-- still again or the model is gone; this client's own rotor speed is the
+-- truth, so the sound and the blades always agree (decided 2026-09-16).
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 
 local ClientHelicopterManager = {}
@@ -27,6 +31,9 @@ type Craft = {
 	angle: number,
 	-- rotor radians per second, ramped toward the target
 	speed: number,
+	-- the rotor loop, resolved lazily like the rotor; playing iff speed > 0
+	sound: AudioPlayer?,
+	isSoundPlaying: boolean,
 	-- flight progress (studs) and rates
 	climb: number,
 	climbSpeed: number,
@@ -76,6 +83,16 @@ local function resolveRotorIfNeeded(craft: Craft)
 	craft.rotorOffset = if rotor then craft.restPivot:ToObjectSpace(rotor.CFrame) else nil
 end
 
+local function resolveSoundIfNeeded(craft: Craft)
+	local sound = craft.sound
+	if sound and sound.Parent ~= nil then
+		return
+	end
+	local found = craft.model:FindFirstChild(SoundNames.Sfx.HELICOPTER, true)
+	craft.sound = if found and found:IsA("AudioPlayer") then found else nil
+	craft.isSoundPlaying = false
+end
+
 local function makeCraft(model: Model): Craft
 	return {
 		model = model,
@@ -84,6 +101,8 @@ local function makeCraft(model: Model): Craft
 		rotorOffset = nil,
 		angle = 0,
 		speed = 0,
+		sound = nil,
+		isSoundPlaying = false,
 		climb = 0,
 		climbSpeed = 0,
 		cruise = 0,
@@ -106,6 +125,26 @@ function ClientHelicopterManager:stepRotor(craft: Craft, isSpinning: boolean, de
 	local maxChange = FULL_SPEED_RAD_PER_SEC / rampSec * deltaSec
 	craft.speed += math.clamp(targetSpeed - craft.speed, -maxChange, maxChange)
 	craft.angle = (craft.angle + craft.speed * deltaSec) % (2 * math.pi)
+	self:syncSound(craft)
+end
+
+-- the loop follows the blades: on with the first turn, off once they stop
+function ClientHelicopterManager:syncSound(craft: Craft)
+	resolveSoundIfNeeded(craft)
+	local sound = craft.sound
+	if not sound then
+		return
+	end
+	local shouldPlay = craft.speed > 0
+	if shouldPlay == craft.isSoundPlaying then
+		return
+	end
+	craft.isSoundPlaying = shouldPlay
+	if shouldPlay then
+		sound:Play()
+	else
+		sound:Stop()
+	end
 end
 
 function ClientHelicopterManager:getPivot(craft: Craft): CFrame

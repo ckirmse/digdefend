@@ -33,11 +33,19 @@ local function addTextSizeBounds(label, minPx, maxPx)
 	constraint.Parent = label
 end
 
-local function addSizeBounds(frame, minSize, maxSize)
+-- max only: a pixel minimum would override scale on small screens (GUI
+-- standard, 2026-09-16); touch targets alone keep a floor, via addTouchTarget
+local function addMaxSize(frame, maxSize)
 	local constraint = Instance.new("UISizeConstraint")
-	constraint.MinSize = minSize
 	constraint.MaxSize = maxSize
 	constraint.Parent = frame
+end
+
+local function addTouchTarget(button, maxSize)
+	local constraint = Instance.new("UISizeConstraint")
+	constraint.MinSize = Vector2.new(UiStyle.TOUCH_TARGET_MIN_PX, UiStyle.TOUCH_TARGET_MIN_PX)
+	constraint.MaxSize = maxSize
+	constraint.Parent = button
 end
 
 local function addAspect(frame, ratio)
@@ -70,7 +78,7 @@ local function makeButton(name, text, backgroundColor, textColor)
 	button.FontFace = UiStyle.TITLE_FONT
 	button.AutoButtonColor = true
 	addTextSizeBounds(button, UiStyle.BODY_TEXT_MIN_PX, 34)
-	addSizeBounds(button, Vector2.new(140, 44), Vector2.new(400, 90))
+	addTouchTarget(button, Vector2.new(400, 90))
 	addCorner(button)
 	return button
 end
@@ -89,7 +97,7 @@ dialog.AnchorPoint = Vector2.new(0, 0.5)
 dialog.Position = UDim2.fromScale(0.04, 0.5)
 dialog.Size = UDim2.fromScale(0.32, 0.7)
 addAspect(dialog, 0.8)
-addSizeBounds(dialog, Vector2.new(240, 300), Vector2.new(560, 700))
+addMaxSize(dialog, Vector2.new(560, 700))
 dialog.BackgroundColor3 = UiStyle.PANEL_COLOR
 dialog.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
 dialog.BorderSizePixel = 0

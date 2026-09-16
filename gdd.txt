@@ -49,7 +49,7 @@ SpawnZone
 Helicopter Pads – Party Creation/Teleports
 * Helicopter Pads teleport parties of players to a new, private instance of the gameplay place
 * All 6 pads are identical. A pad is not tied to a map or difficulty. The first player onto an idle pad becomes the party host and configures the run (map, difficulty, party size, visibility). This is modelled on Dead Rails' Create Party flow, without join-by-code. Adding a map or difficulty later means adding it to the party config, not building a pad.
-* Every Helicopter Pad has a Helicopter sitting on it when the server initializes (cloned from ReplicatedStorage.GameAssets.Helicopter onto HelicopterSpawn). Its rotor spins (client-side) from Create until the pad returns to Idle.
+* Every Helicopter Pad has a Helicopter sitting on it when the server initializes (cloned from ReplicatedStorage.GameAssets.Helicopter onto HelicopterSpawn). Its rotor spins (client-side) from Create until the pad returns to Idle. The Helicopter sound rides on every helicopter as a 3D emitter and each client plays it from the first turn of the rotor until the blades are still again or the model is destroyed (decided 2026-09-16), so the sound and the blades always agree.
 * Every Helicopter Pad has a billboard gui at its entrance with three labels (decided 2026-09-11):
    * Status: Idle "Waiting for players...", Configuring "Player configuring", Boarding "Starts in: X" (seconds until departure), Departing "Departing"
    * Private: hidden while Idle or Configuring; once a party exists it shows "Public" or "Private" from the party config
@@ -264,7 +264,7 @@ Player Feedback Text
 * The PlayerFeedback gui listens for the events, takes the message, puts in TextLabel.Text, enables the gui, waits the TimeDisplay amount, and then disables the gui
 * It’s an easy system to route player feedback through for all systems
 Arrival Loading Screen
-* This loading screen is shown when players first enter the experience
+* This loading screen is shown when players first enter the experience. It covers the whole screen, including a phone's notch and home-bar safe areas (2026-09-16)
 * It will have a title image and a loading bar
 * The loading bar should fill as assets are loaded/data is set up
 * Once loading is finished, the arrival loading screen should tween off screen
@@ -410,7 +410,7 @@ Placement Area
 Helicopter Pad
 * An empty Helicopter Pad made for the company rescue helicopter to drop off/pick up players
 * This is where players spawn in after being teleported to the gameplay server. The model is Workspace.Camp.HelicopterPad with a HelicopterSpawn part and a Spawns folder of parts named 1-6; players are placed on them in arrival order (first to arrive on 1).
-* On server start the company helicopter (ReplicatedStorage.GameAssets.Helicopter, the same template as the lobby) is spawned at HelicopterSpawn with its rotor already turning and the Helicopter sound looping on it as a 3D emitter from the first frame until the model is destroyed. Once every party member has loaded in (or 45 s after the first arrival), it waits 3 s and takes off exactly like a lobby departure.
+* On server start the company helicopter (ReplicatedStorage.GameAssets.Helicopter, the same template as the lobby) is spawned at HelicopterSpawn with its rotor already turning and the Helicopter sound looping on it as a 3D emitter for as long as the rotor turns (decided 2026-09-16; it stops with the blades or when the model is destroyed). Once every party member has loaded in (or 45 s after the first arrival), it waits 3 s and takes off exactly like a lobby departure.
 * If players make it to the end, this is where the rescue helicopter lands
 Tools
 Tools are items that allow players to perform an action when equipped. Players load in with a weapon and a pick axe as their primary tools, but can buy other tools from the in-run stores. 
@@ -503,10 +503,10 @@ Mining Rock
 * There needs to be a small dot in the center screen, representing the player’s aim
 * With Pick Axed equipped, any rock in the center of the players screen is highlighted (Highlight, white borders, transparent fill)  and the name of that Rock is shown to the right of the player’s central reticle over a health bar; no numbers (decided 2026-09-15, as in Minecraft and Dome Keeper: the block and the bar are the readout). The bar turns red once the block is crumbling; bedrock shows no bar  
 * To start breaking the highlighted rock players:
-   * Mobile: Tap Rock to hit once, hold to hit repeatedly 
+   * Mobile (as built 2026-09-16, modelled on Minecraft Bedrock's split controls): the screen is also the camera, so a bare tap never swings. A finger that rests still in the free screen area for a quarter second starts a hold on the block under the reticle; dragging that finger afterwards turns the camera while the hold keeps mining, and lifting it ends the hold. A touch-only action button beside the jump button (labelled with the equipped tool until tool icons exist) does the same on press and hold, and is the only touch input for the torch (press places) and dynamite (press throws)
    * PC: LMB click to hit once, hold LMB to hit continuously 
    * GamePad: RT to hit once, hold RT to hit continuously 
-* A held input swings every 0.45 s (hitIntervalSec in GameData/Mining/PickAxe). The reticle reaches 12 studs, the 3-block pickaxe reach the mine generator assumes
+* A held input swings every 0.45 s (hitIntervalSec in GameData/Mining/PickAxe). The reticle reaches 12 studs, the 3-block pickaxe reach the mine generator assumes. After the held block breaks, the hold waits until the reticle has rested on the next block for one interval before swinging again, so every first hit on a block is intended (decided 2026-09-16); a fresh press skips the wait
 * Every swing is a request (TryHitRock with the block's grid cell). The server refuses it unless the pick axe is equipped, the cell is a diggable rock, the player's root is within reach plus a 6-stud tolerance of the block centre, and 0.35 s have passed since that player's last accepted swing. Damage is the pick axe level's value; the server then tells every client the block's remaining HP (crack state) or that it broke
 * Until M46 art, the crack overlay is a placeholder tint: the block darkens at 60% and again at 30% HP. Hit and break bursts are placeholder particles in the block's colour; the RockHit sound (filler) or ResourceHit sound (ore, metallic) plays on a hit and RockBreak on a break, for players within 60 studs
 * Only the Rock currently highlighted will be hit 
@@ -515,7 +515,7 @@ Mining Rock
 * Once the Rock’s HP is at or below 0, it breaks
 * If any Ore is inside, it drops out (see Collecting Ore below) 
 * Players can mine as much a they want, they just can’t collect any additional Ore if their Backpack is full
-* A backpack icon with current status is always shown in the HUD (taken slots/total slots), on the right edge at mid height with the jet pack fuel bar directly under it (decided 2026-09-15; it was Mining Mode only).
+* A backpack icon with current status is always shown in the HUD (taken slots/total slots), on the right edge a little above mid height with the jet pack fuel bar directly under it (decided 2026-09-15; it was Mining Mode only). The balances panel sits on the left edge at the same height; neither may sit where the chat window, the top bar, the thumbstick, or the jump button can cover it (GUI rule, 2026-09-16). On touch the stack is pinned directly above the Jet Pack button. The Roblox player list is off in the gameplay place (2026-09-16)
 * When the Backpack is full, the Backpack Icon/numbers should turn red and a small text label should say “Backpack full” (see “A Game About Digging a Hole” for reference), and the Fail sound plays once on the change to full
 Collecting Ore
 * Dropped resources are automatically given to the player who breaks the block. 
@@ -1057,7 +1057,7 @@ Boots
 * Store prices for levels 2 to 5: 10 / 25 / 60 / 150 Gold (placeholders)
 Jet Pack
 * The fourth mining attribute (added 2026-09-15), bought and upgraded in the Mining Supplies Store like Pick Axe, Boots, and Backpack: five levels, level 2 a plain Gold buy, level N+1 needing Camp Level N. It is the climbing mechanic the mine generator has been waiting for (IS_CLIMBING_ENABLED), so mines can go taller and more vertical, and a player at the bottom of a shaft they dug has a way out
-* Controls, kept to one gesture. Keyboard and gamepad: double-tap Jump and keep holding it; the jet pack burns while Jump is held and stops the moment it is released. Touch: a Jet Pack button sits above the jump button; holding it burns, releasing it stops. No hover, no descend input, no toggle state to remember: burn is up, release is down
+* Controls, kept to one gesture. Keyboard and gamepad: double-tap Jump and keep holding it; the jet pack burns while Jump is held and stops the moment it is released. Touch: a Jet Pack button sits directly above Roblox's jump button, the same size as it, placed against the live jump button at runtime so it can never overlap it, with the tool action button directly to the jump button's left (2026-09-16); holding it burns, releasing it stops. No hover, no descend input, no toggle state to remember: burn is up, release is down
 * Fuel is the whole design. The tank starts at 1.5 seconds of burn and each upgrade adds half a second (level 5 holds 3.5 seconds); both numbers are tunable in GameData/Mining/JetPack (retuned 2026-09-15 from 3 s plus 1 s, which cleared the mine at level 2). Fuel drains only while burning and the pack cuts out when the tank is empty, so the player falls. It refills whenever the pack is not burning, anywhere, at half a second of fuel per second, and a tank run dry locks the pack until it is full again (decided 2026-09-15, replacing an on-the-ground rule that felt inconsistent); stopping early keeps the remaining fuel. That lock is what keeps a hop from becoming flight
 * Burning lifts the player straight up at a fixed climb speed (12 studs per second, so a level 1 burn lifts about four blocks and level 5 about ten, under the 72-stud mine) while the normal walk controls still steer, so a hop can be aimed onto a ledge
 * The tank shows as a bar with a jet pack icon directly under the backpack button on the right edge of the HUD, always visible (decided 2026-09-15): green while the pack answers, red while it is locked and refilling. The Fail sound plays the moment the tank runs dry

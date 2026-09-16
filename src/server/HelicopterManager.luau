@@ -99,10 +99,12 @@ function HelicopterManager:spawnAt(spawnPart: BasePart, parent: Instance, phase:
 	self:setPhase(helicopter, phase)
 	CollectionService:AddTag(helicopter, Tags.HELICOPTER)
 	helicopter.Parent = parent
-	-- the rotor loop rides on the model from the first frame and dies with it
+	-- the rotor loop rides on the model and dies with it, but each client
+	-- starts and stops it from its own rotor speed (ClientHelicopterManager),
+	-- so it is attached silent (decided 2026-09-16)
 	local soundPart = helicopter.PrimaryPart or helicopter:FindFirstChildWhichIsA("BasePart")
 	if soundPart then
-		SpatialSoundManager:attach(soundPart, SoundNames.Sfx.HELICOPTER, true)
+		SpatialSoundManager:attach(soundPart, SoundNames.Sfx.HELICOPTER, true, false)
 	end
 	return helicopter
 end

@@ -46,6 +46,11 @@ export type ToolManager = typeof(setmetatable(
 	ToolManager
 ))
 
+-- the default grip holds the haft upright with the head running left to
+-- right across the body; a quarter turn about the haft points the head
+-- forward at the rock (measured 2026-09-16)
+local PICK_AXE_GRIP = CFrame.Angles(0, math.rad(90), 0)
+
 local TRY_EQUIP_TOOL_SHAPE = {
 	-- an Enums.ToolKind, or MiningRules.NO_TOOL to unequip
 	tool = "nonnegativeInteger",
@@ -186,6 +191,9 @@ function ToolManager:syncHeldTool(player: Player)
 	-- clicks are read by the mining, torch, and dynamite managers, not the Tool
 	tool.ManualActivationOnly = true
 	tool.ToolTip = ""
+	if state.equipped == Enums.ToolKind.PICK_AXE then
+		tool.Grip = PICK_AXE_GRIP
+	end
 	tool:SetAttribute(Attributes.TOOL_TEMPLATE, wantedName)
 	local model = template:Clone()
 	for _, child in model:GetChildren() do

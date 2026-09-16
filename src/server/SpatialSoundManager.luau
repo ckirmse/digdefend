@@ -48,10 +48,12 @@ function SpatialSoundManager:findTemplate(name: string): AudioPlayer?
 	return player
 end
 
--- clones the authored player onto the part with an emitter and starts it;
--- the caller keeps the returned player to stop or destroy it. The template's
--- own Wire (to the device output) is dropped so the clone is only spatial.
-function SpatialSoundManager:attach(part: BasePart, name: string, isLooping: boolean?): AudioPlayer?
+-- clones the authored player onto the part with an emitter and starts it
+-- unless isAutoPlay is false (then a client decides when it plays, as with
+-- the helicopter rotor loop); the caller keeps the returned player to stop
+-- or destroy it. The template's own Wire (to the device output) is dropped
+-- so the clone is only spatial.
+function SpatialSoundManager:attach(part: BasePart, name: string, isLooping: boolean?, isAutoPlay: boolean?): AudioPlayer?
 	local template = self:findTemplate(name)
 	if not template then
 		return nil
@@ -73,7 +75,9 @@ function SpatialSoundManager:attach(part: BasePart, name: string, isLooping: boo
 	wire.TargetInstance = emitter
 	wire.Parent = player
 	player.Parent = part
-	player:Play()
+	if isAutoPlay ~= false then
+		player:Play()
+	end
 	return player
 end
 

@@ -403,9 +403,11 @@ function ClientRefineryManager:attachCampBillboard()
 		warn("ClientRefineryManager: no Camp.Refinery model to hang the Camp Level billboard on")
 		return
 	end
-	local adornee = refinery.PrimaryPart or refinery:FindFirstChildWhichIsA("BasePart")
-	if not adornee then
-		warn("ClientRefineryManager: the Refinery model has no parts")
+	-- with StreamingEnabled the Model can arrive before its parts on a real
+	-- device, so wait for the one part the map contract guarantees by name
+	local adornee = refinery:WaitForChild(Constants.REFINERY_PROMPT_PART, 30)
+	if not adornee or not adornee:IsA("BasePart") then
+		warn(`ClientRefineryManager: the Refinery model has no {Constants.REFINERY_PROMPT_PART} part`)
 		return
 	end
 	local boundsCFrame, boundsSize = refinery:GetBoundingBox()

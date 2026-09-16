@@ -40,15 +40,23 @@ gui.DisplayOrder = 0
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Enabled = true
 
--- the right-edge stack, centred vertically: backpack button, then the jet
--- pack bar under it; a list layout keeps them stacked at every aspect
+-- the right-edge stack, centred vertically (decided 2026-09-16): clear of
+-- the top-left chat window, and above the jet pack and jump buttons in the
+-- bottom-right corner. Backpack button, then the jet pack bar under it; a
+-- list layout keeps them stacked at every aspect. Scale only, no pixel
+-- minimum: a minimum would override scale on exactly the small screens it
+-- was meant to help (GUI standard, 2026-09-16)
 local stack = Instance.new("Frame")
 stack.Name = "RightStack"
 stack.AnchorPoint = Vector2.new(1, 0.5)
-stack.Position = UDim2.fromScale(0.98, 0.5)
-stack.Size = UDim2.fromScale(0.11, 0.14)
+-- a little above centre so a phone's jet button sits under it (2026-09-16)
+stack.Position = UDim2.fromScale(0.985, 0.4)
+stack.Size = UDim2.fromScale(0.11, 0.16)
+local stackAspect = Instance.new("UIAspectRatioConstraint")
+stackAspect.AspectRatio = 1.5
+stackAspect.DominantAxis = Enum.DominantAxis.Width
+stackAspect.Parent = stack
 local stackSize = Instance.new("UISizeConstraint")
-stackSize.MinSize = Vector2.new(110, 80)
 stackSize.MaxSize = Vector2.new(260, 180)
 stackSize.Parent = stack
 stack.BackgroundTransparency = 1
@@ -68,7 +76,6 @@ local aspect = Instance.new("UIAspectRatioConstraint")
 aspect.AspectRatio = 2.2
 aspect.Parent = button
 local size = Instance.new("UISizeConstraint")
-size.MinSize = Vector2.new(110, 50)
 size.MaxSize = Vector2.new(260, 118)
 size.Parent = button
 button.BackgroundColor3 = UiStyle.PANEL_COLOR
@@ -123,13 +130,19 @@ full.Parent = button
 -- a coloured disc for any entry still at the placeholder
 local balances = Instance.new("Frame")
 balances.Name = "Balances"
-balances.AnchorPoint = Vector2.new(0, 0)
--- below the open chat window, which owns the top-left corner
-balances.Position = UDim2.fromScale(0.015, 0.4)
-balances.Size = UDim2.fromScale(0.18, 0.32)
+balances.AnchorPoint = Vector2.new(0, 0.5)
+-- left edge, centred vertically (decided 2026-09-16): below the chat window,
+-- which owns the top-left corner, and small enough to stay above a phone's
+-- thumbstick; the aspect keeps the rows the same shape at every screen size
+-- a little above centre, where the left thumb rests on a phone (2026-09-16)
+balances.Position = UDim2.fromScale(0.015, 0.45)
+balances.Size = UDim2.fromScale(0.14, 0.3)
 balances.BackgroundTransparency = 1
+local balancesAspect = Instance.new("UIAspectRatioConstraint")
+balancesAspect.AspectRatio = 0.9
+balancesAspect.DominantAxis = Enum.DominantAxis.Width
+balancesAspect.Parent = balances
 local balancesSize = Instance.new("UISizeConstraint")
-balancesSize.MinSize = Vector2.new(170, 192)
 balancesSize.MaxSize = Vector2.new(420, 480)
 balancesSize.Parent = balances
 local balancesLayout = Instance.new("UIListLayout")
@@ -201,7 +214,6 @@ local jetAspectBar = Instance.new("UIAspectRatioConstraint")
 jetAspectBar.AspectRatio = 4.4
 jetAspectBar.Parent = jetBar
 local jetBarSize = Instance.new("UISizeConstraint")
-jetBarSize.MinSize = Vector2.new(110, 25)
 jetBarSize.MaxSize = Vector2.new(260, 59)
 jetBarSize.Parent = jetBar
 jetBar.BackgroundColor3 = UiStyle.PANEL_COLOR
@@ -238,19 +250,22 @@ jetFill.BorderSizePixel = 0
 jetFill.Parent = jetTrack
 addCorner(jetFill)
 
--- touch-only jet pack button above Roblox's jump button (bottom right);
--- keyboard and gamepad players double-tap Jump instead
+-- touch-only jet pack button just above Roblox's jump button (bottom
+-- right); this position is only the fallback, ClientTouchLayoutManager
+-- re-places it against the live jump button. Keyboard and gamepad players
+-- double-tap Jump instead
 local jetButton = Instance.new("TextButton")
 jetButton.Name = "JetPackButton"
 jetButton.AnchorPoint = Vector2.new(1, 1)
-jetButton.Position = UDim2.fromScale(0.98, 0.62)
-jetButton.Size = UDim2.fromScale(0.09, 0.09)
+jetButton.Position = UDim2.fromScale(0.98, 0.76)
+jetButton.Size = UDim2.fromScale(0.08, 0.08)
 local jetAspect = Instance.new("UIAspectRatioConstraint")
 jetAspect.AspectRatio = 1
 jetAspect.Parent = jetButton
+-- the one minimum in this gui: a touch target never drops under 44 points
 local jetButtonSize = Instance.new("UISizeConstraint")
-jetButtonSize.MinSize = Vector2.new(56, 56)
-jetButtonSize.MaxSize = Vector2.new(110, 110)
+jetButtonSize.MinSize = Vector2.new(UiStyle.TOUCH_TARGET_MIN_PX, UiStyle.TOUCH_TARGET_MIN_PX)
+jetButtonSize.MaxSize = Vector2.new(130, 130)
 jetButtonSize.Parent = jetButton
 jetButton.BackgroundColor3 = UiStyle.PANEL_COLOR
 jetButton.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
@@ -266,6 +281,52 @@ jetButton.Parent = gui
 local jetCorner = Instance.new("UICorner")
 jetCorner.CornerRadius = UDim.new(0.5, 0)
 jetCorner.Parent = jetButton
+
+-- touch-only action button left of the jump button (fallback position;
+-- ClientTouchLayoutManager re-places it against the live jump button): the
+-- equipped tool's one action (swing, throw, place). Until tool icons exist
+-- the label carries the tool name, like the tool bar slots
+local actionButton = Instance.new("TextButton")
+actionButton.Name = "ActionButton"
+actionButton.AnchorPoint = Vector2.new(1, 1)
+actionButton.Position = UDim2.fromScale(0.86, 0.9)
+actionButton.Size = UDim2.fromScale(0.11, 0.11)
+local actionAspect = Instance.new("UIAspectRatioConstraint")
+actionAspect.AspectRatio = 1
+actionAspect.Parent = actionButton
+local actionSize = Instance.new("UISizeConstraint")
+actionSize.MinSize = Vector2.new(UiStyle.TOUCH_TARGET_MIN_PX, UiStyle.TOUCH_TARGET_MIN_PX)
+actionSize.MaxSize = Vector2.new(130, 130)
+actionSize.Parent = actionButton
+actionButton.BackgroundColor3 = UiStyle.PANEL_COLOR
+actionButton.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
+actionButton.BorderSizePixel = 0
+actionButton.Text = ""
+actionButton.AutoButtonColor = true
+actionButton.Visible = false
+actionButton.Parent = gui
+local actionCorner = Instance.new("UICorner")
+actionCorner.CornerRadius = UDim.new(0.5, 0)
+actionCorner.Parent = actionButton
+local actionIcon = Instance.new("ImageLabel")
+actionIcon.Name = "Icon"
+actionIcon.Position = UDim2.fromScale(0.15, 0.15)
+actionIcon.Size = UDim2.fromScale(0.7, 0.7)
+actionIcon.BackgroundTransparency = 1
+actionIcon.Image = ""
+actionIcon.ScaleType = Enum.ScaleType.Fit
+actionIcon.Parent = actionButton
+local actionLabel = Instance.new("TextLabel")
+actionLabel.Name = "Label"
+actionLabel.Position = UDim2.fromScale(0.1, 0.3)
+actionLabel.Size = UDim2.fromScale(0.8, 0.4)
+actionLabel.BackgroundTransparency = 1
+actionLabel.Text = "PICK AXE"
+actionLabel.TextColor3 = UiStyle.TEXT_COLOR
+actionLabel.TextScaled = true
+actionLabel.FontFace = UiStyle.TITLE_FONT
+addTextSizeBounds(actionLabel, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.BODY_TEXT_MAX_PX)
+actionLabel.Parent = actionButton
 
 -- the layer flying icons cross; above everything else in this gui
 local flyLayer = Instance.new("Frame")

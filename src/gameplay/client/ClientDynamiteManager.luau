@@ -1,7 +1,8 @@
 --!strict
 
 -- Dynamite on this client (GDD "Mining Tools"): while the dynamite is held,
--- a tap or click asks the server to throw one (TryThrowDynamite). The stick
+-- a click, the gamepad trigger, or the touch action button (use) asks the
+-- server to throw one (TryThrowDynamite). The stick
 -- itself is a server part tagged Tags.DYNAMITE, so its sparks start when
 -- the tag appears; the blast (NotifyDynamiteExploded) draws the smoke and
 -- flash. The fuse hiss and the bang are 3D emitters the server attaches, so
@@ -44,7 +45,6 @@ local SPARK_RATE = 30
 
 local function isUseInput(input: InputObject): boolean
 	return input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch
 		or input.KeyCode == Enum.KeyCode.ButtonR2
 end
 
@@ -57,12 +57,19 @@ function ClientDynamiteManager:isNear(position: Vector3): boolean
 	return (root.Position - position).Magnitude <= EFFECT_RANGE_STUDS
 end
 
-function ClientDynamiteManager:onInputBegan(input: InputObject, isGameProcessed: boolean)
-	if not self.isActive or isGameProcessed or not isUseInput(input) or ClientOverlayManager:isOverlayActive() then
+function ClientDynamiteManager:use()
+	if not self.isActive or ClientOverlayManager:isOverlayActive() then
 		return
 	end
 	ClientHeldToolManager:playSwing()
 	ClientNetManager:fireServer(NetEventNames.TRY_THROW_DYNAMITE, {})
+end
+
+function ClientDynamiteManager:onInputBegan(input: InputObject, isGameProcessed: boolean)
+	if isGameProcessed or not isUseInput(input) then
+		return
+	end
+	self:use()
 end
 
 -- a lit stick: sparks from its fuse end, and the hiss if it is close

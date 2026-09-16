@@ -1,7 +1,8 @@
 --!strict
 
--- Torches on this client (GDD "Mining Tools"): while a torch is held, a tap
--- or click finds the surface at the centre of the screen within reach and
+-- Torches on this client (GDD "Mining Tools"): while a torch is held, a
+-- click, the gamepad trigger, or the touch action button (use) finds the
+-- surface at the centre of the screen within reach and
 -- asks the server to plant one there (TryPlaceTorch with the hit point and
 -- normal). Every placed torch is a server shadow part tagged Tags.TORCH;
 -- this client gives each one a stick, a flame, and a PointLight, and the
@@ -50,7 +51,6 @@ local WALL_LEAN_RADIANS = math.rad(25)
 
 local function isUseInput(input: InputObject): boolean
 	return input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch
 		or input.KeyCode == Enum.KeyCode.ButtonR2
 end
 
@@ -96,8 +96,8 @@ function ClientTorchManager:aim(): RaycastResult?
 	return workspace:Raycast(camera.CFrame.Position, camera.CFrame.LookVector * self.reachStuds, params)
 end
 
-function ClientTorchManager:onInputBegan(input: InputObject, isGameProcessed: boolean)
-	if not self.isActive or isGameProcessed or not isUseInput(input) or ClientOverlayManager:isOverlayActive() then
+function ClientTorchManager:use()
+	if not self.isActive or ClientOverlayManager:isOverlayActive() then
 		return
 	end
 	local result = self:aim()
@@ -112,6 +112,13 @@ function ClientTorchManager:onInputBegan(input: InputObject, isGameProcessed: bo
 			normal = result.Normal,
 		}
 	)
+end
+
+function ClientTorchManager:onInputBegan(input: InputObject, isGameProcessed: boolean)
+	if isGameProcessed or not isUseInput(input) then
+		return
+	end
+	self:use()
 end
 
 -- the shadow looks out along the surface normal: on a floor the torch
