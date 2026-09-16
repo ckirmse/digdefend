@@ -12,10 +12,14 @@ local Enums = require(script.Parent.Enums)
 
 local StoreRules = {}
 
--- an upgrade track: entry N is the price of reaching level N (entry 1 is
--- unused, everyone starts at level 1); the list length is the top level
+-- an upgrade track: entry N is the price of reaching level N and the Camp
+-- Level that buy needs (entry 1 is unused, everyone starts at level 1); the
+-- price list's length is the top level. The camp level table comes from
+-- GameData/Camp/Level (M22) and travels in the catalogue so the client
+-- never needs GameData
 export type UpgradeTrack = {
 	priceByLevel: { number },
+	requiredCampLevelByLevel: { number },
 }
 
 -- a consumable: one buy grants `amount` of `tool`
@@ -35,7 +39,7 @@ export type Offer = {
 	-- the level the buy would reach, nil for consumables and when maxed
 	level: number?,
 	price: number?,
-	-- the Camp Level a locked offer is waiting for
+	-- the Camp Level an upgrade offer needs, met or not; nil otherwise
 	requiredCampLevel: number?,
 }
 
@@ -45,10 +49,7 @@ StoreRules.LOCKED_FORMAT = "Camp Level %d required"
 -- the Camp Level an upgrade offer needs, whether or not it is met; nil for
 -- consumables and maxed stands, which show no requirement
 function StoreRules.requiredCampLevelForOffer(offer: Offer): number?
-	if offer.level == nil then
-		return nil
-	end
-	return StoreRules.requiredCampLevel(offer.level)
+	return offer.requiredCampLevel
 end
 
 -- the private CurrentPlayer attribute carrying a player's level on each track
@@ -72,9 +73,11 @@ function StoreRules.standNameForItem(item: number): string?
 	return pascal .. "Stand"
 end
 
--- level N+1 needs Camp Level N, so level 2 is always a plain buy (decided 2026-09-15)
-function StoreRules.requiredCampLevel(targetLevel: number): number
-	return math.max(targetLevel - 1, 1)
+-- the track's table decides (GameData/Camp/Level); a level the table does
+-- not mention is never gated, so a short table loosens rather than locks
+function StoreRules.requiredCampLevel(track: UpgradeTrack, targetLevel: number): number
+	local required = track.requiredCampLevelByLevel[targetLevel]
+	return if typeof(required) == "number" then required else 1
 end
 
 function StoreRules.getUpgradeOffer(track: UpgradeTrack, ownedLevel: number, campLevel: number): Offer
@@ -83,19 +86,12 @@ function StoreRules.getUpgradeOffer(track: UpgradeTrack, ownedLevel: number, cam
 	if price == nil then
 		return { status = Enums.StoreOffer.MAXED }
 	end
-	local required = StoreRules.requiredCampLevel(targetLevel)
-	if campLevel < required then
-		return {
-			status = Enums.StoreOffer.LOCKED,
-			level = targetLevel,
-			price = price,
-			requiredCampLevel = required,
-		}
-	end
+	local required = StoreRules.requiredCampLevel(track, targetLevel)
 	return {
-		status = Enums.StoreOffer.AVAILABLE,
+		status = if campLevel < required then Enums.StoreOffer.LOCKED else Enums.StoreOffer.AVAILABLE,
 		level = targetLevel,
 		price = price,
+		requiredCampLevel = required,
 	}
 end
 
@@ -153,7 +149,10 @@ function StoreRules.decodeCatalog(encoded: any): Catalog?
 	for key, track in (decoded.upgrades or {}) :: { [any]: any } do
 		local item = tonumber(key)
 		if item and typeof(track) == "table" and typeof(track.priceByLevel) == "table" then
-			catalog.upgrades[item] = { priceByLevel = track.priceByLevel }
+			catalog.upgrades[item] = {
+				priceByLevel = track.priceByLevel,
+				requiredCampLevelByLevel = if typeof(track.requiredCampLevelByLevel) == "table" then track.requiredCampLevelByLevel else {},
+			}
 		end
 	end
 	for key, consumable in (decoded.consumables or {}) :: { [any]: any } do

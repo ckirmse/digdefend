@@ -16,6 +16,8 @@ module = {
 		ORE_PICKUP = "OrePickup",
 		REFINERY_GRIND = "RefineryGrind",
 		REFINERY_PAYOUT = "RefineryPayout",
+		-- M22: the crew's Camp Level just rose (2D, everyone)
+		CAMP_LEVEL_UP = "CampLevelUp",
 		-- M21: store and consumables
 		STORE_PURCHASE = "StorePurchase",
 		DYNAMITE_FUSE = "DynamiteFuse",

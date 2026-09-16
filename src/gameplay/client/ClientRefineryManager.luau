@@ -21,6 +21,7 @@ local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
+local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
 local ClientIconFlightManager = require(script.Parent.ClientIconFlightManager)
@@ -62,6 +63,11 @@ local REFINED_ENTRY_SHAPE = {
 	resource = { type = "enum", name = "RefinedResource" },
 	amount = "positiveInteger",
 }
+local NOTIFY_CAMP_LEVEL_UP_SHAPE = {
+	level = "positiveInteger",
+}
+local CAMP_LEVEL_UP_FORMAT = "Camp upgraded to level %d"
+
 local NOTIFY_REFINE_STARTED_SHAPE = {
 	ore = { type = "array", elementType = ORE_ENTRY_SHAPE },
 	durationSec = "positiveNumber",
@@ -433,6 +439,19 @@ function ClientRefineryManager:attachCampBillboard()
 	self:renderCampLevel()
 end
 
+-- the level-up beat (GDD "Camp Level", decided 2026-09-16): a notification
+-- and a sound, nothing to dismiss; the billboard rolls over on its own
+-- from the attributes
+function ClientRefineryManager:onCampLevelUp(payload: any)
+	local isValid = Validate.isTableShape(payload, NOTIFY_CAMP_LEVEL_UP_SHAPE)
+	if not isValid then
+		warn("ClientRefineryManager: malformed NotifyCampLevelUp")
+		return
+	end
+	ClientPlayerFeedbackManager:announceLocal(string.format(CAMP_LEVEL_UP_FORMAT, payload.level))
+	ClientSoundManager:playSfx(SoundNames.Sfx.CAMP_LEVEL_UP)
+end
+
 function ClientRefineryManager:init()
 	self:findHud()
 	self:attachCampBillboard()
@@ -469,6 +488,12 @@ function ClientRefineryManager:init()
 		self:onValueChanged(resource)
 	end
 
+	ClientNetManager:registerHandler(
+		NetEventNames.NOTIFY_CAMP_LEVEL_UP,
+		function(payload: any)
+			self:onCampLevelUp(payload)
+		end
+	)
 	ClientNetManager:registerHandler(
 		NetEventNames.NOTIFY_REFINE_STARTED,
 		function(payload: any)

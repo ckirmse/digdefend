@@ -17,6 +17,7 @@ export type ClientMineDevTools = typeof(setmetatable(
 		seedInput: any,
 		useSeed: any,
 		goldInput: any,
+		diamondsInput: any,
 		campLevelInput: any,
 	},
 	ClientMineDevTools
@@ -28,6 +29,7 @@ local FILL_BACKPACK_COMMAND = "fillBackpack"
 local EMPTY_BACKPACK_COMMAND = "emptyBackpack"
 local RESET_REFINERY_COMMAND = "resetRefinery"
 local ADD_GOLD_COMMAND = "addGold"
+local ADD_DIAMONDS_COMMAND = "addDiamonds"
 local SET_CAMP_LEVEL_COMMAND = "setCampLevel"
 local GIVE_CONSUMABLES_COMMAND = "giveConsumables"
 
@@ -56,6 +58,16 @@ function ClientMineDevTools:renderSection()
 			{
 				command = ADD_GOLD_COMMAND,
 				args = { amount = math.floor(self.goldInput:get()) },
+			}
+		)
+	end
+	Iris.InputNum({ "Diamonds", 10, 1 }, { number = self.diamondsInput })
+	if Iris.Button({ "Add diamonds" }).clicked() then
+		ClientNetManager:fireServer(
+			NetEventNames.TRY_DEV_TOOL,
+			{
+				command = ADD_DIAMONDS_COMMAND,
+				args = { amount = math.max(1, math.floor(self.diamondsInput:get())) },
 			}
 		)
 	end
@@ -94,6 +106,7 @@ function ClientMineDevTools:init()
 	self.seedInput = Iris.State(42)
 	self.useSeed = Iris.State(false)
 	self.goldInput = Iris.State(100)
+	self.diamondsInput = Iris.State(20)
 	self.campLevelInput = Iris.State(2)
 	ClientDevTools:addMenuSection(
 		function()
@@ -107,6 +120,7 @@ function ClientMineDevTools.new(): ClientMineDevTools
 	self.seedInput = nil
 	self.useSeed = nil
 	self.goldInput = nil
+	self.diamondsInput = nil
 	self.campLevelInput = nil
 	return self
 end

@@ -1067,15 +1067,51 @@ Posts
 Defenses
 Traps
 Wall Repair
+Defense design notes (2026-09-16, source for M23 to M27; sections above are updated as each lands)
+* S9 — Manned posts (4). Limit 1–2 each. Never auto-fire. The only heavy damage in the game
+   * Gatling: balanced generalist, sustained fire. Weakness: never excellent, poor vs Brute/Titan
+   * Cannon: heavy single target. Weakness: slow reload, useless vs swarms
+   * Mortar: arcing, large blast radius, reaches canyon mouth. Weakness: minimum range, no air
+   * Flak Cannon: airburst, hits Flyer groups. Weakness: cannot hit ground
+   * Upgrade structure: 4 stat lines (damage, rate, range, one specific), 4 tiers each; tier 1 is the base post. Then one exclusive branch fork with a capstone, gated at Camp Level 4, paid with gold
+   * Claiming: one player owns a post — their type, their money, their upgrades. Free to leave mid-fight. Claims release on disconnect, post retains built tier
+   * Launch unlocked: Gatling, Cannon
+* S10 — Auto turrets (6). Cheap, weak, numerous. Limit 4–8 each. Loadout: pick 3 from the unlocked roster in the lobby, locked for the run
+   * Sentry Gun: single target, steady. Workhorse
+   * Flamethrower: short range, wide cone, burn DoT
+   * AA Turret: air only, cannot hit ground
+   * Frost Tower: radius slow, occasional freeze. No damage
+   * Tesla Coil: chain lightning, brief stun
+   * Sniper Tower: long range, high damage, slow. Answers Launchers
+   * Tuning rule (non-negotiable): a full turret field holds night 4 and is overrun by night 8. Turrets buy time and cover flanks. They never win
+   * Launch unlocked: Sentry, Flamethrower
+* S11 — Placements (6). Bought freely in-run at the Defense Building. No loadout — all available always. Reactive, not committed
+   * Tiger Teeth: barrier (HP). Blocks movement, enemies attack it
+   * Spike Trap: trap (recharge). Pops on contact, damage, resets. No slow
+   * Goo Pit: trap (persistent). Slows crossers. No damage
+   * Land Mine: one use. Proximity, big damage
+   * Bear Trap: one use. Stun + damage, single target
+   * Decoy: barrier (HP). Draws attacks away from the wall
+   * Barriers have HP. Traps have reset times. No expiry timers, no wear-by-use
+   * Destroyed placements are gone. Rebuy with gold — a resource cost, not a death spiral
+   * Hard rule: enemies must always be able to reach the wall. If all routes are blocked, they attack the nearest barrier. This prevents maze-building
+   * Launch unlocked: Tiger Teeth, Spike Trap, Land Mine
+* S12 — Handheld weapons (4)
+   * Rifle: default. Useful forever, never sufficient
+   * Shotgun: close range. Runners, breaches
+   * Sniper: long range. Launchers, Brutes
+   * Flamethrower: short range, wide, DoT. Packed Grunts
+   * 2 in-run tiers each: damage, reload. Ammo unlimited
 Camp Level
 * The Camp Level is shared by the whole crew and starts at level 1. Diamonds from the Refinery fill it like an XP bar: the display shows “CAMP LEVEL n” over a bar reading “pool / needed”, and a full bar rolls over into the next level with the remainder carried, several levels at once if one payout is big enough. At the top level the pool reads MAX
-* What a level unlocks (decided 2026-09-15): the next tier of every upgrade track, in both stores. Pick Axe, Boots, and Backpack in the Mining Supplies Store have five levels each and level N+1 requires Camp Level N, so level 2 is always a plain Gold buy: players learn mining upgrades before the camp level ever matters. Post upgrades at the posts are sold by tier and tier N requires Camp Level N. Diamonds are the only collective currency, so the collective decision of when to level the camp is what paces both halves of the loop: how deep the crew can dig by day, and how hard the posts hit by night
+* What a level unlocks (decided 2026-09-15, table settled 2026-09-16): the next tier of every upgrade track, in both stores. Pick Axe, Boots, Backpack, and Jet Pack in the Mining Supplies Store have five levels each and level N+1 requires Camp Level N, so level 2 is always a plain Gold buy: players learn mining upgrades before the camp level ever matters. Posts have four tiers per stat line; tier 1 is the base post with no upgrades, and tier N requires Camp Level N, so the first post upgrade is a level 2 goal. A post's exclusive branch fork and its capstone need Camp Level 4, the top level. Weapon in-run tiers are Gold only and never gated. Which posts, turrets, placements, and weapons a player owns at all is a lobby Cash matter, never Camp Level. Diamonds are the only collective currency, so the collective decision of when to level the camp is what paces both halves of the loop: how deep the crew can dig by day, and how hard the posts hit by night
 * Never capped: consumables (Torch, Dynamite), Traps, Defensive Units, and wall repair. Those are priced by Gold or Iron alone so the stores never feel closed
 * Nothing in the mine is ever locked by Camp Level. Depth is paced by rock hardness against the pick axe tier the camp level allows (see Mine Layout)
 * A store item above the cap still shows, with its price greyed, its prompt disabled, and a red “Camp Level N required” line under the price, so the goal is always visible; the line disappears once the level is met
 * Display: the bar and level live on a billboard above the Refinery, the camp’s focal point, not in the HUD; the info is only needed while refining, and the top of the screen is kept for the day clock and wave state. Diamonds fly from the Refinery into the billboard bar during a payout
-* Level up is the pacing beat of a run and never happens silently: every player, wherever they are, hears the CampLevelUp sound and sees a “CAMP LEVEL n” toast slide in at the top of the screen, and the Refinery billboard rolls over
-* Diamonds needed per level live in GameData/Camp/Level (placeholder pacing 20, 80, 250 until tuned in play); the tier-per-level table lives in GameData too (M22), so lifting or loosening the cap is a one-line change
+* Level up is the pacing beat of a run and never happens silently (decided 2026-09-16): every player, wherever they are, hears the CampLevelUp sound and gets the notification “Camp upgraded to level n” in the blue announcement box at the top centre of the screen (the bottom feedback box is too easy to miss under the action; decided 2026-09-16); nothing to dismiss, no list of unlocks, no menu. The Refinery billboard rolls over. A payout that crosses several levels at once notifies once, for the level reached
+* Diamonds needed per level live in GameData/Camp/Level (placeholder pacing 20, 80, 250 until tuned in play, so the top level is 4), and so does the required-camp-level table per upgrade track (M22): the stores read the table, never a formula, so lifting or loosening a cap is a one-line change
+* The Camp Level is run state: it starts at 1 every run and is never saved to a player
 Wave Cycle
 Monsters
 Random Events

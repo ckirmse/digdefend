@@ -26,6 +26,8 @@ UiStyle.POSITIVE_COLOR = Color3.fromRGB(90, 230, 100)
 UiStyle.NEGATIVE_COLOR = Color3.fromRGB(240, 80, 70)
 UiStyle.DISABLED_COLOR = Color3.fromRGB(110, 106, 100)
 UiStyle.EMPTY_SLOT_COLOR = Color3.fromRGB(52, 48, 44)
+-- the announcement box (top centre): blue so it never reads as an error
+UiStyle.ANNOUNCEMENT_COLOR = Color3.fromRGB(40, 100, 200)
 
 UiStyle.CORNER_RADIUS_PX = 10
 UiStyle.STROKE_PX = 2

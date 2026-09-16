@@ -8,7 +8,11 @@ local expect = JestGlobals.expect
 local Enums = require(game:GetService("ReplicatedStorage").Shared.Enums)
 local StoreRules = require(game:GetService("ReplicatedStorage").Shared.StoreRules)
 
-local TRACK = { priceByLevel = { 0, 15, 40, 100, 250 } }
+local TRACK = {
+	priceByLevel = { 0, 15, 40, 100, 250 },
+	-- level N+1 needs Camp Level N, the GameData/Camp/Level default
+	requiredCampLevelByLevel = { 1, 1, 2, 3, 4 },
+}
 local CATALOG = {
 	upgrades = {
 		[Enums.StoreItem.PICK_AXE] = TRACK,
@@ -40,6 +44,30 @@ describe(
 				local open = StoreRules.getUpgradeOffer(TRACK, 2, 2)
 				expect(open.status).toBe(Enums.StoreOffer.AVAILABLE)
 				expect(open.price).toBe(40)
+			end
+		)
+		it(
+			"reads the gate from the track's table, not a formula",
+			function()
+				local loose = {
+					priceByLevel = { 0, 15, 40, 100 },
+					requiredCampLevelByLevel = { 1, 1, 1, 3 },
+				}
+				expect(StoreRules.getUpgradeOffer(loose, 2, 1).status).toBe(Enums.StoreOffer.AVAILABLE)
+				local gated = StoreRules.getUpgradeOffer(loose, 3, 2)
+				expect(gated.status).toBe(Enums.StoreOffer.LOCKED)
+				expect(gated.requiredCampLevel).toBe(3)
+			end
+		)
+		it(
+			"never gates a level the table does not mention",
+			function()
+				local short = {
+					priceByLevel = { 0, 15, 40 },
+					requiredCampLevelByLevel = {},
+				}
+				expect(StoreRules.getUpgradeOffer(short, 2, 1).status).toBe(Enums.StoreOffer.AVAILABLE)
+				expect(StoreRules.requiredCampLevel(short, 3)).toBe(1)
 			end
 		)
 		it(
@@ -104,6 +132,7 @@ describe(
 			function()
 				local decoded = StoreRules.decodeCatalog(StoreRules.encodeCatalog(CATALOG))
 				expect(decoded.upgrades[Enums.StoreItem.PICK_AXE].priceByLevel[3]).toBe(40)
+				expect(decoded.upgrades[Enums.StoreItem.PICK_AXE].requiredCampLevelByLevel[3]).toBe(2)
 				expect(decoded.consumables[Enums.StoreItem.TORCH].amount).toBe(4)
 				expect(decoded.consumables[Enums.StoreItem.TORCH].tool).toBe(Enums.ToolKind.TORCH)
 			end

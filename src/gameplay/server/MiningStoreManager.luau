@@ -13,6 +13,7 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
+local LevelData = require("@game/ServerScriptService/GameData/Camp/Level")
 local MiningSuppliesData = require("@game/ServerScriptService/GameData/Store/MiningSupplies")
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
@@ -161,8 +162,16 @@ function MiningStoreManager:onRunStarted()
 end
 
 function MiningStoreManager:init()
+	-- prices from the store data, the Camp Level gate from the level data
+	local upgrades: { [number]: StoreRules.UpgradeTrack } = {}
+	for item, track in MiningSuppliesData.UPGRADES do
+		upgrades[item] = {
+			priceByLevel = track.priceByLevel,
+			requiredCampLevelByLevel = LevelData.MINING_UPGRADE_REQUIRED_CAMP_LEVEL_BY_LEVEL,
+		}
+	end
 	self.catalog = {
-		upgrades = MiningSuppliesData.UPGRADES,
+		upgrades = upgrades,
 		consumables = MiningSuppliesData.CONSUMABLES,
 	}
 	SplendidReplicationManager:setGameMetadata(Attributes.STORE_CATALOG, StoreRules.encodeCatalog(self.catalog))

@@ -146,8 +146,9 @@ function RefineryManager:credit(player: Player, refined: { [number]: number })
 		self.campLevel = level
 		self.diamondPool = pool
 		if gained > 0 then
-			-- store upgrade tiers unlock on this at M22
+			-- one notification for the level reached, however many were crossed
 			print(`[RefineryManager] camp level {level}`)
+			NetManager:notifyAllClients(NetEventNames.NOTIFY_CAMP_LEVEL_UP, { level = level })
 		end
 	end
 	self.uraniumTotal += refined[Enums.RefinedResource.URANIUM] or 0

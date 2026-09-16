@@ -28,8 +28,14 @@ MineDevTools.FILL_BACKPACK_COMMAND = "fillBackpack"
 MineDevTools.EMPTY_BACKPACK_COMMAND = "emptyBackpack"
 MineDevTools.RESET_REFINERY_COMMAND = "resetRefinery"
 MineDevTools.ADD_GOLD_COMMAND = "addGold"
+-- diamonds go through the real payout path, so a level-up fires as in play
+MineDevTools.ADD_DIAMONDS_COMMAND = "addDiamonds"
 MineDevTools.SET_CAMP_LEVEL_COMMAND = "setCampLevel"
 MineDevTools.GIVE_CONSUMABLES_COMMAND = "giveConsumables"
+
+local ADD_DIAMONDS_ARGS_SHAPE = {
+	amount = "positiveInteger",
+}
 
 local ADD_GOLD_ARGS_SHAPE = {
 	amount = "integer",
@@ -95,6 +101,18 @@ function MineDevTools:init()
 			end
 			RefineryManager:addGoldBars(player, args.amount)
 			PlayerFeedbackManager:give(player, `Gold is now {RefineryManager:getGoldBars(player)}`)
+		end
+	)
+	DevTools:registerPlaceCommand(
+		MineDevTools.ADD_DIAMONDS_COMMAND,
+		function(player: Player, args: { [string]: any })
+			local isValid, err = Validate.isTableShape(args, ADD_DIAMONDS_ARGS_SHAPE)
+			if not isValid then
+				warn("MineDevTools: addDiamonds with invalid args:", err)
+				return
+			end
+			RefineryManager:credit(player, { [Enums.RefinedResource.DIAMOND] = args.amount })
+			PlayerFeedbackManager:give(player, `Added {args.amount} diamonds; camp level {RefineryManager:getCampLevel()}`)
 		end
 	)
 	DevTools:registerPlaceCommand(

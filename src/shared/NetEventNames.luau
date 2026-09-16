@@ -39,6 +39,8 @@ module = {
 	-- attributes. Refining itself is a ProximityPrompt trigger, not a message
 	NOTIFY_REFINE_STARTED = "NotifyRefineStarted",
 	NOTIFY_REFINE_COMPLETED = "NotifyRefineCompleted",
+	-- to every client, once per payout that raises the Camp Level (M22)
+	NOTIFY_CAMP_LEVEL_UP = "NotifyCampLevelUp",
 	-- mining consumables (M21). Buying is a ProximityPrompt trigger on the
 	-- stand, not a message. Throwing and placing are requests; the results
 	-- are shadow parts (Tags.DYNAMITE / Tags.TORCH) and NotifyRockBroken

@@ -25,6 +25,8 @@ Constants.LOADING_PROGRESS_FILL = "Fill"
 Constants.LOADING_STATUS_LABEL = "Status"
 Constants.PLAYER_FEEDBACK_GUI_NAME = "PlayerFeedback"
 Constants.PLAYER_FEEDBACK_BOX = "FeedbackBox"
+-- top-centre blue box for the beats nobody should miss (Camp Level up)
+Constants.PLAYER_FEEDBACK_ANNOUNCEMENT_BOX = "AnnouncementBox"
 Constants.PLAYER_FEEDBACK_LABEL = "Message"
 Constants.HUD_GUI_NAME = "HUD"
 Constants.HUD_CASH_WALLET = "CashWallet"

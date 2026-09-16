@@ -1,10 +1,22 @@
 --!strict
 
--- The Camp Level (GDD "Camp Level", still to be written): Diamonds needed to
--- go from each level to the next, so entry 1 is the cost of reaching level
--- 2. The list length fixes the top level (one more than its length). What a
--- level unlocks lands with M22; these are placeholder pacing numbers sized
--- against the Deadmans Canyon crystal counts.
+-- The Camp Level (GDD "Camp Level"): Diamonds needed to go from each level
+-- to the next, so entry 1 is the cost of reaching level 2 and the list
+-- length fixes the top level (one more than its length); and what each
+-- level unlocks (M22, table settled 2026-09-16). Every gate is a table the
+-- stores read, never a formula, so lifting or loosening a cap is a one-line
+-- change. Placeholder pacing numbers sized against the Deadmans Canyon
+-- crystal counts, to tune in play.
 return {
 	DIAMONDS_REQUIRED_BY_LEVEL = { 20, 80, 250 },
+	-- Mining Supplies Store tracks (Pick Axe, Boots, Backpack, Jet Pack):
+	-- entry N is the Camp Level needed to buy level N. Entry 1 is unused
+	-- (everyone starts at level 1); level N+1 needs Camp Level N so the
+	-- first upgrade is never locked
+	MINING_UPGRADE_REQUIRED_CAMP_LEVEL_BY_LEVEL = { 1, 1, 2, 3, 4 },
+	-- Post stat tiers (M25): tier 1 is the base post with no upgrades and
+	-- tier N needs Camp Level N; the exclusive branch fork and capstone
+	-- need the top level
+	POST_TIER_REQUIRED_CAMP_LEVEL_BY_TIER = { 1, 2, 3, 4 },
+	POST_CAPSTONE_REQUIRED_CAMP_LEVEL = 4,
 }

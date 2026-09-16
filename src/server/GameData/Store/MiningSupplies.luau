@@ -5,8 +5,8 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 -- The Mining Supplies Store (GDD "Mining Supplies Store"): one stand per
 -- item, paid in Gold Bars. Upgrade tracks list the price of reaching each
 -- level (entry 1 is unused: everyone starts at level 1) and their length is
--- the top level, so adding a level is adding a price. Level N+1 also needs
--- Camp Level N (StoreRules). Placeholder prices sized against Gold rock
+-- the top level, so adding a level is adding a price. The Camp Level each
+-- buy needs comes from GameData/Camp/Level. Placeholder prices sized against Gold rock
 -- yields (3 / 10 / 30 / 87 ore per rock by tier), to tune in play.
 return {
 	PRICE_RESOURCE = Enums.RefinedResource.GOLD_BAR,

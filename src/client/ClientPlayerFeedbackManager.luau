@@ -3,7 +3,9 @@
 -- Receives player feedback text from the server (NotifyPlayerFeedback) and from
 -- client systems (the GivePlayerFeedbackLocal BindableEvent) and hands each
 -- message to the Studio-authored PlayerFeedback ScreenGui (a single box that a
--- newer message replaces) and to any other listener.
+-- newer message replaces) and to any other listener. Announcements
+-- (announceLocal) take the second, top-centre box instead, so a beat like the
+-- Camp Level rising is never missed under the action (decided 2026-09-16).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -23,8 +25,11 @@ export type ClientPlayerFeedbackManager = typeof(setmetatable(
 		listeners: { FeedbackListener },
 		feedbackBox: Frame?,
 		messageLabel: TextLabel?,
+		announcementBox: Frame?,
+		announcementLabel: TextLabel?,
 		-- bumps per message so an older hide timer cannot clear a newer message
 		showGeneration: number,
+		announceGeneration: number,
 	},
 	ClientPlayerFeedbackManager
 ))
@@ -56,6 +61,29 @@ function ClientPlayerFeedbackManager:showInBox(message: string, displaySec: numb
 		function()
 			if self.showGeneration == generation then
 				feedbackBox.Visible = false
+			end
+		end
+	)
+end
+
+-- the top-centre box; falls back to the ordinary box if the gui predates it
+function ClientPlayerFeedbackManager:announceLocal(message: string, displaySec: number?)
+	local box = self.announcementBox
+	local label = self.announcementLabel
+	local seconds = displaySec or DEFAULT_DISPLAY_SEC
+	if not box or not label then
+		self:showInBox(message, seconds)
+		return
+	end
+	self.announceGeneration += 1
+	local generation = self.announceGeneration
+	label.Text = message
+	box.Visible = true
+	task.delay(
+		seconds,
+		function()
+			if self.announceGeneration == generation then
+				box.Visible = false
 			end
 		end
 	)
@@ -98,6 +126,15 @@ function ClientPlayerFeedbackManager:findGui()
 	feedbackBox.Visible = false
 	self.feedbackBox = feedbackBox
 	self.messageLabel = messageLabel
+	local announcementBox = gui:FindFirstChild(Constants.PLAYER_FEEDBACK_ANNOUNCEMENT_BOX)
+	local announcementLabel = if announcementBox then announcementBox:FindFirstChild(Constants.PLAYER_FEEDBACK_LABEL) else nil
+	if announcementBox and announcementBox:IsA("Frame") and announcementLabel and announcementLabel:IsA("TextLabel") then
+		announcementBox.Visible = false
+		self.announcementBox = announcementBox
+		self.announcementLabel = announcementLabel
+	else
+		warn(`ClientPlayerFeedbackManager: {gui:GetFullName()} is missing {Constants.PLAYER_FEEDBACK_ANNOUNCEMENT_BOX}; run scripts/studio/build_player_feedback_gui.luau`)
+	end
 end
 
 function ClientPlayerFeedbackManager:init()
@@ -137,6 +174,9 @@ function ClientPlayerFeedbackManager.new(): ClientPlayerFeedbackManager
 	self.feedbackBox = nil
 	self.messageLabel = nil
 	self.showGeneration = 0
+	self.announceGeneration = 0
+	self.announcementBox = nil
+	self.announcementLabel = nil
 	return self
 end
 
