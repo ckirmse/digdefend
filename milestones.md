@@ -11,7 +11,7 @@ Rules:
 - Core loop first, art and polish later. A cube enemy is a fine enemy until Phase 9.
 - When copying UI or systems from the reference games, restyle to this project's UI standards (fonts, capitalization, centering, sparse exclamation points).
 
-Open design questions (sections of the GDD that are still empty headings, to be filled before their phase begins): Backpack, Boots, Posts, Defenses, Traps, Wall Repair, Camp Level, Wave Cycle, Monsters, Random Events, Adjusting for Player Counts, Revives, Spectate Mode, Menus, Audio.
+Open design questions (sections of the GDD that are still empty headings, to be filled before their phase begins): Backpack, Boots, Posts, Defenses, Traps, Camp Level, Wave Cycle, Monsters, Random Events, Adjusting for Player Counts, Revives, Spectate Mode, Menus, Audio.
 
 ---
 
@@ -24,9 +24,6 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 ## Phase 4: Mine Generation and Mining
 
 ## Phase 5: Camp, Defense, and Placement
-
-**M23 — Camp structures with HP**
-Deadman's Canyon placeholder camp: segmented walls, 6 posts, gate, Refinery, Mining Store, Defense Store, Helicopter Pad. Walls and gate have HP, can be repaired and upgraded with Iron. Refinery HP with destroyed-state hook for the loss condition. Gate opens during day and closes at night.
 
 **M24 — Weapons**
 Default Rifle tool with Weapon Mode, first-person aiming, server-validated hits on damageable targets. Weapon definitions in GameData so loadout weapons plug in later.
@@ -200,3 +197,6 @@ Finished 2026-09-15. `Camp.MiningStore` holds one `<Item>Stand` Model per `Enums
 
 **M22 — Camp Level unlocks** ✅
 Finished 2026-09-16 (the small version, agreed with the designer: the bar, rollover, and store gating already existed from M20/M21). GDD "Camp Level" section finished first: the unlock table (Pick Axe, Boots, Backpack, Jet Pack level N+1 needs Camp Level N; Posts tier 1 is the base and tier N needs level N; the post branch fork and capstone need level 4; weapon in-run tiers Gold only; roster unlocks are lobby Cash), and the designer's S9–S12 defense notes saved into the GDD as a block for M23–M27. `GameData/Camp/Level` now holds `MINING_UPGRADE_REQUIRED_CAMP_LEVEL_BY_LEVEL`, `POST_TIER_REQUIRED_CAMP_LEVEL_BY_TIER`, and `POST_CAPSTONE_REQUIRED_CAMP_LEVEL` beside the diamond thresholds; `StoreRules` reads the gate from the track's `requiredCampLevelByLevel` (copied into the published catalogue by `MiningStoreManager`, so the client still never requires GameData) instead of a formula, an unmentioned level is never gated, and the codec round-trips the table (unit tested, 252 tests green). Level up: `RefineryManager` broadcasts `NotifyCampLevelUp` once per payout for the level reached; `ClientRefineryManager` shows "Camp upgraded to level n" in the new blue top-centre `AnnouncementBox` of the PlayerFeedback GUI (`ClientPlayerFeedbackManager:announceLocal`, `UiStyle.ANNOUNCEMENT_COLOR`) and plays the designer-authored `CampLevelUp` Sfx (gameplay place only, `audio/Sfx/levelup.mp3`). Dev tools: Add diamonds, through the real payout path. Nothing enforces the Posts rules until M25. Designer confirmed 2026-09-16.
+
+**M23 — Camp structures with HP** ✅
+Finished 2026-09-17. Gameplay `StructureManager` holds HP for the 6 walls, the gate, and the Refinery in Lua, one shadow part each (`Tags.STRUCTURE`, `Structure*` attributes). The map's `Walls/Wall1..6`, `Posts/Post1..6`, and `Gate` are placement markers swapped for `GameAssets/Structures` templates (`WALL_n`, `GATE_n`, `POST_n`, `WALL_RUBBLE`, `GATE_RUBBLE`; `scripts/studio/build_structure_templates.luau`, create-only so designer edits survive) at the marker's pivot; the server numbers each post's sign. Decided in playtest: the gate, walls, and post look share one fortification level (1 to 3, HP 200/400/800 walls, 300/600/1200 gate, share of HP kept on upgrade); everyone starts with a Hammer whose equip is Build Mode (HP bars, reticle, highlight, "4 [Iron icon] for 10 HP"); repair works like mining, one validated `TryRepairStructure` swing per 0.45 s adding 10 HP for 4 Iron at 17 studs reach (`ClientHoldInput` carries the press, hold, and touch-dwell rules); rubble stays rubble until fully rebuilt (`REBUILD_STAND_SHARE`); the upgrade is crowd-funded at a `Workbench` by the gate, 10 Iron per prompt press into a shared pool (150 / 400), level N gated by Camp Level N, upgrading by itself with the Camp Level style announcement; the Refinery's HP level is the Camp Level and `subscribeRefineryDestroyed` is the M28 loss hook; the gate stands open by day and shut by night (`setNight`, dev tool until M28). Pure rules in shared `StructureRules` (unit tested), numbers in `GameData/Camp/Structures` and `Camp/Level`. Dev tools: damage/destroy a structure, add Iron, set fortification level, day/night. Sounds: `HammerHit` is a pitched `RockHit` stand-in. Deadman's Canyon saved back under `ServerStorage/Maps`.

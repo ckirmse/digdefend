@@ -45,6 +45,8 @@ type Target = {
 export type ClientMiningManager = typeof(setmetatable(
 	{} :: {
 		isActive: boolean,
+		-- Build Mode (ClientStructureManager) borrows the reticle
+		isReticleBorrowed: boolean,
 		gui: ScreenGui?,
 		reticle: GuiObject?,
 		targetLabel: TextLabel?,
@@ -385,6 +387,16 @@ function ClientMiningManager:onRockBroken(payload: any)
 	end
 end
 
+-- the HUD is the reticle plus the target label and bar, which only show
+-- with a mining target, so another aiming mode can show the reticle alone
+function ClientMiningManager:setReticleBorrowed(isBorrowed: boolean)
+	self.isReticleBorrowed = isBorrowed
+	local gui = self.gui
+	if gui then
+		gui.Enabled = self.isActive or isBorrowed
+	end
+end
+
 function ClientMiningManager:setActive(isActive: boolean)
 	if isActive == self.isActive then
 		return
@@ -392,7 +404,7 @@ function ClientMiningManager:setActive(isActive: boolean)
 	self.isActive = isActive
 	local gui = self.gui
 	if gui then
-		gui.Enabled = isActive
+		gui.Enabled = isActive or self.isReticleBorrowed
 	end
 	if isActive then
 		self.aimConnection = RunService.RenderStepped:Connect(
@@ -515,6 +527,7 @@ end
 function ClientMiningManager.new(): ClientMiningManager
 	local self = setmetatable({}, ClientMiningManager) :: ClientMiningManager
 	self.isActive = false
+	self.isReticleBorrowed = false
 	self.gui = nil
 	self.reticle = nil
 	self.targetLabel = nil

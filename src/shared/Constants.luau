@@ -112,6 +112,38 @@ Constants.STAND_CAMP_LEVEL_LABEL = "CampLevel"
 -- display models for the store stands under GameAssets: "<KEY>_<level>" for
 -- upgrade tracks and "<KEY>" for consumables (scripts/studio/build_store_displays.luau)
 Constants.STORE_DISPLAY_TEMPLATES_FOLDER = "StoreDisplays"
+-- Camp.Walls (Wall1..n), Camp.Posts (Post1..n) and Camp.Gate are placement
+-- markers (M23): at run start the server swaps each for the fortification
+-- tier's template at the marker's pivot, and again on upgrade or destruction
+Constants.CAMP_WALLS_FOLDER = "Walls"
+Constants.CAMP_POSTS_FOLDER = "Posts"
+Constants.CAMP_GATE_MODEL = "Gate"
+Constants.WALL_NAME_PREFIX = "Wall"
+Constants.POST_NAME_PREFIX = "Post"
+-- Camp.Workbench: a Model whose anchored Prompt part carries the donate
+-- ProximityPrompt (StructureManager configures and listens to it); the
+-- client floats the Fortifications sign above it
+Constants.CAMP_WORKBENCH_MODEL = "Workbench"
+Constants.WORKBENCH_PROMPT_PART = "Prompt"
+-- inside every post template: Sign (Model) > Sign (Part) > SurfaceGui >
+-- DefensePostNumber, which the server fills in with the post's number
+Constants.POST_SIGN_MODEL = "Sign"
+Constants.POST_SIGN_PART = "Sign"
+Constants.POST_SIGN_NUMBER_LABEL = "DefensePostNumber"
+-- inside every gate template: the two leaves, authored shut, and a marker
+-- part per leaf ("DoorLeftOpen") whose CFrame is its open pose; a Closed
+-- marker is optional and overrides the leaf's own pose
+Constants.GATE_DOOR_MODEL = "GateDoor"
+Constants.GATE_DOOR_LEFT_PART = "DoorLeft"
+Constants.GATE_DOOR_RIGHT_PART = "DoorRight"
+Constants.GATE_DOOR_OPEN_SUFFIX = "Open"
+Constants.GATE_DOOR_CLOSED_SUFFIX = "Closed"
+-- fortification templates under GameAssets: "WALL_<tier>", "GATE_<tier>",
+-- "POST_<tier>", plus "WALL_RUBBLE" and "GATE_RUBBLE" for a destroyed one
+-- (scripts/studio/build_structure_templates.luau)
+Constants.STRUCTURE_TEMPLATES_FOLDER = "Structures"
+Constants.STRUCTURE_RUBBLE_SUFFIX = "RUBBLE"
+Constants.POST_TEMPLATE_PREFIX = "POST"
 -- optional per-map terrain: the part bounding the terrain to snapshot and
 -- the TerrainRegion the snapshot is stored in (scripts/studio/map_tools.luau)
 Constants.MAP_TERRAIN_BOUNDS_PART = "TerrainBounds"
@@ -192,6 +224,32 @@ Constants.CAMP_LEVEL_FILL = "Fill"
 Constants.CAMP_LEVEL_PROGRESS_LABEL = "ProgressLabel"
 Constants.CAMP_LEVEL_ICON = "Icon"
 -- how far above the Refinery's top the billboard floats, in studs
+-- the sign floated above the Workbench: tier title, the shared Iron pool as
+-- a bar reading "pool / required", and the Camp Level lock line
+-- (scripts/studio/build_fortification_billboard.luau)
+Constants.FORTIFICATION_BILLBOARD = "Fortification"
+Constants.FORTIFICATION_ROOT_FRAME = "Root"
+Constants.FORTIFICATION_TITLE_LABEL = "TitleLabel"
+Constants.FORTIFICATION_BAR = "Bar"
+Constants.FORTIFICATION_FILL = "Fill"
+Constants.FORTIFICATION_PROGRESS_LABEL = "ProgressLabel"
+Constants.FORTIFICATION_ICON = "Icon"
+Constants.FORTIFICATION_LOCK_LABEL = "LockLabel"
+Constants.FORTIFICATION_BILLBOARD_LIFT_STUDS = 4
+-- the Build Mode HP bar cloned onto every structure shadow while the Hammer
+-- is equipped (scripts/studio/build_structure_hp_billboard.luau)
+Constants.STRUCTURE_HP_BILLBOARD = "StructureHp"
+Constants.STRUCTURE_HP_ROOT_FRAME = "Root"
+Constants.STRUCTURE_HP_NAME_LABEL = "NameLabel"
+Constants.STRUCTURE_HP_BAR = "Bar"
+Constants.STRUCTURE_HP_FILL = "Fill"
+Constants.STRUCTURE_HP_VALUE_LABEL = "ValueLabel"
+-- under the bar, only on the structure under the reticle: what a swing
+-- costs, as "4 [Iron Bar icon] for 10 HP"
+Constants.STRUCTURE_HP_COST_ROW = "CostRow"
+Constants.STRUCTURE_HP_COST_AMOUNT_LABEL = "AmountLabel"
+Constants.STRUCTURE_HP_COST_ICON = "Icon"
+Constants.STRUCTURE_HP_COST_GAIN_LABEL = "GainLabel"
 Constants.CAMP_LEVEL_BILLBOARD_LIFT_STUDS = 5.5
 -- full-screen frame the refinery's flying icons are parented to
 Constants.HUD_FLY_LAYER = "FlyLayer"

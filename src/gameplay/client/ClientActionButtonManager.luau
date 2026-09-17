@@ -20,6 +20,7 @@ local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientDynamiteManager = require(script.Parent.ClientDynamiteManager)
 local ClientMiningManager = require(script.Parent.ClientMiningManager)
+local ClientStructureManager = require(script.Parent.ClientStructureManager)
 local ClientTorchManager = require(script.Parent.ClientTorchManager)
 
 local ClientActionButtonManager = {}
@@ -40,6 +41,7 @@ local ACTIONABLE_TOOLS = {
 	[Enums.ToolKind.PICK_AXE] = true,
 	[Enums.ToolKind.DYNAMITE] = true,
 	[Enums.ToolKind.TORCH] = true,
+	[Enums.ToolKind.HAMMER] = true,
 }
 
 function ClientActionButtonManager:onPressed()
@@ -50,12 +52,15 @@ function ClientActionButtonManager:onPressed()
 		ClientDynamiteManager:use()
 	elseif tool == Enums.ToolKind.TORCH then
 		ClientTorchManager:use()
+	elseif tool == Enums.ToolKind.HAMMER then
+		ClientStructureManager:beginHold()
 	end
 end
 
--- only the pick axe is a hold; releasing anything else is a no-op
+-- the pick axe and the Hammer are holds; releasing anything else is a no-op
 function ClientActionButtonManager:onReleased()
 	ClientMiningManager:endHold()
+	ClientStructureManager:endHold()
 end
 
 function ClientActionButtonManager:render()
@@ -73,8 +78,9 @@ function ClientActionButtonManager:render()
 end
 
 function ClientActionButtonManager:onEquippedChanged(value: any)
-	-- a swap mid-hold must not leave the pick axe swinging
+	-- a swap mid-hold must not leave the pick axe or the Hammer swinging
 	ClientMiningManager:endHold()
+	ClientStructureManager:endHold()
 	self.equippedTool = if typeof(value) == "number" then value else nil
 	self:render()
 end

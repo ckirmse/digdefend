@@ -54,6 +54,16 @@ module = {
 	-- burning flag come back as attributes
 	TRY_JET_PACK_START = "TryJetPackStart",
 	TRY_JET_PACK_STOP = "TryJetPackStop",
+	-- Build Mode (M23): one Hammer swing at a structure, by id. The new HP
+	-- comes back on the structure's shadow attributes; the notify is only
+	-- the hammer blow every nearby client hears
+	TRY_REPAIR_STRUCTURE = "TryRepairStructure",
+	NOTIFY_STRUCTURE_REPAIRED = "NotifyStructureRepaired",
+	-- the Workbench (M23): donating is a ProximityPrompt trigger, not a
+	-- message. To the donor: Iron went into the pool (the sound). To every
+	-- client: the pool filled and the fortifications went up a tier
+	NOTIFY_FORTIFICATION_DONATED = "NotifyFortificationDonated",
+	NOTIFY_FORTIFICATION_UPGRADED = "NotifyFortificationUpgraded",
 }
 
 return module

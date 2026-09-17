@@ -16,6 +16,10 @@ module = {
 	-- a thrown stick of dynamite (DynamiteManager): the server-owned physics
 	-- part; clients play the fuse and draw the blast
 	DYNAMITE = "Dynamite",
+	-- a camp structure with HP (StructureManager): an invisible server part
+	-- carrying the Structure* attributes and the Hammer prompt; clients hang
+	-- the Build Mode HP bar on it
+	STRUCTURE = "Structure",
 }
 
 return module

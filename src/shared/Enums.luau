@@ -125,12 +125,28 @@ module = {
 		-- held travels beside the slot list
 		TORCH = 3,
 		DYNAMITE = 4,
+		-- equipping it is Build Mode (M23): structure HP shows and every
+		-- swing repairs what the reticle is on
+		HAMMER = 5,
 
 		PublicNames = {
 			PICK_AXE = "Pick Axe",
 			WEAPON = "Weapon",
 			TORCH = "Torch",
 			DYNAMITE = "Dynamite",
+			HAMMER = "Hammer",
+		},
+	},
+	-- camp structures with HP (GDD "Walls", "Gate", "Refinery"), M23
+	StructureKind = {
+		WALL = 1,
+		GATE = 2,
+		REFINERY = 3,
+
+		PublicNames = {
+			WALL = "Wall",
+			GATE = "Gate",
+			REFINERY = "Refinery",
 		},
 	},
 	-- one stand each in the Mining Supplies Store (GDD "Mining Supplies

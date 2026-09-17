@@ -306,7 +306,7 @@ Maps
 Map authoring (decided 2026-09-12)
 * All maps live in the one gameplay place. Each map is a Folder under ServerStorage/Maps named by its Enums.Map key (DEADMANS_CANYON, FROSTBITE_PASS). Folders, not Models, so clicking a part in the Explorer selects only that part; things that should move as one unit (the helicopter pad) stay Models inside the folder.
 * At run start the server clones the chosen map folder into Workspace as Camp. Only the active map exists in memory. Its scenery is static geometry and is the one place server-side parts are the right call.
-* Every map folder carries the same required named parts, validated at startup with the map’s name in every message: HelicopterPad (with HelicopterSpawn and Spawns 1–6), Mine.Entrance (an anchored part whose position is the mine origin and whose look direction is the mine facing, snapped to the nearest axis), Refinery (a Model whose anchored Prompt part carries the refine ProximityPrompt), and later walls and store spots.
+* Every map folder carries the same required named parts, validated at startup with the map’s name in every message: HelicopterPad (with HelicopterSpawn and Spawns 1–6), Mine.Entrance (an anchored part whose position is the mine origin and whose look direction is the mine facing, snapped to the nearest axis), Refinery (a Model whose anchored Prompt part carries the refine ProximityPrompt), Walls (Wall1 to Wall6) and Posts (Post1 to Post6) folders of numbered Models plus a Gate Model (the fortification markers), Workbench (a Model whose anchored Prompt part carries the donate ProximityPrompt), and later store spots.
 * Editing a map: run scripts/studio/map_tools.luau in Edit mode with ACTION = "load" to move the map folder into Workspace, edit, then run it with ACTION = "save" to move it back. Pressing Play with a map folder still in Workspace uses it as-is with a warning, so an unsaved edit still plays and is never lost. With the map loaded, ACTION = "preview_mine" generates its mine from Mine.Entrance exactly as the server would and draws translucent labelled boxes (bedrock envelope, the entrance tunnel, each zone, each hand-placed rock) into Workspace/MinePreview so the camp can be built around the real footprint; rerun it after moving the entrance, ACTION = "clear_preview" removes it, "save" removes it, and the server deletes any copy left behind at run start so it never shows in Play.
 * Terrain is optional per map. A map that wants terrain adds a TerrainBounds part sized around it; “save” snapshots the terrain inside the bounds into a TerrainRegion in the map folder and “load” pastes it back. A map without TerrainBounds is a plain folder and the tools skip terrain. Terrain lives in the place file only.
 * What a map cannot change: rock definitions, the weight kernel, block size, difficulty and party scaling, and the generator. Balance stays comparable between maps.
@@ -392,16 +392,21 @@ Walls
 * Along the perimeter of the base is a series of walls connecting 6 “Definsive Posts”
 * Each Wall has its own Health
 * As enemies attack, they can break a wall and enter the base
-* Walls can be repaired and upgraded with Iron
+* Walls can be repaired and upgraded with Iron (see Wall Repair)
+* As built (M23): 6 wall segments per map, each with its own HP. A destroyed segment turns to a low heap of rubble that players and enemies can walk over, and stays rubble until it is fully rebuilt
+* The map's Wall, Gate, and Post models are placement markers: at run start the server swaps each for the current level's template (GameAssets/Structures: WALL_n, GATE_n, POST_n, plus WALL_RUBBLE and GATE_RUBBLE) at the marker's pivot, so a look is authored once and reused on every map
 Defensive Posts
 * There are 6 available Posts in each map (1 for each player, up to 6). 
 * Players claim up to 1 post and spawn their post weapon (taken from their loadout)
 * Post weapons are the most powerful weapons in the game and require a player to man them
 * Players will have to man their post each night and attack the horde to keep them away
+* Posts read as part of the wall, so their look follows the fortification level (POST_1 to POST_3). Each post carries a sign the server numbers from its place along the wall: "DEFENSE POST #1" to "#6"
 Gate
 * There is a gate that enters the camp
 * It has its own HP and can be upgraded/repaired like walls
 * During the day it opens to let players out into the Placement Area and closes at night
+* The doors simply stand open all day and shut all night (decided 2026-09-17, replacing doors that opened for a nearby player). Players caught outside at night jet pack over the wall. A destroyed gate is rubble with no doors
+* Authoring: each gate template has a GateDoor model with two leaves, DoorLeft and DoorRight, authored shut, and a marker part per leaf (DoorLeftOpen, DoorRightOpen) showing its open pose. Clients slide the leaves between the two; the server only decides whether they block
 Placement Area
 * This is a predefined area outside of the base, beyond the gates where players can place Traps and Defensive Units
 * When in the Placement Area, available Traps and Defensive Units appear in a tool bar at the bottom of the screen
@@ -413,7 +418,7 @@ Helicopter Pad
 * On server start the company helicopter (ReplicatedStorage.GameAssets.Helicopter, the same template as the lobby) is spawned at HelicopterSpawn with its rotor already turning and the Helicopter sound looping on it as a 3D emitter for as long as the rotor turns (decided 2026-09-16; it stops with the blades or when the model is destroyed). Once every party member has loaded in (or 45 s after the first arrival), it waits 3 s and takes off exactly like a lobby departure.
 * If players make it to the end, this is where the rescue helicopter lands
 Tools
-Tools are items that allow players to perform an action when equipped. Players load in with a weapon and a pick axe as their primary tools, but can buy other tools from the in-run stores. 
+Tools are items that allow players to perform an action when equipped. Players load in with a weapon, a pick axe, and a hammer as their primary tools, but can buy other tools from the in-run stores. 
 Tool Bar System
 * The tool bar is a custom tool bar that mimics the functionality of the standard Roblox tool bar, but displays more than 3 items on mobile and keeps item order intact. 
 * When a player has a tool, it appears in their tool bar at the bottom center of the screen
@@ -430,6 +435,11 @@ Pick Axe (Default Tool)
 * If a pick axe is not equipped, they cannot mine
 * Players can upgrade their pick axe in the Mining Store, at which point the pick axe model and Tool Icon change to reflect the upgrade (as built: one held model per level, "PICK_AXE_<level>" under GameAssets/Tools, rebuilt in the hand on upgrade)
 * Pick Axes do not perform any other function than mining (they cannot be used as a weapon)
+Hammer (Default Tool)
+* Every player also starts every run with a Hammer (decided 2026-09-17)
+* Equipping the Hammer puts the player in Build Mode, the way the Pick Axe is Mining Mode: the reticle appears and an HP bar floats over every repairable structure (the 6 walls, the gate, the Refinery). Without the Hammer none of that shows
+* Looking at a structure within reach highlights it, like a rock in Mining Mode, and the price of a swing appears under its HP bar as an amount, the Iron Bar icon, and the HP gained
+* A press swings once and holding repeats, exactly like mining, on every input type (click, gamepad trigger, the touch action button, or a resting touch). See Wall Repair for what a swing does
 Weapon (Default Tool)
 * Every player also starts every run with a weapon
 * Players can choose which weapon they bring on a run via the loadout menu in the lobby
@@ -1067,6 +1077,14 @@ Posts
 Defenses
 Traps
 Wall Repair
+* Repair works like mining (decided 2026-09-17, replacing a single full-price repair prompt): in Build Mode every Hammer swing at a damaged structure adds 10 HP and costs the player 4 Iron Bars. The last swing pays only for the HP still missing, rounded up. Swings repeat every 0.45 seconds while held, and the Hammer reaches 17 studs, 5 more than the pick axe, because a wall is big
+* Every swing is a request the server validates (Hammer equipped, structure damaged, within reach of the structure's bounds, cooldown, enough Iron). A swing that lands plays the hammer sound for everyone nearby. With too little Iron the Hammer does not swing and the player is told once per press
+* A destroyed wall or gate is rubble and stays rubble while it is rebuilt swing by swing from zero; its bar reads "Rebuilding n / max". It stands back up only when fully rebuilt (GameData REBUILD_STAND_SHARE = 1, decided 2026-09-17: a wall that reappears after one swing could be flickered in front of the horde for 4 Iron a time). Rebuilding a level 1 wall is 20 swings and 80 Iron
+* Repair is never capped by Camp Level
+* Fortification level: the gate, all 6 walls, and the look of the posts share one level, 1 to 3 (decided 2026-09-17: a half-wood, half-concrete wall reads as a bug). HP by level: Wall 200 / 400 / 800, Gate 300 / 600 / 1200. An upgrade keeps each structure's share of HP rather than healing it, and rubble stays rubble
+* The Workbench: a bench just inside the gate with a floating sign like the Camp Level one, showing "FORTIFICATIONS LEVEL n", a bar of the crew's donated Iron ("pool / required", Iron Bar icon), and a red "Camp Level N required" line while the next level is locked. Its proximity prompt, "Donate Iron", moves 10 of the player's Iron Bars into the shared pool per press; no Hammer needed. When the pool reaches the price (150 Iron for level 2, 400 for level 3) the fortifications upgrade by themselves, and every player gets the CampLevelUp sound and "Fortifications upgraded to level n" in the blue announcement box. Level N needs Camp Level N, and donations are refused while locked so nobody's Iron is stranded in a pool that cannot complete
+* The Refinery is repaired with the Hammer like a wall but never bought: its HP level is the Camp Level (1000 / 1500 / 2200 / 3000), so Diamonds toughen it. Refinery destroyed is the loss condition hook for the run state machine (M28)
+* All numbers live in GameData/Camp/Structures and GameData/Camp/Level; placeholders until enemies exist to tune against
 Defense design notes (2026-09-16, source for M23 to M27; sections above are updated as each lands)
 * S9 — Manned posts (4). Limit 1–2 each. Never auto-fire. The only heavy damage in the game
    * Gatling: balanced generalist, sustained fire. Weakness: never excellent, poor vs Brute/Titan
@@ -1105,6 +1123,7 @@ Defense design notes (2026-09-16, source for M23 to M27; sections above are upda
 Camp Level
 * The Camp Level is shared by the whole crew and starts at level 1. Diamonds from the Refinery fill it like an XP bar: the display shows “CAMP LEVEL n” over a bar reading “pool / needed”, and a full bar rolls over into the next level with the remainder carried, several levels at once if one payout is big enough. At the top level the pool reads MAX
 * What a level unlocks (decided 2026-09-15, table settled 2026-09-16): the next tier of every upgrade track, in both stores. Pick Axe, Boots, Backpack, and Jet Pack in the Mining Supplies Store have five levels each and level N+1 requires Camp Level N, so level 2 is always a plain Gold buy: players learn mining upgrades before the camp level ever matters. Posts have four tiers per stat line; tier 1 is the base post with no upgrades, and tier N requires Camp Level N, so the first post upgrade is a level 2 goal. A post's exclusive branch fork and its capstone need Camp Level 4, the top level. Weapon in-run tiers are Gold only and never gated. Which posts, turrets, placements, and weapons a player owns at all is a lobby Cash matter, never Camp Level. Diamonds are the only collective currency, so the collective decision of when to level the camp is what paces both halves of the loop: how deep the crew can dig by day, and how hard the posts hit by night
+* Fortifications (M23): the shared level of the walls, gate, and posts has three levels, and level N requires Camp Level N, the same rule as the posts; the table is STRUCTURE_TIER_REQUIRED_CAMP_LEVEL_BY_TIER in GameData/Camp/Level. The Refinery's own HP level is the Camp Level itself
 * Never capped: consumables (Torch, Dynamite), Traps, Defensive Units, and wall repair. Those are priced by Gold or Iron alone so the stores never feel closed
 * Nothing in the mine is ever locked by Camp Level. Depth is paced by rock hardness against the pick axe tier the camp level allows (see Mine Layout)
 * A store item above the cap still shows, with its price greyed, its prompt disabled, and a red “Camp Level N required” line under the price, so the goal is always visible; the line disappears once the level is met

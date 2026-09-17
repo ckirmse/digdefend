@@ -41,6 +41,7 @@ export type RefineryManager = typeof(setmetatable(
 		diamondPool: number,
 		uraniumTotal: number,
 		isBusy: boolean,
+		campLevelChangedHandlers: { (level: number) -> () },
 		prompt: ProximityPrompt?,
 		promptConnection: RBXScriptConnection?,
 	},
@@ -84,6 +85,42 @@ function RefineryManager:spendGoldBars(player: Player, amount: number): boolean
 	return true
 end
 
+function RefineryManager:getIronBars(player: Player): number
+	local balances = self.balancesByPlayer[player]
+	return if balances then balances.ironBars else 0
+end
+
+-- structure repairs and the fortification upgrade pay from here
+function RefineryManager:spendIronBars(player: Player, amount: number): boolean
+	local balances = self.balancesByPlayer[player]
+	if not balances or amount < 0 or balances.ironBars < amount then
+		return false
+	end
+	balances.ironBars -= amount
+	self:replicatePlayer(player)
+	return true
+end
+
+function RefineryManager:addIronBars(player: Player, amount: number)
+	local balances = self.balancesByPlayer[player]
+	if not balances then
+		return
+	end
+	balances.ironBars = math.max(balances.ironBars + amount, 0)
+	self:replicatePlayer(player)
+end
+
+-- the Refinery's own toughness follows the Camp Level (StructureManager)
+function RefineryManager:subscribeCampLevelChanged(handler: (level: number) -> ())
+	table.insert(self.campLevelChangedHandlers, handler)
+end
+
+function RefineryManager:fireCampLevelChanged()
+	for _, handler in self.campLevelChangedHandlers do
+		handler(self.campLevel)
+	end
+end
+
 -- dev tools: grant Gold and jump the camp level, so the store can be tested
 -- without a mining trip
 function RefineryManager:addGoldBars(player: Player, amount: number)
@@ -100,6 +137,7 @@ function RefineryManager:setCampLevel(level: number)
 	self.campLevel = math.clamp(math.floor(level), DEFAULT_CAMP_LEVEL, topLevel)
 	self.diamondPool = 0
 	self:replicateShared()
+	self:fireCampLevelChanged()
 end
 
 function RefineryManager:getUraniumTotal(): number
@@ -249,6 +287,7 @@ function RefineryManager:resetProgress()
 	self.diamondPool = 0
 	self.uraniumTotal = 0
 	self:replicateShared()
+	self:fireCampLevelChanged()
 end
 
 -- ready-sequence entry; not replayed on a dev-tool reset, so run state survives
@@ -281,6 +320,7 @@ function RefineryManager.new(): RefineryManager
 	self.diamondPool = 0
 	self.uraniumTotal = 0
 	self.isBusy = false
+	self.campLevelChangedHandlers = {}
 	self.prompt = nil
 	self.promptConnection = nil
 	return self

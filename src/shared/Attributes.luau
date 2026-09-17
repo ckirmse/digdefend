@@ -112,6 +112,33 @@ module = {
 	LOADOUT_DEFENSE_3 = "LoadoutDefense3",
 	DAILY_REWARD_LAST_CLAIMED_DAY = "DailyRewardLastClaimedDay",
 	DAILY_REWARD_NEXT_CLAIM_TIME = "DailyRewardNextClaimTime",
+	-- on each structure shadow part (StructureManager, M23): what it is and
+	-- its health
+	STRUCTURE_ID = "StructureId",
+	STRUCTURE_KIND = "StructureKind",
+	STRUCTURE_HP = "StructureHp",
+	STRUCTURE_MAX_HP = "StructureMaxHp",
+	-- rubble: true from the blow that emptied it until it is rebuilt, so HP
+	-- climbing from zero reads as a rebuild, not a standing wall
+	STRUCTURE_IS_DESTROYED = "StructureIsDestroyed",
+	-- on the gate's shadow: clients tween the door leaves to match
+	GATE_IS_OPEN = "GateIsOpen",
+	-- GameMetadata: the shared tier of the gate, walls, and posts; whether it
+	-- is night (the real clock is M28); door tween time for the clients
+	FORTIFICATION_TIER = "FortificationTier",
+	-- GameMetadata, the Workbench sign: Iron donated toward the next tier,
+	-- what that tier costs (0 at the top tier), and the Camp Level it needs
+	FORTIFICATION_POOL = "FortificationPool",
+	FORTIFICATION_POOL_REQUIRED = "FortificationPoolRequired",
+	FORTIFICATION_REQUIRED_CAMP_LEVEL = "FortificationRequiredCampLevel",
+	IS_NIGHT = "IsNight",
+	GATE_DOOR_TWEEN_SEC = "GateDoorTweenSec",
+	-- GameMetadata: Hammer tuning the client needs to swing and to price a
+	-- repair ("4 Iron Bars for 10 HP")
+	REPAIR_CHUNK_HP = "RepairChunkHp",
+	REPAIR_CHUNK_IRON = "RepairChunkIron",
+	HAMMER_HIT_INTERVAL_SEC = "HammerHitIntervalSec",
+	HAMMER_REACH_STUDS = "HammerReachStuds",
 	-- icon capture pipeline (see docs/icon-capture.md, IconFramingFormat, ApplyIconFramings)
 	-- on the Loading ScreenGui; src/first/loading.client.luau uses the literals
 	-- because nothing in ReplicatedStorage has replicated when it runs

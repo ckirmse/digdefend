@@ -17,6 +17,8 @@ local OrePickupManager = require(script.Parent.OrePickupManager)
 local RefineryManager = require(script.Parent.RefineryManager)
 local RunDevTools = require(script.Parent.RunDevTools)
 local RunManager = require(script.Parent.RunManager)
+local StructureDevTools = require(script.Parent.StructureDevTools)
+local StructureManager = require(script.Parent.StructureManager)
 local ToolManager = require(script.Parent.ToolManager)
 local TorchManager = require(script.Parent.TorchManager)
 
@@ -66,6 +68,15 @@ RunManager:subscribeRunStarted(
 		MiningStoreManager:onRunStarted()
 	end
 )
+-- after the tools (everyone is handed a Hammer) and the refinery, which
+-- owns the Iron repairs spend and the Camp Level the Refinery's HP follows
+StructureManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		StructureManager:onRunStarted()
+	end
+)
 
 RunDevTools:init()
 MineDevTools:init()
+StructureDevTools:init()

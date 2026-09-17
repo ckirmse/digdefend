@@ -19,4 +19,7 @@ return {
 	-- need the top level
 	POST_TIER_REQUIRED_CAMP_LEVEL_BY_TIER = { 1, 2, 3, 4 },
 	POST_CAPSTONE_REQUIRED_CAMP_LEVEL = 4,
+	-- Wall and gate tiers (M23) follow the posts: tier N needs Camp Level N.
+	-- Repair is never gated
+	STRUCTURE_TIER_REQUIRED_CAMP_LEVEL_BY_TIER = { 1, 2, 3 },
 }

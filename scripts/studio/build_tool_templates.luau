@@ -3,7 +3,8 @@
 -- Handle part the Humanoid grips once ToolManager wraps it in a Tool. The pick
 -- axe has one model per level ("PICK_AXE_1" .. "PICK_AXE_5", the level count
 -- in GameData/Store/MiningSupplies) so an upgrade shows in the hand and on
--- the store stand; TORCH and DYNAMITE are the consumables. Run in the
+-- the store stand; TORCH and DYNAMITE are the consumables and HAMMER is the
+-- Build Mode tool. Run in the
 -- gameplay place from the command bar or the MCP execute_luau tool; it
 -- replaces any existing copy. Real art replaces these at M46.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -89,6 +90,16 @@ local fuse = makePart("Fuse", Vector3.new(0.08, 0.4, 0.08), Color3.fromRGB(230, 
 weldTo(stick, fuse)
 dynamite.PrimaryPart = stick
 dynamite.Parent = tools
+
+-- hammer (M23): a short wooden haft with a blocky steel head; equipping it
+-- is Build Mode
+local hammer = Instance.new("Model")
+hammer.Name = "HAMMER"
+local hammerHaft = makePart(Constants.TOOL_HANDLE_PART, Vector3.new(0.3, 1.8, 0.3), Color3.fromRGB(120, 80, 40), Enum.Material.Wood, CFrame.new(0, 0, 0), hammer)
+local hammerHead = makePart("Head", Vector3.new(1.1, 0.55, 0.55), Color3.fromRGB(150, 150, 155), Enum.Material.Metal, CFrame.new(0, 0.9, 0), hammer)
+weldTo(hammerHaft, hammerHead)
+hammer.PrimaryPart = hammerHaft
+hammer.Parent = tools
 
 ChangeHistoryService:SetWaypoint("After tool templates")
 print("build_tool_templates: built " .. #tools:GetChildren() .. " tool template(s) under " .. tools:GetFullName())

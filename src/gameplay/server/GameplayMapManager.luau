@@ -135,6 +135,55 @@ function GameplayMapManager:checkMiningStore(camp: Folder)
 	end
 end
 
+-- the fortification markers StructureManager swaps for templates: numbered
+-- wall and post models and the gate, each a Model so it has a pivot
+function GameplayMapManager:checkFortifications(camp: Folder)
+	local prefixByFolder = {
+		[Constants.CAMP_WALLS_FOLDER] = Constants.WALL_NAME_PREFIX,
+		[Constants.CAMP_POSTS_FOLDER] = Constants.POST_NAME_PREFIX,
+	}
+	for folderName, prefix in prefixByFolder do
+		local folder = self:requireChild(camp, folderName, "Folder")
+		if not folder then
+			continue
+		end
+		local seen: { [string]: boolean } = {}
+		for _, child in folder:GetChildren() do
+			if not child:IsA("Model") then
+				self:report(`{child:GetFullName()} should be a Model, is a {child.ClassName}`)
+				continue
+			end
+			if not tonumber(child.Name:sub(#prefix + 1)) or child.Name:sub(1, #prefix) ~= prefix then
+				self:report(`{child:GetFullName()} must be named {prefix} and its number`)
+			end
+			if seen[child.Name] then
+				self:report(`{folder:GetFullName()} has more than one {child.Name}`)
+			end
+			seen[child.Name] = true
+		end
+		if next(seen) == nil then
+			self:report(`{folder:GetFullName()} has no {prefix} models`)
+		end
+	end
+	self:requireChild(camp, Constants.CAMP_GATE_MODEL, "Model")
+end
+
+-- the Workbench the crew donates Iron at; clients hang the Fortifications
+-- sign on its Prompt part as soon as the Model appears
+function GameplayMapManager:checkWorkbench(camp: Folder)
+	local workbench = self:requireChild(camp, Constants.CAMP_WORKBENCH_MODEL, "Model")
+	if not workbench then
+		return
+	end
+	if workbench:IsA("Model") and workbench.ModelStreamingMode ~= Enum.ModelStreamingMode.Atomic then
+		self:report(`{workbench:GetFullName()} must use Atomic ModelStreamingMode`)
+	end
+	local promptPart = self:requireChild(workbench, Constants.WORKBENCH_PROMPT_PART, "BasePart")
+	if promptPart and promptPart:IsA("BasePart") and not promptPart.Anchored then
+		self:report(`{promptPart:GetFullName()} must be anchored`)
+	end
+end
+
 -- one template part per rock, so a client can clone every rock the generator
 -- can place; missing ones render as a plain grey cube with a warning
 function GameplayMapManager:checkRockTemplates()
@@ -163,6 +212,8 @@ function GameplayMapManager:checkCamp(camp: Folder, mapName: string)
 	self:checkMineEntrance(camp)
 	self:checkRefinery(camp)
 	self:checkMiningStore(camp)
+	self:checkFortifications(camp)
+	self:checkWorkbench(camp)
 	local found = #self.problems - before
 	if found == 0 then
 		print(`[GameplayMapManager] map {mapName} check passed`)

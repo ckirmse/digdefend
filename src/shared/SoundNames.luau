@@ -23,6 +23,8 @@ module = {
 		DYNAMITE_FUSE = "DynamiteFuse",
 		DYNAMITE_EXPLODE = "DynamiteExplode",
 		TORCH_PLACE = "TorchPlace",
+		-- every Hammer swing that lands a repair (M23)
+		HAMMER_HIT = "HammerHit",
 		JET_PACK_BURN = "JetPackBurn",
 		-- 3D loop on every helicopter while its rotor turns (ClientHelicopterManager)
 		HELICOPTER = "Helicopter",
