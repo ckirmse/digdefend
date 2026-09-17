@@ -64,6 +64,16 @@ module = {
 	-- client: the pool filled and the fortifications went up a tier
 	NOTIFY_FORTIFICATION_DONATED = "NotifyFortificationDonated",
 	NOTIFY_FORTIFICATION_UPGRADED = "NotifyFortificationUpgraded",
+	-- Weapon Mode (M24): one shot, as the ray the client aimed; the server
+	-- decides what it hit. Ammo and the reload come back as attributes. To
+	-- every client: a shot was fired from here to there (tracer, 3D sound is
+	-- server-side), and which damageable it hit if any
+	TRY_FIRE_WEAPON = "TryFireWeapon",
+	TRY_RELOAD_WEAPON = "TryReloadWeapon",
+	NOTIFY_WEAPON_FIRED = "NotifyWeaponFired",
+	-- where the player is looking, up or down, a few times a second while
+	-- it changes; comes back to everyone as the public AimPitchDegrees
+	TRY_SET_AIM = "TrySetAim",
 }
 
 return module

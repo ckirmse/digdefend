@@ -315,4 +315,25 @@ function Constants.getPlaceKind(): number
 	return Enums.PlaceKind.STUDIO
 end
 
+-- on every weapon template: an Attachment at the barrel tip, where tracers
+-- start (scripts/studio/build_tool_templates.luau)
+Constants.WEAPON_MUZZLE_ATTACHMENT = "Muzzle"
+-- under the Muzzle attachment, both authored switched off: a light and a
+-- smoke emitter the client turns on for a moment on every shot
+Constants.WEAPON_MUZZLE_FLASH_LIGHT = "MuzzleFlash"
+Constants.WEAPON_MUZZLE_SMOKE_EMITTER = "MuzzleSmoke"
+
+-- GameAssets/Effects: designer-authored looks for effects the client
+-- builds, starting with the bullet hole Decal (ClientImpactManager)
+Constants.EFFECT_TEMPLATES_FOLDER = "Effects"
+Constants.BULLET_HOLE_DECAL = "BulletHole"
+-- the client-only workspace folder of damageable targets' visible bodies
+Constants.DAMAGEABLE_BODIES_FOLDER = "DamageableBodies"
+
+-- the Weapon Mode ammo readout (scripts/studio/build_weapon_hud_gui.luau);
+-- tapping it reloads
+Constants.WEAPON_HUD_GUI_NAME = "WeaponHud"
+Constants.WEAPON_HUD_AMMO_BUTTON = "AmmoButton"
+Constants.WEAPON_HUD_AMMO_LABEL = "AmmoLabel"
+
 return Constants

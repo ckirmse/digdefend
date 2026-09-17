@@ -139,6 +139,25 @@ module = {
 	REPAIR_CHUNK_IRON = "RepairChunkIron",
 	HAMMER_HIT_INTERVAL_SEC = "HammerHitIntervalSec",
 	HAMMER_REACH_STUDS = "HammerReachStuds",
+	-- weapons (M24). Public and private: the Enums.WeaponKind carried this run
+	WEAPON_KIND = "WeaponKind",
+	-- CurrentPlayer: rounds left, the server time a running reload ends (0
+	-- when none), and the carried weapon's tuning the client needs to fire
+	WEAPON_AMMO = "WeaponAmmo",
+	WEAPON_RELOAD_END_TIME = "WeaponReloadEndTime",
+	WEAPON_MAGAZINE_SIZE = "WeaponMagazineSize",
+	WEAPON_FIRE_INTERVAL_SEC = "WeaponFireIntervalSec",
+	WEAPON_RANGE_STUDS = "WeaponRangeStuds",
+	-- public: how far up (+) or down (-) the player looks, whole degrees
+	-- (AimManager); other clients lean the body and the held weapon by it
+	AIM_PITCH_DEGREES = "AimPitchDegrees",
+	-- on every damageable shadow (Tags.DAMAGEABLE): its registry id, HP, the
+	-- name over its bar, and the hit box size centred on the shadow
+	DAMAGEABLE_ID = "DamageableId",
+	DAMAGEABLE_HP = "DamageableHp",
+	DAMAGEABLE_MAX_HP = "DamageableMaxHp",
+	DAMAGEABLE_NAME = "DamageableName",
+	DAMAGEABLE_SIZE = "DamageableSize",
 	-- icon capture pipeline (see docs/icon-capture.md, IconFramingFormat, ApplyIconFramings)
 	-- on the Loading ScreenGui; src/first/loading.client.luau uses the literals
 	-- because nothing in ReplicatedStorage has replicated when it runs

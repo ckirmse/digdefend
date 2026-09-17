@@ -7,6 +7,7 @@
 -- keeps an AudioListener on the camera wired to the same output, so the 3D
 -- emitters the server attaches to objects (SpatialSoundManager) are heard
 -- from where they are.
+local Debris = game:GetService("Debris")
 local SoundService = game:GetService("SoundService")
 
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -23,6 +24,9 @@ export type ClientSoundManager = typeof(setmetatable(
 	},
 	ClientSoundManager
 ))
+
+-- long enough for any one-shot; the throwaway part goes with it
+local SPATIAL_ONE_SHOT_LIFETIME_SEC = 5
 
 function ClientSoundManager:warnOnce(name: string, message: string)
 	if self.warnedNames[name] then
@@ -56,6 +60,62 @@ function ClientSoundManager:playSfx(name: string)
 	-- restart so rapid repeats (cash ticking up) each make a sound
 	player.TimePosition = 0
 	player:Play()
+end
+
+-- a 3D one-shot heard from a world position by this client only (gunfire:
+-- too frequent for the server to build a part per shot). The authored
+-- player is cloned onto a local throwaway part with an emitter, as
+-- SpatialSoundManager does on the server. fullVolumeStuds and silentStuds
+-- shape the falloff: an emitter's default is the real inverse-square law,
+-- fine within a few studs but nearly gone by 60 (measured 2026-09-17: a
+-- shot 60 studs off came through at 6% of its level up close), so a
+-- crewmate firing across the camp could not be heard
+function ClientSoundManager:playSfxAt(position: Vector3, name: string, fullVolumeStuds: number, silentStuds: number)
+	local template = self:findPlayer(self.sfxFolder, name)
+	if not template then
+		self:warnOnce(name, `no AudioPlayer {Constants.SFX_FOLDER}.{name}`)
+		return
+	end
+	if template.Asset == "" then
+		self:warnOnce(name, `{Constants.SFX_FOLDER}.{name} has no asset yet`)
+		return
+	end
+	local anchor = Instance.new("Part")
+	anchor.Name = name
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.one
+	anchor.CFrame = CFrame.new(position)
+	local player = template:Clone()
+	for _, child in player:GetChildren() do
+		if child:IsA("Wire") then
+			child:Destroy()
+		end
+	end
+	player.Looping = false
+	local emitter = Instance.new("AudioEmitter")
+	-- full volume up close, then a curve that drops quickly at first and
+	-- trails off, which is how distance is heard
+	local fadeStuds = math.max(1, silentStuds - fullVolumeStuds)
+	emitter:SetDistanceAttenuation({
+		[0] = 1,
+		[fullVolumeStuds] = 1,
+		[fullVolumeStuds + fadeStuds * 0.25] = 0.45,
+		[fullVolumeStuds + fadeStuds * 0.6] = 0.15,
+		[fullVolumeStuds + fadeStuds] = 0,
+	})
+	emitter.Parent = anchor
+	local wire = Instance.new("Wire")
+	wire.SourceInstance = player
+	wire.TargetInstance = emitter
+	wire.Parent = player
+	player.Parent = anchor
+	anchor.Parent = workspace
+	player:Play()
+	Debris:AddItem(anchor, SPATIAL_ONE_SHOT_LIFETIME_SEC)
 end
 
 function ClientSoundManager:checkAuthoredSounds()

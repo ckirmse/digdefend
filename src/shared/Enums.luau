@@ -137,6 +137,16 @@ module = {
 			HAMMER = "Hammer",
 		},
 	},
+	-- handheld weapons (GDD S12), M24. The WEAPON tool slot holds one of
+	-- these for the run; definitions are in GameData/Weapons/Handheld. Keys
+	-- double as the held template names ("WEAPON_<KEY>" under GameAssets/Tools)
+	WeaponKind = {
+		RIFLE = 1,
+
+		PublicNames = {
+			RIFLE = "Rifle",
+		},
+	},
 	-- camp structures with HP (GDD "Walls", "Gate", "Refinery"), M23
 	StructureKind = {
 		WALL = 1,

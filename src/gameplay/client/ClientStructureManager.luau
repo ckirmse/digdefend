@@ -65,6 +65,7 @@ export type ClientStructureManager = typeof(setmetatable(
 	ClientStructureManager
 ))
 
+local RETICLE_BORROWER = "BuildMode"
 local DEFAULT_DOOR_TWEEN_SEC = 0.6
 local BILLBOARD_LIFT_STUDS = 4
 local HP_FILL_TWEEN_SEC = 0.25
@@ -452,7 +453,7 @@ function ClientStructureManager:setBuildMode(isBuildMode: boolean)
 		return
 	end
 	self.isBuildMode = isBuildMode
-	ClientMiningManager:setReticleBorrowed(isBuildMode)
+	ClientMiningManager:setReticleBorrowed(RETICLE_BORROWER, isBuildMode)
 	if isBuildMode then
 		self.aimConnection = RunService.RenderStepped:Connect(
 			function()

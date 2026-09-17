@@ -20,6 +20,10 @@ module = {
 	-- carrying the Structure* attributes and the Hammer prompt; clients hang
 	-- the Build Mode HP bar on it
 	STRUCTURE = "Structure",
+	-- anything a weapon can hurt (DamageableManager): an invisible server
+	-- part carrying the Damageable* attributes; the dev-tool target dummy
+	-- now, enemies at M29
+	DAMAGEABLE = "Damageable",
 }
 
 return module

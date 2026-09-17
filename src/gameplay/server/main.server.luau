@@ -2,6 +2,7 @@
 
 -- Gameplay-only server startup. The shared GameController starts from
 -- ServerScriptService/Server/main; this script wires the gameplay's own managers.
+local AimManager = require(script.Parent.AimManager)
 local ArrivalManager = require(script.Parent.ArrivalManager)
 local BackpackManager = require(script.Parent.BackpackManager)
 local BootsManager = require(script.Parent.BootsManager)
@@ -21,6 +22,8 @@ local StructureDevTools = require(script.Parent.StructureDevTools)
 local StructureManager = require(script.Parent.StructureManager)
 local ToolManager = require(script.Parent.ToolManager)
 local TorchManager = require(script.Parent.TorchManager)
+local WeaponDevTools = require(script.Parent.WeaponDevTools)
+local WeaponManager = require(script.Parent.WeaponManager)
 
 GameplayMapManager:init()
 RunManager:init()
@@ -42,6 +45,10 @@ RunManager:subscribeRunStarted(
 )
 
 ToolManager:init()
+-- right after the tools, so the weapon is the second slot (GDD "Mining
+-- Tools": bought tools come after Pick Axe and Weapon)
+WeaponManager:init()
+AimManager:init()
 BackpackManager:init()
 BootsManager:init()
 JetPackManager:init()
@@ -80,3 +87,4 @@ RunManager:subscribeRunStarted(
 RunDevTools:init()
 MineDevTools:init()
 StructureDevTools:init()
+WeaponDevTools:init()

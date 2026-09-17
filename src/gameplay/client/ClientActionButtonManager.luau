@@ -22,6 +22,7 @@ local ClientDynamiteManager = require(script.Parent.ClientDynamiteManager)
 local ClientMiningManager = require(script.Parent.ClientMiningManager)
 local ClientStructureManager = require(script.Parent.ClientStructureManager)
 local ClientTorchManager = require(script.Parent.ClientTorchManager)
+local ClientWeaponManager = require(script.Parent.ClientWeaponManager)
 
 local ClientActionButtonManager = {}
 ClientActionButtonManager.__index = ClientActionButtonManager
@@ -36,12 +37,13 @@ export type ClientActionButtonManager = typeof(setmetatable(
 	ClientActionButtonManager
 ))
 
--- tools with an action the button can trigger; the weapon joins at M24
+-- tools with an action the button can trigger
 local ACTIONABLE_TOOLS = {
 	[Enums.ToolKind.PICK_AXE] = true,
 	[Enums.ToolKind.DYNAMITE] = true,
 	[Enums.ToolKind.TORCH] = true,
 	[Enums.ToolKind.HAMMER] = true,
+	[Enums.ToolKind.WEAPON] = true,
 }
 
 function ClientActionButtonManager:onPressed()
@@ -54,13 +56,17 @@ function ClientActionButtonManager:onPressed()
 		ClientTorchManager:use()
 	elseif tool == Enums.ToolKind.HAMMER then
 		ClientStructureManager:beginHold()
+	elseif tool == Enums.ToolKind.WEAPON then
+		ClientWeaponManager:beginHold()
 	end
 end
 
--- the pick axe and the Hammer are holds; releasing anything else is a no-op
+-- the pick axe, the Hammer, and the weapon are holds; releasing anything
+-- else is a no-op
 function ClientActionButtonManager:onReleased()
 	ClientMiningManager:endHold()
 	ClientStructureManager:endHold()
+	ClientWeaponManager:endHold()
 end
 
 function ClientActionButtonManager:render()
@@ -78,9 +84,11 @@ function ClientActionButtonManager:render()
 end
 
 function ClientActionButtonManager:onEquippedChanged(value: any)
-	-- a swap mid-hold must not leave the pick axe or the Hammer swinging
+	-- a swap mid-hold must not leave the pick axe or the Hammer swinging,
+	-- or the weapon firing
 	ClientMiningManager:endHold()
 	ClientStructureManager:endHold()
+	ClientWeaponManager:endHold()
 	self.equippedTool = if typeof(value) == "number" then value else nil
 	self:render()
 end

@@ -4,7 +4,8 @@
 -- order, which one is equipped, and the pick axe level. Run state, not
 -- persistent, held in Lua and replicated as attributes: the equipped tool is
 -- public so every client shows the held model; slots and level are private.
--- Everyone starts with a pick axe; the weapon lands at M24. Consumables from
+-- Everyone starts with a pick axe; WeaponManager hands out the weapon and
+-- says which Enums.WeaponKind fills the WEAPON slot. Consumables from
 -- the Mining Supplies Store (torch, dynamite) hold a count beside their slot
 -- and leave the bar when it reaches zero.
 --
@@ -23,6 +24,7 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local MiningRules = require("@game/ReplicatedStorage/Shared/MiningRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local GameController = require(script.Parent.Parent.Server.GameController)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 
@@ -33,6 +35,8 @@ type ToolState = {
 	slots: { number },
 	equipped: number,
 	pickAxeLevel: number,
+	-- the Enums.WeaponKind in the WEAPON slot; 0 until WeaponManager sets it
+	weaponKind: number,
 	-- consumables only: how many of each are held
 	countByTool: { [number]: number },
 }
@@ -93,6 +97,21 @@ function ToolManager:setPickAxeLevel(player: Player, level: number)
 	self:replicate(player)
 end
 
+function ToolManager:getWeaponKind(player: Player): number
+	local state = self.stateByPlayer[player]
+	return if state then state.weaponKind else 0
+end
+
+-- which weapon the WEAPON slot holds; public so every client can name it
+function ToolManager:setWeaponKind(player: Player, weaponKind: number)
+	local state = self.stateByPlayer[player]
+	if not state then
+		return
+	end
+	state.weaponKind = weaponKind
+	self:replicate(player)
+end
+
 -- a purchase or a pickup: the slot appears with the first one held
 function ToolManager:addConsumable(player: Player, tool: number, amount: number)
 	local state = self.stateByPlayer[player]
@@ -134,11 +153,14 @@ function ToolManager:consume(player: Player, tool: number): boolean
 	return true
 end
 
--- "PICK_AXE_3", "TORCH": the GameAssets/Tools model for what a player holds
+-- "PICK_AXE_3", "WEAPON_RIFLE", "TORCH": the GameAssets/Tools model for what a player holds
 function ToolManager:templateNameFor(player: Player, tool: number): string
 	local key = Enums.getName(Enums.ToolKind, tool) or "?"
 	if tool == Enums.ToolKind.PICK_AXE then
 		return `{key}_{self:getPickAxeLevel(player)}`
+	end
+	if tool == Enums.ToolKind.WEAPON then
+		return WeaponRules.templateNameFor(self:getWeaponKind(player))
 	end
 	return key
 end
@@ -186,9 +208,12 @@ function ToolManager:syncHeldTool(player: Player)
 	end
 	local tool = Instance.new("Tool")
 	tool.Name = Enums.getPublicName(Enums.ToolKind, state.equipped) or wantedName
+	if state.equipped == Enums.ToolKind.WEAPON then
+		tool.Name = Enums.getPublicName(Enums.WeaponKind, state.weaponKind) or wantedName
+	end
 	tool.RequiresHandle = true
 	tool.CanBeDropped = false
-	-- clicks are read by the mining, torch, and dynamite managers, not the Tool
+	-- clicks are read by the mining, weapon, torch, and dynamite managers, not the Tool
 	tool.ManualActivationOnly = true
 	tool.ToolTip = ""
 	if state.equipped == Enums.ToolKind.PICK_AXE then
@@ -232,6 +257,8 @@ function ToolManager:replicate(player: Player)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.TOOL_COUNTS, MiningRules.encodeToolCounts(state.countByTool))
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.PICK_AXE_LEVEL, state.pickAxeLevel)
 	SplendidReplicationManager:setPublicAttribute(player, Attributes.PICK_AXE_LEVEL, state.pickAxeLevel)
+	SplendidReplicationManager:setPublicAttribute(player, Attributes.WEAPON_KIND, state.weaponKind)
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.WEAPON_KIND, state.weaponKind)
 end
 
 function ToolManager:grantTool(player: Player, tool: number)
@@ -286,6 +313,7 @@ function ToolManager:onPlayerReady(player: Player)
 		slots = {},
 		equipped = MiningRules.NO_TOOL,
 		pickAxeLevel = STARTING_PICK_AXE_LEVEL,
+		weaponKind = 0,
 		countByTool = {},
 	}
 	-- a respawn arrives with the Roblox side of the old Tool gone; the

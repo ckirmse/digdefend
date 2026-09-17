@@ -112,7 +112,13 @@ function ClientToolBarManager:renderSlots()
 		frame.Visible = true
 		local label = frame:FindFirstChild(Constants.TOOL_SLOT_LABEL)
 		if label and label:IsA("TextLabel") then
-			(label :: TextLabel).Text = UiStyle.formatTitle(Enums.getPublicName(Enums.ToolKind, tool) or "?")
+			local publicName = Enums.getPublicName(Enums.ToolKind, tool)
+			-- the weapon slot is named for what is carried ("RIFLE")
+			local weaponKind = ClientDataManager:getCurrentPlayerAttribute(Attributes.WEAPON_KIND)
+			if tool == Enums.ToolKind.WEAPON and typeof(weaponKind) == "number" and Enums.isValidValue(Enums.WeaponKind, weaponKind) then
+				publicName = Enums.getPublicName(Enums.WeaponKind, weaponKind)
+			end
+			(label :: TextLabel).Text = UiStyle.formatTitle(publicName or "?")
 		end
 		local keyLabel = frame:FindFirstChild(Constants.TOOL_SLOT_KEY_LABEL)
 		if keyLabel and keyLabel:IsA("TextLabel") then
