@@ -62,7 +62,7 @@ type Structure = {
 
 -- where a template goes: the marker's pivot, parent, and name, kept after
 -- the marker itself is gone
-type Slot = {
+export type Slot = {
 	name: string,
 	templateKey: string,
 	pivot: CFrame,
@@ -84,6 +84,7 @@ export type StructureManager = typeof(setmetatable(
 		workbenchPrompt: ProximityPrompt?,
 		connections: { RBXScriptConnection },
 		refineryDestroyedHandlers: { () -> () },
+		postModelsFilledHandlers: { () -> () },
 		warnedTemplates: { [string]: boolean },
 	},
 	StructureManager
@@ -134,6 +135,24 @@ end
 -- the run state machine (M28) ends the run from here
 function StructureManager:subscribeRefineryDestroyed(handler: () -> ())
 	table.insert(self.refineryDestroyedHandlers, handler)
+end
+
+-- the live post models, one slot per Camp.Posts marker; PostManager hangs
+-- claims and weapons on them
+function StructureManager:getPostSlots(): { Slot }
+	return self.postSlots
+end
+
+-- fired whenever the post models are swapped (run start, a fortification
+-- tier), since a new model carries a fresh sign and no prompt
+function StructureManager:subscribePostModelsFilled(handler: () -> ())
+	table.insert(self.postModelsFilledHandlers, handler)
+end
+
+function StructureManager:firePostModelsFilled()
+	for _, handler in self.postModelsFilledHandlers do
+		handler()
+	end
 end
 
 function StructureManager:getKindData(kind: number): StructureRules.KindData
@@ -191,9 +210,14 @@ function StructureManager:fillSlot(slot: Slot, templateName: string): Model?
 end
 
 -- every post template carries the same sign; the slot it lands in names it
--- ("Post4" reads "DEFENSE POST #4"). A template without the sign is fine
+-- ("Post4" reads "DEFENSE POST #4"). A template without the sign is fine.
+-- The model is also tagged and numbered for the clients and PostManager
 function StructureManager:labelPost(slot: Slot)
 	local model = slot.model
+	if model then
+		CollectionService:AddTag(model, Tags.POST)
+		model:SetAttribute(Attributes.POST_MODEL_INDEX, tonumber(slot.name:sub(#Constants.POST_NAME_PREFIX + 1)) or 0)
+	end
 	local signModel = if model then model:FindFirstChild(Constants.POST_SIGN_MODEL) else nil
 	local signPart = if signModel then signModel:FindFirstChild(Constants.POST_SIGN_PART) else nil
 	local gui = if signPart then signPart:FindFirstChildWhichIsA("SurfaceGui") else nil
@@ -454,6 +478,7 @@ function StructureManager:setFortificationTier(tier: number)
 	for _, slot in self.postSlots do
 		self:fillPostSlot(slot)
 	end
+	self:firePostModelsFilled()
 	self:replicateAll()
 end
 
@@ -615,6 +640,7 @@ function StructureManager:onRunStarted()
 	SplendidReplicationManager:setGameMetadata(Attributes.IS_NIGHT, false)
 	self:replicateAll()
 	self:updateGate()
+	self:firePostModelsFilled()
 end
 
 -- ready-sequence entry: everyone carries a Hammer from the start
@@ -658,6 +684,7 @@ function StructureManager.new(): StructureManager
 	self.lastSwingTimeByPlayer = {}
 	self.connections = {}
 	self.refineryDestroyedHandlers = {}
+	self.postModelsFilledHandlers = {}
 	self.warnedTemplates = {}
 	return self
 end

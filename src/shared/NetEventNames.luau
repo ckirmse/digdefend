@@ -74,6 +74,24 @@ module = {
 	-- where the player is looking, up or down, a few times a second while
 	-- it changes; comes back to everyone as the public AimPitchDegrees
 	TRY_SET_AIM = "TrySetAim",
+	-- posts (M25). Claiming and mounting are ProximityPrompts (the sign's
+	-- and the weapon's Use), which the server hears directly; the claimer
+	-- gets the notify for the sound and the mount comes back as the
+	-- MannedPostIndex attribute. Leaving is a request. Aim is the base yaw
+	-- and gun pitch a few times a second, checked against the turn speed
+	-- and echoed on the weapon model. A shot is the muzzle ray; every
+	-- client hears where it went
+	TRY_DISMOUNT_POST = "TryDismountPost",
+	TRY_SET_POST_AIM = "TrySetPostAim",
+	TRY_FIRE_POST_WEAPON = "TryFirePostWeapon",
+	TRY_UPGRADE_POST = "TryUpgradePost",
+	NOTIFY_POST_CLAIMED = "NotifyPostClaimed",
+	NOTIFY_POST_WEAPON_FIRED = "NotifyPostWeaponFired",
+	-- a projectile post weapon instead: every client flies the rocket from
+	-- the launch, and the burst says where it ended and how many it hit
+	NOTIFY_POST_ROCKET_LAUNCHED = "NotifyPostRocketLaunched",
+	NOTIFY_POST_ROCKET_EXPLODED = "NotifyPostRocketExploded",
+	NOTIFY_POST_UPGRADED = "NotifyPostUpgraded",
 }
 
 return module

@@ -147,6 +147,33 @@ module = {
 			RIFLE = "Rifle",
 		},
 	},
+	-- mounted post weapons (GDD "Posts"), M25. The POST loadout slot names
+	-- one for the run; definitions are in GameData/Posts/PostWeapons. Keys
+	-- double as the model names under GameAssets/PostWeapons
+	PostWeaponKind = {
+		MACHINE_GUN = 1,
+		ROCKET_LAUNCHER = 2,
+
+		PublicNames = {
+			MACHINE_GUN = "Machine Gun",
+			ROCKET_LAUNCHER = "Rocket Launcher",
+		},
+	},
+	-- what a post weapon upgrade raises (GDD "Post Weapon Upgrades"): four
+	-- upgrades each, bought with Gold at the post's workbench
+	PostAttribute = {
+		DAMAGE = 1,
+		FIRE_RATE = 2,
+		TURN_SPEED = 3,
+		RANGE = 4,
+
+		PublicNames = {
+			DAMAGE = "Damage",
+			FIRE_RATE = "Fire Rate",
+			TURN_SPEED = "Turn Speed",
+			RANGE = "Range",
+		},
+	},
 	-- camp structures with HP (GDD "Walls", "Gate", "Refinery"), M23
 	StructureKind = {
 		WALL = 1,

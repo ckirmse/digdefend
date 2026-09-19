@@ -245,6 +245,9 @@ function ClientOverlayManager:init()
 	backdrop.AutoButtonColor = false
 	backdrop.Selectable = false
 	backdrop.Active = true
+	-- frees the mouse while a menu is up: the first-person camera otherwise
+	-- keeps it locked to the centre and the menu cannot be clicked
+	backdrop.Modal = true
 	backdrop.Parent = backdropGui
 	backdrop.Activated:Connect(
 		function()

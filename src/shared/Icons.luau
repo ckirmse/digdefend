@@ -29,6 +29,13 @@ Icons.REFINED_RESOURCE = {
 }
 
 -- standalone glyphs with no enum behind them
+-- the reticle shown in Post Weapon Mode, by Enums.PostWeaponKind; a kind
+-- without one borrows the mining dot (ClientPostManager)
+Icons.POST_WEAPON_RETICLE = {
+	[Enums.PostWeaponKind.MACHINE_GUN] = "rbxassetid://134742178329103",
+	[Enums.PostWeaponKind.ROCKET_LAUNCHER] = "rbxassetid://105502906242582",
+}
+
 Icons.UI = {
 	BACKPACK = Icons.PLACEHOLDER,
 }

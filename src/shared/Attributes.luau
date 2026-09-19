@@ -158,6 +158,41 @@ module = {
 	DAMAGEABLE_MAX_HP = "DamageableMaxHp",
 	DAMAGEABLE_NAME = "DamageableName",
 	DAMAGEABLE_SIZE = "DamageableSize",
+	-- posts (PostManager, M25). Public on AllPlayers: the post number this
+	-- player claimed (0 = none), the Enums.PostWeaponKind they brought, and
+	-- the post they are manning (0 = none); every client renders from these
+	POST_INDEX = "PostIndex",
+	POST_WEAPON_KIND = "PostWeaponKind",
+	MANNED_POST_INDEX = "MannedPostIndex",
+	-- CurrentPlayer (private): how many upgrades each attribute has, 0 to 4
+	POST_UPGRADE_DAMAGE = "PostUpgradeDamage",
+	POST_UPGRADE_FIRE_RATE = "PostUpgradeFireRate",
+	POST_UPGRADE_TURN_SPEED = "PostUpgradeTurnSpeed",
+	POST_UPGRADE_RANGE = "PostUpgradeRange",
+	-- GameMetadata: the post catalogue as JSON (PostRules codec): claim
+	-- price, per-kind base stats, upgrade prices, and the Camp Level gates
+	POST_CATALOG = "PostCatalog",
+	-- on each post model (Tags.POST): its number and the owner's UserId (0
+	-- while unclaimed), so a client can enable the claim prompt for itself
+	POST_MODEL_INDEX = "PostModelIndex",
+	POST_OWNER_USER_ID = "PostOwnerUserId",
+	-- on each spawned post weapon model (Tags.POST_WEAPON): which post it
+	-- stands on, its kind, who is manning it (0 = nobody), and the aim the
+	-- server accepted; clients turn the base and tilt the gun from these
+	POST_WEAPON_POST_INDEX = "PostWeaponPostIndex",
+	POST_WEAPON_MANNED_USER_ID = "PostWeaponMannedUserId",
+	POST_WEAPON_YAW_DEGREES = "PostWeaponYawDegrees",
+	POST_WEAPON_PITCH_DEGREES = "PostWeaponPitchDegrees",
+	-- the heat (0 to 1) as of PostWeaponHeatTime (server time), and whether
+	-- the gun is locked until cool; clients cool the shown heat locally
+	POST_WEAPON_HEAT = "PostWeaponHeat",
+	POST_WEAPON_HEAT_TIME = "PostWeaponHeatTime",
+	POST_WEAPON_IS_OVERHEATED = "PostWeaponIsOverheated",
+	-- server time a running reload ends; 0 when loaded
+	POST_WEAPON_RELOAD_END_TIME = "PostWeaponReloadEndTime",
+	-- on a ParticleEmitter in a burst effect template (GameAssets/Effects):
+	-- how many particles one burst emits
+	BURST_COUNT = "BurstCount",
 	-- icon capture pipeline (see docs/icon-capture.md, IconFramingFormat, ApplyIconFramings)
 	-- on the Loading ScreenGui; src/first/loading.client.luau uses the literals
 	-- because nothing in ReplicatedStorage has replicated when it runs

@@ -67,6 +67,19 @@ function ClientTouchLayoutManager:layout()
 	end
 end
 
+function ClientTouchLayoutManager:getJumpButton(): GuiObject?
+	return self.jumpButton
+end
+
+-- Post Weapon Mode has no jumping: the jump button gives way to an Exit
+-- button in the same spot (decided 2026-09-18)
+function ClientTouchLayoutManager:setJumpButtonHidden(isHidden: boolean)
+	local jump = self.jumpButton
+	if jump then
+		jump.Visible = not isHidden
+	end
+end
+
 function ClientTouchLayoutManager:watchJumpButton(jump: GuiObject)
 	self.jumpButton = jump
 	jump:GetPropertyChangedSignal("AbsolutePosition"):Connect(

@@ -15,6 +15,8 @@ local MineManager = require(script.Parent.MineManager)
 local MiningManager = require(script.Parent.MiningManager)
 local MiningStoreManager = require(script.Parent.MiningStoreManager)
 local OrePickupManager = require(script.Parent.OrePickupManager)
+local PostDevTools = require(script.Parent.PostDevTools)
+local PostManager = require(script.Parent.PostManager)
 local RefineryManager = require(script.Parent.RefineryManager)
 local RunDevTools = require(script.Parent.RunDevTools)
 local RunManager = require(script.Parent.RunManager)
@@ -83,8 +85,19 @@ RunManager:subscribeRunStarted(
 		StructureManager:onRunStarted()
 	end
 )
+-- after the structures, whose post models it claims and hangs weapons on,
+-- and the refinery, which owns the Gold a claim and an upgrade spend.
+-- StructureManager subscribed to the run first, so the fresh post models
+-- exist by the time PostManager resets and binds them
+PostManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		PostManager:onRunStarted()
+	end
+)
 
 RunDevTools:init()
 MineDevTools:init()
 StructureDevTools:init()
 WeaponDevTools:init()
+PostDevTools:init()

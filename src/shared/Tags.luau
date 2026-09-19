@@ -24,6 +24,15 @@ module = {
 	-- part carrying the Damageable* attributes; the dev-tool target dummy
 	-- now, enemies at M29
 	DAMAGEABLE = "Damageable",
+	-- a post's live model in the camp (StructureManager fills it, PostManager
+	-- claims it): carries PostModelIndex / PostOwnerUserId
+	POST = "Post",
+	-- a claimed post's spawned weapon model (PostManager): carries the
+	-- PostWeapon* attributes; clients turn and tilt it locally
+	POST_WEAPON = "PostWeapon",
+	-- a claimed post's upgrade bench (PostManager): carries PostModelIndex;
+	-- the owner's client opens the upgrade menu from its prompt
+	POST_WORKBENCH = "PostWorkbench",
 }
 
 return module

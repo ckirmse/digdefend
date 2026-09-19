@@ -11,6 +11,14 @@ export type WeaponSfx = {
 	HIT: string,
 }
 
+export type PostWeaponSfx = {
+	FIRE: string,
+	HIT: string,
+	-- projectile kinds only: the 3D loop on the rocket in flight and the burst
+	FLIGHT: string?,
+	EXPLODE: string?,
+}
+
 local sfx = {
 	COINS_ADDED = "CoinsAdded",
 	SALE_SUCCESS = "SaleSuccess",
@@ -37,6 +45,19 @@ local sfx = {
 	RIFLE_EMPTY = "RifleEmpty",
 	RIFLE_HIT = "RifleHit",
 	JET_PACK_BURN = "JetPackBurn",
+	-- M25: post weapons have no magazine, so two sounds each: fire (3D from
+	-- the muzzle, one clip per shot) and the gunner's hit confirm. Named
+	-- Post_<Weapon>_<Action> (decided 2026-09-18)
+	MACHINE_GUN_FIRE = "Post_MachineGun_Fire",
+	MACHINE_GUN_HIT = "Post_MachineGun_Hit",
+	ROCKET_LAUNCHER_FIRE = "Post_RocketLauncher_Fire",
+	ROCKET_LAUNCHER_HIT = "Post_RocketLauncher_Hit",
+	ROCKET_LAUNCHER_FLIGHT = "Post_RocketLauncher_Flight",
+	ROCKET_LAUNCHER_EXPLODE = "Post_RocketLauncher_Explode",
+	-- the machinery whirring while the gunner turns or tilts their post
+	-- weapon: a 2D loop for the gunner only, playing only while the aim
+	-- moves, so the slow view reads as the machine moving (decided 2026-09-18)
+	POST_TURN = "Post_Turn",
 	-- 3D loop on every helicopter while its rotor turns (ClientHelicopterManager)
 	HELICOPTER = "Helicopter",
 	-- 2D: something just stopped working for you (backpack full, tank dry)
@@ -55,10 +76,26 @@ local weaponSfxByKindName: { [string]: WeaponSfx } = {
 	},
 }
 
+-- each post weapon's sound set, by its Enums.PostWeaponKind key;
+-- PostRules.spec fails for a kind without one
+local postWeaponSfxByKindName: { [string]: PostWeaponSfx } = {
+	MACHINE_GUN = {
+		FIRE = sfx.MACHINE_GUN_FIRE,
+		HIT = sfx.MACHINE_GUN_HIT,
+	},
+	ROCKET_LAUNCHER = {
+		FIRE = sfx.ROCKET_LAUNCHER_FIRE,
+		HIT = sfx.ROCKET_LAUNCHER_HIT,
+		FLIGHT = sfx.ROCKET_LAUNCHER_FLIGHT,
+		EXPLODE = sfx.ROCKET_LAUNCHER_EXPLODE,
+	},
+}
+
 local module = {
 	Sfx = sfx,
 	Music = {},
 	WeaponSfxByKindName = weaponSfxByKindName,
+	PostWeaponSfxByKindName = postWeaponSfxByKindName,
 }
 
 return module

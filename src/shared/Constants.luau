@@ -130,6 +130,81 @@ Constants.WORKBENCH_PROMPT_PART = "Prompt"
 Constants.POST_SIGN_MODEL = "Sign"
 Constants.POST_SIGN_PART = "Sign"
 Constants.POST_SIGN_NUMBER_LABEL = "DefensePostNumber"
+-- the rest of the sign (M25): "UNCLAIMED" plus the claim price row while nobody
+-- owns it; the owner's headshot, display name, and weapon name once claimed
+Constants.POST_SIGN_UNCLAIMED_LABEL = "Unclaimed"
+-- the row under it, "CLAIM FOR" + Gold Bar icon + number (decided 2026-09-18);
+-- a client that already owns a post hides it on every sign
+Constants.POST_SIGN_CLAIM_PRICE_ROW = "ClaimPrice"
+Constants.POST_SIGN_CLAIM_PRICE_TEXT = "Text"
+Constants.POST_SIGN_CLAIM_PRICE_ICON = "ResourceIcon"
+Constants.POST_SIGN_CLAIM_PRICE_LABEL = "Price"
+Constants.POST_SIGN_THUMBNAIL = "PlayerThumbnail"
+Constants.POST_SIGN_DISPLAY_NAME_LABEL = "DisplayName"
+Constants.POST_SIGN_POST_TYPE_LABEL = "PostType"
+-- inside every post template: the Spawn cylinder the claimed weapon stands
+-- on (its X axis is up, its +Z faces out of the camp) and the WorkbenchSpawn
+-- marker where the owner's upgrade bench goes
+Constants.POST_SPAWN_PART = "Spawn"
+Constants.POST_WORKBENCH_SPAWN_PART = "WorkbenchSpawn"
+-- the upgrade bench template under GameAssets/Structures, with a Prompt
+-- part like the camp Workbench (scripts/studio/build_post_workbench_template.luau)
+Constants.POST_WORKBENCH_TEMPLATE = "POST_WORKBENCH"
+-- post weapon models under GameAssets, one per Enums.PostWeaponKind key.
+-- Each is a Model whose PrimaryPart is its own Spawn cylinder (matched to
+-- the post's), with CharacterSpawn (the gunner's feet, carrying the Use
+-- prompt), HandleLeft / HandleRight (the hands), CameraLocation (welded to
+-- the gun), and one MeshPart gun carrying the MuzzleAttachment; the gun is
+-- the part that tilts
+Constants.POST_WEAPON_TEMPLATES_FOLDER = "PostWeapons"
+Constants.POST_WEAPON_CHARACTER_SPAWN_PART = "CharacterSpawn"
+Constants.POST_WEAPON_HANDLE_LEFT_PART = "HandleLeft"
+Constants.POST_WEAPON_HANDLE_RIGHT_PART = "HandleRight"
+Constants.POST_WEAPON_CAMERA_PART = "CameraLocation"
+Constants.POST_WEAPON_MUZZLE_ATTACHMENT = "MuzzleAttachment"
+-- projectile models under GameAssets (a rocket): one part with a
+-- TailAttachment; the nose is the far end from it. The trail is authored
+-- as ParticleEmitters (and lights) under the attachment; a bare attachment
+-- gets a placeholder trail. Clients clone and fly them; the server flies
+-- only numbers
+Constants.PROJECTILE_TEMPLATES_FOLDER = "Projectiles"
+-- burst effects under GameAssets/Effects: an anchored part whose
+-- ParticleEmitters each fire their BurstCount attribute of particles once
+-- and whose lights flash for BLAST_FLASH_SEC; a missing one gets a
+-- placeholder blast
+Constants.EFFECT_TEMPLATES_FOLDER = "Effects"
+Constants.PROJECTILE_TAIL_ATTACHMENT = "TailAttachment"
+-- the folder in the camp the server parents spawned weapons and benches to
+Constants.CAMP_POST_WEAPONS_FOLDER = "PostWeapons"
+-- the PostHud ScreenGui (scripts/studio/build_post_hud_gui.luau): the touch
+-- Fire button, the touch Exit button that stands in for the hidden jump
+-- button, and the "how to exit" hint for keyboard and gamepad
+Constants.POST_HUD_GUI_NAME = "PostHud"
+Constants.POST_HUD_EXIT_BUTTON = "ExitButton"
+Constants.POST_HUD_FIRE_BUTTON = "FireButton"
+Constants.POST_HUD_EXIT_HINT_LABEL = "ExitHint"
+-- the weapon's own reticle image, centred; shown only for kinds with one in Icons
+Constants.POST_HUD_RETICLE = "Reticle"
+-- the status bar under the reticle: heat for a gun that overheats, the
+-- reload for one that reloads
+Constants.POST_HUD_STATUS_BAR = "StatusBar"
+Constants.POST_HUD_STATUS_FILL = "Fill"
+-- above the bar: "OVERHEATED" or "RELOADING" while that is so, else hidden
+Constants.POST_HUD_STATUS_LABEL = "StatusLabel"
+-- the PostUpgrade menu ScreenGui (scripts/studio/build_post_upgrade_menu_gui.luau)
+Constants.POST_UPGRADE_GUI_NAME = "PostUpgrade"
+Constants.POST_UPGRADE_DIALOG = "Dialog"
+Constants.POST_UPGRADE_TITLE_LABEL = "Title"
+Constants.POST_UPGRADE_LIST = "List"
+Constants.POST_UPGRADE_ROW_TEMPLATE = "RowTemplate"
+Constants.POST_UPGRADE_ROW_NAME_LABEL = "Name"
+Constants.POST_UPGRADE_ROW_PIPS = "Pips"
+Constants.POST_UPGRADE_ROW_PIP_PREFIX = "Pip"
+Constants.POST_UPGRADE_ROW_BUTTON = "UpgradeButton"
+Constants.POST_UPGRADE_ROW_PRICE_LABEL = "Price"
+Constants.POST_UPGRADE_ROW_RESOURCE_ICON = "ResourceIcon"
+Constants.POST_UPGRADE_ROW_LOCK_LABEL = "Lock"
+Constants.POST_UPGRADE_CLOSE_BUTTON = "CloseButton"
 -- inside every gate template: the two leaves, authored shut, and a marker
 -- part per leaf ("DoorLeftOpen") whose CFrame is its open pose; a Closed
 -- marker is optional and overrides the leaf's own pose

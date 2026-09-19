@@ -25,6 +25,11 @@ export type PublicData = {
 	weaponKind: number,
 	-- how far up (+) or down (-) the player is looking (AimManager)
 	aimPitchDegrees: number,
+	-- posts (PostManager): the post claimed, the weapon brought, and the
+	-- post being manned; 0 for none
+	postIndex: number,
+	postWeaponKind: number,
+	mannedPostIndex: number,
 }
 
 export type AllPlayersHandlers = {
@@ -62,6 +67,9 @@ local function readPublicData(folder: Instance): PublicData
 		isJetPackBurning = folder:GetAttribute(Attributes.IS_JET_PACK_BURNING) == true,
 		weaponKind = (folder:GetAttribute(Attributes.WEAPON_KIND) :: number?) or 0,
 		aimPitchDegrees = (folder:GetAttribute(Attributes.AIM_PITCH_DEGREES) :: number?) or 0,
+		postIndex = (folder:GetAttribute(Attributes.POST_INDEX) :: number?) or 0,
+		postWeaponKind = (folder:GetAttribute(Attributes.POST_WEAPON_KIND) :: number?) or 0,
+		mannedPostIndex = (folder:GetAttribute(Attributes.MANNED_POST_INDEX) :: number?) or 0,
 	}
 end
 
