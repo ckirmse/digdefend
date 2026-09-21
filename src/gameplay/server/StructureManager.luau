@@ -4,7 +4,7 @@
 -- the six wall segments, the gate, and the Refinery. HP and the shared
 -- fortification tier live in Lua here. Each structure has one shadow part (the
 -- shadow system: a small invisible anchored server part carrying attributes)
--- that publishes its HP; clients hang the Build Mode HP bar on it while the
+-- that publishes its HP; clients hang the Repair Mode HP bar on it while the
 -- Hammer is equipped. Repair works like mining: every Hammer swing is a
 -- TryRepairStructure request validated here (equipped, damaged, reach,
 -- cooldown, Iron) that adds one chunk of HP.

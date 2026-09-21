@@ -16,6 +16,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
@@ -254,6 +255,10 @@ function ClientJetPackManager:findHud()
 	local bar = gui:FindFirstChild(Constants.HUD_JET_PACK_BAR, true)
 	if bar and bar:IsA("GuiObject") then
 		self.bar = bar
+		local icon = bar:FindFirstChild(Constants.HUD_JET_PACK_ICON)
+		if icon and icon:IsA("ImageLabel") then
+			icon.Image = if Icons.isPlaceholder(Icons.UI.JET_PACK) then "" else Icons.UI.JET_PACK
+		end
 		local track = bar:FindFirstChild(Constants.HUD_JET_PACK_TRACK)
 		local fill = if track then track:FindFirstChild(Constants.HUD_JET_PACK_FILL) else nil
 		self.fill = if fill and fill:IsA("GuiObject") then fill else nil

@@ -8,9 +8,9 @@ local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local BakedIconUtil = require("@game/ReplicatedStorage/Shared/BakedIconUtil")
+local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local IconFramingFormat = require("@game/ReplicatedStorage/Shared/IconFramingFormat")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
-local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local Iris = require(script.Parent.Iris)
 local ClientDataManager = require(script.Parent.ClientDataManager)
 local ClientNetManager = require(script.Parent.ClientNetManager)
@@ -74,7 +74,6 @@ local FRAMING_BACKDROP_COLOR = Color3.new(0, 1, 0)
 local FRAMING_BACKDROP_SIZE = Vector3.new(400, 400, 1)
 local FRAMING_BACKDROP_DISTANCE = 60
 
-local TEST_MENU_GUI_NAME = "DevTestMenu"
 
 local function formatBool(value: boolean): string
 	return if value then "yes" else "no"
@@ -341,42 +340,23 @@ function ClientDevTools:closeTestMenu()
 		return
 	end
 	self.testMenuGui = nil
-	gui:Destroy()
+	gui.Enabled = false
 end
 
+-- the menu is authored in StarterGui (build_dev_test_menu_gui.luau); it is only switched on here
 function ClientDevTools:openTestMenu()
 	if self.testMenuGui then
 		ClientOverlayManager:closeOverlayIfExists()
 		return
 	end
-	local gui = Instance.new("ScreenGui")
-	gui.Name = TEST_MENU_GUI_NAME
-	gui.ResetOnSpawn = false
-	gui.DisplayOrder = ClientOverlayManager.MENU_DISPLAY_ORDER
-	local frame = Instance.new("Frame")
-	frame.AnchorPoint = Vector2.new(0.5, 0.5)
-	frame.Position = UDim2.fromScale(0.5, 0.5)
-	frame.Size = UDim2.fromScale(0.5, 0.5)
-	frame.BackgroundColor3 = UiStyle.PANEL_COLOR
-	frame.Parent = gui
-	local title = Instance.new("TextLabel")
-	title.Size = UDim2.fromScale(1, 0.3)
-	title.BackgroundTransparency = 1
-	title.Text = UiStyle.formatTitle("Test menu")
-	title.TextColor3 = UiStyle.ACCENT_COLOR
-	title.TextScaled = true
-	title.FontFace = UiStyle.TITLE_FONT
-	title.Parent = frame
-	local hint = Instance.new("TextLabel")
-	hint.Position = UDim2.fromScale(0, 0.4)
-	hint.Size = UDim2.fromScale(1, 0.2)
-	hint.BackgroundTransparency = 1
-	hint.Text = "Click outside to close"
-	hint.TextColor3 = UiStyle.TEXT_COLOR
-	hint.TextScaled = true
-	hint.FontFace = UiStyle.BODY_FONT
-	hint.Parent = frame
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local gui = playerGui:FindFirstChild(Constants.DEV_TEST_MENU_GUI_NAME)
+	local frame = if gui then gui:FindFirstChild(Constants.DEV_TEST_MENU_DIALOG) else nil
+	if not gui or not gui:IsA("ScreenGui") or not frame or not frame:IsA("GuiObject") then
+		warn("ClientDevTools: no DevTestMenu ScreenGui; run scripts/studio/build_dev_test_menu_gui.luau in this place")
+		return
+	end
+	gui.Enabled = true
 	self.testMenuGui = gui
 
 	local overlay: ClientOverlayManager.Overlay

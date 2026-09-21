@@ -106,16 +106,16 @@ function GameplayMapManager:checkRefinery(camp: Folder)
 	end
 end
 
--- one "<Item>Stand" per store item, each with the Base the prompt and
+-- one "<Key>Stand" per stand name, each with the Base the prompt and
 -- SurfaceGui live on and the ItemSpawn the display model spins over
-function GameplayMapManager:checkMiningStore(camp: Folder)
+function GameplayMapManager:checkStore(camp: Folder, storeName: string, standNames: { string })
 	-- a Model or a Folder both serve; the stands inside are what matter
-	local store = self:requireChild(camp, Constants.CAMP_MINING_STORE_MODEL)
+	local store = self:requireChild(camp, storeName)
 	if not store then
 		return
 	end
-	for _, item in Enums.getAllValues(Enums.StoreItem) do
-		local stand = self:requireChild(store, StoreRules.standNameForItem(item) :: string, "Model")
+	for _, standName in standNames do
+		local stand = self:requireChild(store, standName, "Model")
 		if not stand then
 			continue
 		end
@@ -132,6 +132,45 @@ function GameplayMapManager:checkMiningStore(camp: Folder)
 		if itemSpawn and itemSpawn:IsA("BasePart") and not itemSpawn.Anchored then
 			self:report(`{itemSpawn:GetFullName()} must be anchored`)
 		end
+	end
+end
+
+function GameplayMapManager:checkMiningStore(camp: Folder)
+	local standNames = {}
+	for _, item in Enums.getAllValues(Enums.StoreItem) do
+		table.insert(standNames, StoreRules.standNameForItem(item) :: string)
+	end
+	self:checkStore(camp, Constants.CAMP_MINING_STORE_MODEL, standNames)
+end
+
+function GameplayMapManager:checkDefenseStore(camp: Folder)
+	local standNames = {}
+	for _, kind in Enums.getAllValues(Enums.TrapKind) do
+		table.insert(standNames, StoreRules.standNameFromKey(Enums.getName(Enums.TrapKind, kind) :: string))
+	end
+	self:checkStore(camp, Constants.CAMP_DEFENSE_STORE_MODEL, standNames)
+end
+
+-- the Defensive Zones (M26): at least one anchored part whose top face is
+-- the build surface; PlacementManager numbers them by name
+function GameplayMapManager:checkDefensiveZones(camp: Folder)
+	local folder = self:requireChild(camp, Constants.CAMP_DEFENSIVE_ZONES_FOLDER, "Folder")
+	if not folder then
+		return
+	end
+	local count = 0
+	for _, child in folder:GetChildren() do
+		if not child:IsA("BasePart") then
+			self:report(`{child:GetFullName()} should be a BasePart, is a {child.ClassName}`)
+			continue
+		end
+		if not child.Anchored then
+			self:report(`{child:GetFullName()} must be anchored`)
+		end
+		count += 1
+	end
+	if count == 0 then
+		self:report(`{folder:GetFullName()} has no zone parts`)
 	end
 end
 
@@ -212,6 +251,8 @@ function GameplayMapManager:checkCamp(camp: Folder, mapName: string)
 	self:checkMineEntrance(camp)
 	self:checkRefinery(camp)
 	self:checkMiningStore(camp)
+	self:checkDefenseStore(camp)
+	self:checkDefensiveZones(camp)
 	self:checkFortifications(camp)
 	self:checkWorkbench(camp)
 	local found = #self.problems - before

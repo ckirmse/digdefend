@@ -10,6 +10,8 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
+local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+
 local ClientOverlayManager = {}
 ClientOverlayManager.__index = ClientOverlayManager
 
@@ -44,7 +46,6 @@ local BLUR_SIZE = 12
 -- ScreenGui layering contract: HUD ScreenGuis sit at DisplayOrder 0, the
 -- backdrop at 1, and every menu ScreenGui at MENU_DISPLAY_ORDER or higher so
 -- it renders (and receives input) above the backdrop
-local BACKDROP_DISPLAY_ORDER = 1
 ClientOverlayManager.MENU_DISPLAY_ORDER = 5
 local ZOOM_TWEEN_SEC = 0.15
 local OVERLAY_FOV = 65
@@ -228,34 +229,24 @@ function ClientOverlayManager:init()
 	blur.Parent = Lighting
 	self.blur = blur
 
+	-- the backdrop is authored in StarterGui (build_overlay_backdrop_gui.luau):
+	-- a TextButton rather than a Frame, so it both sinks input (world click
+	-- handlers see it as gameProcessed) and reports the click-outside, and
+	-- Modal so the first-person mouse is freed while a menu is up
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
-	local backdropGui = Instance.new("ScreenGui")
-	backdropGui.Name = "OverlayBackdrop"
-	backdropGui.ResetOnSpawn = false
-	backdropGui.IgnoreGuiInset = true
-	backdropGui.DisplayOrder = BACKDROP_DISPLAY_ORDER
-	backdropGui.Enabled = false
-	-- a TextButton rather than a Frame: it both sinks input (so world click
-	-- handlers see it as gameProcessed) and reports the click-outside
-	local backdrop = Instance.new("TextButton")
-	backdrop.Name = "Backdrop"
-	backdrop.Size = UDim2.fromScale(1, 1)
-	backdrop.BackgroundTransparency = 1
-	backdrop.Text = ""
-	backdrop.AutoButtonColor = false
-	backdrop.Selectable = false
-	backdrop.Active = true
-	-- frees the mouse while a menu is up: the first-person camera otherwise
-	-- keeps it locked to the centre and the menu cannot be clicked
-	backdrop.Modal = true
-	backdrop.Parent = backdropGui
-	backdrop.Activated:Connect(
-		function()
-			self:onBackdropActivated()
-		end
-	)
-	backdropGui.Parent = playerGui
-	self.backdropGui = backdropGui
+	local backdropGui = playerGui:WaitForChild(Constants.OVERLAY_BACKDROP_GUI_NAME, 10)
+	local backdrop = if backdropGui then backdropGui:FindFirstChild(Constants.OVERLAY_BACKDROP_BUTTON) else nil
+	if backdropGui and backdropGui:IsA("ScreenGui") and backdrop and backdrop:IsA("GuiButton") then
+		backdropGui.Enabled = false
+		backdrop.Activated:Connect(
+			function()
+				self:onBackdropActivated()
+			end
+		)
+		self.backdropGui = backdropGui
+	else
+		warn("ClientOverlayManager: no OverlayBackdrop ScreenGui; run scripts/studio/build_overlay_backdrop_gui.luau in this place")
+	end
 
 	UserInputService.InputBegan:Connect(
 		function(input: InputObject, isGameProcessed: boolean)

@@ -14,6 +14,7 @@ local UserInputService = game:GetService("UserInputService")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local MiningRules = require("@game/ReplicatedStorage/Shared/MiningRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
@@ -39,6 +40,9 @@ export type ClientToolBarManager = typeof(setmetatable(
 		countByTool: { [number]: number },
 		equipped: number,
 		slotViews: { SlotView },
+		-- Build Mode (ClientPlacementToolManager) stands in for the bar:
+		-- the row hides and the number keys and bumpers are its to read
+		isHidden: boolean,
 	},
 	ClientToolBarManager
 ))
@@ -110,15 +114,24 @@ function ClientToolBarManager:renderSlots()
 		frame.Name = "Slot" .. index
 		frame.LayoutOrder = index
 		frame.Visible = true
+		-- the weapon slot is named and pictured for what is carried ("RIFLE")
+		local publicName = Enums.getPublicName(Enums.ToolKind, tool)
+		local imageId = Icons.TOOL[tool]
+		local weaponKind = ClientDataManager:getCurrentPlayerAttribute(Attributes.WEAPON_KIND)
+		if tool == Enums.ToolKind.WEAPON and typeof(weaponKind) == "number" and Enums.isValidValue(Enums.WeaponKind, weaponKind) then
+			publicName = Enums.getPublicName(Enums.WeaponKind, weaponKind)
+			imageId = Icons.WEAPON[weaponKind]
+		end
+		local hasImage = not Icons.isPlaceholder(imageId)
+		local icon = frame:FindFirstChild(Constants.TOOL_SLOT_ICON)
+		if icon and icon:IsA("ImageLabel") then
+			icon.Image = if hasImage then imageId :: string else ""
+		end
 		local label = frame:FindFirstChild(Constants.TOOL_SLOT_LABEL)
 		if label and label:IsA("TextLabel") then
-			local publicName = Enums.getPublicName(Enums.ToolKind, tool)
-			-- the weapon slot is named for what is carried ("RIFLE")
-			local weaponKind = ClientDataManager:getCurrentPlayerAttribute(Attributes.WEAPON_KIND)
-			if tool == Enums.ToolKind.WEAPON and typeof(weaponKind) == "number" and Enums.isValidValue(Enums.WeaponKind, weaponKind) then
-				publicName = Enums.getPublicName(Enums.WeaponKind, weaponKind)
-			end
 			(label :: TextLabel).Text = UiStyle.formatTitle(publicName or "?")
+			-- the name only stands in while there is no picture
+			label.Visible = not hasImage
 		end
 		local keyLabel = frame:FindFirstChild(Constants.TOOL_SLOT_KEY_LABEL)
 		if keyLabel and keyLabel:IsA("TextLabel") then
@@ -186,8 +199,16 @@ function ClientToolBarManager:notifyEndOverlay()
 	end
 end
 
+function ClientToolBarManager:setHidden(isHidden: boolean)
+	self.isHidden = isHidden
+	local slotsFrame = self.slotsFrame
+	if slotsFrame then
+		slotsFrame.Visible = not isHidden
+	end
+end
+
 function ClientToolBarManager:onInputBegan(input: InputObject, isGameProcessed: boolean)
-	if isGameProcessed or ClientOverlayManager:isOverlayActive() then
+	if isGameProcessed or self.isHidden or ClientOverlayManager:isOverlayActive() then
 		return
 	end
 	if input.UserInputType == Enum.UserInputType.Keyboard then
@@ -268,6 +289,7 @@ function ClientToolBarManager.new(): ClientToolBarManager
 	self.countByTool = {}
 	self.equipped = MiningRules.NO_TOOL
 	self.slotViews = {}
+	self.isHidden = false
 	return self
 end
 

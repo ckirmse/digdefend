@@ -36,8 +36,26 @@ Icons.POST_WEAPON_RETICLE = {
 	[Enums.PostWeaponKind.ROCKET_LAUNCHER] = "rbxassetid://105502906242582",
 }
 
+-- the tool bar slot picture per Enums.ToolKind (one for every pick axe
+-- level); a kind without one shows its name instead (ClientToolBarManager)
+Icons.TOOL = {
+	[Enums.ToolKind.PICK_AXE] = "rbxassetid://80581106612931",
+	[Enums.ToolKind.HAMMER] = "rbxassetid://96069694494045",
+	[Enums.ToolKind.DEFENSES] = "rbxassetid://72202536661953",
+}
+
+-- the WEAPON slot's picture, by the Enums.WeaponKind carried
+Icons.WEAPON = {
+	[Enums.WeaponKind.RIFLE] = "rbxassetid://71757532147550",
+}
+
 Icons.UI = {
-	BACKPACK = Icons.PLACEHOLDER,
+	-- the HUD backpack button and the jet pack fuel bar
+	BACKPACK = "rbxassetid://135327278539325",
+	JET_PACK = "rbxassetid://110721276111650",
+	-- the Build Mode Tower counter and the kind badge on a build bar slot
+	TOWER = "rbxassetid://72202536661953",
+	TRAP = "rbxassetid://71088256703142",
 }
 
 function Icons.isPlaceholder(id: string?): boolean

@@ -48,6 +48,9 @@
       }
     },
     "StarterPlayer": {
+      "$properties": {
+        "DevComputerMovementMode": "KeyboardMouse"
+      },
       "StarterPlayerScripts": {
         "Client": {
           "$path": "src/client"

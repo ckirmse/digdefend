@@ -60,17 +60,22 @@ StoreRules.LEVEL_ATTRIBUTE_BY_ITEM = {
 	[Enums.StoreItem.JET_PACK] = Attributes.JET_PACK_LEVEL,
 }
 
--- "PickAxeStand" from PICK_AXE: the Studio model name for each stand
-function StoreRules.standNameForItem(item: number): string?
-	local key = Enums.getName(Enums.StoreItem, item)
-	if not key then
-		return nil
-	end
+-- "PickAxeStand" from "PICK_AXE": the Studio model name of a stand, for
+-- any enum key (the Defense Store's Trap stands use the same rule)
+function StoreRules.standNameFromKey(key: string): string
 	local pascal = ""
 	for word in string.gmatch(string.lower(key), "[^_]+") do
 		pascal ..= string.upper(string.sub(word, 1, 1)) .. string.sub(word, 2)
 	end
 	return pascal .. "Stand"
+end
+
+function StoreRules.standNameForItem(item: number): string?
+	local key = Enums.getName(Enums.StoreItem, item)
+	if not key then
+		return nil
+	end
+	return StoreRules.standNameFromKey(key)
 end
 
 -- the track's table decides (GameData/Camp/Level); a level the table does

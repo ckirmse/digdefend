@@ -49,7 +49,8 @@
     },
     "StarterPlayer": {
       "$properties": {
-        "CameraMode": "LockFirstPerson"
+        "CameraMode": "LockFirstPerson",
+        "DevComputerMovementMode": "KeyboardMouse"
       },
       "StarterPlayerScripts": {
         "Client": {

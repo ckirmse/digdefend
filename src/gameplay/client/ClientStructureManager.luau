@@ -2,12 +2,12 @@
 
 -- Camp structures on this client (GDD "Walls", "Gate", "Wall Repair"). Every
 -- structure is a server shadow part tagged Tags.STRUCTURE carrying its HP.
--- Equipping the Hammer is Build Mode, which works like Mining Mode: every
+-- Equipping the Hammer is Repair Mode, which works like Mining Mode: every
 -- shadow gets an HP bar (the GameAssets/Gui StructureHp billboard), the
 -- structure under the reticle is highlighted with the price of a swing under
 -- its bar ("4 [Iron Bar icon] for 10 HP"), and a press, or each interval while
 -- held, swings the Hammer and asks the server for one chunk of repair
--- (TryRepairStructure). All of it is local, so one player's Build Mode never shows on
+-- (TryRepairStructure). All of it is local, so one player's Repair Mode never shows on
 -- another's screen. The gate's door leaves
 -- are tweened here between the template's open and closed marker parts when
 -- the server flips GateIsOpen; the server only decides whether they block.
@@ -44,7 +44,7 @@ type Tracked = {
 
 export type ClientStructureManager = typeof(setmetatable(
 	{} :: {
-		isBuildMode: boolean,
+		isRepairMode: boolean,
 		trackedByShadow: { [BasePart]: Tracked },
 		-- the structure under the reticle, within reach
 		target: BasePart?,
@@ -65,7 +65,7 @@ export type ClientStructureManager = typeof(setmetatable(
 	ClientStructureManager
 ))
 
-local RETICLE_BORROWER = "BuildMode"
+local RETICLE_BORROWER = "RepairMode"
 local DEFAULT_DOOR_TWEEN_SEC = 0.6
 local BILLBOARD_LIFT_STUDS = 4
 local HP_FILL_TWEEN_SEC = 0.25
@@ -156,9 +156,9 @@ function ClientStructureManager:refreshBillboard(shadow: BasePart, billboard: Bi
 	end
 end
 
--- the HP bar exists only in Build Mode
-function ClientStructureManager:applyBuildMode(shadow: BasePart, tracked: Tracked)
-	if not self.isBuildMode then
+-- the HP bar exists only in Repair Mode
+function ClientStructureManager:applyRepairMode(shadow: BasePart, tracked: Tracked)
+	if not self.isRepairMode then
 		if tracked.billboard then
 			tracked.billboard:Destroy()
 			tracked.billboard = nil
@@ -392,7 +392,7 @@ function ClientStructureManager:track(shadow: Instance)
 			tracked.connections,
 			shadow:GetAttributeChangedSignal(attribute):Connect(
 				function()
-					self:applyBuildMode(shadow, tracked)
+					self:applyRepairMode(shadow, tracked)
 				end
 			)
 		)
@@ -428,7 +428,7 @@ function ClientStructureManager:track(shadow: Instance)
 		-- a gate met already open (a late join, a streamed-in camp) starts in place
 		self:applyGateOpen(shadow:GetAttribute(Attributes.GATE_IS_OPEN) == true, true)
 	end
-	self:applyBuildMode(shadow, tracked)
+	self:applyRepairMode(shadow, tracked)
 end
 
 function ClientStructureManager:untrack(shadow: Instance)
@@ -448,13 +448,13 @@ function ClientStructureManager:untrack(shadow: Instance)
 	end
 end
 
-function ClientStructureManager:setBuildMode(isBuildMode: boolean)
-	if self.isBuildMode == isBuildMode then
+function ClientStructureManager:setRepairMode(isRepairMode: boolean)
+	if self.isRepairMode == isRepairMode then
 		return
 	end
-	self.isBuildMode = isBuildMode
-	ClientMiningManager:setReticleBorrowed(RETICLE_BORROWER, isBuildMode)
-	if isBuildMode then
+	self.isRepairMode = isRepairMode
+	ClientMiningManager:setReticleBorrowed(RETICLE_BORROWER, isRepairMode)
+	if isRepairMode then
 		self.aimConnection = RunService.RenderStepped:Connect(
 			function()
 				self:aim()
@@ -471,13 +471,14 @@ function ClientStructureManager:setBuildMode(isBuildMode: boolean)
 		self:setTarget(nil, nil)
 	end
 	for shadow, tracked in self.trackedByShadow do
-		self:applyBuildMode(shadow, tracked)
+		self:applyRepairMode(shadow, tracked)
 	end
 end
 
-function ClientStructureManager:getIsBuildMode(): boolean
-	return self.isBuildMode
+function ClientStructureManager:getIsRepairMode(): boolean
+	return self.isRepairMode
 end
+
 
 function ClientStructureManager:init()
 	self:readTuning()
@@ -490,9 +491,9 @@ function ClientStructureManager:init()
 		)
 	end
 
-	-- the same look as the mining target, so Build Mode reads as the same verb
+	-- the same look as the mining target, so Repair Mode reads as the same verb
 	local highlight = Instance.new("Highlight")
-	highlight.Name = "BuildTarget"
+	highlight.Name = "RepairTarget"
 	highlight.FillColor = Color3.new(1, 1, 1)
 	highlight.FillTransparency = 0.85
 	highlight.OutlineColor = Color3.new(1, 1, 1)
@@ -504,7 +505,7 @@ function ClientStructureManager:init()
 
 	local holdInput = ClientHoldInput.new({
 		isEnabled = function(): boolean
-			return self.isBuildMode
+			return self.isRepairMode
 		end,
 		getIntervalSec = function(): number
 			return self.hitIntervalSec
@@ -537,7 +538,7 @@ function ClientStructureManager:init()
 		end
 	)
 	local function applyEquipped(value: any)
-		self:setBuildMode(value == Enums.ToolKind.HAMMER)
+		self:setRepairMode(value == Enums.ToolKind.HAMMER)
 	end
 	applyEquipped(ClientDataManager:getCurrentPlayerAttribute(Attributes.EQUIPPED_TOOL))
 	ClientDataManager:subscribeCurrentPlayerAttribute(Attributes.EQUIPPED_TOOL, applyEquipped)
@@ -545,7 +546,7 @@ end
 
 function ClientStructureManager.new(): ClientStructureManager
 	local self = setmetatable({}, ClientStructureManager) :: ClientStructureManager
-	self.isBuildMode = false
+	self.isRepairMode = false
 	self.trackedByShadow = {}
 	self.target = nil
 	self.highlight = nil

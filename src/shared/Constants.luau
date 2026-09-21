@@ -23,6 +23,13 @@ Constants.LOADING_TITLE_TEXT = "TitleText"
 Constants.LOADING_PROGRESS_BAR = "ProgressBar"
 Constants.LOADING_PROGRESS_FILL = "Fill"
 Constants.LOADING_STATUS_LABEL = "Status"
+-- the invisible full-screen button under every menu (ClientOverlayManager);
+-- both places (scripts/studio/build_overlay_backdrop_gui.luau)
+Constants.OVERLAY_BACKDROP_GUI_NAME = "OverlayBackdrop"
+Constants.OVERLAY_BACKDROP_BUTTON = "Backdrop"
+-- the admin dev panel's stand-in menu, both places (build_dev_test_menu_gui.luau)
+Constants.DEV_TEST_MENU_GUI_NAME = "DevTestMenu"
+Constants.DEV_TEST_MENU_DIALOG = "Dialog"
 Constants.PLAYER_FEEDBACK_GUI_NAME = "PlayerFeedback"
 Constants.PLAYER_FEEDBACK_BOX = "FeedbackBox"
 -- top-centre blue box for the beats nobody should miss (Camp Level up)
@@ -112,6 +119,91 @@ Constants.STAND_CAMP_LEVEL_LABEL = "CampLevel"
 -- display models for the store stands under GameAssets: "<KEY>_<level>" for
 -- upgrade tracks and "<KEY>" for consumables (scripts/studio/build_store_displays.luau)
 Constants.STORE_DISPLAY_TEMPLATES_FOLDER = "StoreDisplays"
+-- Camp.DefenseStore (M26): one "<Kind>Stand" Model per Enums.TrapKind
+-- (StoreRules.standNameFromKey), built like the Mining Store's stands
+Constants.CAMP_DEFENSE_STORE_MODEL = "DefenseStore"
+-- Camp.DefensiveZones (M26): one anchored BasePart per Defensive Zone; its
+-- top face is the build surface and its size and rotation define the grid
+-- (PlacementRules.measureZone). PlacementManager numbers them by name
+Constants.CAMP_DEFENSIVE_ZONES_FOLDER = "DefensiveZones"
+-- Tower and Trap models under GameAssets, one per Enums.TowerKind /
+-- Enums.TrapKind key, each a Model whose pivot is the centre of its base
+-- (scripts/studio/build_tower_templates.luau, build_trap_templates.luau)
+Constants.TOWER_TEMPLATES_FOLDER = "Towers"
+Constants.TRAP_TEMPLATES_FOLDER = "Traps"
+-- the client-only Workspace folders of placement bodies and grid lines
+Constants.PLACEMENT_BODIES_FOLDER = "PlacementBodies"
+Constants.PLACEMENT_GRID_FOLDER = "PlacementGrid"
+-- the BuildBar ScreenGui (scripts/studio/build_build_bar_gui.luau): the
+-- row of Tower and Trap entries above the tool bar in Repair Mode, and the
+-- Placement panel (Build with the price, Cancel) while a preview is out
+Constants.BUILD_BAR_GUI_NAME = "BuildBar"
+Constants.BUILD_BAR_ENTRIES_FRAME = "Entries"
+Constants.BUILD_BAR_ENTRY_TEMPLATE = "EntryTemplate"
+-- the square slot, styled like a tool bar slot: the item's picture inside,
+-- the kind (Tower or Trap) as a small icon top-left, the number key top-right
+Constants.BUILD_BAR_ENTRY_SLOT = "Slot"
+Constants.BUILD_BAR_ENTRY_ICON = "Icon"
+Constants.BUILD_BAR_ENTRY_TYPE_ICON = "TypeIcon"
+Constants.BUILD_BAR_ENTRY_NAME_LABEL = "NameLabel"
+Constants.BUILD_BAR_ENTRY_PRICE_ROW = "PriceRow"
+Constants.BUILD_BAR_ENTRY_PRICE_ICON = "ResourceIcon"
+Constants.BUILD_BAR_ENTRY_PRICE_LABEL = "Price"
+Constants.BUILD_BAR_ENTRY_KEY_LABEL = "KeyLabel"
+-- always up in Build Mode: "EXIT BUILD MODE", tapped on touch, with the
+-- shortcut in its corner for keyboard and gamepad
+Constants.BUILD_BAR_EXIT_BUTTON = "ExitButton"
+-- "[Backspace]" / "[B]" in its corner; hidden on touch
+Constants.BUILD_BAR_EXIT_KEY_LABEL = "KeyLabel"
+-- the "DEFENSIVE ZONE" sign floated over every zone in Build Mode
+-- (scripts/studio/build_defensive_zone_billboard.luau)
+Constants.DEFENSIVE_ZONE_BILLBOARD = "DefensiveZone"
+Constants.DEFENSIVE_ZONE_LABEL = "Label"
+Constants.BUILD_BAR_PLACEMENT_PANEL = "Placement"
+Constants.BUILD_BAR_BUILD_BUTTON = "BuildButton"
+Constants.BUILD_BAR_BUILD_PRICE_ROW = "PriceRow"
+Constants.BUILD_BAR_BUILD_PRICE_ICON = "ResourceIcon"
+Constants.BUILD_BAR_BUILD_PRICE_LABEL = "Price"
+Constants.BUILD_BAR_BUILD_TEXT_LABEL = "Text"
+Constants.BUILD_BAR_CANCEL_BUTTON = "CancelButton"
+-- keyboard and gamepad see this instead of the buttons: "Click to build,
+-- Backspace to cancel" or "RT to build, B to cancel"
+Constants.BUILD_BAR_HINT_LABEL = "Hint"
+-- "2 / 5" beside a Tower icon: Towers standing against the per-player limit
+Constants.BUILD_BAR_TOWER_COUNT_FRAME = "TowerCount"
+Constants.BUILD_BAR_TOWER_COUNT_ICON = "Icon"
+Constants.BUILD_BAR_TOWER_COUNT_LABEL = "Label"
+-- the TowerMenu ScreenGui (scripts/studio/build_tower_menu_gui.luau): the
+-- owner's Upgrade/Sell menu in the tower defense layout
+Constants.TOWER_MENU_GUI_NAME = "TowerMenu"
+Constants.TOWER_MENU_DIALOG = "Dialog"
+Constants.TOWER_MENU_CLOSE_BUTTON = "CloseButton"
+Constants.TOWER_MENU_PORTRAIT = "Portrait"
+Constants.TOWER_MENU_NAME_LABEL = "NameLabel"
+Constants.TOWER_MENU_LEVEL_LABEL = "LevelLabel"
+Constants.TOWER_MENU_PRIORITY_FRAME = "Priority"
+Constants.TOWER_MENU_PRIORITY_VALUE_LABEL = "ValueLabel"
+Constants.TOWER_MENU_STATS_FRAME = "Stats"
+Constants.TOWER_MENU_STAT_ROW_TEMPLATE = "RowTemplate"
+Constants.TOWER_MENU_STAT_NAME_LABEL = "NameLabel"
+Constants.TOWER_MENU_STAT_VALUE_LABEL = "ValueLabel"
+Constants.TOWER_MENU_STAT_NEXT_LABEL = "NextLabel"
+Constants.TOWER_MENU_STAT_ARROW_LABEL = "ArrowLabel"
+Constants.TOWER_MENU_SELL_BUTTON = "SellButton"
+Constants.TOWER_MENU_UPGRADE_BUTTON = "UpgradeButton"
+Constants.TOWER_MENU_UPGRADE_NAME_LABEL = "NameLabel"
+Constants.TOWER_MENU_UPGRADE_PRICE_ROW = "PriceRow"
+Constants.TOWER_MENU_PIPS = "Pips"
+Constants.TOWER_MENU_PIP_PREFIX = "Pip"
+Constants.TOWER_MENU_UPGRADE_STATS_FRAME = "UpgradeStats"
+-- the info billboard every placement carries
+-- (scripts/studio/build_placement_billboard.luau): name, HP bar, owner
+Constants.PLACEMENT_INFO_BILLBOARD = "PlacementInfo"
+Constants.PLACEMENT_INFO_ROOT_FRAME = "Root"
+Constants.PLACEMENT_INFO_NAME_LABEL = "NameLabel"
+Constants.PLACEMENT_INFO_BAR = "Bar"
+Constants.PLACEMENT_INFO_FILL = "Fill"
+Constants.PLACEMENT_INFO_OWNER_LABEL = "OwnerLabel"
 -- Camp.Walls (Wall1..n), Camp.Posts (Post1..n) and Camp.Gate are placement
 -- markers (M23): at run start the server swaps each for the fortification
 -- tier's template at the marker's pivot, and again on upgrade or destruction
@@ -265,6 +357,7 @@ Constants.GAMEPLAY_HUD_GUI_NAME = "GameplayHud"
 -- visible; moved to the top on 2026-09-16 so it clears the touch buttons)
 Constants.HUD_RIGHT_STACK = "RightStack"
 Constants.HUD_BACKPACK_BUTTON = "BackpackButton"
+Constants.HUD_BACKPACK_ICON = "Icon"
 Constants.HUD_BACKPACK_COUNT_LABEL = "CountLabel"
 Constants.HUD_BACKPACK_FULL_LABEL = "FullLabel"
 -- jet pack fuel bar under the backpack button: an icon on the left and the
@@ -311,7 +404,7 @@ Constants.FORTIFICATION_PROGRESS_LABEL = "ProgressLabel"
 Constants.FORTIFICATION_ICON = "Icon"
 Constants.FORTIFICATION_LOCK_LABEL = "LockLabel"
 Constants.FORTIFICATION_BILLBOARD_LIFT_STUDS = 4
--- the Build Mode HP bar cloned onto every structure shadow while the Hammer
+-- the Repair Mode HP bar cloned onto every structure shadow while the Hammer
 -- is equipped (scripts/studio/build_structure_hp_billboard.luau)
 Constants.STRUCTURE_HP_BILLBOARD = "StructureHp"
 Constants.STRUCTURE_HP_ROOT_FRAME = "Root"
@@ -326,8 +419,10 @@ Constants.STRUCTURE_HP_COST_AMOUNT_LABEL = "AmountLabel"
 Constants.STRUCTURE_HP_COST_ICON = "Icon"
 Constants.STRUCTURE_HP_COST_GAIN_LABEL = "GainLabel"
 Constants.CAMP_LEVEL_BILLBOARD_LIFT_STUDS = 5.5
--- full-screen frame the refinery's flying icons are parented to
+-- full-screen frame the refinery's flying icons are parented to, and the
+-- hidden ImageLabel inside it that ClientIconFlightManager clones per icon
 Constants.HUD_FLY_LAYER = "FlyLayer"
+Constants.HUD_FLY_ICON_TEMPLATE = "FlyIconTemplate"
 -- backpack contents menu (built by scripts/studio/build_backpack_menu_gui.luau)
 Constants.BACKPACK_MENU_GUI_NAME = "Backpack"
 Constants.BACKPACK_MENU_LIST = "List"

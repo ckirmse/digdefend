@@ -194,7 +194,7 @@ function ToolManager:syncHeldTool(player: Player)
 	local state = self.stateByPlayer[player]
 	local character = player.Character
 	local held = self.heldToolByPlayer[player]
-	local wantedName = if state and state.equipped ~= MiningRules.NO_TOOL then self:templateNameFor(player, state.equipped) else nil
+	local wantedName = if state and state.equipped ~= MiningRules.NO_TOOL and MiningRules.hasHeldModel(state.equipped) then self:templateNameFor(player, state.equipped) else nil
 	if held and (wantedName == nil or held:GetAttribute(Attributes.TOOL_TEMPLATE) ~= wantedName or held.Parent ~= character) then
 		self:removeHeldTool(player)
 		held = nil

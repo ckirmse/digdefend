@@ -77,7 +77,7 @@ function ClientDamageableManager:refreshBillboard(shadow: BasePart, billboard: B
 	if valueLabel and valueLabel:IsA("TextLabel") then
 		valueLabel.Text = `{math.ceil(hp)} / {maxHp}`
 	end
-	-- the repair price row belongs to Build Mode only
+	-- the repair price row belongs to Repair Mode only
 	if costRow and costRow:IsA("GuiObject") then
 		costRow.Visible = false
 	end

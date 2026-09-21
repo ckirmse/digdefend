@@ -45,8 +45,8 @@ type Target = {
 export type ClientMiningManager = typeof(setmetatable(
 	{} :: {
 		isActive: boolean,
-		-- Build Mode (ClientStructureManager) borrows the reticle
-		-- other modes showing the reticle, by borrower name (Build Mode,
+		-- Repair Mode (ClientStructureManager) borrows the reticle
+		-- other modes showing the reticle, by borrower name (Repair Mode,
 		-- Weapon Mode); a set, so one mode ending never hides it from the next
 		reticleBorrowers: { [string]: boolean },
 		gui: ScreenGui?,

@@ -2,7 +2,7 @@
 
 -- Camp structures with HP (GDD "Walls", "Gate", "Refinery", "Wall Repair"),
 -- M23. Per kind: max HP by tier (the list length fixes the top tier).
--- Repair works like mining (decided 2026-09-17): in Build Mode every Hammer
+-- Repair works like mining (decided 2026-09-17): in Repair Mode every Hammer
 -- swing at a damaged structure adds REPAIR_CHUNK_HP for REPAIR_CHUNK_IRON, a
 -- short last chunk paying its share rounded up. A destroyed structure is
 -- rubble, and stays rubble while it is rebuilt swing by swing from zero,

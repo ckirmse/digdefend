@@ -125,9 +125,12 @@ module = {
 		-- held travels beside the slot list
 		TORCH = 3,
 		DYNAMITE = 4,
-		-- equipping it is Build Mode (M23): structure HP shows and every
+		-- equipping it is Repair Mode (M23): structure HP shows and every
 		-- swing repairs what the reticle is on
 		HAMMER = 5,
+		-- Build Mode (M26): no held model; equipping it swaps the tool
+		-- bar for the Tower and Trap loadout
+		DEFENSES = 6,
 
 		PublicNames = {
 			PICK_AXE = "Pick Axe",
@@ -135,6 +138,7 @@ module = {
 			TORCH = "Torch",
 			DYNAMITE = "Dynamite",
 			HAMMER = "Hammer",
+			DEFENSES = "Defenses",
 		},
 	},
 	-- handheld weapons (GDD S12), M24. The WEAPON tool slot holds one of
@@ -172,6 +176,87 @@ module = {
 			FIRE_RATE = "Fire Rate",
 			TURN_SPEED = "Turn Speed",
 			RANGE = "Range",
+		},
+	},
+	-- automated defense units (GDD "Defenses"), M26. The three DEFENSE
+	-- loadout slots name up to three for the run; definitions are in
+	-- GameData/Defenses/Towers. Keys double as the model names under
+	-- GameAssets/Towers
+	TowerKind = {
+		SENTRY_GUN = 1,
+		FLAMETHROWER = 2,
+		AA_TURRET = 3,
+		FROST_TOWER = 4,
+		TESLA_COIL = 5,
+		SNIPER_TOWER = 6,
+
+		PublicNames = {
+			SENTRY_GUN = "Sentry Gun",
+			FLAMETHROWER = "Flamethrower",
+			AA_TURRET = "AA Turret",
+			FROST_TOWER = "Frost Tower",
+			TESLA_COIL = "Tesla Coil",
+			SNIPER_TOWER = "Sniper Tower",
+		},
+	},
+	-- consumable placements bought at the Defense Store (GDD "Traps"), M26;
+	-- definitions in GameData/Defenses/Traps, models under GameAssets/Traps,
+	-- one "<Key>Stand" per kind in the store
+	TrapKind = {
+		TIGER_TEETH = 1,
+		SPIKE_TRAP = 2,
+		GOO_PIT = 3,
+		LAND_MINE = 4,
+		BEAR_TRAP = 5,
+		DECOY = 6,
+
+		PublicNames = {
+			TIGER_TEETH = "Tiger Teeth",
+			SPIKE_TRAP = "Spike Trap",
+			GOO_PIT = "Goo Pit",
+			LAND_MINE = "Land Mine",
+			BEAR_TRAP = "Bear Trap",
+			DECOY = "Decoy",
+		},
+	},
+	-- what a placement on the grid is: a Tower (paid on build, upgradable)
+	-- or a Trap (consumed from the inventory)
+	PlacementKind = {
+		TOWER = 1,
+		TRAP = 2,
+
+		PublicNames = {
+			TOWER = "Tower",
+			TRAP = "Trap",
+		},
+	},
+	-- which enemy in range a Tower shoots first (GDD "Upgrading and Selling
+	-- Towers"); the targeting itself is M27
+	TargetPriority = {
+		CLOSEST = 1,
+		FURTHEST = 2,
+		STRONGEST = 3,
+		WEAKEST = 4,
+
+		PublicNames = {
+			CLOSEST = "Closest",
+			FURTHEST = "Furthest",
+			STRONGEST = "Strongest",
+			WEAKEST = "Weakest",
+		},
+	},
+	-- the numbers the Tower Menu lists and an upgrade may raise
+	TowerStat = {
+		FIRE_RATE = 1,
+		RANGE = 2,
+		DAMAGE = 3,
+		HP = 4,
+
+		PublicNames = {
+			FIRE_RATE = "Fire Rate",
+			RANGE = "Range",
+			DAMAGE = "Damage",
+			HP = "HP",
 		},
 	},
 	-- camp structures with HP (GDD "Walls", "Gate", "Refinery"), M23

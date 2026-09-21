@@ -6,6 +6,7 @@ local AimManager = require(script.Parent.AimManager)
 local ArrivalManager = require(script.Parent.ArrivalManager)
 local BackpackManager = require(script.Parent.BackpackManager)
 local BootsManager = require(script.Parent.BootsManager)
+local DefenseStoreManager = require(script.Parent.DefenseStoreManager)
 local DynamiteManager = require(script.Parent.DynamiteManager)
 local GameplayMapManager = require(script.Parent.GameplayMapManager)
 local JetPackManager = require(script.Parent.JetPackManager)
@@ -15,6 +16,8 @@ local MineManager = require(script.Parent.MineManager)
 local MiningManager = require(script.Parent.MiningManager)
 local MiningStoreManager = require(script.Parent.MiningStoreManager)
 local OrePickupManager = require(script.Parent.OrePickupManager)
+local PlacementDevTools = require(script.Parent.PlacementDevTools)
+local PlacementManager = require(script.Parent.PlacementManager)
 local PostDevTools = require(script.Parent.PostDevTools)
 local PostManager = require(script.Parent.PostManager)
 local RefineryManager = require(script.Parent.RefineryManager)
@@ -95,9 +98,26 @@ RunManager:subscribeRunStarted(
 		PostManager:onRunStarted()
 	end
 )
+-- after the tools (Repair Mode is the Hammer) and the refinery, which owns
+-- the Iron a build, an upgrade, and a Trap spend; it reads the fresh map's
+-- Defensive Zones at run start
+PlacementManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		PlacementManager:onRunStarted()
+	end
+)
+-- after the placements, whose inventory it fills
+DefenseStoreManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		DefenseStoreManager:onRunStarted()
+	end
+)
 
 RunDevTools:init()
 MineDevTools:init()
 StructureDevTools:init()
 WeaponDevTools:init()
 PostDevTools:init()
+PlacementDevTools:init()

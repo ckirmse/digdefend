@@ -288,6 +288,10 @@ function ClientBackpackManager:findHud()
 	end
 	self.button = button
 	self.buttonBasePosition = button.Position
+	local icon = button:FindFirstChild(Constants.HUD_BACKPACK_ICON)
+	if icon and icon:IsA("ImageLabel") then
+		icon.Image = if Icons.isPlaceholder(Icons.UI.BACKPACK) then "" else Icons.UI.BACKPACK
+	end
 	local countLabel = button:FindFirstChild(Constants.HUD_BACKPACK_COUNT_LABEL)
 	self.countLabel = if countLabel and countLabel:IsA("TextLabel") then countLabel else nil
 	local fullLabel = button:FindFirstChild(Constants.HUD_BACKPACK_FULL_LABEL)

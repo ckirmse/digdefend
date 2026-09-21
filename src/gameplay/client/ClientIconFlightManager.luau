@@ -19,14 +19,12 @@ ClientIconFlightManager.__index = ClientIconFlightManager
 export type ClientIconFlightManager = typeof(setmetatable(
 	{} :: {
 		flyLayer: Frame?,
+		iconTemplate: ImageLabel?,
 	},
 	ClientIconFlightManager
 ))
 
 local FLIGHT_SEC = 0.55
-local SIZE_SCALE = 0.12
-local MIN_PX = 72
-local MAX_PX = 176
 local BUMP_SCALE_NAME = "Bump"
 
 function ClientIconFlightManager:getLayer(): Frame?
@@ -98,33 +96,27 @@ function ClientIconFlightManager:fly(imageId: string?, color: Color3, from: Vect
 		end
 		return
 	end
+	local template = self.iconTemplate
+	if not template then
+		if onLanded then
+			onLanded()
+		end
+		return
+	end
+	-- the look (size, bounds, the disc's corner and hairline) is the
+	-- template's, authored in StarterGui; only the image and colour are set here
 	local isImage = not Icons.isPlaceholder(imageId)
-	local icon = Instance.new("ImageLabel")
-	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	local icon = template:Clone()
+	icon.Name = "FlyIcon"
 	icon.Position = self:toLayerScale(from)
-	icon.Size = UDim2.fromScale(SIZE_SCALE, SIZE_SCALE)
 	icon.Image = if isImage then imageId :: string else ""
-	icon.ScaleType = Enum.ScaleType.Fit
 	icon.BackgroundColor3 = color
 	icon.BackgroundTransparency = if isImage then 1 else 0
-	icon.BorderSizePixel = 0
-	icon.ZIndex = layer.ZIndex + 1
-	local aspect = Instance.new("UIAspectRatioConstraint")
-	aspect.AspectRatio = 1
-	aspect.Parent = icon
-	local size = Instance.new("UISizeConstraint")
-	size.MinSize = Vector2.new(MIN_PX, MIN_PX)
-	size.MaxSize = Vector2.new(MAX_PX, MAX_PX)
-	size.Parent = icon
-	if not isImage then
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0.5, 0)
-		corner.Parent = icon
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = UiStyle.BACKGROUND_COLOR
-		stroke.Thickness = 1
-		stroke.Parent = icon
+	local stroke = icon:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Enabled = not isImage
 	end
+	icon.Visible = true
 	icon.Parent = layer
 	task.delay(
 		delaySec,
@@ -176,16 +168,20 @@ function ClientIconFlightManager:init()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local gui = playerGui:WaitForChild(Constants.GAMEPLAY_HUD_GUI_NAME, 10)
 	local flyLayer = if gui then gui:FindFirstChild(Constants.HUD_FLY_LAYER) else nil
-	if flyLayer and flyLayer:IsA("Frame") then
+	local template = if flyLayer then flyLayer:FindFirstChild(Constants.HUD_FLY_ICON_TEMPLATE) else nil
+	if flyLayer and flyLayer:IsA("Frame") and template and template:IsA("ImageLabel") then
 		self.flyLayer = flyLayer
+		self.iconTemplate = template
+		template.Visible = false
 	else
-		warn("ClientIconFlightManager: GameplayHud has no FlyLayer; icons will not fly")
+		warn("ClientIconFlightManager: GameplayHud has no FlyLayer.FlyIconTemplate; icons will not fly. Run scripts/studio/build_gameplay_hud_gui.luau")
 	end
 end
 
 function ClientIconFlightManager.new(): ClientIconFlightManager
 	local self = setmetatable({}, ClientIconFlightManager) :: ClientIconFlightManager
 	self.flyLayer = nil
+	self.iconTemplate = nil
 	return self
 end
 

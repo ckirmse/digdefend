@@ -3,7 +3,7 @@
 -- "hp / max", over the price of one Hammer swing ("4 [Iron Bar icon] for 10
 -- HP", shown only on the structure under the reticle), which
 -- ClientStructureManager clones onto every structure shadow while the Hammer
--- is equipped (GDD "Wall Repair": Build Mode shows the HP of everything
+-- is equipped (GDD "Wall Repair": Repair Mode shows the HP of everything
 -- repairable). Run from the Studio command bar (or the
 -- MCP execute_luau tool) in the gameplay place; it replaces any existing
 -- copy. Names must match Constants.STRUCTURE_HP_*. Sizes are in studs

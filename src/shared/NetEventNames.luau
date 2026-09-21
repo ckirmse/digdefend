@@ -54,7 +54,7 @@ module = {
 	-- burning flag come back as attributes
 	TRY_JET_PACK_START = "TryJetPackStart",
 	TRY_JET_PACK_STOP = "TryJetPackStop",
-	-- Build Mode (M23): one Hammer swing at a structure, by id. The new HP
+	-- Repair Mode (M23): one Hammer swing at a structure, by id. The new HP
 	-- comes back on the structure's shadow attributes; the notify is only
 	-- the hammer blow every nearby client hears
 	TRY_REPAIR_STRUCTURE = "TryRepairStructure",
@@ -92,6 +92,21 @@ module = {
 	NOTIFY_POST_ROCKET_LAUNCHED = "NotifyPostRocketLaunched",
 	NOTIFY_POST_ROCKET_EXPLODED = "NotifyPostRocketExploded",
 	NOTIFY_POST_UPGRADED = "NotifyPostUpgraded",
+	-- placements (M26). Building is a request naming the kind, the area, and
+	-- the cell; the server checks Repair Mode, the loadout or the trap
+	-- inventory, the Tower limit, the cells, and the Iron, then spawns a
+	-- shadow (Tags.PLACEMENT). Selling a Tower and upgrading it come from
+	-- the Tower Menu; selling a Trap is its ProximityPrompt, which the
+	-- server hears directly. Buying a Trap is the store stand's prompt.
+	-- The notifies are the sounds for the player concerned
+	TRY_BUILD_PLACEMENT = "TryBuildPlacement",
+	TRY_SELL_PLACEMENT = "TrySellPlacement",
+	TRY_UPGRADE_TOWER = "TryUpgradeTower",
+	TRY_SET_TOWER_TARGET_PRIORITY = "TrySetTowerTargetPriority",
+	NOTIFY_PLACEMENT_BUILT = "NotifyPlacementBuilt",
+	NOTIFY_PLACEMENT_SOLD = "NotifyPlacementSold",
+	NOTIFY_TOWER_UPGRADED = "NotifyTowerUpgraded",
+	NOTIFY_TRAP_PURCHASED = "NotifyTrapPurchased",
 }
 
 return module

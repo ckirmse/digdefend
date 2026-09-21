@@ -58,6 +58,9 @@ local sfx = {
 	-- weapon: a 2D loop for the gunner only, playing only while the aim
 	-- moves, so the slow view reads as the machine moving (decided 2026-09-18)
 	POST_TURN = "Post_Turn",
+	-- M26: a Tower or Trap went down on the grid, and one was sold back
+	PLACEMENT_BUILD = "PlacementBuild",
+	PLACEMENT_SELL = "PlacementSell",
 	-- 3D loop on every helicopter while its rotor turns (ClientHelicopterManager)
 	HELICOPTER = "Helicopter",
 	-- 2D: something just stopped working for you (backpack full, tank dry)

@@ -190,6 +190,35 @@ module = {
 	POST_WEAPON_IS_OVERHEATED = "PostWeaponIsOverheated",
 	-- server time a running reload ends; 0 when loaded
 	POST_WEAPON_RELOAD_END_TIME = "PostWeaponReloadEndTime",
+	-- placements (PlacementManager, M26). GameMetadata: the defense
+	-- catalogue as JSON (PlacementRules codec): every Tower's prices and
+	-- stats by level, every Trap's price and HP, footprints, the grid cell
+	-- size, the Tower limit, and the sell share
+	DEFENSE_CATALOG = "DefenseCatalog",
+	-- CurrentPlayer (private): JSON list of the Enums.TowerKind values the
+	-- loadout brought (PlacementRules codec), JSON { [trapKind] = count } of
+	-- Traps carried, and how many Towers this player has standing
+	TOWER_LOADOUT = "TowerLoadout",
+	TRAP_COUNTS = "TrapCounts",
+	ACTIVE_TOWER_COUNT = "ActiveTowerCount",
+	-- on every Defensive Zone part (Tags.DEFENSIVE_ZONE): its number, the
+	-- key the build request names
+	DEFENSIVE_ZONE_INDEX = "DefensiveZoneIndex",
+	-- on every placement shadow (Tags.PLACEMENT): its id, what it is
+	-- (Enums.PlacementKind and the Tower or Trap kind), who built it, its
+	-- level (Towers: 1 plus upgrades bought), HP, and target priority
+	PLACEMENT_ID = "PlacementId",
+	PLACEMENT_KIND = "PlacementKind",
+	PLACEMENT_TYPE_KIND = "PlacementTypeKind",
+	PLACEMENT_OWNER_USER_ID = "PlacementOwnerUserId",
+	PLACEMENT_LEVEL = "PlacementLevel",
+	PLACEMENT_HP = "PlacementHp",
+	PLACEMENT_MAX_HP = "PlacementMaxHp",
+	PLACEMENT_TARGET_PRIORITY = "PlacementTargetPriority",
+	-- and the cells it stands on (DefensiveZoneIndex again, with the anchor
+	-- cell), so a client can mark them taken when it snaps a preview
+	PLACEMENT_COLUMN = "PlacementColumn",
+	PLACEMENT_ROW = "PlacementRow",
 	-- on a ParticleEmitter in a burst effect template (GameAssets/Effects):
 	-- how many particles one burst emits
 	BURST_COUNT = "BurstCount",

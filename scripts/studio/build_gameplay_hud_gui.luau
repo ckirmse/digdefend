@@ -87,16 +87,17 @@ button.Visible = true
 button.Parent = stack
 addCorner(button)
 
--- placeholder icon until art: a bag glyph
-local icon = Instance.new("TextLabel")
+-- the backpack picture (Icons.UI.BACKPACK, set by ClientBackpackManager)
+local icon = Instance.new("ImageLabel")
 icon.Name = "Icon"
 icon.Position = UDim2.fromScale(0.05, 0.12)
 icon.Size = UDim2.fromScale(0.28, 0.76)
 icon.BackgroundTransparency = 1
-icon.Text = "🎒"
-icon.TextScaled = true
-icon.FontFace = UiStyle.TITLE_FONT
-addTextSizeBounds(icon, UiStyle.BODY_TEXT_MIN_PX, 40)
+icon.Image = if Icons.isPlaceholder(Icons.UI.BACKPACK) then "" else Icons.UI.BACKPACK
+icon.ScaleType = Enum.ScaleType.Fit
+local iconAspect = Instance.new("UIAspectRatioConstraint")
+iconAspect.AspectRatio = 1
+iconAspect.Parent = icon
 icon.Parent = button
 
 local count = Instance.new("TextLabel")
@@ -222,16 +223,17 @@ jetBar.BorderSizePixel = 0
 jetBar.Visible = true
 jetBar.Parent = stack
 addCorner(jetBar)
--- placeholder icon until art: a rocket glyph
-local jetIcon = Instance.new("TextLabel")
+-- the jet pack picture (Icons.UI.JET_PACK, set by ClientJetPackManager)
+local jetIcon = Instance.new("ImageLabel")
 jetIcon.Name = "Icon"
 jetIcon.Position = UDim2.fromScale(0.05, 0.1)
 jetIcon.Size = UDim2.fromScale(0.2, 0.8)
 jetIcon.BackgroundTransparency = 1
-jetIcon.Text = "🚀"
-jetIcon.TextScaled = true
-jetIcon.FontFace = UiStyle.TITLE_FONT
-addTextSizeBounds(jetIcon, UiStyle.LABEL_TEXT_MIN_PX, 32)
+jetIcon.Image = if Icons.isPlaceholder(Icons.UI.JET_PACK) then "" else Icons.UI.JET_PACK
+jetIcon.ScaleType = Enum.ScaleType.Fit
+local jetIconAspect = Instance.new("UIAspectRatioConstraint")
+jetIconAspect.AspectRatio = 1
+jetIconAspect.Parent = jetIcon
 jetIcon.Parent = jetBar
 local jetTrack = Instance.new("Frame")
 jetTrack.Name = "Track"
@@ -335,6 +337,36 @@ flyLayer.Size = UDim2.fromScale(1, 1)
 flyLayer.BackgroundTransparency = 1
 flyLayer.ZIndex = 10
 flyLayer.Parent = gui
+
+-- the icon ClientIconFlightManager clones for every flight: a square that
+-- keeps between 72 and 176 px; as a coloured disc (no image) it shows the
+-- corner and hairline, which the code switches off when an image is set
+local flyIcon = Instance.new("ImageLabel")
+flyIcon.Name = "FlyIconTemplate"
+flyIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+flyIcon.Position = UDim2.fromScale(0.5, 0.5)
+flyIcon.Size = UDim2.fromScale(0.12, 0.12)
+flyIcon.ScaleType = Enum.ScaleType.Fit
+flyIcon.BackgroundColor3 = UiStyle.ACCENT_COLOR
+flyIcon.BackgroundTransparency = 0
+flyIcon.BorderSizePixel = 0
+flyIcon.ZIndex = flyLayer.ZIndex + 1
+flyIcon.Visible = false
+local flyIconAspect = Instance.new("UIAspectRatioConstraint")
+flyIconAspect.AspectRatio = 1
+flyIconAspect.Parent = flyIcon
+local flyIconSize = Instance.new("UISizeConstraint")
+flyIconSize.MinSize = Vector2.new(72, 72)
+flyIconSize.MaxSize = Vector2.new(176, 176)
+flyIconSize.Parent = flyIcon
+local flyIconCorner = Instance.new("UICorner")
+flyIconCorner.CornerRadius = UDim.new(0.5, 0)
+flyIconCorner.Parent = flyIcon
+local flyIconStroke = Instance.new("UIStroke")
+flyIconStroke.Color = UiStyle.BACKGROUND_COLOR
+flyIconStroke.Thickness = 1
+flyIconStroke.Parent = flyIcon
+flyIcon.Parent = flyLayer
 
 gui.Parent = StarterGui
 ChangeHistoryService:SetWaypoint("After GameplayHud gui")

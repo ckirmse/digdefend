@@ -16,6 +16,15 @@ local MiningRules = {}
 MiningRules.CRACK_THRESHOLDS = { 0.6, 0.3 }
 MiningRules.NO_TOOL = 0
 
+-- tools that are a mode rather than a thing in the hand: no GameAssets/Tools model
+local TOOLS_WITHOUT_MODEL = {
+	[Enums.ToolKind.DEFENSES] = true,
+}
+
+function MiningRules.hasHeldModel(tool: number): boolean
+	return not TOOLS_WITHOUT_MODEL[tool]
+end
+
 function MiningRules.damageForLevel(damageByLevel: { number }, level: number): number
 	local clamped = math.clamp(math.floor(level), 1, #damageByLevel)
 	return damageByLevel[clamped]

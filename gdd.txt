@@ -405,12 +405,12 @@ Defensive Posts
 Gate
 * There is a gate that enters the camp
 * It has its own HP and can be upgraded/repaired like walls
-* During the day it opens to let players out into the Placement Area and closes at night
+* During the day it opens to let players out into the Defensive Zone and closes at night
 * The doors simply stand open all day and shut all night (decided 2026-09-17, replacing doors that opened for a nearby player). Players caught outside at night jet pack over the wall. A destroyed gate is rubble with no doors
 * Authoring: each gate template has a GateDoor model with two leaves, DoorLeft and DoorRight, authored shut, and a marker part per leaf (DoorLeftOpen, DoorRightOpen) showing its open pose. Clients slide the leaves between the two; the server only decides whether they block
-Placement Area
+Defensive Zone
 * This is a predefined area outside of the base, beyond the gates where players can place Traps and Defensive Units
-* When in the Placement Area, available Traps and Defensive Units appear in a tool bar at the bottom of the screen
+* When in the Defensive Zone, available Traps and Defensive Units appear in a tool bar at the bottom of the screen
 * Players tap one of them to bring up that Trap/Defensive Unit and a ghost version of that item appears in front of them, green if it can be placed in the current place and red if it cannot be placed. 
 * Players can then place an item, at which time it is removed from their inventory (or paid for if it is a Defensive Unit). 
 Helicopter Pad
@@ -430,6 +430,8 @@ Tool Bar System
 * The bar shows what the server says the player holds (tool slots and the equipped tool are server state replicated as attributes); every tap is a request. The bar slides away while a menu is open
 * The held model is a real Roblox Tool (decided 2026-09-15, as in the reference games): the server builds it from the GameAssets/Tools template when a tool is equipped and destroys it when not, so the Humanoid grips it, plays the arm pose and the forward swing on every use, and keeps it visible in first person. The Tool is only the visual; slots and counts stay in server Lua state and it is never stored in the Roblox Backpack (a Roblox-side unequip counts as an unequip request). Roblox's own hotbar is switched off
 * Consumables (Torch, Dynamite) show how many are held as an "xN" badge on their slot and leave the bar when the last one is used
+* Every slot shows its tool's picture (shared Icons, TOOL by tool kind and WEAPON by weapon kind; one picture for every pick axe level), with the name standing in only for a tool without one (decided 2026-09-21). The backpack button and the jet pack bar carry pictures the same way
+* Everyone also carries a Defenses tool from the start (M26, decided 2026-09-21): it has no held model, and equipping it is Build Mode, where the tool bar slides away and the Tower and Trap loadout takes its place (see "Building Towers")
 Pick Axe (Default Tool)
 * Every player starts with a basic Pick Axe Tool by default
 * Equipping a Pick Axe puts a player in Mining Mode, allowing them to mine Rocks in the mine 
@@ -438,7 +440,7 @@ Pick Axe (Default Tool)
 * Pick Axes do not perform any other function than mining (they cannot be used as a weapon)
 Hammer (Default Tool)
 * Every player also starts every run with a Hammer (decided 2026-09-17)
-* Equipping the Hammer puts the player in Build Mode, the way the Pick Axe is Mining Mode: the reticle appears and an HP bar floats over every repairable structure (the 6 walls, the gate, the Refinery). Without the Hammer none of that shows
+* Equipping the Hammer puts the player in Repair Mode, the way the Pick Axe is Mining Mode: the reticle appears and an HP bar floats over every repairable structure (the 6 walls, the gate, the Refinery). Without the Hammer none of that shows
 * Looking at a structure within reach highlights it, like a rock in Mining Mode, and the price of a swing appears under its HP bar as an amount, the Iron Bar icon, and the HP gained
 * A press swings once and holding repeats, exactly like mining, on every input type (click, gamepad trigger, the touch action button, or a resting touch). See Wall Repair for what a swing does
 Weapon (Default Tool)
@@ -1106,9 +1108,82 @@ Post Weapon Upgrades
 Upgrading a Post Weapon
 * The post workbench has an "Upgrade" prompt visible only to the post's owner. Triggering it opens the Upgrade menu: each attribute in a row with 4 empty squares beside it and an Upgrade button showing the Gold Bar icon and the cost. Tapping the button buys the upgrade if the player has the Gold Bars, and the next square fills in (square 1 = 1st upgrade and so on). Without enough Gold the player is told with the Fail sound; a locked upgrade shows CAMP LEVEL N REQUIRED in red under its squares with a greyed button, and tapping it plays the Fail sound and repeats the requirement in the feedback box; a maxed attribute reads MAX
 Defenses
+* Defenses are automated defense units, called Towers, that players place in a defined area in front of the camp, outside the walls
+* Towers work like traditional tower defense units, damaging and slowing enemies as they work their way to the camp
+* After placing a Tower, its owner can upgrade it up to 4 times
+* It costs Iron Bars to build and upgrade Towers
+* Towers are unlocked and equipped in the lobby via the loadout
+* Every Tower has HP and can be attacked by some enemies. Losing all HP destroys and despawns it
+* Every player has a limit of 5 active Towers at once (MAX_ACTIVE_TOWERS_PER_PLAYER in GameData/Defenses/Towers)
+Unlocking Towers
+* Towers are unlocked in the lobby in the Store and Loadout menus
+* Towers cost Cash, but some premium Towers may only be purchased with Robux
+Equipping Tower Loadouts
+* Players equip Towers through the Lobby Loadout Menu
+* Every player has 3 Defense loadout slots, so they can bring up to 3 Tower types into a run
+* Until the lobby store and loadout menu exist, every new player starts with the Sentry Gun in slot 1 and an admin dev tool fills the other slots for testing (as with Posts)
+Defensive Zones
+* In the gameplay place, players build Towers in pre-defined Defensive Zones
+* Some maps have 1 Defensive Zone, others have several
+* Defensive Zones are grid based and overlap the Wave Areas, the larger pre-defined grid areas that the monster waves traverse
+* Towers cannot be built outside a Defensive Zone and cannot overlap other Towers or Traps
+* Every Tower and Trap has a grid footprint (cells wide by cells deep) in the same units as the Placement and Wave Areas
+* In Repair Mode both the placement grid and the boundaries of every Defensive Zone are visible, so players know the placement constraints
+* Authoring: each Defensive Zone is a Part under Camp.DefensiveZones; its size and rotation define the grid, whose cell size lives in GameData/Defenses/Placement (CELL_SIZE_STUDS). The server keeps the occupancy of every area as Lua data; the client draws the grid and outline locally
+Building Towers
+* To build, players equip the Defenses tool from the tool bar (decided 2026-09-21, replacing the Hammer: in first person the cursor is locked, so a bar that needs clicking cannot work). Equipping it is Build Mode: the tool bar slides away and the Defense loadout takes its place at the bottom of the screen, alongside every Trap the player currently owns, each entry numbered like a tool slot, and the first entry is selected at once (decided 2026-09-21). The Defensive Zones (grid and boundaries) appear on the map at the same time
+* Each entry is a square slot styled like the tool bar's (decided 2026-09-21, replacing the circle): the item's picture inside, a small Tower or Trap badge in its top-left corner, the number key top-right, the name above the slot, and the Iron price (or the count of Traps carried) under it. With enough currency the entry is full colour; without it, the entry is slightly greyed. The selected slot carries the tool bar's accent stroke
+* Pressing an entry's number key (or tapping it on touch) selects that Tower: a 3D preview stands 20 studs in front of the player (doubled from 10 in play, 2026-09-21), snapped to the grid as they move, but only while that spot is inside a Defensive Zone (decided 2026-09-21: a preview far away could place something the player cannot see). Out of the zone the preview is hidden and the hint reads "Go to the Defensive Zone to place Defenses"; inside it keeps its own colours where it can be built and every part goes red where it cannot (a highlight tint did not read through the translucent preview) with the hint reading "Cannot place here"; where it can, the hint names the keys. Pressing another number swaps the preview; one entry is always selected while Build Mode is on, and it stays selected after a build (decided 2026-09-21). Every zone floats an always-on-top "DEFENSIVE ZONE" sign while Build Mode is on
+* Building is a left click (PC), RT or R2 (gamepad), the action button (touch), or the Build button that shows BUILD and the price while the preview is green. A right click (PC) or B / Circle (gamepad) leaves Build Mode (the Defenses tool unequips). Touch sees the Build button; keyboard and gamepad see a white hint ("LMB to place, RMB to exit"; "RT to place, B to exit") instead, since a locked cursor cannot tap a button (decided 2026-09-21). An "EXIT BUILD MODE" button stays up the whole time Build Mode is on, tapped on touch and showing its shortcut ([RMB] or [B]) for everyone else. Building on a taken cell says "Not enough space". A counter at the left end of the bar shows a Tower icon and "placed / limit" (red once the limit is reached), so the 5-Tower limit is never a surprise
+* Building places the Tower and deducts the currency. With too little currency the preview still turns green, but the price reads in red, and building gives "You don't have enough Iron Bars" in the feedback box with the Fail sound
+* A successful build spawns the Tower at the chosen cells and it becomes active
+* Every active Tower carries a BillboardGui showing its name, its HP bar, and the display name of its owner
+* As built (M26): the BuildBar ScreenGui (scripts/studio/build_build_bar_gui.luau) holds the entries and the Placement panel; the Defensive Zone grid is drawn as thin lines on the part's top face with a box around it, client-side only. A preview has no rotation (decided 2026-09-21): a footprint's columns run along the area's X axis and its rows along its Z, so the designer turns the zone part to turn the grid. Building exits Build Mode; tap the entry again for another. Tower placeholder prices: Sentry Gun 20, Flamethrower 30, AA Turret 35, Frost Tower 30, Tesla Coil 40, Sniper Tower 45 Iron, upgrades 15 / 30 / 60 / 120 (Tesla and Sniper 25 / 50 / 100 / 200), all in GameData/Defenses/Towers. A Tower whose builder leaves keeps standing under their name; nobody can sell or upgrade it
+* Server authority follows the tools rule: the client asks to build at a cell with a facing; the server checks Repair Mode, the loadout, the Tower limit, the cells, and the balance before spawning. Towers are Lua state with one shadow part each, rendered by the clients from the ReplicatedStorage template
+Upgrading and Selling Towers
+* A placed Tower has an "Upgrade/Sell" proximity prompt, visible only to its owner
+* Activating it opens the Tower Menu, in the tower defense format:
+   * Left upper panel: an image of the Tower with its name and current level
+   * Left middle: a Target Priority toggle. A "TARGET PRIORITY" header over the current selection ("Closest" by default), with arrows on each side that cycle through Closest, Furthest, Strongest, Weakest. The Tower targets enemies in range by the chosen priority
+   * Under it, a Stats panel listing the Tower's current Fire Rate, Range, Damage, and HP
+   * Left lower: a red Sell button showing the sell value (50% of everything spent on the Tower). Pressing it adds the value to the owner's Iron balance, despawns the Tower, and closes the menu
+   * Right upper: an Upgrade button with 4 empty circles under it. The button names the upgrade (Level 2 and so on) and its price. Pressing it with enough Iron upgrades the Tower, refreshes the menu, and fills the next circle; without enough Iron the player is told with the Fail sound
+   * Right lower: an Upgrade Stats panel with an icon for each stat the upgrade changes, its current value, and an arrow to the value after the upgrade
+Tower Types
+* There are multiple Tower types to unlock, each with its own visuals and behaviour. Every player starts with the Sentry Gun; the rest are Cash purchases in the lobby
+* All Tower stats live in GameData/Defenses/Towers so they are easy to change. Every Tower has 4 upgrade tiers, each raising specific stats
+* Like Posts, Tower models live in ReplicatedStorage.GameAssets.Towers, named by their enum key
+* Roster (behaviour in "Defensive unit and trap behavior", M27):
+   * Sentry Gun: single target, steady. Workhorse
+   * Flamethrower: short range, wide cone, burn damage over time
+   * AA Turret: air only, cannot hit ground
+   * Frost Tower: radius slow, occasional freeze. No damage
+   * Tesla Coil: chain lightning, brief stun
+   * Sniper Tower: long range, high damage, slow. Answers Launchers
 Traps
+* Traps are passive defensive placements: barriers, spikes, mines, and the like, used to direct enemy movement or to damage and slow enemies
+* Unlike Towers, Traps are consumable and are bought at the Defense Store with Iron Bars
+* Players can carry up to 3 different Trap types at once, with no maximum count per type
+* Like Towers, Traps can only be placed in a Defensive Zone and use the same grid
+* Traps cannot be upgraded
+* Every Trap has HP and can be destroyed by enemies. Some Traps despawn on their own after use (a Bear Trap, for example, despawns once triggered)
+Buying Traps
+* Traps are bought in the Defense Store building (Camp.DefenseStore), structured like the Mining Supplies Store: a stand per Trap showing its model, price, and any Camp Level requirement, each with a purchase proximity prompt
+* With enough Iron the price is deducted and the Trap is added to the player's run inventory; with too little the player is told with the Fail sound
+Placing Traps
+* Placing a Trap works exactly like building a Tower: the owned Traps appear beside the Defense loadout in Build Mode, with the count owned in place of a price, and placing one consumes it
+Selling Traps
+* A placed Trap has a proximity prompt visible only to its owner reading "Sell: [price] Iron Bars", a 1 second hold, worth 50% of the purchase price. Activating it adds the value to the owner's Iron balance and despawns the Trap
+Trap Types
+* Stats and prices live in GameData/Defenses/Traps; models in ReplicatedStorage.GameAssets.Traps, named by their enum key. Placeholder prices: Tiger Teeth 12, Spike Trap 15, Goo Pit 10, Land Mine 20, Bear Trap 8, Decoy 18 Iron; footprints of one cell except Tiger Teeth (2 by 1) and Goo Pit (2 by 2). Roster (behaviour in M27):
+   * Tiger Teeth: barrier with HP. Blocks movement; enemies attack it
+   * Spike Trap: recharging trap. Pops on contact, damages, resets. No slow
+   * Goo Pit: persistent trap. Slows crossers. No damage
+   * Land Mine: one use. Proximity, big damage
+   * Bear Trap: one use. Stun and damage, single target
+   * Decoy: barrier with HP. Draws attacks away from the wall
 Wall Repair
-* Repair works like mining (decided 2026-09-17, replacing a single full-price repair prompt): in Build Mode every Hammer swing at a damaged structure adds 10 HP and costs the player 4 Iron Bars. The last swing pays only for the HP still missing, rounded up. Swings repeat every 0.45 seconds while held, and the Hammer reaches 17 studs, 5 more than the pick axe, because a wall is big
+* Repair works like mining (decided 2026-09-17, replacing a single full-price repair prompt): in Repair Mode every Hammer swing at a damaged structure adds 10 HP and costs the player 4 Iron Bars. The last swing pays only for the HP still missing, rounded up. Swings repeat every 0.45 seconds while held, and the Hammer reaches 17 studs, 5 more than the pick axe, because a wall is big
 * Every swing is a request the server validates (Hammer equipped, structure damaged, within reach of the structure's bounds, cooldown, enough Iron). A swing that lands plays the hammer sound for everyone nearby. With too little Iron the Hammer does not swing and the player is told once per press
 * A destroyed wall or gate is rubble and stays rubble while it is rebuilt swing by swing from zero; its bar reads "Rebuilding n / max". It stands back up only when fully rebuilt (GameData REBUILD_STAND_SHARE = 1, decided 2026-09-17: a wall that reappears after one swing could be flickered in front of the horde for 4 Iron a time). Rebuilding a level 1 wall is 20 swings and 80 Iron
 * Repair is never capped by Camp Level

@@ -4,7 +4,7 @@
 -- axe has one model per level ("PICK_AXE_1" .. "PICK_AXE_5", the level count
 -- in GameData/Store/MiningSupplies) so an upgrade shows in the hand and on
 -- the store stand; TORCH and DYNAMITE are the consumables, HAMMER is the
--- Build Mode tool, and WEAPON_RIFLE (M24) is made from the designer's art
+-- Repair Mode tool, and WEAPON_RIFLE (M24) is made from the designer's art
 -- under GameAssets/Weapons, which this script reads and never changes. Run in the
 -- gameplay place from the command bar or the MCP execute_luau tool; it
 -- replaces any existing copy. Real art replaces these at M46.
@@ -93,7 +93,7 @@ dynamite.PrimaryPart = stick
 dynamite.Parent = tools
 
 -- hammer (M23): a short wooden haft with a blocky steel head; equipping it
--- is Build Mode
+-- is Repair Mode
 local hammer = Instance.new("Model")
 hammer.Name = "HAMMER"
 local hammerHaft = makePart(Constants.TOOL_HANDLE_PART, Vector3.new(0.3, 1.8, 0.3), Color3.fromRGB(120, 80, 40), Enum.Material.Wood, CFrame.new(0, 0, 0), hammer)
