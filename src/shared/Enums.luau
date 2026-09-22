@@ -203,7 +203,7 @@ module = {
 	-- definitions in GameData/Defenses/Traps, models under GameAssets/Traps,
 	-- one "<Key>Stand" per kind in the store
 	TrapKind = {
-		TIGER_TEETH = 1,
+		WALL = 1,
 		SPIKE_TRAP = 2,
 		GOO_PIT = 3,
 		LAND_MINE = 4,
@@ -211,7 +211,7 @@ module = {
 		DECOY = 6,
 
 		PublicNames = {
-			TIGER_TEETH = "Tiger Teeth",
+			WALL = "Wall",
 			SPIKE_TRAP = "Spike Trap",
 			GOO_PIT = "Goo Pit",
 			LAND_MINE = "Land Mine",
@@ -245,19 +245,53 @@ module = {
 			WEAKEST = "Weakest",
 		},
 	},
-	-- the numbers the Tower Menu lists and an upgrade may raise
+	-- the numbers the Tower Menu lists and an upgrade may raise; each kind
+	-- names its four in GameData/Defenses/Towers STAT_ROWS (M27)
 	TowerStat = {
 		FIRE_RATE = 1,
 		RANGE = 2,
 		DAMAGE = 3,
 		HP = 4,
+		FLAME_LENGTH = 5,
+		SLOW_RATE = 6,
+		FREEZE_LENGTH = 7,
+		CHAIN_COUNT = 8,
 
 		PublicNames = {
 			FIRE_RATE = "Fire Rate",
 			RANGE = "Range",
 			DAMAGE = "Damage",
 			HP = "HP",
+			FLAME_LENGTH = "Flame Length",
+			SLOW_RATE = "Slow Rate",
+			FREEZE_LENGTH = "Freeze Length",
+			CHAIN_COUNT = "Chain Count",
 		},
+	},
+	-- the shape of a Tower's attack (GDD "Tower Types"), M27: one shot at
+	-- the picked target, a cone that hits everything in front of the
+	-- turret for a while, or a bolt that chains from the picked target
+	TowerAttack = {
+		SINGLE = 1,
+		CONE = 2,
+		CHAIN = 3,
+	},
+	-- what a Trap does (GDD "Trap Types"), M27: a barrier that blocks and
+	-- takes hits, spikes that pop under a crosser and recharge, goo that
+	-- slows crossers, a mine that blows once, a snare that holds one
+	-- crosser once
+	TrapBehavior = {
+		BARRIER = 1,
+		SPIKES = 2,
+		GOO = 3,
+		MINE = 4,
+		SNARE = 5,
+	},
+	-- a Spike Trap's state, on its shadow for the clients to draw
+	TrapState = {
+		DOWN = 1,
+		UP = 2,
+		RECHARGING = 3,
 	},
 	-- camp structures with HP (GDD "Walls", "Gate", "Refinery"), M23
 	StructureKind = {

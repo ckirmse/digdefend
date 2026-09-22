@@ -51,13 +51,10 @@ end
 
 -- each kind's feature on top of its slab, in the slab's footprint
 local FEATURE_BY_KIND = {
-	-- teeth and spikes fill whatever footprint the kind has
-	[Enums.TrapKind.TIGER_TEETH] = function(model, width, depth)
-		local count = math.max(2, math.floor(width / 2))
-		for index = 1, count do
-			local x = (index - (count + 1) / 2) * (width / count)
-			addPart(model, "Tooth" .. index, Vector3.new(0.8, 2.4, 0.8), CFrame.new(x, SLAB_HEIGHT_STUDS + 1.2, 0) * CFrame.Angles(0, math.rad(45), 0), Color3.fromRGB(70, 70, 75), Enum.Material.Concrete, Enum.PartType.Wedge)
-		end
+	-- spikes fill whatever footprint the kind has
+	-- a solid wall across the footprint (renamed from Tiger Teeth, M27)
+	[Enums.TrapKind.WALL] = function(model, width, depth)
+		addPart(model, "WallBlock", Vector3.new(width, 5, depth), CFrame.new(0, SLAB_HEIGHT_STUDS + 2.5, 0), Color3.fromRGB(110, 110, 115), Enum.Material.Concrete)
 	end,
 	[Enums.TrapKind.SPIKE_TRAP] = function(model, width, depth)
 		local columns = math.max(3, math.floor(width / 1.5))

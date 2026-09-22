@@ -33,6 +33,7 @@ local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PlacementRules = require("@game/ReplicatedStorage/Shared/PlacementRules")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
+local TowerRules = require("@game/ReplicatedStorage/Shared/TowerRules")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
@@ -128,6 +129,15 @@ local GRID_LINE_COLOR = Color3.fromRGB(245, 200, 80)
 local GRID_LINE_THICKNESS_STUDS = 0.12
 local GRID_LINE_LIFT_STUDS = 0.06
 local OUTLINE_THICKNESS_STUDS = 0.15
+-- the range ring around a Tower preview (decided 2026-09-22): a circle
+-- of the Tower's reach drawn as flat segments on the ground
+local RANGE_RING_NAME = "RangeRing"
+local RANGE_RING_SEGMENTS = 64
+local RANGE_RING_THICKNESS_STUDS = 0.35
+local RANGE_RING_HEIGHT_STUDS = 0.1
+local RANGE_RING_LIFT_STUDS = 0.15
+local RANGE_RING_COLOR = Color3.fromRGB(120, 200, 255)
+local RANGE_RING_TRANSPARENCY = 0.25
 local GREYED_TRANSPARENCY = 0.55
 local NUMBER_KEYS = {
 	Enum.KeyCode.One,
@@ -619,6 +629,44 @@ function ClientPlacementToolManager:cancel()
 	self:renderAffordability()
 end
 
+-- a Tower preview carries a ring of its reach (TowerRules.reachStuds) so
+-- the player sees what the spot covers before building; it moves with the
+-- preview because it is part of the model, and never tints red
+function ClientPlacementToolManager:addRangeRing(preview: Model, placementKind: number, typeKind: number, footprint: { number })
+	local catalog = self.catalog
+	if not catalog or placementKind ~= Enums.PlacementKind.TOWER then
+		return
+	end
+	local tower = catalog.towers[typeKind]
+	if not tower then
+		return
+	end
+	local stats = PlacementRules.towerStats(tower, PlacementRules.STARTING_LEVEL)
+	local radius = TowerRules.reachStuds(stats.RANGE_STUDS, footprint, catalog.cellSizeStuds)
+	local ring = Instance.new("Model")
+	ring.Name = RANGE_RING_NAME
+	local pivot = preview:GetPivot()
+	local segmentLength = 2 * math.pi * radius / RANGE_RING_SEGMENTS + RANGE_RING_THICKNESS_STUDS
+	for index = 1, RANGE_RING_SEGMENTS do
+		local angle = (index - 0.5) / RANGE_RING_SEGMENTS * 2 * math.pi
+		local segment = Instance.new("Part")
+		segment.Name = "Segment"
+		segment.Anchored = true
+		segment.CanCollide = false
+		segment.CanQuery = false
+		segment.CanTouch = false
+		segment.CastShadow = false
+		segment.Material = Enum.Material.Neon
+		segment.Color = RANGE_RING_COLOR
+		segment.Transparency = RANGE_RING_TRANSPARENCY
+		segment.Size = Vector3.new(segmentLength, RANGE_RING_HEIGHT_STUDS, RANGE_RING_THICKNESS_STUDS)
+		-- each segment sits on the circle, turned to run along it
+		segment.CFrame = pivot * CFrame.Angles(0, -angle, 0) * CFrame.new(0, RANGE_RING_LIFT_STUDS, -radius)
+		segment.Parent = ring
+	end
+	ring.Parent = preview
+end
+
 function ClientPlacementToolManager:select(placementKind: number, typeKind: number)
 	local catalog = self.catalog
 	if not catalog or not self.isBuildMode then
@@ -640,6 +688,7 @@ function ClientPlacementToolManager:select(placementKind: number, typeKind: numb
 			colorByPart[descendant] = descendant.Color
 		end
 	end
+	self:addRangeRing(preview, placementKind, typeKind, footprint)
 	preview.Parent = ClientPlacementManager:getBodiesFolder()
 	self.selection = {
 		placementKind = placementKind,

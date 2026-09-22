@@ -21,6 +21,7 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local PlacementRules = require("@game/ReplicatedStorage/Shared/PlacementRules")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local StructureRules = require("@game/ReplicatedStorage/Shared/StructureRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
@@ -33,9 +34,22 @@ local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManage
 local ClientHeldToolManager = require(script.Parent.ClientHeldToolManager)
 local ClientHoldInput = require(script.Parent.ClientHoldInput)
 local ClientMiningManager = require(script.Parent.ClientMiningManager)
+local ClientPlacementManager = require(script.Parent.ClientPlacementManager)
 
 local ClientStructureManager = {}
 ClientStructureManager.__index = ClientStructureManager
+
+-- what Repair Mode needs to know about a target, read the same way from a
+-- structure shadow and a Tower shadow (Towers repair exactly like walls,
+-- decided 2026-09-22)
+type Repairable = {
+	id: string,
+	name: string,
+	hp: number,
+	maxHp: number,
+	isDestroyed: boolean,
+	isTower: boolean,
+}
 
 type Tracked = {
 	billboard: BillboardGui?,
@@ -87,6 +101,13 @@ local NOTIFY_STRUCTURE_REPAIRED_SHAPE = {
 	id = "string",
 	userId = "positiveInteger",
 }
+-- a Tower's bar floats this far above its body
+local TOWER_BILLBOARD_LIFT_STUDS = 1.5
+local TOWER_LEVEL_FORMAT = "%s %d"
+
+local function isTowerShadow(shadow: BasePart): boolean
+	return shadow:GetAttribute(Attributes.PLACEMENT_KIND) == Enums.PlacementKind.TOWER
+end
 
 function ClientStructureManager:findBillboardTemplate(): BillboardGui?
 	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
@@ -102,6 +123,42 @@ function ClientStructureManager:findBillboardTemplate(): BillboardGui?
 	return nil
 end
 
+function ClientStructureManager:readRepairable(shadow: BasePart): Repairable?
+	if isTowerShadow(shadow) then
+		local id = shadow:GetAttribute(Attributes.PLACEMENT_ID)
+		local hp = shadow:GetAttribute(Attributes.PLACEMENT_HP)
+		local maxHp = shadow:GetAttribute(Attributes.PLACEMENT_MAX_HP)
+		local typeKind = shadow:GetAttribute(Attributes.PLACEMENT_TYPE_KIND)
+		local level = shadow:GetAttribute(Attributes.PLACEMENT_LEVEL)
+		if typeof(id) ~= "string" or typeof(hp) ~= "number" or typeof(maxHp) ~= "number" or typeof(typeKind) ~= "number" then
+			return nil
+		end
+		return {
+			id = id,
+			name = string.format(TOWER_LEVEL_FORMAT, PlacementRules.publicName(Enums.PlacementKind.TOWER, typeKind), if typeof(level) == "number" then level else 1),
+			hp = hp,
+			maxHp = maxHp,
+			isDestroyed = false,
+			isTower = true,
+		}
+	end
+	local id = shadow:GetAttribute(Attributes.STRUCTURE_ID)
+	local hp = shadow:GetAttribute(Attributes.STRUCTURE_HP)
+	local maxHp = shadow:GetAttribute(Attributes.STRUCTURE_MAX_HP)
+	local kind = shadow:GetAttribute(Attributes.STRUCTURE_KIND)
+	if typeof(id) ~= "string" or typeof(hp) ~= "number" or typeof(maxHp) ~= "number" then
+		return nil
+	end
+	return {
+		id = id,
+		name = if typeof(kind) == "number" then Enums.getPublicName(Enums.StructureKind, kind) or "" else "",
+		hp = hp,
+		maxHp = maxHp,
+		isDestroyed = shadow:GetAttribute(Attributes.STRUCTURE_IS_DESTROYED) == true,
+		isTower = false,
+	}
+end
+
 function ClientStructureManager:refreshBillboard(shadow: BasePart, billboard: BillboardGui, isInstant: boolean)
 	local root = billboard:FindFirstChild(Constants.STRUCTURE_HP_ROOT_FRAME)
 	local nameLabel = if root then root:FindFirstChild(Constants.STRUCTURE_HP_NAME_LABEL) else nil
@@ -111,16 +168,16 @@ function ClientStructureManager:refreshBillboard(shadow: BasePart, billboard: Bi
 	local costRow = if root then root:FindFirstChild(Constants.STRUCTURE_HP_COST_ROW) else nil
 	local amountLabel = if costRow then costRow:FindFirstChild(Constants.STRUCTURE_HP_COST_AMOUNT_LABEL) else nil
 	local gainLabel = if costRow then costRow:FindFirstChild(Constants.STRUCTURE_HP_COST_GAIN_LABEL) else nil
-	local isDestroyed = shadow:GetAttribute(Attributes.STRUCTURE_IS_DESTROYED) == true
-	local hp = shadow:GetAttribute(Attributes.STRUCTURE_HP)
-	local maxHp = shadow:GetAttribute(Attributes.STRUCTURE_MAX_HP)
-	local kind = shadow:GetAttribute(Attributes.STRUCTURE_KIND)
-	if typeof(hp) ~= "number" or typeof(maxHp) ~= "number" or maxHp <= 0 then
+	local repairable = self:readRepairable(shadow)
+	if not repairable or repairable.maxHp <= 0 then
 		return
 	end
+	local isDestroyed = repairable.isDestroyed
+	local hp = repairable.hp
+	local maxHp = repairable.maxHp
 	local share = math.clamp(hp / maxHp, 0, 1)
-	if nameLabel and nameLabel:IsA("TextLabel") and typeof(kind) == "number" then
-		nameLabel.Text = UiStyle.formatTitle(Enums.getPublicName(Enums.StructureKind, kind) or "")
+	if nameLabel and nameLabel:IsA("TextLabel") then
+		nameLabel.Text = UiStyle.formatTitle(repairable.name)
 	end
 	if valueLabel and valueLabel:IsA("TextLabel") then
 		if hp <= 0 then
@@ -156,12 +213,17 @@ function ClientStructureManager:refreshBillboard(shadow: BasePart, billboard: Bi
 	end
 end
 
--- the HP bar exists only in Repair Mode
+-- the HP bar exists only in Repair Mode; a Tower's everyday info
+-- billboard steps aside for it so the two never stack
 function ClientStructureManager:applyRepairMode(shadow: BasePart, tracked: Tracked)
+	local isTower = isTowerShadow(shadow)
 	if not self.isRepairMode then
 		if tracked.billboard then
 			tracked.billboard:Destroy()
 			tracked.billboard = nil
+		end
+		if isTower then
+			ClientPlacementManager:setInfoVisible(shadow, true)
 		end
 		return
 	end
@@ -172,7 +234,11 @@ function ClientStructureManager:applyRepairMode(shadow: BasePart, tracked: Track
 			return
 		end
 		billboard = template:Clone()
-		billboard.StudsOffsetWorldSpace = Vector3.new(0, BILLBOARD_LIFT_STUDS, 0)
+		local lift = if isTower then ClientPlacementManager:getBodyHeight(shadow) + TOWER_BILLBOARD_LIFT_STUDS - shadow.Size.Y / 2 else BILLBOARD_LIFT_STUDS
+		if isTower then
+			ClientPlacementManager:setInfoVisible(shadow, false)
+		end
+		billboard.StudsOffsetWorldSpace = Vector3.new(0, lift, 0)
 		billboard.Adornee = shadow
 		billboard.Parent = shadow
 		tracked.billboard = billboard
@@ -182,9 +248,21 @@ function ClientStructureManager:applyRepairMode(shadow: BasePart, tracked: Track
 	self:refreshBillboard(shadow, billboard, false)
 end
 
--- "Wall3", "Gate", "Refinery": which structure a hit part belongs to, and the
--- model to highlight
+-- "Wall3", "Gate", "Refinery", or a Tower's body ("Placement4"): which
+-- repairable a hit part belongs to, and the model to highlight
 function ClientStructureManager:resolveStructure(part: Instance): (BasePart?, Model?)
+	local bodies = workspace:FindFirstChild(Constants.PLACEMENT_BODIES_FOLDER)
+	if bodies and part:IsDescendantOf(bodies) then
+		local current: Instance? = part
+		while current and current.Parent ~= bodies do
+			current = current.Parent
+		end
+		local shadow = if current and current:IsA("Model") then ClientPlacementManager:findShadowById(current.Name) else nil
+		if shadow and self.trackedByShadow[shadow] and current and current:IsA("Model") then
+			return shadow, current
+		end
+		return nil, nil
+	end
 	local camp = workspace:FindFirstChild(Constants.CAMP_FOLDER)
 	local walls = if camp then camp:FindFirstChild(Constants.CAMP_WALLS_FOLDER) else nil
 	local current: Instance? = part
@@ -238,6 +316,17 @@ function ClientStructureManager:aim()
 			table.insert(included, child)
 		end
 	end
+	-- Tower bodies too (their shadows are tracked here); Trap bodies are
+	-- not repairable and stay out of the ray
+	local bodies = workspace:FindFirstChild(Constants.PLACEMENT_BODIES_FOLDER)
+	if bodies then
+		for _, body in bodies:GetChildren() do
+			local shadow = if body:IsA("Model") then ClientPlacementManager:findShadowById(body.Name) else nil
+			if shadow and self.trackedByShadow[shadow] then
+				table.insert(included, body)
+			end
+		end
+	end
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = included
@@ -256,13 +345,11 @@ function ClientStructureManager:swing(isFreshPress: boolean): boolean
 	if not target then
 		return false
 	end
-	local hp = target:GetAttribute(Attributes.STRUCTURE_HP)
-	local maxHp = target:GetAttribute(Attributes.STRUCTURE_MAX_HP)
-	local id = target:GetAttribute(Attributes.STRUCTURE_ID)
-	if typeof(hp) ~= "number" or typeof(maxHp) ~= "number" or typeof(id) ~= "string" then
+	local repairable = self:readRepairable(target)
+	if not repairable then
 		return false
 	end
-	local gained, cost = StructureRules.repairChunk(maxHp, hp, self.repairChunkHp, self.repairChunkIron)
+	local gained, cost = StructureRules.repairChunk(repairable.maxHp, repairable.hp, self.repairChunkHp, self.repairChunkIron)
 	if gained <= 0 then
 		return false
 	end
@@ -275,7 +362,7 @@ function ClientStructureManager:swing(isFreshPress: boolean): boolean
 		return false
 	end
 	ClientHeldToolManager:playSwing()
-	ClientNetManager:fireServer(NetEventNames.TRY_REPAIR_STRUCTURE, { id = id })
+	ClientNetManager:fireServer(if repairable.isTower then NetEventNames.TRY_REPAIR_TOWER else NetEventNames.TRY_REPAIR_STRUCTURE, { id = repairable.id })
 	return true
 end
 
@@ -304,7 +391,8 @@ function ClientStructureManager:onStructureRepaired(payload: any)
 		return
 	end
 	for shadow in self.trackedByShadow do
-		if shadow:GetAttribute(Attributes.STRUCTURE_ID) == payload.id then
+		local repairable = self:readRepairable(shadow)
+		if repairable and repairable.id == payload.id then
 			if (root.Position - shadow.Position).Magnitude <= SOUND_RANGE_STUDS then
 				ClientSoundManager:playSfx(SoundNames.Sfx.HAMMER_HIT)
 			end
@@ -382,12 +470,14 @@ function ClientStructureManager:track(shadow: Instance)
 	if not shadow:IsA("BasePart") or self.trackedByShadow[shadow] then
 		return
 	end
+	local isTower = isTowerShadow(shadow)
 	local tracked: Tracked = {
 		billboard = nil,
 		connections = {},
 	}
 	self.trackedByShadow[shadow] = tracked
-	for _, attribute in { Attributes.STRUCTURE_HP, Attributes.STRUCTURE_MAX_HP, Attributes.STRUCTURE_IS_DESTROYED } do
+	local watched = if isTower then { Attributes.PLACEMENT_HP, Attributes.PLACEMENT_MAX_HP, Attributes.PLACEMENT_LEVEL } else { Attributes.STRUCTURE_HP, Attributes.STRUCTURE_MAX_HP, Attributes.STRUCTURE_IS_DESTROYED }
+	for _, attribute in watched do
 		table.insert(
 			tracked.connections,
 			shadow:GetAttributeChangedSignal(attribute):Connect(
@@ -521,6 +611,28 @@ function ClientStructureManager:init()
 		NetEventNames.NOTIFY_STRUCTURE_REPAIRED,
 		function(payload: any)
 			self:onStructureRepaired(payload)
+		end
+	)
+	ClientNetManager:registerHandler(
+		NetEventNames.NOTIFY_TOWER_REPAIRED,
+		function(payload: any)
+			self:onStructureRepaired(payload)
+		end
+	)
+	-- Towers are repaired like walls; only a Tower shadow is tracked, a Trap
+	-- shadow is never a repair target
+	local function trackTowerIfNeeded(shadow: Instance)
+		if shadow:IsA("BasePart") and isTowerShadow(shadow) then
+			self:track(shadow)
+		end
+	end
+	for _, shadow in CollectionService:GetTagged(Tags.PLACEMENT) do
+		trackTowerIfNeeded(shadow)
+	end
+	CollectionService:GetInstanceAddedSignal(Tags.PLACEMENT):Connect(trackTowerIfNeeded)
+	CollectionService:GetInstanceRemovedSignal(Tags.PLACEMENT):Connect(
+		function(shadow: Instance)
+			self:untrack(shadow)
 		end
 	)
 

@@ -32,4 +32,12 @@ return {
 	TARGET_DUMMY_HP = 200,
 	TARGET_DUMMY_SIZE = Vector3.new(4, 6, 2),
 	TARGET_DUMMY_DISTANCE_STUDS = 25,
+	-- the walking dummy (M27): spawned this far out in front of the admin
+	-- and walking a straight line back to where the admin stood, on the
+	-- ground or at the air height, hitting a barrier in its way at this rate
+	WALKING_DUMMY_HP = 400,
+	WALKING_DUMMY_DISTANCE_STUDS = 90,
+	WALKING_DUMMY_SPEED_STUDS_PER_SEC = 8,
+	WALKING_DUMMY_AIR_HEIGHT_STUDS = 12,
+	WALKING_DUMMY_ATTACK_DAMAGE_PER_SEC = 20,
 }

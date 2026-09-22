@@ -22,6 +22,8 @@ local ClientOrePickupManager = require(script.Parent.ClientOrePickupManager)
 local ClientPlacementDevTools = require(script.Parent.ClientPlacementDevTools)
 local ClientPlacementManager = require(script.Parent.ClientPlacementManager)
 local ClientPlacementToolManager = require(script.Parent.ClientPlacementToolManager)
+local ClientTowerBehaviorManager = require(script.Parent.ClientTowerBehaviorManager)
+local ClientTrapBehaviorManager = require(script.Parent.ClientTrapBehaviorManager)
 local ClientPostDevTools = require(script.Parent.ClientPostDevTools)
 local ClientPostManager = require(script.Parent.ClientPostManager)
 local ClientPostUpgradeManager = require(script.Parent.ClientPostUpgradeManager)
@@ -74,6 +76,9 @@ ClientPostUpgradeManager:init()
 -- and preview that read them, then the menu and the store stands
 ClientPlacementManager:init()
 ClientPlacementToolManager:init()
+-- after the placements and the targets, whose bodies the effects run between
+ClientTowerBehaviorManager:init()
+ClientTrapBehaviorManager:init()
 ClientTowerMenuManager:init()
 ClientDefenseStoreManager:init()
 -- after the tool managers it dispatches to

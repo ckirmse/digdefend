@@ -19,8 +19,14 @@
 -- and the Iron, then spawns the shadow. Selling a Tower and upgrading it
 -- are requests from the Tower Menu; selling a Trap is its ProximityPrompt,
 -- heard here directly. The Tower's own prompt only opens the menu on the
--- owner's client. HP goes down through damagePlacement (enemies at M27 and
--- M29, a dev tool now) and a placement at zero is gone.
+-- owner's client. HP goes down through damagePlacement (walkers held up
+-- by a barrier, TrapBehaviorManager; enemies at M29; a dev tool) and a
+-- placement at zero is gone. A Tower is repaired with the Hammer exactly
+-- like a wall (TryRepairTower, decided 2026-09-22): anyone, one chunk of
+-- HP for a few Iron per swing, the wall's reach and cooldown; a Trap is a
+-- consumable and never repaired. What a Tower or Trap does once it
+-- stands is TowerBehaviorManager and TrapBehaviorManager (M27), which
+-- read the placements here and never touch the grid.
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 
@@ -29,7 +35,9 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PlacementRules = require("@game/ReplicatedStorage/Shared/PlacementRules")
+local StructureRules = require("@game/ReplicatedStorage/Shared/StructureRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
+local StructuresData = require("@game/ServerScriptService/GameData/Camp/Structures")
 local PlacementData = require("@game/ServerScriptService/GameData/Defenses/Placement")
 local TowersData = require("@game/ServerScriptService/GameData/Defenses/Towers")
 local TrapsData = require("@game/ServerScriptService/GameData/Defenses/Traps")
@@ -44,7 +52,7 @@ local ToolManager = require(script.Parent.ToolManager)
 local PlacementManager = {}
 PlacementManager.__index = PlacementManager
 
-type Placement = {
+export type Placement = {
 	id: string,
 	placementKind: number,
 	typeKind: number,
@@ -83,6 +91,8 @@ export type PlacementManager = typeof(setmetatable(
 		placementsById: { [string]: Placement },
 		zonesByIndex: { [number]: Zone },
 		stateByPlayer: { [Player]: PlayerState },
+		-- the Hammer's cooldown on Towers, per player
+		lastSwingTimeByPlayer: { [Player]: number },
 		nextId: number,
 		shadowFolder: Folder?,
 	},
@@ -106,6 +116,9 @@ local TRY_UPGRADE_TOWER_SHAPE = {
 local TRY_SET_TOWER_TARGET_PRIORITY_SHAPE = {
 	id = "string",
 	priority = { type = "enum", name = "TargetPriority" },
+}
+local TRY_REPAIR_TOWER_SHAPE = {
+	id = "string",
 }
 
 local SHADOW_FOLDER = "PlacementShadows"
@@ -228,6 +241,19 @@ function PlacementManager:replicatePlacement(placement: Placement)
 	shadow:SetAttribute(Attributes.DEFENSIVE_ZONE_INDEX, placement.zoneIndex)
 	shadow:SetAttribute(Attributes.PLACEMENT_COLUMN, placement.cell.column)
 	shadow:SetAttribute(Attributes.PLACEMENT_ROW, placement.cell.row)
+	if placement.placementKind == Enums.PlacementKind.TRAP then
+		local trap = self.catalog.traps[placement.typeKind]
+		shadow:SetAttribute(Attributes.PLACEMENT_DRAWS_ATTACKS, trap ~= nil and trap.DRAWS_ATTACKS == true)
+	end
+end
+
+-- every placement standing, in id order
+function PlacementManager:getPlacements(): { Placement }
+	local placements = {}
+	for _, id in self:getPlacementIds() do
+		table.insert(placements, self.placementsById[id])
+	end
+	return placements
 end
 
 function PlacementManager:getShadowFolder(): Folder?
@@ -456,6 +482,43 @@ function PlacementManager:setTargetPriority(player: Player, id: string, priority
 	self:replicatePlacement(placement)
 end
 
+-- one Hammer swing at a Tower: the wall's checks (StructureManager
+-- handleRepair) against the Tower's shadow. Silent refusals are the cases
+-- an honest client never sends
+function PlacementManager:repairTower(player: Player, id: string)
+	local placement = self.placementsById[id]
+	if not placement or placement.placementKind ~= Enums.PlacementKind.TOWER or ToolManager:getEquippedTool(player) ~= Enums.ToolKind.HAMMER then
+		return
+	end
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not root or not root:IsA("BasePart") then
+		return
+	end
+	if not StructureRules.isWithinReach(root.Position, placement.shadow.CFrame, placement.shadow.Size, StructuresData.HAMMER_REACH_STUDS, StructuresData.HAMMER_REACH_TOLERANCE_STUDS) then
+		return
+	end
+	local now = workspace:GetServerTimeNow()
+	if not StructureRules.canSwing(self.lastSwingTimeByPlayer[player], now, StructuresData.HAMMER_HIT_COOLDOWN_SEC) then
+		return
+	end
+	local gained, cost = StructureRules.repairChunk(placement.maxHp, placement.hp, StructuresData.REPAIR_CHUNK_HP, StructuresData.REPAIR_CHUNK_IRON)
+	if gained <= 0 then
+		return
+	end
+	self.lastSwingTimeByPlayer[player] = now
+	if not RefineryManager:spendIronBars(player, cost) then
+		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_IRON)
+		return
+	end
+	placement.hp = math.min(placement.maxHp, placement.hp + gained)
+	self:replicatePlacement(placement)
+	NetManager:notifyAllClients(NetEventNames.NOTIFY_TOWER_REPAIRED, {
+		id = id,
+		userId = player.UserId,
+	})
+end
+
 -- the one way HP goes down; enemies (M27, M29) and the dev tool come through here
 function PlacementManager:damagePlacement(id: string, amount: number)
 	local placement = self.placementsById[id]
@@ -469,6 +532,14 @@ function PlacementManager:damagePlacement(id: string, amount: number)
 		return
 	end
 	self:replicatePlacement(placement)
+end
+
+-- a one-use Trap that went off is simply gone
+function PlacementManager:removePlacement(id: string)
+	local placement = self.placementsById[id]
+	if placement then
+		self:remove(placement)
+	end
 end
 
 function PlacementManager:clearPlacements()
@@ -501,6 +572,12 @@ function PlacementManager:getNetHandlers()
 			shape = TRY_SET_TOWER_TARGET_PRIORITY_SHAPE,
 			handler = function(player: Player, payload: { [string]: any })
 				self:setTargetPriority(player, payload.id, payload.priority)
+			end,
+		},
+		[NetEventNames.TRY_REPAIR_TOWER] = {
+			shape = TRY_REPAIR_TOWER_SHAPE,
+			handler = function(player: Player, payload: { [string]: any })
+				self:repairTower(player, payload.id)
 			end,
 		},
 	}
@@ -578,6 +655,7 @@ function PlacementManager:init()
 				end
 			end
 			self.stateByPlayer[player] = nil
+			self.lastSwingTimeByPlayer[player] = nil
 		end
 	)
 end
@@ -597,6 +675,7 @@ function PlacementManager.new(): PlacementManager
 	self.placementsById = {}
 	self.zonesByIndex = {}
 	self.stateByPlayer = {}
+	self.lastSwingTimeByPlayer = {}
 	self.nextId = 1
 	self.shadowFolder = nil
 	return self

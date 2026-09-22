@@ -158,6 +158,12 @@ module = {
 	DAMAGEABLE_MAX_HP = "DamageableMaxHp",
 	DAMAGEABLE_NAME = "DamageableName",
 	DAMAGEABLE_SIZE = "DamageableSize",
+	-- and (M27) whether it flies (Towers that hit only ground or only air
+	-- read this), its speed as a share of normal (1 free, 0 stunned; the
+	-- strongest slow, StatusRules), and whether it is burning
+	DAMAGEABLE_IS_AIRBORNE = "DamageableIsAirborne",
+	DAMAGEABLE_SPEED_MULTIPLIER = "DamageableSpeedMultiplier",
+	DAMAGEABLE_IS_BURNING = "DamageableIsBurning",
 	-- posts (PostManager, M25). Public on AllPlayers: the post number this
 	-- player claimed (0 = none), the Enums.PostWeaponKind they brought, and
 	-- the post they are manning (0 = none); every client renders from these
@@ -219,6 +225,14 @@ module = {
 	-- cell), so a client can mark them taken when it snaps a preview
 	PLACEMENT_COLUMN = "PlacementColumn",
 	PLACEMENT_ROW = "PlacementRow",
+	-- behaviour (M27): a Tower's turret yaw in degrees about its base (0
+	-- faces the model's -Z, the barrel's rest direction; TowerRules) and
+	-- whether a cone Tower is breathing right now; a Spike Trap's
+	-- Enums.TrapState; and the Decoy's flag that enemy targeting reads
+	PLACEMENT_YAW_DEGREES = "PlacementYawDegrees",
+	PLACEMENT_IS_ATTACKING = "PlacementIsAttacking",
+	PLACEMENT_TRAP_STATE = "PlacementTrapState",
+	PLACEMENT_DRAWS_ATTACKS = "PlacementDrawsAttacks",
 	-- on a ParticleEmitter in a burst effect template (GameAssets/Effects):
 	-- how many particles one burst emits
 	BURST_COUNT = "BurstCount",

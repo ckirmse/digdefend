@@ -182,6 +182,38 @@ describe(
 			end
 		)
 		it(
+			"lists the classic four rows for a kind without its own",
+			function()
+				expect(PlacementRules.towerStatRows(SENTRY)).toEqual(PlacementRules.DEFAULT_STAT_ROWS)
+				local frost = {
+					BUILD_PRICE_IRON = 30,
+					UPGRADE_PRICE_IRON_BY_LEVEL = { 20 },
+					FOOTPRINT_CELLS = { 1, 1 },
+					STAT_ROWS = { Enums.TowerStat.SLOW_RATE, Enums.TowerStat.FREEZE_LENGTH, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
+					STATS_BY_LEVEL = {
+						{ DAMAGE = 0, SLOW_SHARE = 0.3, SLOW_SEC = 2, RANGE_STUDS = 24, MAX_HP = 200 },
+					},
+				}
+				expect(PlacementRules.towerStatRows(frost)[1]).toBe(Enums.TowerStat.SLOW_RATE)
+				local stats = PlacementRules.towerStats(frost, 1)
+				expect(PlacementRules.towerStatValue(Enums.TowerStat.SLOW_RATE, stats)).toBeCloseTo(30, 5)
+				expect(PlacementRules.towerStatText(Enums.TowerStat.SLOW_RATE, stats)).toBe("30%")
+				expect(PlacementRules.towerStatText(Enums.TowerStat.FREEZE_LENGTH, stats)).toBe("2.0s")
+				expect(PlacementRules.towerStatValue(Enums.TowerStat.FIRE_RATE, stats)).toBe(0)
+			end
+		)
+		it(
+			"turns an interval into shots per second and rounds the rest",
+			function()
+				local stats = PlacementRules.towerStats(SENTRY, 1)
+				expect(PlacementRules.towerStatValue(Enums.TowerStat.FIRE_RATE, stats)).toBeCloseTo(2, 5)
+				expect(PlacementRules.towerStatText(Enums.TowerStat.FIRE_RATE, stats)).toBe("2.0/s")
+				expect(PlacementRules.towerStatText(Enums.TowerStat.RANGE, stats)).toBe("40")
+				expect(PlacementRules.towerStatText(Enums.TowerStat.HP, stats)).toBe("150")
+				expect(PlacementRules.towerStatText(Enums.TowerStat.CHAIN_COUNT, stats)).toBe("0")
+			end
+		)
+		it(
 			"offers the next level at its price until the top",
 			function()
 				local offer = PlacementRules.towerUpgradeOffer(SENTRY, 1)

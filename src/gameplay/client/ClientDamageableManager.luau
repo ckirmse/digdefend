@@ -5,8 +5,10 @@
 -- (DamageableManager); everything visible is built here: a placeholder body
 -- the size of the hit box and an HP bar, the same GameAssets/Gui StructureHp
 -- billboard the structures use, shown always since a target only exists to
--- be shot. The body flashes when a shot lands. Only the dev-tool target
--- dummy exists until enemies take this over at M29.
+-- be shot. The body flashes when a shot lands, turns blue while slowed
+-- (bluer the slower, white when stunned), and orange while burning; a
+-- flying target's body simply sits where its shadow is. Only the dev-tool
+-- dummies exist until enemies take this over at M29.
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -36,6 +38,9 @@ export type ClientDamageableManager = typeof(setmetatable(
 
 local BODY_COLOR = Color3.fromRGB(200, 170, 110)
 local BODY_HIT_COLOR = Color3.fromRGB(255, 80, 60)
+local BODY_SLOWED_COLOR = Color3.fromRGB(120, 170, 255)
+local BODY_STUNNED_COLOR = Color3.fromRGB(230, 240, 255)
+local BODY_BURNING_COLOR = Color3.fromRGB(255, 140, 40)
 local BODY_FLASH_SEC = 0.2
 local BILLBOARD_LIFT_STUDS = 1.5
 local HP_FILL_TWEEN_SEC = 0.15
@@ -107,12 +112,41 @@ function ClientDamageableManager:getBodyFolder(): Folder
 	return created
 end
 
+-- the body's resting colour given its status effects
+function ClientDamageableManager:restingColor(shadow: BasePart): Color3
+	if shadow:GetAttribute(Attributes.DAMAGEABLE_IS_BURNING) == true then
+		return BODY_BURNING_COLOR
+	end
+	local multiplier = shadow:GetAttribute(Attributes.DAMAGEABLE_SPEED_MULTIPLIER)
+	if typeof(multiplier) ~= "number" or multiplier >= 1 then
+		return BODY_COLOR
+	end
+	if multiplier <= 0 then
+		return BODY_STUNNED_COLOR
+	end
+	return BODY_COLOR:Lerp(BODY_SLOWED_COLOR, 1 - multiplier)
+end
+
+function ClientDamageableManager:refreshColor(shadow: BasePart, tracked: Tracked)
+	tracked.body.Color = self:restingColor(shadow)
+end
+
+-- where a target's body is, for a tracer or a bolt to end
+function ClientDamageableManager:getBodyPosition(id: string): Vector3?
+	for shadow, tracked in self.trackedByShadow do
+		if shadow:GetAttribute(Attributes.DAMAGEABLE_ID) == id then
+			return tracked.body.Position
+		end
+	end
+	return nil
+end
+
 -- the shot landed on this target: a short red flash on its body
 function ClientDamageableManager:flashHit(id: string)
 	for shadow, tracked in self.trackedByShadow do
 		if shadow:GetAttribute(Attributes.DAMAGEABLE_ID) == id then
 			tracked.body.Color = BODY_HIT_COLOR
-			TweenService:Create(tracked.body, TweenInfo.new(BODY_FLASH_SEC), { Color = BODY_COLOR }):Play()
+			TweenService:Create(tracked.body, TweenInfo.new(BODY_FLASH_SEC), { Color = self:restingColor(shadow) }):Play()
 			return
 		end
 	end
@@ -160,6 +194,17 @@ function ClientDamageableManager:track(shadow: Instance)
 			)
 		)
 	end
+	for _, attribute in { Attributes.DAMAGEABLE_SPEED_MULTIPLIER, Attributes.DAMAGEABLE_IS_BURNING } do
+		table.insert(
+			tracked.connections,
+			shadow:GetAttributeChangedSignal(attribute):Connect(
+				function()
+					self:refreshColor(shadow, tracked)
+				end
+			)
+		)
+	end
+	self:refreshColor(shadow, tracked)
 	-- enemies will move their shadow; the body follows
 	table.insert(
 		tracked.connections,

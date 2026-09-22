@@ -107,6 +107,17 @@ module = {
 	NOTIFY_PLACEMENT_SOLD = "NotifyPlacementSold",
 	NOTIFY_TOWER_UPGRADED = "NotifyTowerUpgraded",
 	NOTIFY_TRAP_PURCHASED = "NotifyTrapPurchased",
+	-- behaviour (M27), to every client: a Tower fired at the listed target
+	-- ids (one for a shot, the chain in order for a bolt; a cone Tower
+	-- sends none, its shadow's IsAttacking attribute is the flame), and a
+	-- Trap went off (spikes up, a mine or snare spent)
+	NOTIFY_TOWER_FIRED = "NotifyTowerFired",
+	NOTIFY_TRAP_TRIGGERED = "NotifyTrapTriggered",
+	-- Tower repair (M27, decided 2026-09-22): one Hammer swing at a Tower by
+	-- id, exactly the wall flow (TryRepairStructure); the notify is the
+	-- hammer blow for everyone nearby
+	TRY_REPAIR_TOWER = "TryRepairTower",
+	NOTIFY_TOWER_REPAIRED = "NotifyTowerRepaired",
 }
 
 return module

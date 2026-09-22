@@ -6,6 +6,7 @@ local AimManager = require(script.Parent.AimManager)
 local ArrivalManager = require(script.Parent.ArrivalManager)
 local BackpackManager = require(script.Parent.BackpackManager)
 local BootsManager = require(script.Parent.BootsManager)
+local DamageableManager = require(script.Parent.DamageableManager)
 local DefenseStoreManager = require(script.Parent.DefenseStoreManager)
 local DynamiteManager = require(script.Parent.DynamiteManager)
 local GameplayMapManager = require(script.Parent.GameplayMapManager)
@@ -27,6 +28,8 @@ local StructureDevTools = require(script.Parent.StructureDevTools)
 local StructureManager = require(script.Parent.StructureManager)
 local ToolManager = require(script.Parent.ToolManager)
 local TorchManager = require(script.Parent.TorchManager)
+local TowerBehaviorManager = require(script.Parent.TowerBehaviorManager)
+local TrapBehaviorManager = require(script.Parent.TrapBehaviorManager)
 local WeaponDevTools = require(script.Parent.WeaponDevTools)
 local WeaponManager = require(script.Parent.WeaponManager)
 
@@ -49,6 +52,9 @@ RunManager:subscribeRunStarted(
 	end
 )
 
+-- the target registry steps its walkers, burns, and slows; before every
+-- manager that hurts or reads targets
+DamageableManager:init()
 ToolManager:init()
 -- right after the tools, so the weapon is the second slot (GDD "Mining
 -- Tools": bought tools come after Pick Axe and Weapon)
@@ -107,6 +113,10 @@ RunManager:subscribeRunStarted(
 		PlacementManager:onRunStarted()
 	end
 )
+-- after the placements they read every Heartbeat and the target registry
+-- they hurt, slow, and (the Traps) block
+TowerBehaviorManager:init()
+TrapBehaviorManager:init()
 -- after the placements, whose inventory it fills
 DefenseStoreManager:init()
 RunManager:subscribeRunStarted(

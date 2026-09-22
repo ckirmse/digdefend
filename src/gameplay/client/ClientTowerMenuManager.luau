@@ -74,8 +74,6 @@ local NOTIFY_TOWER_UPGRADED_SHAPE = {
 local LEVEL_FORMAT = "Level %d"
 local SELL_FORMAT = "Sell %d"
 local MAX_TEXT = "Max"
-local FIRE_RATE_FORMAT = "%.1f/s"
-local RANGE_FORMAT = "%d"
 local HP_FORMAT = "%d / %d"
 local ARROW_TEXT = ">"
 local FEEDBACK_NOT_ENOUGH_IRON = "You don't have enough Iron Bars"
@@ -92,30 +90,27 @@ function ClientTowerMenuManager:getIron(): number
 	return readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_IRON_BARS), 0)
 end
 
--- one stat's text: shots per second, studs, damage, or hp of max
+-- one stat's text as PlacementRules formats it; HP alone shows the
+-- current value of the maximum
 function ClientTowerMenuManager:statText(stat: number, stats: PlacementRules.TowerLevelStats, hp: number?): string
-	if stat == Enums.TowerStat.FIRE_RATE then
-		return string.format(FIRE_RATE_FORMAT, if stats.FIRE_INTERVAL_SEC > 0 then 1 / stats.FIRE_INTERVAL_SEC else 0)
-	elseif stat == Enums.TowerStat.RANGE then
-		return string.format(RANGE_FORMAT, stats.RANGE_STUDS)
-	elseif stat == Enums.TowerStat.DAMAGE then
-		return tostring(stats.DAMAGE)
-	end
-	if hp then
+	if stat == Enums.TowerStat.HP and hp then
 		return string.format(HP_FORMAT, math.ceil(hp), stats.MAX_HP)
 	end
-	return tostring(stats.MAX_HP)
+	return PlacementRules.towerStatText(stat, stats)
 end
 
 function ClientTowerMenuManager:statChanges(stat: number, current: PlacementRules.TowerLevelStats, next: PlacementRules.TowerLevelStats): boolean
-	if stat == Enums.TowerStat.FIRE_RATE then
-		return current.FIRE_INTERVAL_SEC ~= next.FIRE_INTERVAL_SEC
-	elseif stat == Enums.TowerStat.RANGE then
-		return current.RANGE_STUDS ~= next.RANGE_STUDS
-	elseif stat == Enums.TowerStat.DAMAGE then
-		return current.DAMAGE ~= next.DAMAGE
+	return PlacementRules.towerStatValue(stat, current) ~= PlacementRules.towerStatValue(stat, next)
+end
+
+-- the kind's four rows, in its order; the rest of the rows hide
+function ClientTowerMenuManager:layoutStatRows(rows: { StatRow }, tower: PlacementRules.TowerData)
+	local order = PlacementRules.towerStatRows(tower)
+	for _, row in rows do
+		local index = table.find(order, row.stat)
+		row.frame.Visible = index ~= nil
+		row.frame.LayoutOrder = index or 0
 	end
-	return current.MAX_HP ~= next.MAX_HP
 end
 
 function ClientTowerMenuManager:renderMenu()
@@ -150,6 +145,7 @@ function ClientTowerMenuManager:renderMenu()
 	if self.priorityValueLabel then
 		self.priorityValueLabel.Text = Enums.getPublicName(Enums.TargetPriority, priority) or "?"
 	end
+	self:layoutStatRows(self.statRows, tower)
 	for _, row in self.statRows do
 		if row.valueLabel then
 			row.valueLabel.Text = self:statText(row.stat, stats, hp)
@@ -179,8 +175,9 @@ function ClientTowerMenuManager:renderMenu()
 		self.upgradePriceLabel.TextColor3 = if PlacementRules.canAfford(iron, offer.price) then UiStyle.ACCENT_STROKE_COLOR else UiStyle.NEGATIVE_COLOR
 	end
 	local nextStats = if offer then PlacementRules.towerStats(tower, offer.level) else nil
+	self:layoutStatRows(self.upgradeStatRows, tower)
 	for _, row in self.upgradeStatRows do
-		local isChanged = nextStats ~= nil and self:statChanges(row.stat, stats, nextStats)
+		local isChanged = row.frame.Visible and nextStats ~= nil and self:statChanges(row.stat, stats, nextStats)
 		row.frame.Visible = isChanged
 		if not isChanged or not nextStats then
 			continue

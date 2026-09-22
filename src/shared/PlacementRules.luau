@@ -16,11 +16,31 @@ local Enums = require(script.Parent.Enums)
 
 local PlacementRules = {}
 
+-- every kind has damage, range, and HP; the rest depend on the attack
+-- shape (GameData/Defenses/Towers explains each)
 export type TowerLevelStats = {
 	DAMAGE: number,
-	FIRE_INTERVAL_SEC: number,
 	RANGE_STUDS: number,
 	MAX_HP: number,
+	FIRE_INTERVAL_SEC: number?,
+	FLAME_SEC: number?,
+	SLOW_SHARE: number?,
+	SLOW_SEC: number?,
+	CHAIN_COUNT: number?,
+}
+
+-- how a kind fights, fixed across levels (M27)
+export type TowerBehavior = {
+	ATTACK: number,
+	TARGETS_GROUND: boolean,
+	TARGETS_AIR: boolean,
+	HAS_TURRET: boolean,
+	CONE_ANGLE_DEGREES: number?,
+	TICK_INTERVAL_SEC: number?,
+	FLAME_SEC: number?,
+	REST_SEC: number?,
+	CHAIN_JUMP_STUDS: number?,
+	STUN_SEC: number?,
 }
 
 export type TowerData = {
@@ -29,6 +49,9 @@ export type TowerData = {
 	UPGRADE_PRICE_IRON_BY_LEVEL: { number },
 	-- columns by rows
 	FOOTPRINT_CELLS: { number },
+	-- the four Enums.TowerStat the Tower Menu lists, in order
+	STAT_ROWS: { number }?,
+	BEHAVIOR: TowerBehavior?,
 	STATS_BY_LEVEL: { TowerLevelStats },
 }
 
@@ -37,6 +60,15 @@ export type TrapData = {
 	MAX_HP: number,
 	FOOTPRINT_CELLS: { number },
 	REQUIRED_CAMP_LEVEL: number,
+	-- Enums.TrapBehavior and its numbers (GameData/Defenses/Traps), M27
+	BEHAVIOR: number?,
+	DRAWS_ATTACKS: boolean?,
+	DAMAGE: number?,
+	UP_SEC: number?,
+	RECHARGE_SEC: number?,
+	SLOW_SHARE: number?,
+	SLOW_SEC: number?,
+	RANGE_STUDS: number?,
 }
 
 -- what the server publishes as GameMetadata
@@ -190,6 +222,49 @@ end
 function PlacementRules.towerStats(tower: TowerData, level: number): TowerLevelStats
 	local clamped = math.clamp(math.floor(level), 1, PlacementRules.towerMaxLevel(tower))
 	return tower.STATS_BY_LEVEL[clamped]
+end
+
+-- a kind without rows of its own lists the classic four
+PlacementRules.DEFAULT_STAT_ROWS = { Enums.TowerStat.FIRE_RATE, Enums.TowerStat.RANGE, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP }
+
+function PlacementRules.towerStatRows(tower: TowerData): { number }
+	local rows = tower.STAT_ROWS
+	return if rows and #rows > 0 then rows else PlacementRules.DEFAULT_STAT_ROWS
+end
+
+-- one stat as a number the menu can compare across levels: shots per
+-- second, studs, damage, HP, seconds, a percentage, or a count
+function PlacementRules.towerStatValue(stat: number, stats: TowerLevelStats): number
+	if stat == Enums.TowerStat.FIRE_RATE then
+		local interval = stats.FIRE_INTERVAL_SEC or 0
+		return if interval > 0 then 1 / interval else 0
+	elseif stat == Enums.TowerStat.RANGE then
+		return stats.RANGE_STUDS
+	elseif stat == Enums.TowerStat.DAMAGE then
+		return stats.DAMAGE
+	elseif stat == Enums.TowerStat.FLAME_LENGTH then
+		return stats.FLAME_SEC or 0
+	elseif stat == Enums.TowerStat.SLOW_RATE then
+		return (stats.SLOW_SHARE or 0) * 100
+	elseif stat == Enums.TowerStat.FREEZE_LENGTH then
+		return stats.SLOW_SEC or 0
+	elseif stat == Enums.TowerStat.CHAIN_COUNT then
+		return stats.CHAIN_COUNT or 0
+	end
+	return stats.MAX_HP
+end
+
+-- the same number as the menu shows it
+function PlacementRules.towerStatText(stat: number, stats: TowerLevelStats): string
+	local value = PlacementRules.towerStatValue(stat, stats)
+	if stat == Enums.TowerStat.FIRE_RATE then
+		return string.format("%.1f/s", value)
+	elseif stat == Enums.TowerStat.FLAME_LENGTH or stat == Enums.TowerStat.FREEZE_LENGTH then
+		return string.format("%.1fs", value)
+	elseif stat == Enums.TowerStat.SLOW_RATE then
+		return string.format("%d%%", math.floor(value + 0.5))
+	end
+	return tostring(math.floor(value + 0.5))
 end
 
 -- the next upgrade of a Tower at `level`; nil at the top
