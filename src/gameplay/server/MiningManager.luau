@@ -21,6 +21,7 @@ local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidR
 local BackpackManager = require(script.Parent.BackpackManager)
 local MineManager = require(script.Parent.MineManager)
 local OrePickupManager = require(script.Parent.OrePickupManager)
+local RunCycleManager = require(script.Parent.RunCycleManager)
 local ToolManager = require(script.Parent.ToolManager)
 
 local MiningManager = {}
@@ -105,7 +106,8 @@ function MiningManager:awardOre(player: Player, definition: any, blockCenter: Ve
 	if definition.kind ~= Enums.RockKind.RESOURCE or not definition.resource or not definition.yield then
 		return
 	end
-	local playerCount = #GameController:getReadyPlayers()
+	-- the crew size sampled at dawn (M28), never the live count
+	local playerCount = RunCycleManager:getScalingCount()
 	local amount = BackpackRules.yieldForBreak(definition.yield, definition.resource, playerCount, PartyScalingData.ORE_YIELD_MULTIPLIER_BY_PLAYER_COUNT)
 	local _, overflow = BackpackManager:add(player, definition.resource, amount, blockCenter)
 	if overflow > 0 then

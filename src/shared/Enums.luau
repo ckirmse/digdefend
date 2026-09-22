@@ -392,6 +392,39 @@ module = {
 		},
 	},
 	-- the five loadout slots carried into a run; keys double as save-data keys
+	-- the run's day and night loop (GDD "Wave Cycle"), M28
+	RunState = {
+		DAY = 1,
+		NIGHT = 2,
+		WON = 3,
+		LOST = 4,
+		-- the crew is landing: morning look, no clock yet, day 1 follows
+		WAITING = 5,
+
+		PublicNames = {
+			DAY = "Day",
+			NIGHT = "Night",
+			WON = "Rescued",
+			LOST = "Lost",
+			WAITING = "Landing",
+		},
+	},
+	-- which two sky looks the client is blending between (LightingPresets):
+	-- day start into day end over a day, day end into night start over the
+	-- dusk seconds, night start into night end over the spawn window, night
+	-- end back to day start over the dawn stretch
+	SkyStage = {
+		DAY = 1,
+		DUSK = 2,
+		NIGHT = 3,
+		DAWN = 4,
+	},
+	-- the day clock's picture: day, the last stretch of a day, night
+	ClockPhase = {
+		DAY = 1,
+		DUSK = 2,
+		NIGHT = 3,
+	},
 	LoadoutSlot = {
 		WEAPON = 1,
 		POST = 2,

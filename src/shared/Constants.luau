@@ -351,6 +351,17 @@ Constants.MINING_TARGET_LABEL = "TargetLabel"
 Constants.MINING_TARGET_BAR = "TargetBar"
 Constants.MINING_TARGET_FILL = "Fill"
 -- gameplay HUD (built by scripts/studio/build_gameplay_hud_gui.luau)
+-- the day clock (M28): its own HUD ScreenGui top centre
+Constants.DAY_CLOCK_GUI_NAME = "DayClock"
+Constants.DAY_CLOCK_ROOT_FRAME = "Root"
+Constants.DAY_CLOCK_PHASE_ICON = "PhaseIcon"
+Constants.DAY_CLOCK_BAR = "Bar"
+Constants.DAY_CLOCK_FILL = "Fill"
+Constants.DAY_CLOCK_DAY_LABEL = "DayLabel"
+-- the "DAY N" / "NIGHT N" card shown for a moment at every dawn and dusk
+-- (designer-authored ScreenGui, M28)
+Constants.DAY_NIGHT_NUMBER_GUI_NAME = "DayNightNumber"
+Constants.DAY_NIGHT_NUMBER_LABEL = "TextLabel"
 Constants.GAMEPLAY_HUD_GUI_NAME = "GameplayHud"
 -- the right-edge stack, hung from the top-right corner: the backpack button
 -- with the jet pack bar directly under it (decided 2026-09-15; both always

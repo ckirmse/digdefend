@@ -56,6 +56,10 @@ Icons.UI = {
 	-- the Build Mode Tower counter and the kind badge on a build bar slot
 	TOWER = "rbxassetid://72202536661953",
 	TRAP = "rbxassetid://71088256703142",
+	-- the day clock's circle (M28): placeholders until the art lands
+	CLOCK_DAY = "rbxassetid://0",
+	CLOCK_DUSK = "rbxassetid://0",
+	CLOCK_NIGHT = "rbxassetid://0",
 }
 
 function Icons.isPlaceholder(id: string?): boolean

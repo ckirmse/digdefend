@@ -9,6 +9,7 @@ local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local DevTools = require(script.Parent.Parent.Server.DevTools)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
 local RefineryManager = require(script.Parent.RefineryManager)
+local RunCycleManager = require(script.Parent.RunCycleManager)
 local StructureManager = require(script.Parent.StructureManager)
 
 local StructureDevTools = {}
@@ -86,7 +87,8 @@ function StructureDevTools:init()
 				warn("StructureDevTools: setNight with invalid args:", err)
 				return
 			end
-			StructureManager:setNight(args.isNight)
+			-- the clock owns night now (M28); the gate follows it
+			RunCycleManager:forceNight(args.isNight)
 		end
 	)
 end

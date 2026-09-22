@@ -29,6 +29,7 @@ export type ArrivalManager = typeof(setmetatable(
 		nextArrivalIndex: number,
 		firstArrivalTime: number?,
 		hasLaunched: boolean,
+		launchedHandlers: { () -> () },
 	},
 	ArrivalManager
 ))
@@ -140,11 +141,23 @@ function ArrivalManager:isPartyReady(): boolean
 	return true
 end
 
+-- the run's day cycle waits for this: everyone the lobby sent is Ready,
+-- or the arrival timeout gave up on the missing
+function ArrivalManager:subscribeLaunched(handler: () -> ())
+	table.insert(self.launchedHandlers, handler)
+	if self.hasLaunched then
+		handler()
+	end
+end
+
 function ArrivalManager:launchHelicopter()
 	if self.hasLaunched then
 		return
 	end
 	self.hasLaunched = true
+	for _, handler in self.launchedHandlers do
+		handler()
+	end
 	local helicopter = self.helicopter
 	if not helicopter then
 		return
@@ -236,6 +249,7 @@ end
 function ArrivalManager.new(): ArrivalManager
 	local self = setmetatable({}, ArrivalManager) :: ArrivalManager
 	self.helicopter = nil
+	self.launchedHandlers = {}
 	self.arrivalIndexByUserId = {}
 	self.nextArrivalIndex = 1
 	self.firstArrivalTime = nil

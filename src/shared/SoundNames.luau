@@ -65,6 +65,10 @@ local sfx = {
 	HELICOPTER = "Helicopter",
 	-- 2D: something just stopped working for you (backpack full, tank dry)
 	FAIL = "Fail",
+	-- M28: a new day (the rooster) and a new night (the bell), with the
+	-- DayNightNumber card
+	ROOSTER = "Rooster",
+	NIGHT_BELL = "NightBell",
 }
 
 -- each weapon's sound set, by its Enums.WeaponKind key. A new weapon adds its

@@ -2,8 +2,10 @@
 
 -- Gameplay-only dev tool buttons, added as a section of the common admin
 -- panel so common code never has to know the place.
+local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientDevTools = require(script.Parent.Parent.Client.ClientDevTools)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local Iris = require(script.Parent.Parent.Client.Iris)
@@ -24,6 +26,10 @@ export type ClientRunDevTools = typeof(setmetatable(
 -- must match RunDevTools.*_COMMAND on the server
 local RETURN_TO_LOBBY_COMMAND = "returnToLobby"
 local START_RUN_AS_COMMAND = "startRunAs"
+-- must match RunCycleDevTools.*_COMMAND on the server
+local FORCE_NIGHT_COMMAND = "forceNight"
+local CLEAR_NIGHT_COMMAND = "clearNight"
+local LOSE_RUN_COMMAND = "loseRun"
 
 local function enumKeyOptions(enumTable: Enums.EnumTable): { string }
 	local options = {}
@@ -33,7 +39,28 @@ local function enumKeyOptions(enumTable: Enums.EnumTable): { string }
 	return options
 end
 
+function ClientRunDevTools:send(command: string, args: { [string]: any })
+	ClientNetManager:fireServer(
+		NetEventNames.TRY_DEV_TOOL,
+		{
+			command = command,
+			args = args,
+		}
+	)
+end
+
 function ClientRunDevTools:renderSection()
+	local runState = ClientDataManager:getGameMetadata(Attributes.RUN_STATE)
+	Iris.Text({ `Run: {Enums.getPublicName(Enums.RunState, if typeof(runState) == "number" then runState else 0) or "?"}, day {tostring(ClientDataManager:getGameMetadata(Attributes.RUN_DAY))}, crew {tostring(ClientDataManager:getGameMetadata(Attributes.RUN_SCALING_COUNT))}` })
+	if Iris.Button({ "Dusk now" }).clicked() then
+		self:send(FORCE_NIGHT_COMMAND, { isNight = true })
+	end
+	if Iris.Button({ "Clear the night (dawn)" }).clicked() then
+		self:send(CLEAR_NIGHT_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Lose the run" }).clicked() then
+		self:send(LOSE_RUN_COMMAND, {} :: { [string]: any })
+	end
 	if Iris.Button({ "Return to lobby" }).clicked() then
 		ClientNetManager:fireServer(
 			NetEventNames.TRY_DEV_TOOL,

@@ -132,6 +132,23 @@ module = {
 	FORTIFICATION_POOL_REQUIRED = "FortificationPoolRequired",
 	FORTIFICATION_REQUIRED_CAMP_LEVEL = "FortificationRequiredCampLevel",
 	IS_NIGHT = "IsNight",
+	-- GameMetadata, the run's day and night loop (RunCycleManager, M28): the
+	-- Enums.RunState, the day number, when the current phase began and
+	-- ends (server time; a night's end is 0 while unknown), the crew size
+	-- the run is scaled by, and the share of a day that is dusk
+	RUN_STATE = "RunState",
+	RUN_DAY = "RunDay",
+	RUN_PHASE_START_TIME = "RunPhaseStartTime",
+	RUN_PHASE_END_TIME = "RunPhaseEndTime",
+	RUN_SCALING_COUNT = "RunScalingCount",
+	RUN_DUSK_SHARE = "RunDuskShare",
+	-- and the sky's blend lengths (shared LightingPresets): the dusk
+	-- seconds at the top of a night, the spawn window night start blends
+	-- into night end over, and the dawn stretch night end blends back to
+	-- day start over
+	RUN_NIGHT_SPAWN_SEC = "RunNightSpawnSec",
+	RUN_LIGHTING_DUSK_TRANSITION_SEC = "RunLightingDuskTransitionSec",
+	RUN_LIGHTING_DAWN_TRANSITION_SEC = "RunLightingDawnTransitionSec",
 	GATE_DOOR_TWEEN_SEC = "GateDoorTweenSec",
 	-- GameMetadata: Hammer tuning the client needs to swing and to price a
 	-- repair ("4 Iron Bars for 10 HP")

@@ -118,6 +118,11 @@ module = {
 	-- hammer blow for everyone nearby
 	TRY_REPAIR_TOWER = "TryRepairTower",
 	NOTIFY_TOWER_REPAIRED = "NotifyTowerRepaired",
+	-- the day and night loop (M28), to every client: a day began (the
+	-- announcement to show), and the run ended (won or lost, the reason)
+	NOTIFY_RUN_DAY_STARTED = "NotifyRunDayStarted",
+	NOTIFY_RUN_NIGHT_STARTED = "NotifyRunNightStarted",
+	NOTIFY_RUN_ENDED = "NotifyRunEnded",
 }
 
 return module

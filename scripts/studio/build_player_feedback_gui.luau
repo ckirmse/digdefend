@@ -68,7 +68,8 @@ end
 makeBox("FeedbackBox", Vector2.new(0.5, 1), UDim2.fromScale(0.5, 0.85), UiStyle.PANEL_COLOR)
 -- announcements, top centre under the top bar: clear of the chat window on
 -- the left and the right-edge panels, per the reserved-regions rule
-makeBox("AnnouncementBox", Vector2.new(0.5, 0), UDim2.fromScale(0.5, 0.04), UiStyle.ANNOUNCEMENT_COLOR)
+-- under the day clock (M28, decided 2026-09-22), which owns the very top
+makeBox("AnnouncementBox", Vector2.new(0.5, 0), UDim2.fromScale(0.5, 0.115), UiStyle.ANNOUNCEMENT_COLOR)
 
 gui.Parent = StarterGui
 

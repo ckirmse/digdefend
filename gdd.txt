@@ -545,7 +545,7 @@ Collecting Ore
 * Players can tap their Backpack icon to bring up a Backpack inventory menu
 * This menu shows how much of each Ore is in their backpack (only showing Ore that the player actually has) 
 * Capacity is counted in ore units, so the HUD’s taken/total is total ore over capacity (“12/15”). Contents, level, and capacity are server run state replicated as private attributes; the backpack HUD button is always shown and opens the contents menu as an overlay
-* A broken resource rock gives the breaker its yield. Iron and Gold are multiplied by the party table (PartyScaling) and rounded half up; Crystal and Uranium never are. Party size is the current player count until M28 samples it at dawn
+* A broken resource rock gives the breaker its yield. Iron and Gold are multiplied by the party table (PartyScaling) and rounded half up; Crystal and Uranium never are. Party size is the crew count RunCycleManager samples at run start and every dawn (M28), never the live player count
 * Ore that does not fit lands by the block as a pickup (one invisible server part carrying resource and amount; clients draw a bobbing cube in the ore’s colour), scattered up to 1.5 studs and settled onto the ground beneath (inside the mine the server walks the grid column down to the next rock; outside it raycasts the camp), so drops never hang where the block was. Ore at the player's feet still flies into the HUD backpack from the nearest screen edge. Any player with room within 5 studs collects it, partial amounts included; the server checks four times a second. A pickup nobody takes disappears after 120 s, and past 300 pickups the oldest go first (GameData/Mining/Backpack)
 Refining Ore
 * Players refine Raw Resources by taking them to the Refinery
@@ -559,7 +559,7 @@ Refining Ore
 * The Refinery spins and grinds the resources for a few seconds and spits out icons for each of the Refined Resources it generates, which should fly into the player’s HUD to the appropriate balance bar
 * The balance bars should shake and update as each icon hits it
 * This process should all feel very satisfying, both visually and audibly – lots of particle effects, sounds, etc
-* As built (M20, decided 2026-09-14): every ore refines one to one (GameData/Refinery, adjustable per ore). The prompt is heard by the server directly, never as a client message; it empties the whole backpack, disables itself for a 2 second grind, then pays out. Iron Bars and Gold Bars are private per-player balances; Diamonds go into the shared Camp Level pool and Uranium into the shared rescue count, both shown to every player. The Uranium row reads “total / target”, the target being the mine’s solo uraniumTarget times the PartyScaling multiplier for the current crew (sampled at dawn from M28), and turns green once reached
+* As built (M20, decided 2026-09-14): every ore refines one to one (GameData/Refinery, adjustable per ore). The prompt is heard by the server directly, never as a client message; it empties the whole backpack, disables itself for a 2 second grind, then pays out. Iron Bars and Gold Bars are private per-player balances; Diamonds go into the shared Camp Level pool and Uranium into the shared rescue count, both shown to every player. The Uranium row reads “total / target”, the target being the mine’s solo uraniumTarget times the PartyScaling multiplier for the current crew (the crew count sampled at run start and every dawn, M28), and turns green once reached
 * Placeholder sequence until Phase 9 polish: coloured discs (at most six per resource) fly from the backpack button into the Refinery on screen while RefineryGrind plays, then from the Refinery to each balance row (Diamonds to the Camp Level billboard above the Refinery) with RefineryPayout; a row bumps as each icon lands and its value updates when the last one does. The Refinery must be visible on screen for the icons to aim at it; otherwise they aim at the screen centre
 * Dev tools: Fill backpack spreads all four ores evenly; Reset refinery clears every balance and the camp progress
 Randomized Mine Creation
@@ -1245,9 +1245,23 @@ Camp Level
 * Diamonds needed per level live in GameData/Camp/Level (placeholder pacing 20, 80, 250 until tuned in play, so the top level is 4), and so does the required-camp-level table per upgrade track (M22): the stores read the table, never a formula, so lifting or loosening a cap is a one-line change
 * The Camp Level is run state: it starts at 1 every run and is never saved to a player
 Wave Cycle
+* A run is a loop of Day and Night (GDD "Gameplay Loop"; built in M28, decided 2026-09-22). The run state is one of Day, Night, Won, or Lost, held by the gameplay server (RunCycleManager) and published to every client with the day number and the time the current phase ends, so every screen shows the same clock from server time
+* A run loads in the morning look with the clock still (the Waiting state) and day 1 begins PRE_DAY_SEC (10 s) after the helicopter leaves, which is when everyone the lobby sent is Ready or the arrival timeout has given up on the missing (decided 2026-09-22)
+* Day lasts 5 minutes (GameData/Control/RunCycle DAY_SEC). The gate stands open, players mine, refine, build, and place defenses
+* Dusk is the last stretch of the day (DUSK_SHARE, the final 20%): nothing changes in play, only the clock icon turns to dusk so a crew heads home in time
+* Night begins when the day clock runs out. The gate shuts, enemies spawn over 90 seconds (NIGHT_SPAWN_SEC, M29) and the night lasts until every enemy is dead, at which point the next day begins. Until enemies exist, a night ends by a dev tool or after a placeholder length (NIGHT_PLACEHOLDER_SEC, set to 0 at M29 so only the enemies end it)
+* The day counter starts at 1 and each dawn adds one; waves scale with it (M30)
+* The sky: every map has four looks, day start, day end, night start, and night end (shared LightingPresets, keyed by map, read from Studio and ported by hand; decided 2026-09-22). Day start is set outright when the run loads. Over a day the sky blends steadily from day start (8:00) to day end (17:30, the same colours); the night opens with a LIGHTING_DUSK_TRANSITION_SEC (1 s) blend to night start (19:12, the light off, just past the engine's sun-to-moon handover, which cannot be blended), then blends night start into night end (20:00, the moon at full) over the 90 s spawn window and holds night end until the wave is done. A cleared night blends night end back to day start over LIGHTING_DAWN_TRANSITION_SEC (1 s) and only then does the day clock start. A DayNightNumber card ("DAY  N" / "NIGHT  N") shows for 3 s once each blend ends, with the Rooster or NightBell sound; day 1 gets no card. Lighting.ClockTime blends the same way between each look's hour, always turning forward round the clock
+* Every dawn, and at the first day, the announcement box states the day, the crew size, and the multipliers, in the words of "Adjusting for Different Player Counts"
+* The run ends as Lost when the Refinery is destroyed or every player is dead. The clock stops, the gate stays as it is, and the loss is announced; the trip back to the lobby and the end screen are M33. Won is the rescue helicopter (M31)
+* Day clock: a bar top centre of the screen (the DayClock ScreenGui). A circle on its left cycles through three pictures, Day, Dusk, and Night; the bar starts full at dawn and empties from right to left until night, so players always know how long they have; "Day N" reads under the bar. At night the bar is empty and the circle shows the night picture
 Monsters
 Random Events
 Adjusting for Different Player Counts
+* The crew size that scales a run (GDD "Maps": Party scaling) is a single number the gameplay server samples, never the live player count: once at run start (the party that boarded) and again at every dawn (M28, decided 2026-09-22). Nothing changes under a player mid-day
+* It only ever goes down. A player leaving eases the run at the next dawn; a player joining late never makes it harder
+* Everything that scales by crew reads this one number: ore yield per break, the uranium rescue target, and from M30 the wave count and enemy HP
+* The day-start message states it plainly, for example "Day 3. Crew of 4. Ore 1.45x, Uranium target 1.15x", so the multipliers are never a surprise
 Revives
 
 

@@ -22,6 +22,8 @@ local PlacementManager = require(script.Parent.PlacementManager)
 local PostDevTools = require(script.Parent.PostDevTools)
 local PostManager = require(script.Parent.PostManager)
 local RefineryManager = require(script.Parent.RefineryManager)
+local RunCycleDevTools = require(script.Parent.RunCycleDevTools)
+local RunCycleManager = require(script.Parent.RunCycleManager)
 local RunDevTools = require(script.Parent.RunDevTools)
 local RunManager = require(script.Parent.RunManager)
 local StructureDevTools = require(script.Parent.StructureDevTools)
@@ -124,8 +126,29 @@ RunManager:subscribeRunStarted(
 		DefenseStoreManager:onRunStarted()
 	end
 )
+-- the day and night loop: last, so every manager that reacts to a dawn or
+-- a dusk exists, and after the structures (subscribed above) so the fresh
+-- gate stands when day 1 opens it. The gate follows the night flag, and
+-- the Refinery falling loses the run
+RunCycleManager:init()
+RunCycleManager:subscribeNightChanged(
+	function(isNight: boolean)
+		StructureManager:setNight(isNight)
+	end
+)
+StructureManager:subscribeRefineryDestroyed(
+	function()
+		RunCycleManager:loseRefinery()
+	end
+)
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		RunCycleManager:onRunStarted()
+	end
+)
 
 RunDevTools:init()
+RunCycleDevTools:init()
 MineDevTools:init()
 StructureDevTools:init()
 WeaponDevTools:init()

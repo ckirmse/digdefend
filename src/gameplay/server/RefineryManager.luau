@@ -25,6 +25,7 @@ local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidR
 local BackpackManager = require(script.Parent.BackpackManager)
 local MapManager = require(script.Parent.MapManager)
 local MineManager = require(script.Parent.MineManager)
+local RunCycleManager = require(script.Parent.RunCycleManager)
 
 local RefineryManager = {}
 RefineryManager.__index = RefineryManager
@@ -148,7 +149,8 @@ end
 function RefineryManager:getUraniumTarget(): number
 	local definition = MineManager:getDefinition()
 	local baseTarget = if definition then definition.uraniumTarget else 0
-	local playerCount = #GameController:getReadyPlayers()
+	-- the crew size sampled at dawn (M28), never the live count
+	local playerCount = RunCycleManager:getScalingCount()
 	return RefineryRules.uraniumTarget(baseTarget, playerCount, PartyScalingData.URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT)
 end
 

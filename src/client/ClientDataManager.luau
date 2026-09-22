@@ -9,6 +9,9 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local PlayerPublicSchema = require("@game/ReplicatedStorage/Shared/PlayerPublicSchema")
 
+-- the ready wait never gives up; the number only marks the yield as intended
+local READY_WAIT_TIMEOUT_SEC = math.huge
+
 local ClientDataManager = {}
 ClientDataManager.__index = ClientDataManager
 
@@ -74,10 +77,13 @@ local function readPublicData(folder: Instance): PublicData
 end
 
 -- yields until the server has fully built the SplendidGames tree;
--- CurrentPlayer appearing is the readiness signal, so it is awaited last
+-- CurrentPlayer appearing is the readiness signal, so it is awaited last.
+-- The root can legitimately take longer than Roblox's five-second grace
+-- (the gameplay place holds Ready until the helicopter lands), so the wait
+-- carries an explicit, effectively endless timeout to say the yield is meant
 function ClientDataManager:awaitReady()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-	local root = playerGui:WaitForChild(Constants.SPLENDID_GAMES_NAME)
+	local root = playerGui:WaitForChild(Constants.SPLENDID_GAMES_NAME, READY_WAIT_TIMEOUT_SEC) :: Instance
 	self.root = root
 	self.gameMetadata = root:WaitForChild(Constants.GAME_METADATA_FOLDER)
 	self.allPlayers = root:WaitForChild(Constants.ALL_PLAYERS_FOLDER)
