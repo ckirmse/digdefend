@@ -293,6 +293,74 @@ module = {
 		UP = 2,
 		RECHARGING = 3,
 	},
+	-- every monster (GDD "Monster Types"), M29: one entry per tier, the tier
+	-- number in the key. Stats in GameData/Monsters/Roster, models under
+	-- GameAssets/Monsters (a kind may borrow another's model)
+	MonsterKind = {
+		ZOMBIE_1 = 1,
+		ZOMBIE_2 = 2,
+		ZOMBIE_3 = 3,
+		RUNNER_1 = 4,
+		RUNNER_2 = 5,
+		RUNNER_3 = 6,
+		BRUTE_1 = 7,
+		BRUTE_2 = 8,
+		BRUTE_3 = 9,
+		LAUNCHER_1 = 10,
+		BOMBER_1 = 11,
+		BOMBER_2 = 12,
+		BOMBER_3 = 13,
+		FLYER_1 = 14,
+		FLYER_2 = 15,
+		FLYER_3 = 16,
+		TITAN_1 = 17,
+		TITAN_2 = 18,
+
+		PublicNames = {
+			ZOMBIE_1 = "Zombie",
+			ZOMBIE_2 = "Zombie II",
+			ZOMBIE_3 = "Zombie III",
+			RUNNER_1 = "Runner",
+			RUNNER_2 = "Runner II",
+			RUNNER_3 = "Runner III",
+			BRUTE_1 = "Brute",
+			BRUTE_2 = "Brute II",
+			BRUTE_3 = "Brute III",
+			LAUNCHER_1 = "Launcher",
+			BOMBER_1 = "Bomber",
+			BOMBER_2 = "Bomber II",
+			BOMBER_3 = "Bomber III",
+			FLYER_1 = "Flyer",
+			FLYER_2 = "Flyer II",
+			FLYER_3 = "Flyer III",
+			TITAN_1 = "Titan",
+			TITAN_2 = "Titan II",
+		},
+	},
+	-- what a monster can attack (GDD "Monster Creation & Behavior"); every
+	-- monster goes for the Refinery first, so it is never listed in data
+	MonsterTargetType = {
+		PLAYERS = 1,
+		TOWERS = 2,
+		TRAPS = 3,
+		WALLS = 4,
+		REFINERY = 5,
+	},
+	MonsterAttackType = {
+		MELEE = 1,
+		RANGED = 2,
+	},
+	MonsterTraversal = {
+		LAND = 1,
+		AIR = 2,
+	},
+	-- what a monster is doing, in its snapshot for the client's animation:
+	-- moving (walk), or standing at a target (idle, with an attack clip on
+	-- every attack)
+	MonsterAction = {
+		MOVING = 1,
+		ENGAGED = 2,
+	},
 	-- camp structures with HP (GDD "Walls", "Gate", "Refinery"), M23
 	StructureKind = {
 		WALL = 1,

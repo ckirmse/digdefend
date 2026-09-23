@@ -123,6 +123,14 @@ module = {
 	NOTIFY_RUN_DAY_STARTED = "NotifyRunDayStarted",
 	NOTIFY_RUN_NIGHT_STARTED = "NotifyRunNightStarted",
 	NOTIFY_RUN_ENDED = "NotifyRunEnded",
+	-- monsters (M29), to every client; positions travel separately as
+	-- packed snapshots on the monster UnreliableRemoteEvent. Spawned and
+	-- died are batched per server tick; a late joiner gets every live
+	-- monster in one spawned message
+	NOTIFY_MONSTERS_SPAWNED = "NotifyMonstersSpawned",
+	NOTIFY_MONSTERS_DIED = "NotifyMonstersDied",
+	NOTIFY_MONSTER_PROJECTILE = "NotifyMonsterProjectile",
+	NOTIFY_MONSTER_BLAST = "NotifyMonsterBlast",
 }
 
 return module

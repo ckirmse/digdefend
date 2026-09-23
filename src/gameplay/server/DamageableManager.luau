@@ -11,9 +11,12 @@
 -- shadow every Heartbeat at its speed times its slow, and stops against a
 -- barrier when the blocker query (TrapBehaviorManager) says one is in the
 -- way, so a Trap that blocks and a Tower that slows can both be seen to
--- work. The dev-tool dummies are the only targets until enemies register
--- at M29 through the same door. Players and camp structures are never
--- registered, so they cannot be shot.
+-- work. Monsters (M29) register through the same door without a shadow:
+-- there are hundreds of them, they reach clients as packed snapshots
+-- (MonsterManager), and MonsterManager moves them with setCFrame. The
+-- target list is built once a frame and shared by every reader, in a
+-- stable id order kept as ids come and go. Players and camp structures are
+-- never registered, so they cannot be shot.
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 
@@ -31,6 +34,8 @@ export type Registration = {
 	size: Vector3,
 	maxHp: number,
 	isAirborne: boolean?,
+	-- false for a monster, which clients draw from snapshots instead
+	hasShadow: boolean?,
 	-- what it does per second to a barrier that blocks its walk
 	attackDamagePerSec: number?,
 	-- called once, after the entry is gone, when HP reaches zero
@@ -76,13 +81,19 @@ type Damageable = {
 	replicatedIsBurning: boolean,
 	walk: Walk?,
 	blockedByPlacementId: string?,
-	shadow: BasePart,
+	shadow: BasePart?,
 	onDestroyed: ((attacker: Player?) -> ())?,
 }
 
 export type DamageableManager = typeof(setmetatable(
 	{} :: {
 		damageableById: { [string]: Damageable },
+		-- every id in registration order (ids only ever grow, so this is
+		-- also sorted order); rebuilt only after an id leaves
+		orderedIds: { string },
+		isOrderDirty: boolean,
+		-- the frame's shared target list, rebuilt on the first read after a change
+		targetsCache: { Target }?,
 		nextId: number,
 		shadowFolder: Folder?,
 		blockerQuery: BlockerQuery?,
@@ -109,9 +120,7 @@ function DamageableManager:getShadowFolder(): Folder
 	return created
 end
 
-function DamageableManager:register(registration: Registration): string
-	local id = ID_PREFIX .. self.nextId
-	self.nextId += 1
+function DamageableManager:createShadow(id: string, registration: Registration): BasePart
 	local shadow = Instance.new("Part")
 	shadow.Name = id
 	shadow.Size = SHADOW_SIZE
@@ -130,6 +139,13 @@ function DamageableManager:register(registration: Registration): string
 	shadow:SetAttribute(Attributes.DAMAGEABLE_SPEED_MULTIPLIER, 1)
 	shadow:SetAttribute(Attributes.DAMAGEABLE_IS_BURNING, false)
 	CollectionService:AddTag(shadow, Tags.DAMAGEABLE)
+	return shadow
+end
+
+function DamageableManager:register(registration: Registration): string
+	local id = ID_PREFIX .. self.nextId
+	self.nextId += 1
+	local shadow = if registration.hasShadow == false then nil else self:createShadow(id, registration)
 	self.damageableById[id] = {
 		id = id,
 		hp = registration.maxHp,
@@ -147,7 +163,11 @@ function DamageableManager:register(registration: Registration): string
 		shadow = shadow,
 		onDestroyed = registration.onDestroyed,
 	}
-	shadow.Parent = self:getShadowFolder()
+	table.insert(self.orderedIds, id)
+	self.targetsCache = nil
+	if shadow then
+		shadow.Parent = self:getShadowFolder()
+	end
 	return id
 end
 
@@ -157,7 +177,11 @@ function DamageableManager:unregister(id: string)
 		return
 	end
 	self.damageableById[id] = nil
-	damageable.shadow:Destroy()
+	self.isOrderDirty = true
+	self.targetsCache = nil
+	if damageable.shadow then
+		damageable.shadow:Destroy()
+	end
 end
 
 function DamageableManager:unregisterAll()
@@ -167,11 +191,23 @@ function DamageableManager:unregisterAll()
 end
 
 function DamageableManager:getCount(): number
-	local count = 0
-	for _ in self.damageableById do
-		count += 1
+	return #self:getOrderedIds()
+end
+
+-- ids are "Damageable<n>" with n only ever growing, so registration order
+-- is numeric order; a removal only needs the gaps closed
+function DamageableManager:getOrderedIds(): { string }
+	if self.isOrderDirty then
+		local kept = {}
+		for _, id in self.orderedIds do
+			if self.damageableById[id] then
+				table.insert(kept, id)
+			end
+		end
+		self.orderedIds = kept
+		self.isOrderDirty = false
 	end
-	return count
+	return self.orderedIds
 end
 
 function DamageableManager:getHitBoxes(): { WeaponRules.HitBox }
@@ -203,18 +239,33 @@ function DamageableManager:getTarget(id: string): Target?
 	return if damageable then self:snapshot(damageable) else nil
 end
 
--- in id order, so a Tower choosing between equal targets is deterministic
+-- in registration order, so a Tower choosing between equal targets is
+-- deterministic. Built once a frame and shared, so readers never change it
 function DamageableManager:getTargets(): { Target }
-	local ids = {}
-	for id in self.damageableById do
-		table.insert(ids, id)
+	local cached = self.targetsCache
+	if cached then
+		return cached
 	end
-	table.sort(ids)
-	local targets = {}
-	for _, id in ids do
+	local targets = table.create(#self.orderedIds)
+	for _, id in self:getOrderedIds() do
 		table.insert(targets, self:snapshot(self.damageableById[id]))
 	end
+	self.targetsCache = targets
 	return targets
+end
+
+-- HP left as a share of the maximum, 0 for an unknown id
+function DamageableManager:getHpShare(id: string): number
+	local damageable = self.damageableById[id]
+	if not damageable or damageable.maxHp <= 0 then
+		return 0
+	end
+	return damageable.hp / damageable.maxHp
+end
+
+function DamageableManager:isBurning(id: string): boolean
+	local damageable = self.damageableById[id]
+	return damageable ~= nil and StatusRules.isBurning(damageable.effects, workspace:GetServerTimeNow())
 end
 
 -- the walkers a barrier is holding up, for the Traps to take their hits
@@ -239,7 +290,9 @@ function DamageableManager:setCFrame(id: string, cframe: CFrame)
 		return
 	end
 	damageable.cframe = cframe
-	damageable.shadow.CFrame = cframe
+	if damageable.shadow then
+		damageable.shadow.CFrame = cframe
+	end
 end
 
 -- start (or redirect) a straight walk; nil stops it
@@ -294,8 +347,11 @@ function DamageableManager:damage(id: string, amount: number, attacker: Player?)
 		return nil
 	end
 	damageable.hp = math.max(0, damageable.hp - amount)
+	self.targetsCache = nil
 	if damageable.hp > 0 then
-		damageable.shadow:SetAttribute(Attributes.DAMAGEABLE_HP, damageable.hp)
+		if damageable.shadow then
+			damageable.shadow:SetAttribute(Attributes.DAMAGEABLE_HP, damageable.hp)
+		end
 		return damageable.hp
 	end
 	self:unregister(id)
@@ -307,16 +363,20 @@ end
 
 -- the client tints a slowed or burning body from these; written on change only
 function DamageableManager:replicateEffects(damageable: Damageable, now: number)
+	local shadow = damageable.shadow
+	if not shadow then
+		return
+	end
 	local multiplier = StatusRules.speedMultiplier(damageable.effects, now)
 	local shown = math.floor(multiplier / SPEED_MULTIPLIER_GRAIN + 0.5) * SPEED_MULTIPLIER_GRAIN
 	if shown ~= damageable.replicatedSpeedMultiplier then
 		damageable.replicatedSpeedMultiplier = shown
-		damageable.shadow:SetAttribute(Attributes.DAMAGEABLE_SPEED_MULTIPLIER, shown)
+		shadow:SetAttribute(Attributes.DAMAGEABLE_SPEED_MULTIPLIER, shown)
 	end
 	local isBurning = StatusRules.isBurning(damageable.effects, now)
 	if isBurning ~= damageable.replicatedIsBurning then
 		damageable.replicatedIsBurning = isBurning
-		damageable.shadow:SetAttribute(Attributes.DAMAGEABLE_IS_BURNING, isBurning)
+		shadow:SetAttribute(Attributes.DAMAGEABLE_IS_BURNING, isBurning)
 	end
 end
 
@@ -346,8 +406,10 @@ function DamageableManager:stepWalk(damageable: Damageable, now: number, deltaSe
 	end
 end
 
--- one Heartbeat: burns tick, slows expire, walkers walk
+-- one Heartbeat: burns tick, slows expire, walkers walk; the frame's
+-- target list is rebuilt on its first read after this
 function DamageableManager:step(deltaSec: number)
+	self.targetsCache = nil
 	local now = workspace:GetServerTimeNow()
 	for id, damageable in self.damageableById do
 		local burnDamage = StatusRules.burnDamage(damageable.effects, damageable.lastBurnTickTime, now)
@@ -375,6 +437,9 @@ end
 function DamageableManager.new(): DamageableManager
 	local self = setmetatable({}, DamageableManager) :: DamageableManager
 	self.damageableById = {}
+	self.orderedIds = {}
+	self.isOrderDirty = false
+	self.targetsCache = nil
 	self.nextId = 1
 	self.shadowFolder = nil
 	self.blockerQuery = nil

@@ -7,8 +7,10 @@
 -- billboard the structures use, shown always since a target only exists to
 -- be shot. The body flashes when a shot lands, turns blue while slowed
 -- (bluer the slower, white when stunned), and orange while burning; a
--- flying target's body simply sits where its shadow is. Only the dev-tool
--- dummies exist until enemies take this over at M29.
+-- flying target's body simply sits where its shadow is. The dev-tool
+-- dummies are the shadows; monsters (M29) have none and are drawn by
+-- ClientMonsterManager, which registers itself here as the other body
+-- provider, so a tracer or a flash finds a target either way.
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -27,11 +29,19 @@ type Tracked = {
 	connections: { RBXScriptConnection },
 }
 
+-- what else draws targets: ClientMonsterManager (set in its init, so this
+-- module never requires it and no require loop forms)
+export type BodyProvider = {
+	getBodyPosition: (self: any, id: string) -> Vector3?,
+	flashHit: (self: any, id: string) -> boolean,
+}
+
 export type ClientDamageableManager = typeof(setmetatable(
 	{} :: {
 		trackedByShadow: { [BasePart]: Tracked },
 		bodyFolder: Folder?,
 		hasWarnedTemplate: boolean,
+		bodyProvider: BodyProvider?,
 	},
 	ClientDamageableManager
 ))
@@ -131,8 +141,17 @@ function ClientDamageableManager:refreshColor(shadow: BasePart, tracked: Tracked
 	tracked.body.Color = self:restingColor(shadow)
 end
 
+function ClientDamageableManager:setBodyProvider(provider: BodyProvider)
+	self.bodyProvider = provider
+end
+
 -- where a target's body is, for a tracer or a bolt to end
 function ClientDamageableManager:getBodyPosition(id: string): Vector3?
+	local provider = self.bodyProvider
+	local provided = if provider then provider:getBodyPosition(id) else nil
+	if provided then
+		return provided
+	end
 	for shadow, tracked in self.trackedByShadow do
 		if shadow:GetAttribute(Attributes.DAMAGEABLE_ID) == id then
 			return tracked.body.Position
@@ -143,6 +162,10 @@ end
 
 -- the shot landed on this target: a short red flash on its body
 function ClientDamageableManager:flashHit(id: string)
+	local provider = self.bodyProvider
+	if provider and provider:flashHit(id) then
+		return
+	end
 	for shadow, tracked in self.trackedByShadow do
 		if shadow:GetAttribute(Attributes.DAMAGEABLE_ID) == id then
 			tracked.body.Color = BODY_HIT_COLOR
@@ -249,6 +272,7 @@ function ClientDamageableManager.new(): ClientDamageableManager
 	self.trackedByShadow = {}
 	self.bodyFolder = nil
 	self.hasWarnedTemplate = false
+	self.bodyProvider = nil
 	return self
 end
 

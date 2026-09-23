@@ -131,6 +131,20 @@ Constants.CAMP_DEFENSIVE_ZONES_FOLDER = "DefensiveZones"
 -- (scripts/studio/build_tower_templates.luau, build_trap_templates.luau)
 Constants.TOWER_TEMPLATES_FOLDER = "Towers"
 Constants.TRAP_TEMPLATES_FOLDER = "Traps"
+-- Monster puppets under GameAssets (M29), one per monster kind key: a
+-- Humanoid-free rig the client moves by its anchored root, plus a one-part
+-- Proxy drawn in its place far away (scripts/studio/build_monster_templates.luau)
+Constants.MONSTER_TEMPLATES_FOLDER = "Monsters"
+Constants.MONSTER_PROXY_PART = "Proxy"
+-- Camp.WaveAreas and Camp.CampArea (M29): anchored parts whose footprints
+-- are where monsters may walk (GDD "Wave Area"); MonsterPathManager lays
+-- one grid over all of them. Camp.MonsterSpawns holds one part per spawn
+-- location, named by its number ("1", "2", ...)
+Constants.CAMP_WAVE_AREAS_FOLDER = "WaveAreas"
+Constants.CAMP_CAMP_AREA_FOLDER = "CampArea"
+Constants.CAMP_MONSTER_SPAWNS_FOLDER = "MonsterSpawns"
+-- the monster position stream's UnreliableRemoteEvent, created by the server
+Constants.MONSTER_SNAPSHOT_EVENT_NAME = "MonsterSnapshotEvent"
 -- the client-only Workspace folders of placement bodies and grid lines
 Constants.PLACEMENT_BODIES_FOLDER = "PlacementBodies"
 Constants.PLACEMENT_GRID_FOLDER = "PlacementGrid"

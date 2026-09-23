@@ -18,6 +18,8 @@ local ClientMineLightingManager = require(script.Parent.ClientMineLightingManage
 local ClientMineManager = require(script.Parent.ClientMineManager)
 local ClientMiningManager = require(script.Parent.ClientMiningManager)
 local ClientMiningStoreManager = require(script.Parent.ClientMiningStoreManager)
+local ClientMonsterDevTools = require(script.Parent.ClientMonsterDevTools)
+local ClientMonsterManager = require(script.Parent.ClientMonsterManager)
 local ClientOrePickupManager = require(script.Parent.ClientOrePickupManager)
 local ClientPlacementDevTools = require(script.Parent.ClientPlacementDevTools)
 local ClientPlacementManager = require(script.Parent.ClientPlacementManager)
@@ -73,6 +75,9 @@ ClientAimManager:init()
 -- after the weapon manager, whose tracer and muzzle effects it borrows
 ClientPostManager:init()
 ClientPostUpgradeManager:init()
+-- after the targets and the posts: it registers with the first as the
+-- monsters' body provider and borrows the second's blast effect
+ClientMonsterManager:init()
 -- placements (M26): the bodies and billboards first, then the build bar
 -- and preview that read them, then the menu and the store stands
 ClientPlacementManager:init()
@@ -97,4 +102,5 @@ if ClientDataManager:getIsAdmin() then
 	ClientWeaponDevTools:init()
 	ClientPostDevTools:init()
 	ClientPlacementDevTools:init()
+	ClientMonsterDevTools:init()
 end

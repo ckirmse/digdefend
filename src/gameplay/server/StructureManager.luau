@@ -60,6 +60,16 @@ type Structure = {
 	slot: Slot?,
 }
 
+-- what the monsters (M29) see of a structure: its box and whether it stands
+export type StructureBox = {
+	id: string,
+	kind: number,
+	cframe: CFrame,
+	size: Vector3,
+	hp: number,
+	isDestroyed: boolean,
+}
+
 -- where a template goes: the marker's pivot, parent, and name, kept after
 -- the marker itself is gone
 export type Slot = {
@@ -85,6 +95,9 @@ export type StructureManager = typeof(setmetatable(
 		connections: { RBXScriptConnection },
 		refineryDestroyedHandlers: { () -> () },
 		postModelsFilledHandlers: { () -> () },
+		-- fired when what blocks the monsters' way changes: a structure
+		-- falls or is rebuilt, the gate opens or shuts, a run starts
+		barriersChangedHandlers: { () -> () },
 		warnedTemplates: { [string]: boolean },
 	},
 	StructureManager
@@ -139,6 +152,38 @@ end
 
 -- the live post models, one slot per Camp.Posts marker; PostManager hangs
 -- claims and weapons on them
+-- the monsters' way through the camp is recomputed from here (M29)
+function StructureManager:subscribeBarriersChanged(handler: () -> ())
+	table.insert(self.barriersChangedHandlers, handler)
+end
+
+function StructureManager:fireBarriersChanged()
+	for _, handler in self.barriersChangedHandlers do
+		handler()
+	end
+end
+
+-- every structure's box in id order; a snapshot, never the live entry
+function StructureManager:getStructureBoxes(): { StructureBox }
+	local boxes = {}
+	for _, id in self:getStructureIds() do
+		local structure = self.structuresById[id]
+		table.insert(boxes, {
+			id = structure.id,
+			kind = structure.kind,
+			cframe = structure.boundsCFrame,
+			size = structure.boundsSize,
+			hp = structure.hp,
+			isDestroyed = structure.isDestroyed,
+		})
+	end
+	return boxes
+end
+
+function StructureManager:isGateOpenNow(): boolean
+	return self.isGateOpen
+end
+
 function StructureManager:getPostSlots(): { Slot }
 	return self.postSlots
 end
@@ -295,6 +340,7 @@ function StructureManager:setGateOpen(isOpen: boolean)
 	if gate then
 		gate.shadow:SetAttribute(Attributes.GATE_IS_OPEN, isOpen)
 	end
+	self:fireBarriersChanged()
 end
 
 -- the doors stand open all day and shut all night (decided 2026-09-17,
@@ -371,6 +417,7 @@ function StructureManager:damageStructure(id: string, amount: number)
 				handler()
 			end
 		end
+		self:fireBarriersChanged()
 	end
 	self:replicateStructure(structure)
 end
@@ -408,6 +455,7 @@ function StructureManager:handleRepair(player: Player, id: string)
 		structure.isDestroyed = false
 		self:syncModel(structure)
 		print(`[StructureManager] {player.Name} rebuilt {structure.id}`)
+		self:fireBarriersChanged()
 	end
 	self:replicateStructure(structure)
 	NetManager:notifyAllClients(NetEventNames.NOTIFY_STRUCTURE_REPAIRED, {
@@ -641,6 +689,7 @@ function StructureManager:onRunStarted()
 	self:replicateAll()
 	self:updateGate()
 	self:firePostModelsFilled()
+	self:fireBarriersChanged()
 end
 
 -- ready-sequence entry: everyone carries a Hammer from the start
@@ -685,6 +734,7 @@ function StructureManager.new(): StructureManager
 	self.connections = {}
 	self.refineryDestroyedHandlers = {}
 	self.postModelsFilledHandlers = {}
+	self.barriersChangedHandlers = {}
 	self.warnedTemplates = {}
 	return self
 end

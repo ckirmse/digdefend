@@ -95,6 +95,7 @@ export type PlacementManager = typeof(setmetatable(
 		lastSwingTimeByPlayer: { [Player]: number },
 		nextId: number,
 		shadowFolder: Folder?,
+		placementsChangedHandlers: { () -> () },
 	},
 	PlacementManager
 ))
@@ -248,6 +249,17 @@ function PlacementManager:replicatePlacement(placement: Placement)
 end
 
 -- every placement standing, in id order
+-- the monsters' way round the defenses is recomputed from here (M29)
+function PlacementManager:subscribePlacementsChanged(handler: () -> ())
+	table.insert(self.placementsChangedHandlers, handler)
+end
+
+function PlacementManager:firePlacementsChanged()
+	for _, handler in self.placementsChangedHandlers do
+		handler()
+	end
+end
+
 function PlacementManager:getPlacements(): { Placement }
 	local placements = {}
 	for _, id in self:getPlacementIds() do
@@ -351,6 +363,7 @@ function PlacementManager:spawn(player: Player, placementKind: number, typeKind:
 	self:configurePrompt(placement)
 	CollectionService:AddTag(shadow, Tags.PLACEMENT)
 	shadow.Parent = folder
+	self:firePlacementsChanged()
 	return placement
 end
 
@@ -368,6 +381,7 @@ function PlacementManager:remove(placement: Placement)
 	if owner and owner.Parent == Players then
 		self:replicatePlayer(owner)
 	end
+	self:firePlacementsChanged()
 end
 
 -- one build. Silent refusals are the cases an honest client never sends
@@ -678,6 +692,7 @@ function PlacementManager.new(): PlacementManager
 	self.lastSwingTimeByPlayer = {}
 	self.nextId = 1
 	self.shadowFolder = nil
+	self.placementsChangedHandlers = {}
 	return self
 end
 

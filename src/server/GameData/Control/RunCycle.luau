@@ -3,9 +3,10 @@
 -- The run's day and night loop (GDD "Wave Cycle"), M28. A day lasts
 -- DAY_SEC with the gate open; its last DUSK_SHARE is dusk, which only
 -- changes the clock's picture. Night shuts the gate, enemies spawn over
--- NIGHT_SPAWN_SEC (M29), and the night lasts until every enemy is dead.
--- Until enemies exist a night also ends NIGHT_PLACEHOLDER_SEC after the
--- spawn window; M29 sets that to 0 so only the enemies end a night.
+-- NIGHT_SPAWN_SEC, and the night lasts until every group of the wave has
+-- spawned and every monster is dead (M29). NIGHT_PLACEHOLDER_SEC, above 0,
+-- also ends a night that long after the spawn window (a test switch; 0
+-- since M29, so only the monsters end a night).
 -- The day-start announcement is DAY_START_FORMAT with the day number,
 -- the crew size, and the two party multipliers; the loss announcements
 -- name the cause. Every number here is designer tuning.
@@ -16,7 +17,7 @@ return {
 	DAY_SEC = 300,
 	DUSK_SHARE = 0.2,
 	NIGHT_SPAWN_SEC = 90,
-	NIGHT_PLACEHOLDER_SEC = 30,
+	NIGHT_PLACEHOLDER_SEC = 0,
 	-- the dev tool's "Dusk now" runs what is left of the day down over
 	-- this long, so the sky blends to night begin instead of snapping
 	FORCED_DUSK_SEC = 3,

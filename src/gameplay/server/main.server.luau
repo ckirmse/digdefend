@@ -14,6 +14,10 @@ local JetPackManager = require(script.Parent.JetPackManager)
 local MapManager = require(script.Parent.MapManager)
 local MineDevTools = require(script.Parent.MineDevTools)
 local MineManager = require(script.Parent.MineManager)
+local MonsterDevTools = require(script.Parent.MonsterDevTools)
+local MonsterManager = require(script.Parent.MonsterManager)
+local MonsterPathManager = require(script.Parent.MonsterPathManager)
+local MonsterWaveManager = require(script.Parent.MonsterWaveManager)
 local MiningManager = require(script.Parent.MiningManager)
 local MiningStoreManager = require(script.Parent.MiningStoreManager)
 local OrePickupManager = require(script.Parent.OrePickupManager)
@@ -119,6 +123,22 @@ RunManager:subscribeRunStarted(
 -- they hurt, slow, and (the Traps) block
 TowerBehaviorManager:init()
 TrapBehaviorManager:init()
+-- the monsters (M29): the path grid reads the fresh camp once the
+-- structures stand and the last run's placements are gone (both subscribed
+-- above), then the monsters themselves register in the target registry and
+-- attack the structures, placements, and players
+MonsterPathManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		MonsterPathManager:onRunStarted()
+	end
+)
+MonsterManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		MonsterManager:onRunStarted()
+	end
+)
 -- after the placements, whose inventory it fills
 DefenseStoreManager:init()
 RunManager:subscribeRunStarted(
@@ -141,6 +161,14 @@ StructureManager:subscribeRefineryDestroyed(
 		RunCycleManager:loseRefinery()
 	end
 )
+-- after the gate (subscribed above), so a night's first monsters meet it
+-- shut; the wave clears the night when its last monster dies
+MonsterWaveManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		MonsterWaveManager:onRunStarted()
+	end
+)
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
 		RunCycleManager:onRunStarted()
@@ -154,3 +182,4 @@ StructureDevTools:init()
 WeaponDevTools:init()
 PostDevTools:init()
 PlacementDevTools:init()
+MonsterDevTools:init()

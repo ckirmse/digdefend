@@ -440,7 +440,7 @@ Pick Axe (Default Tool)
 * Pick Axes do not perform any other function than mining (they cannot be used as a weapon)
 Hammer (Default Tool)
 * Every player also starts every run with a Hammer (decided 2026-09-17)
-* Equipping the Hammer puts the player in Repair Mode, the way the Pick Axe is Mining Mode: the reticle appears and an HP bar floats over every repairable structure (the 6 walls, the gate, the Refinery). Without the Hammer none of that shows
+* Equipping the Hammer puts the player in Repair Mode, the way the Pick Axe is Mining Mode: the reticle appears and an HP bar floats over every repairable structure (the 6 walls, the gate, the Refinery, and every Tower). Outside Repair Mode (decided 2026-09-23, M29) the Refinery's bar is always up, so the crew always knows how the thing that loses the run is holding up, and a wall or the gate shows its bar whenever it is below full HP; a Tower's bar shows in Repair Mode only
 * Looking at a structure within reach highlights it, like a rock in Mining Mode, and the price of a swing appears under its HP bar as an amount, the Iron Bar icon, and the HP gained
 * A press swings once and holding repeats, exactly like mining, on every input type (click, gamepad trigger, the touch action button, or a resting touch). See Wall Repair for what a swing does
 Weapon (Default Tool)
@@ -1163,7 +1163,7 @@ Tower Types
    * Frost Tower: the Flamethrower's shape, but it breathes frost that only slows. Every enemy in the cone is slowed for a while; no damage. Stats: Slow Rate (how much slower a hit enemy moves, as a percentage), Freeze Length (how long the slow lasts), HP, Range. Fixed: the cone angle, the frost pulse interval
    * Tesla Coil: a stationary tower with electric coils, no turret, that zaps 360 degrees around it. Each zap hits the picked enemy and chains to further enemies within a fixed jump distance, damaging each and stunning it briefly. Stats: Damage (per hit, first target and every chained target), Fire Rate (the zap interval; a slow, heavy rhythm), Range (the radius the first target is picked in), Chain Count (how many extra enemies the bolt jumps to: from 1 at level 1 to 4 at level 5). Fixed: the jump distance, the stun length
    * Sniper Tower: far Range and heavy Damage but a very low Fire Rate. Shoots one land enemy at a time. Stats: Fire Rate, Damage, HP, Range
-* Until enemies exist (M29), Towers and Traps are tested against the dev tools' walking dummies: target dummies that walk a straight line toward the admin, on the ground or in the air, honouring slows and stuns and stopping to attack a barrier in their way
+* Towers and Traps fight monsters exactly as they fought the dev tools' walking dummies (M29): monsters are the same kind of target. The dummies stay as a test tool: target dummies that walk a straight line toward the admin, on the ground or in the air, honouring slows and stuns and stopping to attack a barrier in their way
 Traps
 * Traps are passive defensive placements: barriers, spikes, mines, and the like, used to direct enemy movement or to damage and slow enemies
 * Unlike Towers, Traps are consumable and are bought at the Defense Store with Iron Bars
@@ -1249,13 +1249,526 @@ Wave Cycle
 * A run loads in the morning look with the clock still (the Waiting state) and day 1 begins PRE_DAY_SEC (10 s) after the helicopter leaves, which is when everyone the lobby sent is Ready or the arrival timeout has given up on the missing (decided 2026-09-22)
 * Day lasts 5 minutes (GameData/Control/RunCycle DAY_SEC). The gate stands open, players mine, refine, build, and place defenses
 * Dusk is the last stretch of the day (DUSK_SHARE, the final 20%): nothing changes in play, only the clock icon turns to dusk so a crew heads home in time
-* Night begins when the day clock runs out. The gate shuts, enemies spawn over 90 seconds (NIGHT_SPAWN_SEC, M29) and the night lasts until every enemy is dead, at which point the next day begins. Until enemies exist, a night ends by a dev tool or after a placeholder length (NIGHT_PLACEHOLDER_SEC, set to 0 at M29 so only the enemies end it)
+* Night begins when the day clock runs out. The gate shuts, the night's wave spawns (GDD "Creating Waves"), and the night lasts until every group has spawned and every monster is dead, at which point the next day begins (M29). NIGHT_PLACEHOLDER_SEC (GameData/Control/RunCycle) is 0; above 0 it also ends a night that long after the 90 second spawn window, as a test switch
 * The day counter starts at 1 and each dawn adds one; waves scale with it (M30)
 * The sky: every map has four looks, day start, day end, night start, and night end (shared LightingPresets, keyed by map, read from Studio and ported by hand; decided 2026-09-22). Day start is set outright when the run loads. Over a day the sky blends steadily from day start (8:00) to day end (17:30, the same colours); the night opens with a LIGHTING_DUSK_TRANSITION_SEC (1 s) blend to night start (19:12, the light off, just past the engine's sun-to-moon handover, which cannot be blended), then blends night start into night end (20:00, the moon at full) over the 90 s spawn window and holds night end until the wave is done. A cleared night blends night end back to day start over LIGHTING_DAWN_TRANSITION_SEC (1 s) and only then does the day clock start. A DayNightNumber card ("DAY  N" / "NIGHT  N") shows for 3 s once each blend ends, with the Rooster or NightBell sound; day 1 gets no card. Lighting.ClockTime blends the same way between each look's hour, always turning forward round the clock
 * Every dawn, and at the first day, the announcement box states the day, the crew size, and the multipliers, in the words of "Adjusting for Different Player Counts"
 * The run ends as Lost when the Refinery is destroyed or every player is dead. The clock stops, the gate stays as it is, and the loss is announced; the trip back to the lobby and the end screen are M33. Won is the rescue helicopter (M31)
 * Day clock: a bar top centre of the screen (the DayClock ScreenGui). A circle on its left cycles through three pictures, Day, Dusk, and Night; the bar starts full at dawn and empties from right to left until night, so players always know how long they have; "Day N" reads under the bar. At night the bar is empty and the circle shows the night picture
+Setting Up Waves
+Wave Area
+* Just like the Defensive Zones, the area that enemies are confined to is a predefined grid that fits the Defensive Zones inside of it
+* This ensures that enemies can’t sidestep any towers or traps and that their lanes are clearly defined
+* It follows the same format as the Defensive Zones: each Wave Area is a Part under Camp.WaveAreas whose size and rotation define the grid, in the same cell size (GameData/Defenses/Placement CELL_SIZE_STUDS)
+* Enemies always stay within the grid unless:
+   * A player is within the enemy’s DetectionRange and outside the Wave Area. In this instance, an enemy can go toward the player, but must return to the grid once the target is no longer valid. It never goes further than the map’s LeashDistance from the grid (a map value, set very high to start so there is no safe spot just past it). As built (M29) a monster only chases where it can walk in a straight line over the grid, so it never leaves it yet and LeashDistance is not used
+   * The grid only goes to the front of the camp. Once enemies reach the end of the grid nearest the camp, they can move freely towards camp targets and players
+* Pathfinding (decided 2026-09-23, for performance): enemies never find their way one by one. The server keeps one flow field, a grid where every cell stores the way toward the Refinery, shared by every land enemy, so each enemy’s step is a single lookup
+   * It covers the Wave Areas and the Camp Area, a Part under Camp.CampArea bounding the inside of the camp. Players can’t place anything in the camp, so the camp part of the field is worked out once when the run starts
+   * The Wave Area part is recomputed only when a Tower, Trap, or Wall is placed, destroyed, or rebuilt
+   * Walls, the gate, and placements count as passable at a heavy cost, so enemies take any open way round and attack what blocks them only when there is none
+   * A barrier costs more the thicker it is, cell by cell: the gate's box is three cells deep where a wall is one, so a blocked crowd breaks through a wall before the gate
+   * Every monster walks its own lane, up to 12 studs to either side of the shared route (chosen at spawn, LANE_SPREAD_STUDS), so a crowd moves as a band rather than a line; the lane narrows wherever the ground does, as at the gate. A monster heads straight for the farthest point up to 8 cells along its route it can see (LOOKAHEAD_CELLS), so it walks smooth lines rather than cell to cell (decided 2026-09-23)
+   * Monsters push apart from each other (SEPARATION_STUDS, 4). A monster attacking holds its ground, and one that makes no headway toward where it is going (a crowd stalled at a wall or round the Refinery) stands still rather than churning
+Creating Waves
+* The goal of the wave creation system is to easily generate waves for different maps with minimal set up, as maps are a major content vector
+* Every wave consists of groups of monsters that spawn at a specific spawn at a specific time
+* There will be different numbers of groups in different waves
+* Groups spawn at specific times, based on seconds from night start. If there are no active enemies (they have all been killed) while groups are still waiting, the next group spawns at once and every remaining group moves up by the same amount, keeping their spacing, so there is never any dead time (decided 2026-09-23)
+* Once all groups are spawned and all enemies are destroyed, the wave/night ends
+* Wave creation consists of a combination of hand authored waves or waves automatically generated at random based on a set of parameters
+* Every wave is generated by a table with 2 entries:
+   * Night: number correlating to night number, determines which night this wave spawns on (only one wave per night)
+   * EnemyData: a list of groups, each with:
+      * Enemies: one or more pairs of EnemyType (the specific enemy type) and NumberOfEnemies (the number of that enemy type that spawn in this group). A group can mix types
+      * SpawnLocation: which spawn the group is spawned at in the map (number)
+      * SpawnTime: measured in seconds from night start (0 is exactly at night start, 10 is 10 seconds after night start, etc.)
+* Any night that does not have a data entry generates a wave based on map specific parameters
+   * Every enemy type is assigned a difficulty value
+   * Every map has these parameters:
+      * StartingDifficulty: the cumulative difficulty value for the starting wave
+      * DifficultyIncreasePerWave: the difficulty value added each wave
+      * WaveDifficultyRange: how close to the TargetWaveDifficulty the wave’s total must be to be a valid configuration (default 5)
+      * GroupDifficulty: the difficulty a typical group is worth, which sets how many groups a wave splits into
+      * MaxGroups: the most groups a generated wave can have
+      * AvailableEnemies
+         * EnemyType: the specific enemy types available in this map
+         * WaveUnlocked: the wave number in which this enemy can start to spawn
+   * TargetWaveDifficulty = StartingDifficulty + (DifficultyIncreasePerWave * (WaveNumber - 1))
+   * Generating a wave (group rule decided 2026-09-23):
+      * Group count: TargetWaveDifficulty / GroupDifficulty, rounded, nudged randomly by one either way, and kept between 1 and MaxGroups. Early waves have one or two groups, late waves many
+      * Each group gets a share of the wave’s difficulty with a random weight (0.5 to 1.5), so some groups are big and some small
+      * Each group is filled with one random unlocked enemy type that fits its share, as many of it as the share allows, so group size follows difficulty on its own: cheap enemies come as swarms, strong ones in small groups. Occasionally a group mixes a strong enemy with cheap ones. Only enemies that fit what is left are ever picked, so a wave never overshoots with one huge enemy
+      * Leftover difficulty rolls into the next group; at the end the total is topped up with the cheapest unlocked enemy, or trimmed, until it is within WaveDifficultyRange of TargetWaveDifficulty
+      * Groups are spread across the night’s spawn window with a little random jitter, and the biggest group always spawns last so the night builds to a peak. Spawn locations are picked at random, never the same one twice in a row
+      * The generator is pure data in and data out, so it is unit tested and any night on any map can be previewed without playing
+Wave Spawn Locations
+* Every map has a set of Spawn parts in the map, each Spawn is assigned a number
+* When creating waves, each wave group is assigned a spawn location
+* Every map has a SpawnRadius value
+* Enemies spawn in random locations within the SpawnRadius of the SpawnLocation, so they don’t all spawn on top of each other but still feel like a group
 Monsters
+Monster Creation & Behavior
+* Like wave data, monsters need to be set up in a way that is very easy to add new monsters, as this is another major content vector
+* Every monster has a base set of stats that are shared across all monsters (GameData, one entry per monster):
+   * Name: System name. Every monster has its own model in the GameAssets.Monsters folder with this name in capitals (ZOMBIE_1, BRUTE_2)
+   * DisplayName: the name players see
+   * DifficultyValue: used to generate random waves
+   * HP: how much health the monster has at spawn
+   * Damage: how much damage a hit from that monster causes
+   * Speed: how fast the monster moves through the environment
+   * TargetPriorities: a table containing each target type, ordered by priority (i.e. {“Players”, “Towers”, “Traps”})
+      * If a type is missing from the table, that unit will not attack that target type
+      * Refinery is the #1 target priority for all monsters, so does not need to be included in this table
+      * A monster goes for the highest-priority target within its DetectionRange, walks to it, and attacks once it is within its AttackRange (decided 2026-09-23). It only walks to a target it can reach in a straight line over open ground, so nothing is chased through a wall
+   * TargetDamageTypes: a table containing each target type that monster’s attack can damage, used for monsters with an AttackRadius > 0
+      * If empty, it only damages its target
+   * AttackType: either Melee or Ranged
+   * DetectionRange: how far the monster notices a target on its priority list (20 for every monster to start). It never notices less far than its AttackRange, so a long-range monster still fires from a distance (added 2026-09-23)
+   * AttackRange: how far from a target they need to be to attack (renamed from AttackDistance, 2026-09-23)
+   * AttackRadius: on attack, targets within the AttackRadius are damaged. A 0 value means only the target is damaged. For projectile units, attack radius is measured from the projectile, not the monster
+   * AttackInterval: the seconds between attacks (added 2026-09-23; the default is 1.5 for a monster without one: Launcher 3, Flyers 2, Titans 2.5 to start)
+   * DieOnAttack: true or false. If true, the monster is destroyed on its first attack
+   * DamageOnDeath: true or false. If true and AttackRadius is above 0, it deals its attack damage in the AttackRadius when it is destroyed
+   * TraversalType: land or air
+      * If land, the monster walks on the ground and must traverse the map/defenses
+      * If air, the monster still must stay within the wave area grid, but doesn’t need to worry about avoiding obstacles
+         * If an air unit is also a projectile unit, it stops moving (but continues the walk animation between attacks) and fires the projectile
+         * If an air unit is a melee unit, it flies down to the target and attacks, then returns to flying when it doesn’t have a target or is traveling to a new target outside of its attack range (not built yet: no air melee monster is in the roster)
+   * FlightHeight: air units only. How high above the ground the monster flies, in studs (added 2026-09-23)
+   * WalkAnimation: the assetId for the monster’s walk animation, played on loop while in a walk state
+   * IdleAnimation: the assetId for the animation played while a ranged monster stands and fires. Every ranged monster has one (decided 2026-09-23)
+   * AttackAnimation: the assetId for the monster’s attack animation, played whenever the monster attacks
+   * DeathAnimation: the assetId for the monster’s death animation, played when it is killed
+   * Projectile: only needed for projectile units. References a projectile model in ReplicatedStorage. The projectile is shot from the monster to the target, applying the damage value to the target on impact
+* Tiers: a monster that comes in stronger versions is a separate entry per tier, named with the tier number (Zombie_1, Zombie_2, Zombie_3) and shown as “Zombie”, “Zombie II”, “Zombie III”. Each tier has its own model, so a tier can look and be sized differently
+* Many monsters are generated based solely on this data, though some more complex monsters may require specific behavior listed outside of these parameters
+* These monsters are then referenced by the wave creation system
+* There are currently 5 target types:
+   * Players
+   * Towers
+   * Traps
+   * Walls (all camp walls + gate)
+   * Refinery (all units attack this by default)
+* All units by default walk toward the refinery, and attack targets they encounter on the way
+* If land units are blocked from progression toward the refinery by defenses or walls (i.e. there is no available path to the refinery), they attack the defenses/walls in the way
+* Until Revives (M32), a player brought to 0 HP by a monster is held at 1 HP and the server logs that they would be down
+* Models (decided 2026-09-23): a monster's look and size are set on its model in Studio, never in data. Each model is a Humanoid-free R6 rig with an AnimationController (scripts/studio/build_monster_templates.luau turns a rig into one; seed_monster_templates.luau gives a new monster kind a starting copy) and an invisible Proxy part: the monster's hit box, the single block it is drawn as far away, and, by its bottom edge, where its feet stand. Scaling a model scales its Proxy with it. Anything added to a model (a bomb, wings) is welded to the Torso so it moves with the body; the game turns off collision and queries on every part. Placeholder art: every monster starts as the same R6 rig with Roblox’s default animations, sized per monster
+Monster Performance
+* Many monsters on screen at once must run well on low end devices, and monsters are visible at all times, never popping in when streamed (decided 2026-09-23). Built to hold 300 at once and stress tested to 500
+* Monsters exist only as data on the server, never as models. Their positions reach every player as a small packed update about 10 times a second, so no monster is ever streamed in or out
+* Each player’s game draws the monsters itself from GameAssets.Monsters, with no Humanoid, moving them all together. Near monsters are fully animated, mid distance ones move in a held pose, and far ones are drawn as a single block (the template’s Proxy)
+* The update rate is by distance from each player (GameData/Monsters/Behavior): a moving monster within 80 studs every tenth of a second, within 200 studs every fifth, and anything further, or standing still, every 0.4 seconds. Each monster is drawn a moment behind the newest update and blended between updates, so movement stays smooth
+* Measured in Studio (M29, a desktop PC): 300 monsters take about 2.6 ms of the server's time per update (10 a second) and 8 to 18 KB/s per player at the busiest, with the client at 60 fps; 500 take about 2.2 to 3 ms and 19 KB/s. Still to check on a phone
+* The 40 nearest monsters are animated (NEAR_ANIMATED_MAX); the rest within 250 studs move in a held pose; anything further is its Proxy block
+* Admins have a stress test dev tool that spawns any number of monsters and shows server step time, network use, and frame time
+Monster Health Bars
+* One health bar at a time (decided 2026-09-23): over the damaged monster under the reticle (the centre of the screen), showing its name and its HP; a monster at full health never shows one. It stays half a second after the reticle moves off, so sweeping across a crowd does not flicker, and it shows at any distance. A monster behind a wall is never picked. It is the same StructureHp bar the walls use, without the repair price
+Monster Types
+* The goal is to add a bunch of different monster types over time, but here is the first set of monsters with their data
+Zombie
+* Basic unit, simply walks and attacks. Meant to spawn in large numbers
+* Data:
+   * Name: Zombie_1
+   * DisplayName: Zombie
+   * DifficultyValue: 2
+   * HP: 100
+   * Damage: 10
+   * Speed: 10
+   * TargetPriorities: {“Players”}
+   * TargetDamageTypes: {}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 5
+   * AttackRadius: 0
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
+Zombie II
+* Zombie with tier 2 stats
+* Data:
+   * Name: Zombie_2
+   * DisplayName: Zombie II
+   * DifficultyValue: 4
+   * HP: 200
+   * Damage: 10
+   * Speed: 10
+   * TargetPriorities: {“Players”}
+   * TargetDamageTypes: {}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 5
+   * AttackRadius: 0
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
+Zombie III
+* Zombie with tier 3 stats
+* Data:
+   * Name: Zombie_3
+   * DisplayName: Zombie III
+   * DifficultyValue: 6
+   * HP: 300
+   * Damage: 10
+   * Speed: 10
+   * TargetPriorities: {“Players”}
+   * TargetDamageTypes: {}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 5
+   * AttackRadius: 0
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
+Runner
+* Fast, but more fragile. Sprints across the map
+* Data:
+   * Name: Runner_1
+   * DisplayName: Runner
+   * DifficultyValue: 6
+   * HP: 75
+   * Damage: 15
+   * Speed: 20
+   * TargetPriorities: {“Walls”, “Players”}
+   * TargetDamageTypes: {}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 5
+   * AttackRadius: 0
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
+Runner II
+* Runner with tier 2 stats
+* Data:
+   * Name: Runner_2
+   * DisplayName: Runner II
+   * DifficultyValue: 12
+   * HP: 150
+   * Damage: 30
+   * Speed: 20
+   * TargetPriorities: {“Walls”, “Players”}
+   * TargetDamageTypes: {}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 5
+   * AttackRadius: 0
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
+Runner III
+* Runner with tier 3 stats
+* Data:
+   * Name: Runner_3
+   * DisplayName: Runner III
+   * DifficultyValue: 18
+   * HP: 225
+   * Damage: 45
+   * Speed: 20
+   * TargetPriorities: {“Walls”, “Players”}
+   * TargetDamageTypes: {}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 5
+   * AttackRadius: 0
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
+Brute
+* Slow, huge, melee
+* Data:
+   * Name: Brute_1
+   * DisplayName: Brute
+   * DifficultyValue: 10
+   * HP: 400
+   * Damage: 40
+   * Speed: 10
+   * TargetPriorities: {“Walls”, “Players”}
+   * TargetDamageTypes: {}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 5
+   * AttackRadius: 0
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
+Brute II
+* Tier 2 Brute
+* Data:
+   * Name: Brute_2
+   * DisplayName: Brute II
+   * DifficultyValue: 20
+   * HP: 800
+   * Damage: 80
+   * Speed: 10
+   * TargetPriorities: {“Walls”, “Players”}
+   * TargetDamageTypes: {}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 10
+   * AttackRadius: 0
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
+Brute III
+* Tier 3 Brute
+* Data:
+   * Name: Brute_3
+   * DisplayName: Brute III
+   * DifficultyValue: 30
+   * HP: 1200
+   * Damage: 120
+   * Speed: 10
+   * TargetPriorities: {“Walls”, “Players”}
+   * TargetDamageTypes: {}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 10
+   * AttackRadius: 0
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
+Launcher
+* Stops at a distance and spits projectiles from its mouth
+* Data:
+   * Name: Launcher_1
+   * DisplayName: Launcher
+   * DifficultyValue: 50
+   * HP: 1000
+   * Damage: 200
+   * Speed: 10
+   * TargetPriorities: {“Walls”}
+   * TargetDamageTypes: {“Walls”, “Traps”, “Towers”}
+   * AttackType: Ranged
+   * DetectionRange: 20
+   * AttackRange: 200 (past every Tower’s reach, the Sniper’s 175 included, and inside a Rifle’s 300, so players must go out and deal with it)
+   * AttackRadius: 20
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * IdleAnimation: 180435571
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: Fireball
+Bomber
+* Kamikaze carrying explosives. Fragile, walks up to your placements and explodes on its first attack, hurting everything in its AttackRadius
+* Data:
+   * Name: Bomber_1
+   * DisplayName: Bomber
+   * DifficultyValue: 12
+   * HP: 40
+   * Damage: 100
+   * Speed: 15
+   * TargetPriorities: {“Towers”, “Traps”, “Walls”}
+   * TargetDamageTypes: {“Walls”, “Traps”, “Towers”, “Players”}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 5
+   * AttackRadius: 20
+   * DieOnAttack: true
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
+Bomber II
+* Tier 2 of Bomber
+* Data:
+   * Name: Bomber_2
+   * DisplayName: Bomber II
+   * DifficultyValue: 24
+   * HP: 80
+   * Damage: 200
+   * Speed: 15
+   * TargetPriorities: {“Towers”, “Traps”, “Walls”}
+   * TargetDamageTypes: {“Walls”, “Traps”, “Towers”, “Players”}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 5
+   * AttackRadius: 20
+   * DieOnAttack: true
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
+Bomber III
+* Tier 3 of Bomber
+* Data:
+   * Name: Bomber_3
+   * DisplayName: Bomber III
+   * DifficultyValue: 36
+   * HP: 120
+   * Damage: 300
+   * Speed: 15
+   * TargetPriorities: {“Towers”, “Traps”, “Walls”}
+   * TargetDamageTypes: {“Walls”, “Traps”, “Towers”, “Players”}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 5
+   * AttackRadius: 20
+   * DieOnAttack: true
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
+Flyer
+* Ignores walls and all placements, goes for the Camp
+* Data:
+   * Name: Flyer_1
+   * DisplayName: Flyer
+   * DifficultyValue: 25
+   * HP: 300
+   * Damage: 100
+   * Speed: 15
+   * TargetPriorities: {} (goes straight to the Refinery)
+   * TargetDamageTypes: {“Players”}
+   * AttackType: Ranged
+   * DetectionRange: 20
+   * AttackRange: 100
+   * AttackRadius: 5
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: air
+   * FlightHeight: 36
+   * WalkAnimation: 180436148
+   * IdleAnimation: 180435571
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: Fireball
+Flyer II
+* Ignores walls and all placements, goes for the Camp
+* Data:
+   * Name: Flyer_2
+   * DisplayName: Flyer II
+   * DifficultyValue: 50
+   * HP: 600
+   * Damage: 200
+   * Speed: 15
+   * TargetPriorities: {} (goes straight to the Refinery)
+   * TargetDamageTypes: {“Players”}
+   * AttackType: Ranged
+   * DetectionRange: 20
+   * AttackRange: 100
+   * AttackRadius: 5
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: air
+   * FlightHeight: 36
+   * WalkAnimation: 180436148
+   * IdleAnimation: 180435571
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: Fireball
+Flyer III
+* Ignores walls and all placements, goes for the Camp
+* Data:
+   * Name: Flyer_3
+   * DisplayName: Flyer III
+   * DifficultyValue: 75
+   * HP: 900
+   * Damage: 300
+   * Speed: 15
+   * TargetPriorities: {} (goes straight to the Refinery)
+   * TargetDamageTypes: {“Players”}
+   * AttackType: Ranged
+   * DetectionRange: 20
+   * AttackRange: 100
+   * AttackRadius: 5
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: air
+   * FlightHeight: 36
+   * WalkAnimation: 180436148
+   * IdleAnimation: 180435571
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: Fireball
+Titan
+* Boss. Enormous HP, devastating melee
+* Data:
+   * Name: Titan_1
+   * DisplayName: Titan
+   * DifficultyValue: 100
+   * HP: 2000
+   * Damage: 500
+   * Speed: 5
+   * TargetPriorities: {“Towers”, “Traps”, “Walls”}
+   * TargetDamageTypes: {}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 30
+   * AttackRadius: 0
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
+Titan II
+* Boss. Enormous HP, devastating melee
+* Data:
+   * Name: Titan_2
+   * DisplayName: Titan II
+   * DifficultyValue: 200
+   * HP: 4000
+   * Damage: 1000
+   * Speed: 5
+   * TargetPriorities: {“Towers”, “Traps”, “Walls”}
+   * TargetDamageTypes: {}
+   * AttackType: Melee
+   * DetectionRange: 20
+   * AttackRange: 30
+   * AttackRadius: 0
+   * DieOnAttack: false
+   * DamageOnDeath: false
+   * TraversalType: land
+   * WalkAnimation: 180426354
+   * AttackAnimation: 129967390
+   * DeathAnimation: 180436148
+   * Projectile: None
 Random Events
 Adjusting for Different Player Counts
 * The crew size that scales a run (GDD "Maps": Party scaling) is a single number the gameplay server samples, never the live player count: once at run start (the party that boarded) and again at every dawn (M28, decided 2026-09-22). Nothing changes under a player mid-day

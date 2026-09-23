@@ -8,7 +8,11 @@
 -- its bar ("4 [Iron Bar icon] for 10 HP"), and a press, or each interval while
 -- held, swings the Hammer and asks the server for one chunk of repair
 -- (TryRepairStructure). All of it is local, so one player's Repair Mode never shows on
--- another's screen. The gate's door leaves
+-- another's screen. Outside Repair Mode (decided 2026-09-23, M29) the
+-- Refinery's bar is always up, so the crew always knows how the thing that
+-- loses the run is holding up, and a wall or the gate shows its bar
+-- whenever it is below full HP; Towers show theirs in Repair Mode only.
+-- The gate's door leaves
 -- are tweened here between the template's open and closed marker parts when
 -- the server flips GateIsOpen; the server only decides whether they block.
 local CollectionService = game:GetService("CollectionService")
@@ -103,10 +107,19 @@ local NOTIFY_STRUCTURE_REPAIRED_SHAPE = {
 }
 -- a Tower's bar floats this far above its body
 local TOWER_BILLBOARD_LIFT_STUDS = 1.5
+-- a structure's bar shown outside Repair Mode reads from anywhere in the
+-- camp and out on the defenses, further than the template's distance
+local STRUCTURE_BILLBOARD_MAX_DISTANCE_STUDS = 300
+-- and stacks above the Camp Level sign that already floats over the Refinery
+local REFINERY_BILLBOARD_LIFT_STUDS = 8.5
 local TOWER_LEVEL_FORMAT = "%s %d"
 
 local function isTowerShadow(shadow: BasePart): boolean
 	return shadow:GetAttribute(Attributes.PLACEMENT_KIND) == Enums.PlacementKind.TOWER
+end
+
+local function isRefineryShadow(shadow: BasePart): boolean
+	return shadow:GetAttribute(Attributes.STRUCTURE_KIND) == Enums.StructureKind.REFINERY
 end
 
 function ClientStructureManager:findBillboardTemplate(): BillboardGui?
@@ -213,11 +226,28 @@ function ClientStructureManager:refreshBillboard(shadow: BasePart, billboard: Bi
 	end
 end
 
--- the HP bar exists only in Repair Mode; a Tower's everyday info
--- billboard steps aside for it so the two never stack
+-- whether a shadow's HP bar shows: everything in Repair Mode; outside it
+-- the Refinery always, and a wall or the gate only while damaged
+function ClientStructureManager:isBarShown(shadow: BasePart): boolean
+	if self.isRepairMode then
+		return true
+	end
+	if isTowerShadow(shadow) then
+		return false
+	end
+	if isRefineryShadow(shadow) then
+		return true
+	end
+	local repairable = self:readRepairable(shadow)
+	return repairable ~= nil and repairable.hp < repairable.maxHp
+end
+
+-- shows or hides a shadow's HP bar by isBarShown; a Tower's everyday info
+-- billboard steps aside for the bar so the two never stack
 function ClientStructureManager:applyRepairMode(shadow: BasePart, tracked: Tracked)
 	local isTower = isTowerShadow(shadow)
-	if not self.isRepairMode then
+	local isRefinery = isRefineryShadow(shadow)
+	if not self:isBarShown(shadow) then
 		if tracked.billboard then
 			tracked.billboard:Destroy()
 			tracked.billboard = nil
@@ -234,11 +264,14 @@ function ClientStructureManager:applyRepairMode(shadow: BasePart, tracked: Track
 			return
 		end
 		billboard = template:Clone()
-		local lift = if isTower then ClientPlacementManager:getBodyHeight(shadow) + TOWER_BILLBOARD_LIFT_STUDS - shadow.Size.Y / 2 else BILLBOARD_LIFT_STUDS
+		local lift = if isTower then ClientPlacementManager:getBodyHeight(shadow) + TOWER_BILLBOARD_LIFT_STUDS - shadow.Size.Y / 2 elseif isRefinery then REFINERY_BILLBOARD_LIFT_STUDS else BILLBOARD_LIFT_STUDS
 		if isTower then
 			ClientPlacementManager:setInfoVisible(shadow, false)
 		end
 		billboard.StudsOffsetWorldSpace = Vector3.new(0, lift, 0)
+		if not isTower then
+			billboard.MaxDistance = STRUCTURE_BILLBOARD_MAX_DISTANCE_STUDS
+		end
 		billboard.Adornee = shadow
 		billboard.Parent = shadow
 		tracked.billboard = billboard
