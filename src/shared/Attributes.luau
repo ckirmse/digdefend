@@ -189,6 +189,8 @@ module = {
 	MONSTER_VISUAL_CATALOG = "MonsterVisualCatalog",
 	MONSTER_INTERPOLATION_DELAY_SEC = "MonsterInterpolationDelaySec",
 	MONSTER_DRAW_BUDGETS = "MonsterDrawBudgets",
+	-- the party's enemy HP multiplier (M30), so the HP bar shows real numbers
+	MONSTER_HP_MULTIPLIER = "MonsterHpMultiplier",
 	MONSTER_ALIVE_COUNT = "MonsterAliveCount",
 	MONSTER_STEP_MS = "MonsterStepMs",
 	MONSTER_PATH_DEBUG = "MonsterPathDebug",

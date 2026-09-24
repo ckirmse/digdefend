@@ -132,7 +132,8 @@ function RunCycleManager:startDay()
 		self.day,
 		count,
 		RunCycleRules.multiplierFor(PartyScalingData.ORE_YIELD_MULTIPLIER_BY_PLAYER_COUNT, count),
-		RunCycleRules.multiplierFor(PartyScalingData.URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT, count)
+		RunCycleRules.multiplierFor(PartyScalingData.URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT, count),
+		RunCycleRules.multiplierFor(PartyScalingData.WAVE_DIFFICULTY_MULTIPLIER_BY_PLAYER_COUNT, count)
 	)
 	print(`[RunCycleManager] {message}`)
 	if wasNight then
@@ -168,6 +169,16 @@ function RunCycleManager:clearNight()
 		return
 	end
 	self:startDay()
+end
+
+-- a dev tool's switch: the coming night is night `day`; only by day
+function RunCycleManager:setDay(day: number)
+	if self.runState ~= Enums.RunState.DAY then
+		return
+	end
+	self.day = math.max(1, math.floor(day))
+	self:replicate()
+	print(`[RunCycleManager] day set to {self.day}`)
 end
 
 -- a dev tool's switch: dusk soon (the rest of the day runs down over

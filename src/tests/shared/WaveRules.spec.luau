@@ -26,16 +26,28 @@ describe(
 	"WaveRules.waveForNight",
 	function()
 		it(
-			"plays the night's own wave, else replays the latest before it",
+			"plays the night's own wave and nothing else",
 			function()
 				local waves = {
 					{ NIGHT = 1, GROUPS = {} },
 					{ NIGHT = 3, GROUPS = {} },
 				}
 				expect((WaveRules.waveForNight(waves, 1) :: WaveRules.Wave).NIGHT).toBe(1)
-				expect((WaveRules.waveForNight(waves, 2) :: WaveRules.Wave).NIGHT).toBe(1)
-				expect((WaveRules.waveForNight(waves, 7) :: WaveRules.Wave).NIGHT).toBe(3)
-				expect(WaveRules.waveForNight({ { NIGHT = 4, GROUPS = {} } }, 2)).toBe(nil)
+				expect(WaveRules.waveForNight(waves, 2)).toBe(nil)
+				expect((WaveRules.waveForNight(waves, 3) :: WaveRules.Wave).NIGHT).toBe(3)
+				expect(WaveRules.waveForNight(waves, 7)).toBe(nil)
+			end
+		)
+		it(
+			"scales an authored wave's counts to the party, half up, never below one",
+			function()
+				local wave = { NIGHT = 2, GROUPS = { group(5, 2, { { 1, 3 }, { 2, 1 } }) } }
+				local scaled = WaveRules.scaleWave(wave, 1.5)
+				expect(scaled.GROUPS[1].ENEMIES[1].COUNT).toBe(5)
+				expect(scaled.GROUPS[1].ENEMIES[2].COUNT).toBe(2)
+				expect(scaled.GROUPS[1].SPAWN_TIME_SEC).toBe(5)
+				expect(WaveRules.scaleWave(wave, 0.1).GROUPS[1].ENEMIES[1].COUNT).toBe(1)
+				expect(wave.GROUPS[1].ENEMIES[1].COUNT).toBe(3)
 			end
 		)
 	end

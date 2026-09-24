@@ -25,6 +25,7 @@ export type ClientMonsterDevTools = typeof(setmetatable(
 		spawnInput: any,
 		stressCountInput: any,
 		isPathVisible: boolean,
+		previewNightInput: any,
 	},
 	ClientMonsterDevTools
 ))
@@ -34,6 +35,8 @@ local SPAWN_MONSTERS_COMMAND = "spawnMonsters"
 local KILL_ALL_MONSTERS_COMMAND = "killAllMonsters"
 local STRESS_TEST_MONSTERS_COMMAND = "stressTestMonsters"
 local SET_MONSTER_PATHS_VISIBLE_COMMAND = "setMonsterPathsVisible"
+local PREVIEW_WAVE_COMMAND = "previewWave"
+local PREVIEW_CURVE_COMMAND = "previewWaveCurve"
 
 function ClientMonsterDevTools:send(command: string, args: { [string]: any })
 	ClientNetManager:fireServer(
@@ -76,6 +79,17 @@ function ClientMonsterDevTools:renderSection()
 	Iris.Text({ `Server: {tostring(ClientDataManager:getGameMetadata(Attributes.MONSTER_ALIVE_COUNT))} alive, step {tostring(ClientDataManager:getGameMetadata(Attributes.MONSTER_STEP_MS))} ms` })
 	Iris.Text({ string.format("Received: %.1f KB/s in %.0f packets/s", stats.bytesPerSec / 1024, stats.packetsPerSec) })
 	Iris.Text({ string.format("Drawn: %d (%d animated, %d held, %d proxy), %.2f ms a frame", stats.aliveCount, stats.animatedCount, stats.heldCount, stats.proxyCount, stats.renderMs) })
+	Iris.Separator()
+	Iris.Text({ "Waves" })
+	Iris.InputNum({ "Night", 1, 1, 99 }, { number = self.previewNightInput })
+	if Iris.Button({ "Preview wave (Output)" }).clicked() then
+		self:send(PREVIEW_WAVE_COMMAND, {
+			night = math.max(1, math.floor(self.previewNightInput:get())),
+		})
+	end
+	if Iris.Button({ "Preview curve, nights 1-20 (Output)" }).clicked() then
+		self:send(PREVIEW_CURVE_COMMAND, {} :: { [string]: any })
+	end
 end
 
 function ClientMonsterDevTools:init()
@@ -103,6 +117,7 @@ function ClientMonsterDevTools.new(): ClientMonsterDevTools
 	self.spawnInput = nil
 	self.stressCountInput = nil
 	self.isPathVisible = false
+	self.previewNightInput = Iris.State(1)
 	return self
 end
 

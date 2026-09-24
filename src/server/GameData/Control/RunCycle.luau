@@ -21,7 +21,7 @@ return {
 	-- the dev tool's "Dusk now" runs what is left of the day down over
 	-- this long, so the sky blends to night begin instead of snapping
 	FORCED_DUSK_SEC = 3,
-	DAY_START_FORMAT = "Day %d. Crew of %d. Ore %.2fx, Uranium target %.2fx",
+	DAY_START_FORMAT = "Day %d. Crew of %d. Ore %.2fx, Uranium target %.2fx, Waves %.2fx",
 	DAY_START_DISPLAY_SEC = 6,
 	LOST_REFINERY_MESSAGE = "The Refinery has fallen. The run is lost",
 	LOST_ALL_DEAD_MESSAGE = "The whole crew is down. The run is lost",

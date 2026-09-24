@@ -16,9 +16,13 @@ export type RunCycleDevTools = typeof(setmetatable({} :: {}, RunCycleDevTools))
 RunCycleDevTools.FORCE_NIGHT_COMMAND = "forceNight"
 RunCycleDevTools.CLEAR_NIGHT_COMMAND = "clearNight"
 RunCycleDevTools.LOSE_RUN_COMMAND = "loseRun"
+RunCycleDevTools.SET_DAY_COMMAND = "setDay"
 
 local FORCE_NIGHT_ARGS_SHAPE = {
 	isNight = "boolean",
+}
+local SET_DAY_ARGS_SHAPE = {
+	day = "positiveInteger",
 }
 local NO_ARGS_SHAPE = {}
 
@@ -54,6 +58,19 @@ function RunCycleDevTools:init()
 				return
 			end
 			RunCycleManager:endRun(false, RunCycleData.LOST_ALL_DEAD_MESSAGE)
+		end
+	)
+	-- the coming night is night N, so any wave can be played without
+	-- waiting out the nights before it (M30)
+	DevTools:registerPlaceCommand(
+		RunCycleDevTools.SET_DAY_COMMAND,
+		function(_player: Player, args: { [string]: any })
+			local isValid, err = Validate.isTableShape(args, SET_DAY_ARGS_SHAPE)
+			if not isValid then
+				warn("RunCycleDevTools: setDay with invalid args:", err)
+				return
+			end
+			RunCycleManager:setDay(args.day)
 		end
 	)
 end

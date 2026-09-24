@@ -62,8 +62,8 @@ describe(
 		it(
 			"words the day-start message",
 			function()
-				local message = RunCycleRules.dayStartMessage("Day %d. Crew of %d. Ore %.2fx, Uranium target %.2fx", 3, 4, 1.45, 1.15)
-				expect(message).toBe("Day 3. Crew of 4. Ore 1.45x, Uranium target 1.15x")
+				local message = RunCycleRules.dayStartMessage("Day %d. Crew of %d. Ore %.2fx, Uranium target %.2fx, Waves %.2fx", 3, 4, 1.45, 1.15, 1.9)
+				expect(message).toBe("Day 3. Crew of 4. Ore 1.45x, Uranium target 1.15x, Waves 1.90x")
 			end
 		)
 	end

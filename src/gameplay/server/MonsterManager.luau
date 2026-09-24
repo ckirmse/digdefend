@@ -134,6 +134,8 @@ export type MonsterManager = typeof(setmetatable(
 		random: Random,
 		-- per kind, so a tick allocates no priority list per monster
 		priorityOrderByKind: { [number]: { number } },
+		-- the party's enemy HP multiplier (PartyScaling), set by the wave manager
+		hpMultiplier: number,
 		-- the push-apart buckets, kept between ticks and cleared, not rebuilt
 		separationBuckets: { [number]: { Monster } },
 		separationUsedKeys: { number },
@@ -175,6 +177,12 @@ function MonsterManager:getAliveCount(): number
 		end
 	end
 	return count
+end
+
+-- every monster spawned from now on has this many times its roster HP
+function MonsterManager:setHpMultiplier(multiplier: number)
+	self.hpMultiplier = math.max(multiplier, 0.01)
+	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_HP_MULTIPLIER, self.hpMultiplier)
 end
 
 function MonsterManager:subscribeKilled(handler: (kind: number) -> ())
@@ -298,7 +306,7 @@ function MonsterManager:spawnMonster(kind: number, flatPosition: Vector3): numbe
 		name = Enums.getPublicName(Enums.MonsterKind, kind) or "Monster",
 		cframe = self:hitBoxCFrame(monster),
 		size = monster.boxSize,
-		maxHp = data.MAX_HP,
+		maxHp = math.max(1, math.floor(data.MAX_HP * self.hpMultiplier + 0.5)),
 		isAirborne = monster.isAir,
 		hasShadow = false,
 		onDestroyed = function(_attacker: Player?)
@@ -654,6 +662,13 @@ end
 
 -- a flat step toward a point at the monster's speed (a slow and a stun
 -- come from DamageableManager), landing on the ground under the new spot
+-- whether a ground monster may stand at a flat point: on the grid, on
+-- walkable ground, and not in a barrier's cell
+function MonsterManager:isGroundClear(grid: FlowField.Grid, x: number, z: number): boolean
+	local index = FlowField.indexAt(grid, x, z)
+	return index ~= nil and grid.walkable[index] == true and not grid.barriers[index]
+end
+
 function MonsterManager:moveToward(monster: Monster, destination: Vector3, deltaSec: number)
 	local speed = monster.data.SPEED_STUDS_PER_SEC * DamageableManager:getSpeedMultiplier(monster.damageableId)
 	if speed <= 0 then
@@ -664,6 +679,12 @@ function MonsterManager:moveToward(monster: Monster, destination: Vector3, delta
 	monster.tickDestination = flatTo
 	local flatNew = MonsterRules.stepToward(flatFrom, flatTo, speed, deltaSec)
 	self:face(monster, Vector3.new(destination.X, monster.position.Y, destination.Z))
+	-- a ground monster's step never ends inside a wall; it stops at the face
+	-- and the route's barrier rule takes over (attack it, or go round)
+	local grid = MonsterPathManager:getGrid()
+	if not monster.isAir and grid and not self:isGroundClear(grid, flatNew.X, flatNew.Z) then
+		return
+	end
 	local groundY = MonsterPathManager:getGroundHeight(flatNew.X, flatNew.Z) or monster.groundY
 	monster.groundY = groundY
 	monster.position = Vector3.new(flatNew.X, self:rootY(monster, groundY), flatNew.Z)
@@ -808,11 +829,11 @@ function MonsterManager:separate()
 		end
 		local newX = x + pushX
 		local newZ = z + pushZ
-		if grid then
-			local index = FlowField.indexAt(grid, newX, newZ)
-			if not index or not grid.walkable[index] then
-				continue
-			end
+		-- never onto a cell it may not enter, and never into a wall: a wall's
+		-- cell is walkable ground with a barrier on it, and a crowd pressing on
+		-- the wall once pushed a monster inside it and out the other face
+		if grid and not self:isGroundClear(grid, newX, newZ) then
+			continue
 		end
 		monster.position = Vector3.new(newX, monster.position.Y, newZ)
 	end
@@ -1044,6 +1065,7 @@ function MonsterManager:init()
 	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_INTERPOLATION_DELAY_SEC, BehaviorData.INTERPOLATION_DELAY_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_DRAW_BUDGETS, MonsterRules.encodeDrawBudgets(BehaviorData.DRAW_BUDGETS, BehaviorData.LOW_BUDGET_MAX_QUALITY_LEVEL))
 	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_ALIVE_COUNT, 0)
+	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_HP_MULTIPLIER, self.hpMultiplier)
 	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_STEP_MS, 0)
 	GameController:registerPlaceManager(self)
 	local tickSec = 1 / BehaviorData.TICK_RATE_HZ
@@ -1085,6 +1107,7 @@ function MonsterManager.new(): MonsterManager
 	self.killedHandlers = {}
 	self.random = Random.new()
 	self.priorityOrderByKind = {}
+	self.hpMultiplier = 1
 	self.separationBuckets = {}
 	self.separationUsedKeys = {}
 	return self

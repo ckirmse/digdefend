@@ -181,6 +181,7 @@ export type ClientMonsterManager = typeof(setmetatable(
 		monsterByDamageableId: { [string]: ClientMonster },
 		catalog: MonsterRules.VisualCatalog,
 		interpolationDelaySec: number,
+		hpMultiplier: number,
 		budgets: MonsterRules.DrawBudgets?,
 		nearAnimatedMax: number,
 		heldPoseDistanceStuds: number,
@@ -1012,7 +1013,7 @@ function ClientMonsterManager:writeHpBar(billboard: BillboardGui, monster: Clien
 		nameLabel.Text = UiStyle.formatTitle(Enums.getPublicName(Enums.MonsterKind, monster.kind) or "")
 	end
 	if valueLabel and valueLabel:IsA("TextLabel") then
-		local maxHp = monster.visual.maxHp
+		local maxHp = math.floor(monster.visual.maxHp * self.hpMultiplier + 0.5)
 		valueLabel.Text = `{math.ceil(share * maxHp)} / {maxHp}`
 	end
 	if fill and fill:IsA("Frame") then
@@ -1295,6 +1296,10 @@ function ClientMonsterManager:readTuning()
 	if typeof(delay) == "number" then
 		self.interpolationDelaySec = delay
 	end
+	local hpMultiplier = ClientDataManager:getGameMetadata(Attributes.MONSTER_HP_MULTIPLIER)
+	if typeof(hpMultiplier) == "number" then
+		self.hpMultiplier = hpMultiplier
+	end
 	local budgets = MonsterRules.decodeDrawBudgets(ClientDataManager:getGameMetadata(Attributes.MONSTER_DRAW_BUDGETS))
 	if budgets then
 		self.budgets = budgets
@@ -1306,7 +1311,7 @@ function ClientMonsterManager:init()
 	self:readTuning()
 	self:refreshAimFilter()
 	ClientDamageableManager:setBodyProvider(self)
-	for _, key in { Attributes.MONSTER_VISUAL_CATALOG, Attributes.MONSTER_INTERPOLATION_DELAY_SEC, Attributes.MONSTER_DRAW_BUDGETS } do
+	for _, key in { Attributes.MONSTER_VISUAL_CATALOG, Attributes.MONSTER_INTERPOLATION_DELAY_SEC, Attributes.MONSTER_DRAW_BUDGETS, Attributes.MONSTER_HP_MULTIPLIER } do
 		ClientDataManager:subscribeGameMetadataAttribute(
 			key,
 			function(_value: any)
@@ -1380,6 +1385,7 @@ function ClientMonsterManager.new(): ClientMonsterManager
 	self.monsterByDamageableId = {}
 	self.catalog = {}
 	self.interpolationDelaySec = DEFAULT_INTERPOLATION_DELAY_SEC
+	self.hpMultiplier = 1
 	self.budgets = nil
 	self.nearAnimatedMax = DEFAULT_NEAR_ANIMATED_MAX
 	self.heldPoseDistanceStuds = DEFAULT_HELD_POSE_DISTANCE_STUDS

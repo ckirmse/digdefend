@@ -51,8 +51,8 @@ function RunCycleRules.multiplierFor(multipliersByCount: { number }, count: numb
 	return multipliersByCount[index] or 1
 end
 
-function RunCycleRules.dayStartMessage(format: string, day: number, crewCount: number, oreMultiplier: number, uraniumMultiplier: number): string
-	return string.format(format, day, crewCount, oreMultiplier, uraniumMultiplier)
+function RunCycleRules.dayStartMessage(format: string, day: number, crewCount: number, oreMultiplier: number, uraniumMultiplier: number, waveMultiplier: number): string
+	return string.format(format, day, crewCount, oreMultiplier, uraniumMultiplier, waveMultiplier)
 end
 
 -- whether a night has run its placeholder course: the spawn window plus

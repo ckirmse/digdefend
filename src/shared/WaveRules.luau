@@ -23,11 +23,19 @@ export type Wave = {
 	GROUPS: { Group },
 }
 
--- one GameData/Waves/<Map> file
+-- one GameData/Waves/<Map> file; GENERATOR is WaveGenerator.Settings per
+-- Enums.Difficulty, typed loosely here so WaveRules stays below WaveGenerator
 export type MapWaves = {
 	SPAWN_RADIUS_STUDS: number,
 	LEASH_DISTANCE_STUDS: number,
 	WAVES: { Wave },
+	-- a generated night makes another group only once it can afford this
+	-- much for it; and how long after night fall its last group spawns
+	MIN_GROUP_DIFFICULTY: number,
+	WAVE_SPAWN_LENGTH_SEC: number,
+	-- a generated night's groups are never further apart than this
+	MAX_TIME_BETWEEN_GROUPS_SEC: number,
+	GENERATOR: { [number]: any },
 }
 
 type IndexedGroup = {
@@ -35,19 +43,39 @@ type IndexedGroup = {
 	group: Group,
 }
 
--- the wave authored for the night; a night without one replays the latest
--- authored night before it, and nil when none comes before it
+-- the wave authored for the night, nil when there is none (M30: such a
+-- night is generated instead of replaying an earlier one)
 function WaveRules.waveForNight(waves: { Wave }, night: number): Wave?
-	local best: Wave? = nil
 	for _, wave in waves do
 		if wave.NIGHT == night then
 			return wave
 		end
-		if wave.NIGHT < night and (best == nil or wave.NIGHT > best.NIGHT) then
-			best = wave
-		end
 	end
-	return best
+	return nil
+end
+
+-- an authored wave scaled to the party: every count times the multiplier,
+-- rounded half up, never below one (the party's lever on hand-made nights)
+function WaveRules.scaleWave(wave: Wave, multiplier: number): Wave
+	local groups = {}
+	for _, group in wave.GROUPS do
+		local enemies = {}
+		for _, entry in group.ENEMIES do
+			table.insert(enemies, {
+				KIND = entry.KIND,
+				COUNT = math.max(1, math.floor(entry.COUNT * multiplier + 0.5)),
+			})
+		end
+		table.insert(groups, {
+			ENEMIES = enemies,
+			SPAWN_LOCATION = group.SPAWN_LOCATION,
+			SPAWN_TIME_SEC = group.SPAWN_TIME_SEC,
+		})
+	end
+	return {
+		NIGHT = wave.NIGHT,
+		GROUPS = groups,
+	}
 end
 
 -- the groups by spawn time; groups at the same time keep their authored order

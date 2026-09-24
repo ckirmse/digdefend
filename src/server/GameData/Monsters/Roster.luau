@@ -101,9 +101,9 @@ return {
 		-- fast, but more fragile; sprints across the map
 		[Enums.MonsterKind.RUNNER_1] = {
 			DIFFICULTY_VALUE = 6,
-			MAX_HP = 75,
+			MAX_HP = 120,
 			DAMAGE = 15,
-			SPEED_STUDS_PER_SEC = 20,
+			SPEED_STUDS_PER_SEC = 22,
 			TARGET_PRIORITIES = { WALLS, PLAYERS },
 			TARGET_DAMAGE_TYPES = {},
 			ATTACK_TYPE = MELEE,
@@ -119,9 +119,9 @@ return {
 		},
 		[Enums.MonsterKind.RUNNER_2] = {
 			DIFFICULTY_VALUE = 12,
-			MAX_HP = 150,
+			MAX_HP = 240,
 			DAMAGE = 30,
-			SPEED_STUDS_PER_SEC = 20,
+			SPEED_STUDS_PER_SEC = 22,
 			TARGET_PRIORITIES = { WALLS, PLAYERS },
 			TARGET_DAMAGE_TYPES = {},
 			ATTACK_TYPE = MELEE,
@@ -137,9 +137,9 @@ return {
 		},
 		[Enums.MonsterKind.RUNNER_3] = {
 			DIFFICULTY_VALUE = 18,
-			MAX_HP = 225,
+			MAX_HP = 360,
 			DAMAGE = 45,
-			SPEED_STUDS_PER_SEC = 20,
+			SPEED_STUDS_PER_SEC = 22,
 			TARGET_PRIORITIES = { WALLS, PLAYERS },
 			TARGET_DAMAGE_TYPES = {},
 			ATTACK_TYPE = MELEE,
@@ -156,7 +156,7 @@ return {
 		-- slow, huge, melee
 		[Enums.MonsterKind.BRUTE_1] = {
 			DIFFICULTY_VALUE = 10,
-			MAX_HP = 400,
+			MAX_HP = 500,
 			DAMAGE = 40,
 			SPEED_STUDS_PER_SEC = 10,
 			TARGET_PRIORITIES = { WALLS, PLAYERS },
@@ -174,7 +174,7 @@ return {
 		},
 		[Enums.MonsterKind.BRUTE_2] = {
 			DIFFICULTY_VALUE = 20,
-			MAX_HP = 800,
+			MAX_HP = 1000,
 			DAMAGE = 80,
 			SPEED_STUDS_PER_SEC = 10,
 			TARGET_PRIORITIES = { WALLS, PLAYERS },
@@ -192,7 +192,7 @@ return {
 		},
 		[Enums.MonsterKind.BRUTE_3] = {
 			DIFFICULTY_VALUE = 30,
-			MAX_HP = 1200,
+			MAX_HP = 1500,
 			DAMAGE = 120,
 			SPEED_STUDS_PER_SEC = 10,
 			TARGET_PRIORITIES = { WALLS, PLAYERS },
@@ -212,7 +212,7 @@ return {
 		-- is past every Tower's reach and inside a Rifle's
 		[Enums.MonsterKind.LAUNCHER_1] = {
 			DIFFICULTY_VALUE = 50,
-			MAX_HP = 1000,
+			MAX_HP = 1200,
 			DAMAGE = 200,
 			SPEED_STUDS_PER_SEC = 10,
 			TARGET_PRIORITIES = { WALLS },
@@ -235,7 +235,7 @@ return {
 		-- on its first attack, hurting everything in its radius
 		[Enums.MonsterKind.BOMBER_1] = {
 			DIFFICULTY_VALUE = 12,
-			MAX_HP = 40,
+			MAX_HP = 100,
 			DAMAGE = 100,
 			SPEED_STUDS_PER_SEC = 15,
 			TARGET_PRIORITIES = { TOWERS, TRAPS, WALLS },
@@ -253,7 +253,7 @@ return {
 		},
 		[Enums.MonsterKind.BOMBER_2] = {
 			DIFFICULTY_VALUE = 24,
-			MAX_HP = 80,
+			MAX_HP = 200,
 			DAMAGE = 200,
 			SPEED_STUDS_PER_SEC = 15,
 			TARGET_PRIORITIES = { TOWERS, TRAPS, WALLS },
@@ -271,7 +271,7 @@ return {
 		},
 		[Enums.MonsterKind.BOMBER_3] = {
 			DIFFICULTY_VALUE = 36,
-			MAX_HP = 120,
+			MAX_HP = 300,
 			DAMAGE = 300,
 			SPEED_STUDS_PER_SEC = 15,
 			TARGET_PRIORITIES = { TOWERS, TRAPS, WALLS },
@@ -290,7 +290,7 @@ return {
 		-- ignores walls and all placements and goes for the Refinery
 		[Enums.MonsterKind.FLYER_1] = {
 			DIFFICULTY_VALUE = 25,
-			MAX_HP = 300,
+			MAX_HP = 350,
 			DAMAGE = 100,
 			SPEED_STUDS_PER_SEC = 15,
 			TARGET_PRIORITIES = {},
@@ -312,7 +312,7 @@ return {
 		},
 		[Enums.MonsterKind.FLYER_2] = {
 			DIFFICULTY_VALUE = 50,
-			MAX_HP = 600,
+			MAX_HP = 700,
 			DAMAGE = 200,
 			SPEED_STUDS_PER_SEC = 15,
 			TARGET_PRIORITIES = {},
@@ -334,7 +334,7 @@ return {
 		},
 		[Enums.MonsterKind.FLYER_3] = {
 			DIFFICULTY_VALUE = 75,
-			MAX_HP = 900,
+			MAX_HP = 1050,
 			DAMAGE = 300,
 			SPEED_STUDS_PER_SEC = 15,
 			TARGET_PRIORITIES = {},
@@ -357,7 +357,7 @@ return {
 		-- boss: enormous HP, devastating melee
 		[Enums.MonsterKind.TITAN_1] = {
 			DIFFICULTY_VALUE = 100,
-			MAX_HP = 2000,
+			MAX_HP = 2500,
 			DAMAGE = 500,
 			SPEED_STUDS_PER_SEC = 5,
 			TARGET_PRIORITIES = { TOWERS, TRAPS, WALLS },
@@ -376,7 +376,7 @@ return {
 		},
 		[Enums.MonsterKind.TITAN_2] = {
 			DIFFICULTY_VALUE = 200,
-			MAX_HP = 4000,
+			MAX_HP = 5000,
 			DAMAGE = 1000,
 			SPEED_STUDS_PER_SEC = 5,
 			TARGET_PRIORITIES = { TOWERS, TRAPS, WALLS },

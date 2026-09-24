@@ -19,6 +19,7 @@ export type ClientRunDevTools = typeof(setmetatable(
 		difficultyOptions: { string },
 		mapOption: any,
 		difficultyOption: any,
+		dayInput: any,
 	},
 	ClientRunDevTools
 ))
@@ -30,6 +31,7 @@ local START_RUN_AS_COMMAND = "startRunAs"
 local FORCE_NIGHT_COMMAND = "forceNight"
 local CLEAR_NIGHT_COMMAND = "clearNight"
 local LOSE_RUN_COMMAND = "loseRun"
+local SET_DAY_COMMAND = "setDay"
 
 local function enumKeyOptions(enumTable: Enums.EnumTable): { string }
 	local options = {}
@@ -60,6 +62,12 @@ function ClientRunDevTools:renderSection()
 	end
 	if Iris.Button({ "Lose the run" }).clicked() then
 		self:send(LOSE_RUN_COMMAND, {} :: { [string]: any })
+	end
+	Iris.InputNum({ "Day", 1, 1, 99 }, { number = self.dayInput })
+	if Iris.Button({ "Set day (by day only)" }).clicked() then
+		self:send(SET_DAY_COMMAND, {
+			day = math.max(1, math.floor(self.dayInput:get())),
+		})
 	end
 	if Iris.Button({ "Return to lobby" }).clicked() then
 		ClientNetManager:fireServer(
@@ -92,6 +100,7 @@ function ClientRunDevTools:init()
 	self.difficultyOptions = enumKeyOptions(Enums.Difficulty)
 	self.mapOption = Iris.State(self.mapOptions[1])
 	self.difficultyOption = Iris.State(self.difficultyOptions[1])
+	self.dayInput = Iris.State(1)
 	ClientDevTools:addMenuSection(
 		function()
 			self:renderSection()
@@ -105,6 +114,7 @@ function ClientRunDevTools.new(): ClientRunDevTools
 	self.difficultyOptions = {}
 	self.mapOption = nil
 	self.difficultyOption = nil
+	self.dayInput = nil
 	return self
 end
 

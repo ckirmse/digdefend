@@ -20,7 +20,7 @@ return {
 		-- a lever-action, to match the art (decided 2026-09-17): five
 		-- deliberate, heavy shots, one per lever stroke, then a slow reload
 		[Enums.WeaponKind.RIFLE] = {
-			DAMAGE = 30,
+			DAMAGE = 60,
 			FIRE_INTERVAL_SEC = 0.6,
 			FIRE_COOLDOWN_SEC = 0.5,
 			RANGE_STUDS = 300,
