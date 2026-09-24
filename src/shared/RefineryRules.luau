@@ -65,10 +65,11 @@ function RefineryRules.applyDiamonds(level: number, pool: number, added: number,
 	return newLevel, newPool, gained
 end
 
--- the mine's authored solo target scaled by party size, rounded half up
-function RefineryRules.uraniumTarget(baseTarget: number, playerCount: number, multiplierByPlayerCount: { number }): number
+-- the mine's authored solo target scaled by the difficulty (M31) and the
+-- party size, rounded half up
+function RefineryRules.uraniumTarget(baseTarget: number, playerCount: number, multiplierByPlayerCount: { number }, difficultyMultiplier: number?): number
 	local clamped = math.clamp(math.floor(playerCount), 1, #multiplierByPlayerCount)
-	return math.floor(baseTarget * multiplierByPlayerCount[clamped] + 0.5)
+	return math.floor(baseTarget * multiplierByPlayerCount[clamped] * (difficultyMultiplier or 1) + 0.5)
 end
 
 return RefineryRules

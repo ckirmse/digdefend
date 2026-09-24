@@ -73,6 +73,20 @@ function GameplayMapManager:checkHelicopterPad(camp: Folder)
 	end
 end
 
+-- the designer's radio (M31): the billboard's part, and the prompt part
+-- with its ProximityPrompt; the screen that turns green is optional
+function GameplayMapManager:checkRadio(camp: Folder)
+	local radio = self:requireChild(camp, Constants.CAMP_RADIO_MODEL, "Model")
+	if not radio then
+		return
+	end
+	self:requireChild(radio, Constants.RADIO_GUI_PART, "BasePart")
+	local promptPart = self:requireChild(radio, Constants.RADIO_PROMPT_PART, "BasePart")
+	if promptPart and not promptPart:FindFirstChildWhichIsA("ProximityPrompt") then
+		self:report(`{promptPart:GetFullName()} has no ProximityPrompt`)
+	end
+end
+
 function GameplayMapManager:checkMineEntrance(camp: Folder)
 	local mine = self:requireChild(camp, Constants.CAMP_MINE_FOLDER, "Folder")
 	if not mine then
@@ -248,6 +262,7 @@ end
 function GameplayMapManager:checkCamp(camp: Folder, mapName: string)
 	local before = #self.problems
 	self:checkHelicopterPad(camp)
+	self:checkRadio(camp)
 	self:checkMineEntrance(camp)
 	self:checkRefinery(camp)
 	self:checkMiningStore(camp)

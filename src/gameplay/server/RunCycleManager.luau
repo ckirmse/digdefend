@@ -162,6 +162,38 @@ function RunCycleManager:startNight()
 	})
 end
 
+-- the rescue is called (M31): the run holds in its Rescue state until the
+-- helicopter leaves. From a day this is a dusk (the gate shuts, the night
+-- look comes in); from a night the night simply goes on. The phase end is
+-- the landing time, so every clock counts down to it
+function RunCycleManager:startRescue(landingTime: number)
+	local state = self.runState
+	if state ~= Enums.RunState.DAY and state ~= Enums.RunState.NIGHT then
+		return
+	end
+	local wasDay = state == Enums.RunState.DAY
+	self.runState = Enums.RunState.RESCUE
+	self.phaseStartTime = workspace:GetServerTimeNow()
+	self.phaseEndTime = landingTime
+	self:replicate()
+	print("[RunCycleManager] the rescue is called")
+	if wasDay then
+		self:fireNightChanged(true)
+		NetManager:notifyAllClients(NetEventNames.NOTIFY_RUN_NIGHT_STARTED, {
+			day = self.day,
+		})
+	end
+end
+
+-- the helicopter has landed: the phase end becomes the boarding deadline
+function RunCycleManager:setRescueEnd(endTime: number)
+	if self.runState ~= Enums.RunState.RESCUE then
+		return
+	end
+	self.phaseEndTime = endTime
+	self:replicate()
+end
+
 -- the night is over (the last enemy died at M29; a dev tool or the
 -- placeholder length until then): dawn
 function RunCycleManager:clearNight()

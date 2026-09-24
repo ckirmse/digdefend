@@ -86,7 +86,9 @@ return {
 			iron = 16,
 			gold = 20,
 			crystal = 18,
-			uranium = 14,
+			-- 20 so the deepest zone alone nearly covers the worst-case target
+			-- (20 x 1.3 Nightmare x 1.25 six players = 33; M31)
+			uranium = 20,
 			pockets = 5,
 		},
 	},

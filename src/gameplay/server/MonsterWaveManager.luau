@@ -112,14 +112,15 @@ end
 
 -- the night's wave: the authored one scaled to the crew, else generated;
 -- nil with the reason when the map has neither
-function MonsterWaveManager:buildWave(night: number): (WaveGenerator.Result?, string?)
+-- `scale` multiplies the wave beyond the crew's multiplier (the final wave)
+function MonsterWaveManager:buildWave(night: number, scale: number?): (WaveGenerator.Result?, string?)
 	local mapWaves = self:getMapWaves()
 	local difficulty = RunManager:getDifficulty()
 	if not mapWaves or not difficulty then
 		return nil, "no run"
 	end
 	local crew = RunCycleManager:getScalingCount()
-	local waveMultiplier = RunCycleRules.multiplierFor(PartyScalingData.WAVE_DIFFICULTY_MULTIPLIER_BY_PLAYER_COUNT, crew)
+	local waveMultiplier = RunCycleRules.multiplierFor(PartyScalingData.WAVE_DIFFICULTY_MULTIPLIER_BY_PLAYER_COUNT, crew) * (scale or 1)
 	local authored = WaveRules.waveForNight(mapWaves.WAVES, night)
 	if authored then
 		local scaled = WaveRules.scaleWave(authored, waveMultiplier)
@@ -203,6 +204,23 @@ function MonsterWaveManager:startNight(night: number)
 	print("[MonsterWaveManager] " .. table.concat(self:describeWave(result), "\n"))
 end
 
+-- the rescue's final wave (M31): the next night's wave, scaled up, over
+-- the flight in; whatever was alive stays. When it is beaten nothing more
+-- comes, and the night is never cleared: the run ends with the helicopter
+function MonsterWaveManager:startFinalWave(night: number, scale: number)
+	local result, reason = self:buildWave(night, scale)
+	self.isActive = true
+	self.groups = if result then WaveRules.orderedGroups(result.wave) else {}
+	self.nextGroupIndex = 1
+	self.nightStartTime = workspace:GetServerTimeNow()
+	self.shiftSec = 0
+	if not result then
+		warn(`MonsterWaveManager: no final wave ({reason})`)
+		return
+	end
+	print("[MonsterWaveManager] final wave, " .. table.concat(self:describeWave(result), "\n"))
+end
+
 function MonsterWaveManager:stop()
 	self.isActive = false
 	self.groups = {}
@@ -239,7 +257,10 @@ function MonsterWaveManager:init()
 	RunCycleManager:subscribeNightChanged(
 		function(isNight: boolean)
 			if isNight then
-				self:startNight(RunCycleManager:getDay())
+				-- a rescue called by day is a dusk too, but its wave is the final one
+				if RunCycleManager:getRunState() ~= Enums.RunState.RESCUE then
+					self:startNight(RunCycleManager:getDay())
+				end
 				return
 			end
 			-- a dawn forced early (the dev tool) sweeps what is left

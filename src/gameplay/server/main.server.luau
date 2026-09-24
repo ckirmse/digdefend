@@ -26,6 +26,8 @@ local PlacementManager = require(script.Parent.PlacementManager)
 local PostDevTools = require(script.Parent.PostDevTools)
 local PostManager = require(script.Parent.PostManager)
 local RefineryManager = require(script.Parent.RefineryManager)
+local RescueDevTools = require(script.Parent.RescueDevTools)
+local RescueManager = require(script.Parent.RescueManager)
 local RunCycleDevTools = require(script.Parent.RunCycleDevTools)
 local RunCycleManager = require(script.Parent.RunCycleManager)
 local RunDevTools = require(script.Parent.RunDevTools)
@@ -174,9 +176,19 @@ RunManager:subscribeRunStarted(
 		RunCycleManager:onRunStarted()
 	end
 )
+-- the rescue (M31): after the refinery it listens to, the run cycle it
+-- moves, and the wave manager it hands the final wave; it binds the fresh
+-- camp's radio at run start
+RescueManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		RescueManager:onRunStarted()
+	end
+)
 
 RunDevTools:init()
 RunCycleDevTools:init()
+RescueDevTools:init()
 MineDevTools:init()
 StructureDevTools:init()
 WeaponDevTools:init()

@@ -468,6 +468,9 @@ module = {
 		LOST = 4,
 		-- the crew is landing: morning look, no clock yet, day 1 follows
 		WAITING = 5,
+		-- the helicopter is called (M31): night look, the final wave, then
+		-- boarding, until it leaves (Won)
+		RESCUE = 6,
 
 		PublicNames = {
 			DAY = "Day",

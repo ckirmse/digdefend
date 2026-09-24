@@ -15,6 +15,7 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local RefineryRules = require("@game/ReplicatedStorage/Shared/RefineryRules")
+local DifficultyData = require("@game/ServerScriptService/GameData/Control/Difficulty")
 local PartyScalingData = require("@game/ServerScriptService/GameData/Control/PartyScaling")
 local LevelData = require("@game/ServerScriptService/GameData/Camp/Level")
 local RefineryData = require("@game/ServerScriptService/GameData/Refinery/Refinery")
@@ -26,6 +27,7 @@ local BackpackManager = require(script.Parent.BackpackManager)
 local MapManager = require(script.Parent.MapManager)
 local MineManager = require(script.Parent.MineManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
+local RunManager = require(script.Parent.RunManager)
 
 local RefineryManager = {}
 RefineryManager.__index = RefineryManager
@@ -43,6 +45,7 @@ export type RefineryManager = typeof(setmetatable(
 		uraniumTotal: number,
 		isBusy: boolean,
 		campLevelChangedHandlers: { (level: number) -> () },
+		uraniumChangedHandlers: { () -> () },
 		prompt: ProximityPrompt?,
 		promptConnection: RBXScriptConnection?,
 	},
@@ -151,7 +154,27 @@ function RefineryManager:getUraniumTarget(): number
 	local baseTarget = if definition then definition.uraniumTarget else 0
 	-- the crew size sampled at dawn (M28), never the live count
 	local playerCount = RunCycleManager:getScalingCount()
-	return RefineryRules.uraniumTarget(baseTarget, playerCount, PartyScalingData.URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT)
+	local difficulty = RunManager:getDifficulty()
+	local difficultyMultiplier = if difficulty then DifficultyData.URANIUM_TARGET_MULTIPLIER[difficulty] else 1
+	return RefineryRules.uraniumTarget(baseTarget, playerCount, PartyScalingData.URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT, difficultyMultiplier)
+end
+
+-- the rescue (M31) listens for the target being reached
+function RefineryManager:subscribeUraniumChanged(handler: () -> ())
+	table.insert(self.uraniumChangedHandlers, handler)
+end
+
+function RefineryManager:fireUraniumChanged()
+	for _, handler in self.uraniumChangedHandlers do
+		handler()
+	end
+end
+
+-- dev tool: uranium refined out of thin air
+function RefineryManager:addUranium(amount: number)
+	self.uraniumTotal += math.max(0, math.floor(amount))
+	self:replicateShared()
+	self:fireUraniumChanged()
 end
 
 function RefineryManager:replicatePlayer(player: Player)
@@ -191,8 +214,12 @@ function RefineryManager:credit(player: Player, refined: { [number]: number })
 			NetManager:notifyAllClients(NetEventNames.NOTIFY_CAMP_LEVEL_UP, { level = level })
 		end
 	end
-	self.uraniumTotal += refined[Enums.RefinedResource.URANIUM] or 0
+	local uranium = refined[Enums.RefinedResource.URANIUM] or 0
+	self.uraniumTotal += uranium
 	self:replicateShared()
+	if uranium > 0 then
+		self:fireUraniumChanged()
+	end
 end
 
 function RefineryManager:setPromptEnabled(isEnabled: boolean)
@@ -290,6 +317,7 @@ function RefineryManager:resetProgress()
 	self.uraniumTotal = 0
 	self:replicateShared()
 	self:fireCampLevelChanged()
+	self:fireUraniumChanged()
 end
 
 -- ready-sequence entry; not replayed on a dev-tool reset, so run state survives
@@ -323,6 +351,7 @@ function RefineryManager.new(): RefineryManager
 	self.uraniumTotal = 0
 	self.isBusy = false
 	self.campLevelChangedHandlers = {}
+	self.uraniumChangedHandlers = {}
 	self.prompt = nil
 	self.promptConnection = nil
 	return self

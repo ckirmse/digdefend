@@ -138,6 +138,8 @@ describe(
 				expect(RefineryRules.uraniumTarget(20, 0, URANIUM_TARGET_BY_COUNT)).toBe(20)
 				-- 15 x 1.1 = 16.5 -> 17
 				expect(RefineryRules.uraniumTarget(15, 3, URANIUM_TARGET_BY_COUNT)).toBe(17)
+				-- the difficulty multiplies on top: 20 x 1.15 x 1.3 = 29.9 -> 30
+				expect(RefineryRules.uraniumTarget(20, 4, URANIUM_TARGET_BY_COUNT, 1.3)).toBe(30)
 			end
 		)
 	end

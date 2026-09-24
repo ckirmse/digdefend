@@ -18,6 +18,15 @@ return {
 		[Enums.Difficulty.NIGHTMARE] = 1.9,
 	},
 
+	-- the uranium target is the mine's solo number times this (M31, decided
+	-- 2026-09-24), on top of the party multiplier; the generator checks the
+	-- mine's supply against the worst case of both
+	URANIUM_TARGET_MULTIPLIER = {
+		[Enums.Difficulty.NORMAL] = 1.0,
+		[Enums.Difficulty.HARD] = 1.15,
+		[Enums.Difficulty.NIGHTMARE] = 1.3,
+	},
+
 	-- the mine's own lever: authored vein counts are divided by this
 	VEIN_DIVISOR = {
 		[Enums.Difficulty.NORMAL] = 1.0,

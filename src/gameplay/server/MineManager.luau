@@ -68,6 +68,14 @@ function MineManager:getDefinition(): MineGenerator.MineDefinition?
 	return self.definition
 end
 
+local function maxUraniumTargetMultiplier(): number
+	local largest = 1
+	for _, multiplier in DifficultyData.URANIUM_TARGET_MULTIPLIER do
+		largest = math.max(largest, multiplier)
+	end
+	return largest
+end
+
 function MineManager:buildConfig(difficulty: number): MineGenerator.GeneratorConfig
 	return {
 		rockTable = RockDefinitionsData,
@@ -79,7 +87,8 @@ function MineManager:buildConfig(difficulty: number): MineGenerator.GeneratorCon
 		veinDivisor = DifficultyData.VEIN_DIVISOR[difficulty],
 		pickaxeReachBlocks = GenerationData.PICKAXE_REACH_BLOCKS,
 		isClimbingEnabled = GenerationData.IS_CLIMBING_ENABLED,
-		maxPartyUraniumTargetMultiplier = GenerationData.MAX_PARTY_URANIUM_TARGET_MULTIPLIER,
+		-- the worst case: the largest party on the hardest difficulty
+		maxPartyUraniumTargetMultiplier = GenerationData.MAX_PARTY_URANIUM_TARGET_MULTIPLIER * maxUraniumTargetMultiplier(),
 	}
 end
 

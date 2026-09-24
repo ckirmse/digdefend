@@ -91,6 +91,20 @@ Constants.DEPARTED_HELICOPTER_NAME = "DepartedHelicopter"
 Constants.MAPS_FOLDER = "Maps"
 Constants.CAMP_FOLDER = "Camp"
 Constants.CAMP_HELICOPTER_PAD_MODEL = "HelicopterPad"
+-- the designer's radio table that calls the rescue (M31): Camp.Radio, with
+-- the billboard on GuiPart, the authored prompt on PromptPart, and the
+-- screen (Radio.Radio.Screen: a SurfaceGui and a SpotLight) that turns
+-- green once the quota is met
+Constants.CAMP_RADIO_MODEL = "Radio"
+Constants.RADIO_GUI_PART = "GuiPart"
+Constants.RADIO_PROMPT_PART = "PromptPart"
+Constants.RADIO_INNER_MODEL = "Radio"
+Constants.RADIO_SCREEN_PART = "Screen"
+Constants.RADIO_SCREEN_GUI = "SurfaceGui"
+Constants.RADIO_SCREEN_FRAME = "Frame"
+Constants.RADIO_SCREEN_BACKGROUND = "Background"
+Constants.RADIO_SCREEN_LABEL = "TextLabel"
+Constants.RADIO_SCREEN_LIGHT = "SpotLight"
 -- BaseParts named 1..6; players are placed on them in arrival order
 Constants.CAMP_SPAWNS_FOLDER = "Spawns"
 -- Camp.Mine.Entrance: an anchored part whose position is the mine origin and
@@ -446,6 +460,14 @@ Constants.STRUCTURE_HP_COST_AMOUNT_LABEL = "AmountLabel"
 Constants.STRUCTURE_HP_COST_ICON = "Icon"
 Constants.STRUCTURE_HP_COST_GAIN_LABEL = "GainLabel"
 Constants.CAMP_LEVEL_BILLBOARD_LIFT_STUDS = 5.5
+-- the radio's sign (M31), GameAssets/Gui/RescueRadio
+Constants.RESCUE_RADIO_BILLBOARD = "RescueRadio"
+Constants.RESCUE_RADIO_ROOT_FRAME = "Root"
+Constants.RESCUE_RADIO_TITLE_LABEL = "TitleLabel"
+Constants.RESCUE_RADIO_URANIUM_ROW = "UraniumRow"
+Constants.RESCUE_RADIO_URANIUM_ICON = "Icon"
+Constants.RESCUE_RADIO_URANIUM_LABEL = "UraniumLabel"
+Constants.RESCUE_RADIO_STATUS_LABEL = "StatusLabel"
 -- full-screen frame the refinery's flying icons are parented to, and the
 -- hidden ImageLabel inside it that ClientIconFlightManager clones per icon
 Constants.HUD_FLY_LAYER = "FlyLayer"

@@ -32,6 +32,10 @@ local FORCE_NIGHT_COMMAND = "forceNight"
 local CLEAR_NIGHT_COMMAND = "clearNight"
 local LOSE_RUN_COMMAND = "loseRun"
 local SET_DAY_COMMAND = "setDay"
+-- must match RescueDevTools.*_COMMAND on the server
+local URANIUM_TO_TARGET_COMMAND = "uraniumToTarget"
+local CALL_HELICOPTER_COMMAND = "callHelicopter"
+local BOARD_HELICOPTER_COMMAND = "boardHelicopter"
 
 local function enumKeyOptions(enumTable: Enums.EnumTable): { string }
 	local options = {}
@@ -62,6 +66,15 @@ function ClientRunDevTools:renderSection()
 	end
 	if Iris.Button({ "Lose the run" }).clicked() then
 		self:send(LOSE_RUN_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Uranium to target" }).clicked() then
+		self:send(URANIUM_TO_TARGET_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Call the helicopter" }).clicked() then
+		self:send(CALL_HELICOPTER_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Board the helicopter" }).clicked() then
+		self:send(BOARD_HELICOPTER_COMMAND, {} :: { [string]: any })
 	end
 	Iris.InputNum({ "Day", 1, 1, 99 }, { number = self.dayInput })
 	if Iris.Button({ "Set day (by day only)" }).clicked() then

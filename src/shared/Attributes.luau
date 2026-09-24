@@ -141,6 +141,11 @@ module = {
 	RUN_PHASE_START_TIME = "RunPhaseStartTime",
 	RUN_PHASE_END_TIME = "RunPhaseEndTime",
 	RUN_SCALING_COUNT = "RunScalingCount",
+	-- the rescue (M31): the helicopter down on the pad, and who is aboard of
+	-- how many standing; its countdowns are the run's phase end
+	RESCUE_IS_LANDED = "RescueIsLanded",
+	RESCUE_ABOARD_COUNT = "RescueAboardCount",
+	RESCUE_CREW_COUNT = "RescueCrewCount",
 	RUN_DUSK_SHARE = "RunDuskShare",
 	-- and the sky's blend lengths (shared LightingPresets): the dusk
 	-- seconds at the top of a night, the spawn window night start blends
