@@ -54,8 +54,6 @@ local BODY_BURNING_COLOR = Color3.fromRGB(255, 140, 40)
 local BODY_FLASH_SEC = 0.2
 local BILLBOARD_LIFT_STUDS = 1.5
 local HP_FILL_TWEEN_SEC = 0.15
-local HP_FULL_COLOR = Color3.fromRGB(90, 200, 110)
-local HP_EMPTY_COLOR = Color3.fromRGB(220, 70, 60)
 local DEFAULT_SIZE = Vector3.new(4, 6, 2)
 
 function ClientDamageableManager:findBillboardTemplate(): BillboardGui?
@@ -99,7 +97,7 @@ function ClientDamageableManager:refreshBillboard(shadow: BasePart, billboard: B
 	if fill and fill:IsA("Frame") then
 		local goal = {
 			Size = UDim2.fromScale(share, 1),
-			BackgroundColor3 = HP_EMPTY_COLOR:Lerp(HP_FULL_COLOR, share),
+			BackgroundColor3 = UiStyle.HP_EMPTY_COLOR:Lerp(UiStyle.HP_FULL_COLOR, share),
 		}
 		if isInstant then
 			fill.Size = goal.Size

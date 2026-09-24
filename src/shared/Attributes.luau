@@ -182,13 +182,13 @@ module = {
 	DAMAGEABLE_SPEED_MULTIPLIER = "DamageableSpeedMultiplier",
 	DAMAGEABLE_IS_BURNING = "DamageableIsBurning",
 	-- GameMetadata for the monsters (M29): the visual catalogue (JSON,
-	-- MonsterRules), how far behind the snapshots the client draws, how
-	-- many it animates, where the held pose gives way to the Proxy; and,
-	-- for the stress test panel, the live count and the server's step time
+	-- MonsterRules), how far behind the snapshots the client draws, the
+	-- draw budgets per device tier (JSON, MonsterRules); and,
+	-- for the stress test panel, the live count and the server's step time,
+	-- and whether the path grid is drawn (the dev tool)
 	MONSTER_VISUAL_CATALOG = "MonsterVisualCatalog",
 	MONSTER_INTERPOLATION_DELAY_SEC = "MonsterInterpolationDelaySec",
-	MONSTER_NEAR_ANIMATED_MAX = "MonsterNearAnimatedMax",
-	MONSTER_HELD_POSE_DISTANCE_STUDS = "MonsterHeldPoseDistanceStuds",
+	MONSTER_DRAW_BUDGETS = "MonsterDrawBudgets",
 	MONSTER_ALIVE_COUNT = "MonsterAliveCount",
 	MONSTER_STEP_MS = "MonsterStepMs",
 	MONSTER_PATH_DEBUG = "MonsterPathDebug",

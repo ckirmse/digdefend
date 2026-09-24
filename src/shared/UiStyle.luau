@@ -25,6 +25,9 @@ UiStyle.TEXT_MUTED_COLOR = Color3.fromRGB(190, 184, 176)
 UiStyle.POSITIVE_COLOR = Color3.fromRGB(90, 230, 100)
 UiStyle.NEGATIVE_COLOR = Color3.fromRGB(240, 80, 70)
 UiStyle.DISABLED_COLOR = Color3.fromRGB(110, 106, 100)
+-- every HP bar runs HP_FULL_COLOR to HP_EMPTY_COLOR as the thing weakens
+UiStyle.HP_FULL_COLOR = Color3.fromRGB(90, 200, 110)
+UiStyle.HP_EMPTY_COLOR = Color3.fromRGB(220, 70, 60)
 UiStyle.EMPTY_SLOT_COLOR = Color3.fromRGB(52, 48, 44)
 -- the announcement box (top centre): blue so it never reads as an error
 UiStyle.ANNOUNCEMENT_COLOR = Color3.fromRGB(40, 100, 200)

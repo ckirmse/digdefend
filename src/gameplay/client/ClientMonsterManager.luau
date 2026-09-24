@@ -4,19 +4,28 @@
 -- no monster instances: a NotifyMonstersSpawned names each id's kind, and
 -- positions arrive as packed snapshots (MonsterSnapshotCodec) on the
 -- monster UnreliableRemoteEvent, a few times a second. Each monster keeps
--- its last few samples and is drawn INTERPOLATION_DELAY_SEC behind the
--- server, blended between the two samples around that moment, so movement
--- is smooth whatever the packet timing; a monster past its newest sample
--- (a far one, sent less often) carries on at its last speed for a moment.
+-- its last few samples in a ring of plain numbers and is drawn
+-- INTERPOLATION_DELAY_SEC behind the server, blended between the two
+-- samples around that moment, so movement is smooth whatever the packet
+-- timing; a monster past its newest sample (a far one, sent less often)
+-- carries on at its last speed for a moment.
 -- Level of detail, re-ranked a few times a second by distance from the
--- camera: the NEAR_ANIMATED_MAX closest are the full rig animated (walk,
--- idle, attack, death clips from the visual catalogue), the rest within
--- HELD_POSE_DISTANCE_STUDS are the rig standing still, and anything
--- further is the template's one-part Proxy. Nothing is ever hidden for
--- distance. Rigs and proxies come from pools (GameAssets/Monsters, one
--- per kind's template), are never parented in and out, and every frame all
--- of them move in one workspace:BulkMoveTo. Projectiles fly on the
--- client from the launch message; blasts reuse the Post rocket's effect.
+-- camera with a little hysteresis so nobody flickers between bodies: the
+-- budget's nearAnimatedMax closest are the full rig animated (walk, idle,
+-- attack, death clips from the visual catalogue), the rest within
+-- heldPoseDistanceStuds and beyond are the template's one-part Held body
+-- (its own shape baked into one union, so a far monster still looks like
+-- itself; the Proxy block only stands in for a template without one, and
+-- the rig standing still for one with neither). Nothing is ever hidden
+-- for distance; a far body is placed every other frame. The budget is the server's
+-- DRAW_BUDGETS tier for this device (touch and low graphics quality draw
+-- less; decided 2026-09-24). Bodies come from pools (GameAssets/Monsters,
+-- one per kind's template), are never parented in and out, and every
+-- frame those that moved go in one workspace:BulkMoveTo; a monster that
+-- stood still costs nothing, and a Proxy is placed every other frame.
+-- Projectiles fly on the client from the launch message; blasts reuse the
+-- Post rocket's effect. A hit flashes an animated rig's own pooled
+-- Highlight (the engine draws at most 31; a few at once is plenty).
 -- HP bar (decided 2026-09-23): one bar only, on the damaged monster under
 -- the reticle (the screen centre). Monster parts take no queries, so the
 -- aim is the weapons' ray-against-box maths over the drawn positions, cut
@@ -27,6 +36,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
+local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -35,6 +45,7 @@ local MonsterRules = require("@game/ReplicatedStorage/Shared/MonsterRules")
 local MonsterSnapshotCodec = require("@game/ReplicatedStorage/Shared/MonsterSnapshotCodec")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
+local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
@@ -44,10 +55,36 @@ local ClientPostManager = require(script.Parent.ClientPostManager)
 local ClientMonsterManager = {}
 ClientMonsterManager.__index = ClientMonsterManager
 
-type Sample = {
-	time: number,
-	position: Vector3,
-	yawDegrees: number,
+local NOTIFY_MONSTERS_SPAWNED_SHAPE = {
+	ids = {
+		type = "array",
+		elementType = "positiveInteger",
+	},
+	kinds = {
+		type = "array",
+		elementType = "number",
+	},
+	damageableIds = {
+		type = "array",
+		elementType = "string",
+	},
+}
+local NOTIFY_MONSTERS_DIED_SHAPE = {
+	ids = {
+		type = "array",
+		elementType = "positiveInteger",
+	},
+}
+local NOTIFY_MONSTER_PROJECTILE_SHAPE = {
+	monsterId = "positiveInteger",
+	projectile = "string",
+	from = "vector3",
+	to = "vector3",
+	flightSec = "number",
+}
+local NOTIFY_MONSTER_BLAST_SHAPE = {
+	position = "vector3",
+	radius = "number",
 }
 
 type Rig = {
@@ -57,6 +94,10 @@ type Rig = {
 	animator: Animator?,
 	tracksById: { [string]: AnimationTrack },
 	loopId: string?,
+	loopSpeed: number,
+	-- its own hit flash, toggled rather than made and destroyed
+	highlight: Highlight,
+	flashUntil: number,
 }
 
 -- a kind's hit box, measured from its template's Proxy
@@ -66,11 +107,12 @@ type BodyMetrics = {
 	boxOffsetY: number,
 }
 
-type ProxyEntry = {
-	key: string,
+-- a one-part body (a Held or a Proxy) and the pool it goes back to
+type BodyEntry = {
 	part: BasePart,
-	-- the proxy's place relative to the root
+	-- the part's place relative to the root
 	offset: CFrame,
+	pool: { BodyEntry },
 }
 
 type ClientMonster = {
@@ -78,23 +120,39 @@ type ClientMonster = {
 	kind: number,
 	damageableId: string,
 	visual: MonsterRules.Visual,
-	samples: { Sample },
+	body: BodyMetrics,
+	-- the sample ring: slot `sampleHead` is the newest of `sampleCount`
+	sampleCount: number,
+	sampleHead: number,
+	sampleTimes: { number },
+	sampleXs: { number },
+	sampleYs: { number },
+	sampleZs: { number },
+	sampleYaws: { number },
 	hpShare: number,
 	action: number,
 	attackCounter: number,
 	shownAttackCounter: number,
 	mode: number,
 	rig: Rig?,
-	proxy: ProxyEntry?,
+	held: BodyEntry?,
+	proxy: BodyEntry?,
+	-- where it was last drawn, and the numbers it was built from so an
+	-- unmoved monster is skipped
 	renderCFrame: CFrame?,
+	renderX: number,
+	renderY: number,
+	renderZ: number,
+	renderYaw: number,
+	-- the body changed and must be placed even if the numbers did not
+	isBodyDirty: boolean,
 	distance: number,
 	speedStudsPerSec: number,
-	body: BodyMetrics,
 }
 
 type Dying = {
 	rig: Rig?,
-	proxy: ProxyEntry?,
+	body: BodyEntry?,
 	cframe: CFrame,
 	startTime: number,
 }
@@ -123,16 +181,27 @@ export type ClientMonsterManager = typeof(setmetatable(
 		monsterByDamageableId: { [string]: ClientMonster },
 		catalog: MonsterRules.VisualCatalog,
 		interpolationDelaySec: number,
+		budgets: MonsterRules.DrawBudgets?,
 		nearAnimatedMax: number,
 		heldPoseDistanceStuds: number,
 		folder: Folder?,
 		rigPools: { [string]: { Rig } },
-		proxyPools: { [string]: { ProxyEntry } },
+		heldPools: { [string]: { BodyEntry } },
+		proxyPools: { [string]: { BodyEntry } },
+		-- templates without a Held part, so the miss is looked up once
+		hasNoHeldPart: { [string]: boolean },
 		dying: { Dying },
 		projectiles: { Projectile },
+		flashing: { Rig },
 		lastRankTime: number,
+		isRankPending: boolean,
+		rigClonesLeft: number,
+		frameCount: number,
 		bulkParts: { BasePart },
 		bulkCFrames: { CFrame },
+		bulkCount: number,
+		packetServerTime: number,
+		recordVisitor: MonsterSnapshotCodec.RecordVisitor,
 		bytesThisSecond: number,
 		packetsThisSecond: number,
 		statsWindowStart: number,
@@ -140,11 +209,13 @@ export type ClientMonsterManager = typeof(setmetatable(
 		warnedModels: { [string]: boolean },
 		bodyMetricsByKey: { [string]: BodyMetrics },
 		hpBillboard: BillboardGui?,
+		aimParameters: RaycastParams,
 		aimedMonster: ClientMonster?,
 		hpBarUntil: number,
 		lastAimTime: number,
 		shownHpMonsterId: number?,
 		shownHpShare: number,
+		shownAdornee: BasePart?,
 		hasWarnedHpTemplate: boolean,
 	},
 	ClientMonsterManager
@@ -156,19 +227,28 @@ local MODE_HELD = 2
 local MODE_PROXY = 3
 
 local FOLDER_NAME = "Monsters"
--- a pooled body waits out of sight here rather than leaving the Workspace
-local PARKED_CFRAME = CFrame.new(0, -10000, 0)
+-- a pooled body waits out of sight here rather than leaving the Workspace;
+-- above FallenPartsDestroyHeight so the engine never sweeps it
+local PARKED_CFRAME = CFrame.new(0, -400, 0)
 local RANK_INTERVAL_SEC = 0.2
+-- a monster keeps its body a little past the line it earned it at
+local DEMOTE_DISTANCE_SHARE = 1.1
+local DEMOTE_RANK_SHARE = 1.25
+-- cloning a rig walks every descendant; a night's first crowd is dressed
+-- over a few frames instead of one hitch, proxies standing in meanwhile
+local MAX_RIG_CLONES_PER_FRAME = 5
 local MAX_SAMPLES = 5
 -- a monster past its newest sample keeps moving at its last speed this long
 local MAX_EXTRAPOLATE_SEC = 0.5
 -- the default walk clip is paced for this speed; faster monsters step faster
 local WALK_CLIP_SPEED_STUDS_PER_SEC = 10
+local LOOP_SPEED_MIN_CHANGE = 0.1
 local DEATH_HOLD_SEC = 1
 local DEATH_SINK_SEC = 0.6
 local DEATH_SINK_STUDS = 3
 local HIT_FLASH_SEC = 0.12
 local HIT_FLASH_COLOR = Color3.fromRGB(255, 255, 255)
+local MAX_FLASHES = 8
 -- a projectile's path bows up by this share of its length
 local PROJECTILE_ARC_SHARE = 0.12
 local PROJECTILE_PLACEHOLDER_SIZE = 1.6
@@ -183,15 +263,15 @@ local AIM_INTERVAL_SEC = 0.05
 local AIM_RAY_LENGTH_STUDS = 10000
 local HP_BAR_LINGER_SEC = 0.5
 local HP_BAR_LIFT_STUDS = 1.5
-local HP_FULL_COLOR = Color3.fromRGB(90, 200, 110)
-local HP_EMPTY_COLOR = Color3.fromRGB(220, 70, 60)
 local DEFAULT_BODY: BodyMetrics = {
 	boxSize = Vector3.new(4, 5, 1),
 	boxOffsetY = -0.5,
 }
+-- neutral stand-ins until the server's catalogue and budgets arrive; the
+-- real numbers are GameData, never copied here
 local DEFAULT_VISUAL: MonsterRules.Visual = {
-	model = "ZOMBIE_1",
-	maxHp = 100,
+	model = "",
+	maxHp = 1,
 	isAir = false,
 	walkAnimationId = "",
 	idleAnimationId = nil,
@@ -199,10 +279,37 @@ local DEFAULT_VISUAL: MonsterRules.Visual = {
 	deathAnimationId = "",
 	projectile = nil,
 }
+local DEFAULT_INTERPOLATION_DELAY_SEC = 0
+local DEFAULT_NEAR_ANIMATED_MAX = 0
+local DEFAULT_HELD_POSE_DISTANCE_STUDS = 0
 
 local function yawLerp(from: number, to: number, alpha: number): number
 	local delta = (to - from + 180) % 360 - 180
 	return from + delta * alpha
+end
+
+-- one allocation per placement: the rotation as a quaternion about Y
+local function yawCFrame(x: number, y: number, z: number, yawDegrees: number): CFrame
+	local half = math.rad(yawDegrees) / 2
+	return CFrame.new(x, y, z, 0, math.sin(half), 0, math.cos(half))
+end
+
+-- the ring slot of the k-th oldest of `count` samples ending at `head`
+local function ringSlot(head: number, count: number, k: number): number
+	return (head - count + k - 1) % MAX_SAMPLES + 1
+end
+
+-- the saved graphics quality as 1 to 10, nil for Automatic
+local function savedQualityLevel(): number?
+	local isSuccess, setting = pcall(
+		function()
+			return UserSettings():GetService("UserGameSettings").SavedQualityLevel
+		end
+	)
+	if not isSuccess or setting == Enum.SavedQualitySetting.Automatic then
+		return nil
+	end
+	return setting.Value
 end
 
 function ClientMonsterManager:getFolder(): Folder
@@ -220,7 +327,7 @@ end
 function ClientMonsterManager:findTemplate(modelName: string): Model?
 	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
 	local folder = if gameAssets then gameAssets:FindFirstChild(Constants.MONSTER_TEMPLATES_FOLDER) else nil
-	local template = if folder then folder:FindFirstChild(modelName) else nil
+	local template = if folder and modelName ~= "" then folder:FindFirstChild(modelName) else nil
 	if template and template:IsA("Model") and template.PrimaryPart then
 		return template
 	end
@@ -255,36 +362,51 @@ function ClientMonsterManager:getBodyMetrics(visual: MonsterRules.Visual): BodyM
 	return metrics
 end
 
+-- a pooled rig, or a new clone while the frame's clone budget lasts
 function ClientMonsterManager:acquireRig(visual: MonsterRules.Visual): Rig?
 	local key = self:poolKey(visual)
 	local pool = self.rigPools[key]
 	if pool and #pool > 0 then
 		return table.remove(pool) :: Rig
 	end
+	if self.rigClonesLeft <= 0 then
+		return nil
+	end
 	local template = self:findTemplate(visual.model)
 	if not template then
 		return nil
 	end
+	self.rigClonesLeft -= 1
 	local model = template:Clone()
-	local proxy = model:FindFirstChild(Constants.MONSTER_PROXY_PART)
-	if proxy then
-		proxy:Destroy()
+	for _, partName in { Constants.MONSTER_PROXY_PART, Constants.MONSTER_HELD_PART } do
+		local spare = model:FindFirstChild(partName)
+		if spare then
+			spare:Destroy()
+		end
 	end
 	local root = model.PrimaryPart :: BasePart
 	-- anything the designer adds to a monster (a bomb, a club) is only ever
 	-- looked at: the server decides every hit, so no part collides, takes
-	-- queries, or weighs anything, and only the root is anchored
+	-- queries, casts a shadow, or weighs anything, and only the root is anchored
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("BasePart") then
 			descendant.Anchored = descendant == root
 			descendant.CanCollide = false
 			descendant.CanQuery = false
 			descendant.CanTouch = false
+			descendant.CastShadow = false
 			descendant.Massless = true
 		end
 	end
 	local controller = model:FindFirstChildOfClass("AnimationController")
 	local animator = if controller then controller:FindFirstChildOfClass("Animator") else nil
+	local highlight = Instance.new("Highlight")
+	highlight.FillColor = HIT_FLASH_COLOR
+	highlight.FillTransparency = 0.3
+	highlight.OutlineTransparency = 1
+	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+	highlight.Enabled = false
+	highlight.Parent = model
 	model:PivotTo(PARKED_CFRAME)
 	model.Parent = self:getFolder()
 	return {
@@ -294,6 +416,9 @@ function ClientMonsterManager:acquireRig(visual: MonsterRules.Visual): Rig?
 		animator = animator,
 		tracksById = {},
 		loopId = nil,
+		loopSpeed = 1,
+		highlight = highlight,
+		flashUntil = 0,
 	}
 end
 
@@ -308,11 +433,8 @@ end
 
 function ClientMonsterManager:releaseRig(rig: Rig)
 	self:stopTracks(rig)
-	for _, descendant in rig.model:GetChildren() do
-		if descendant:IsA("Highlight") then
-			descendant:Destroy()
-		end
-	end
+	rig.highlight.Enabled = false
+	rig.flashUntil = 0
 	rig.root.CFrame = PARKED_CFRAME
 	local pool = self.rigPools[rig.key]
 	if not pool then
@@ -322,44 +444,61 @@ function ClientMonsterManager:releaseRig(rig: Rig)
 	table.insert(pool, rig)
 end
 
-function ClientMonsterManager:acquireProxy(visual: MonsterRules.Visual): ProxyEntry?
+-- a one-part body cloned from the named part of the kind's template
+function ClientMonsterManager:acquireBody(visual: MonsterRules.Visual, partName: string, pools: { [string]: { BodyEntry } }): BodyEntry?
 	local key = self:poolKey(visual)
-	local pool = self.proxyPools[key]
-	if pool and #pool > 0 then
-		return table.remove(pool) :: ProxyEntry
+	local pool = pools[key]
+	if not pool then
+		pool = {}
+		pools[key] = pool
+	end
+	if #pool > 0 then
+		return table.remove(pool) :: BodyEntry
 	end
 	local template = self:findTemplate(visual.model)
-	local templateProxy = if template then template:FindFirstChild(Constants.MONSTER_PROXY_PART) else nil
-	if not template or not templateProxy or not templateProxy:IsA("BasePart") then
+	local templatePart = if template then template:FindFirstChild(partName) else nil
+	if not template or not templatePart or not templatePart:IsA("BasePart") then
 		return nil
 	end
 	local root = template.PrimaryPart :: BasePart
-	local part = templateProxy:Clone()
-	-- the template's Proxy is invisible so it never hides the model being
-	-- edited in Studio; drawn far away, it is the monster
+	local part = templatePart:Clone()
+	-- the template's copy is invisible so it never hides the model being
+	-- edited in Studio; drawn out here, it is the monster
 	part.Transparency = 0
 	part.Anchored = true
 	part.CanCollide = false
 	part.CanQuery = false
 	part.CanTouch = false
+	part.CastShadow = false
 	part.CFrame = PARKED_CFRAME
 	part.Parent = self:getFolder()
-	local offset = root.CFrame:ToObjectSpace(templateProxy.CFrame)
 	return {
-		key = key,
 		part = part,
-		offset = offset,
+		offset = root.CFrame:ToObjectSpace(templatePart.CFrame),
+		pool = pool,
 	}
 end
 
-function ClientMonsterManager:releaseProxy(entry: ProxyEntry)
-	entry.part.CFrame = PARKED_CFRAME
-	local pool = self.proxyPools[entry.key]
-	if not pool then
-		pool = {}
-		self.proxyPools[entry.key] = pool
+function ClientMonsterManager:acquireProxy(visual: MonsterRules.Visual): BodyEntry?
+	return self:acquireBody(visual, Constants.MONSTER_PROXY_PART, self.proxyPools)
+end
+
+-- nil for a template without a Held part; the rig stands in then
+function ClientMonsterManager:acquireHeld(visual: MonsterRules.Visual): BodyEntry?
+	local key = self:poolKey(visual)
+	if self.hasNoHeldPart[key] then
+		return nil
 	end
-	table.insert(pool, entry)
+	local entry = self:acquireBody(visual, Constants.MONSTER_HELD_PART, self.heldPools)
+	if not entry then
+		self.hasNoHeldPart[key] = true
+	end
+	return entry
+end
+
+function ClientMonsterManager:releaseBody(entry: BodyEntry)
+	entry.part.CFrame = PARKED_CFRAME
+	table.insert(entry.pool, entry)
 end
 
 function ClientMonsterManager:getTrack(rig: Rig, animationId: string?): AnimationTrack?
@@ -382,159 +521,217 @@ function ClientMonsterManager:getTrack(rig: Rig, animationId: string?): Animatio
 end
 
 -- the looping clip for what the monster is doing: walk while moving, idle
--- (or nothing) while engaged
+-- (or nothing) while engaged, paced to its speed
 function ClientMonsterManager:playLoop(monster: ClientMonster, rig: Rig)
 	local visual = monster.visual
-	local loopId = if monster.action == Enums.MonsterAction.MOVING then visual.walkAnimationId else visual.idleAnimationId
-	if rig.loopId == loopId then
+	local isMoving = monster.action == Enums.MonsterAction.MOVING
+	local loopId = if isMoving then visual.walkAnimationId else visual.idleAnimationId
+	if rig.loopId ~= loopId then
+		local previous = if rig.loopId then rig.tracksById[rig.loopId] else nil
+		if previous then
+			previous:Stop(0.15)
+		end
+		rig.loopId = loopId
+		local track = self:getTrack(rig, loopId)
+		if track then
+			track.Looped = true
+			track:Play(0.15)
+		end
+	end
+	if not isMoving then
 		return
 	end
-	local previous = if rig.loopId then rig.tracksById[rig.loopId] else nil
-	if previous then
-		previous:Stop(0.15)
-	end
-	rig.loopId = loopId
-	local track = self:getTrack(rig, loopId)
-	if track then
-		track.Looped = true
-		track:Play(0.15)
+	local loop = if rig.loopId then rig.tracksById[rig.loopId] else nil
+	local speed = math.clamp(monster.speedStudsPerSec / WALK_CLIP_SPEED_STUDS_PER_SEC, 0.5, 2.5)
+	if loop and math.abs(speed - rig.loopSpeed) >= LOOP_SPEED_MIN_CHANGE then
+		rig.loopSpeed = speed
+		loop:AdjustSpeed(speed)
 	end
 end
 
+function ClientMonsterManager:playAttackIfNeeded(monster: ClientMonster, rig: Rig)
+	if monster.attackCounter == monster.shownAttackCounter then
+		return
+	end
+	monster.shownAttackCounter = monster.attackCounter
+	local attack = self:getTrack(rig, monster.visual.attackAnimationId)
+	if attack then
+		attack.Looped = false
+		attack:Play(0.05)
+	end
+end
+
+-- gives the monster the body its mode wants: the rig when animated, else
+-- the template's one-part Held union at any distance (decided 2026-09-24:
+-- a far monster keeps its own shape), the Proxy block only for a template
+-- with no Held yet, and the rig standing still for one with neither. A rig
+-- the clone budget refuses leaves it a one-part body and asks for another
+-- ranking next frame
 function ClientMonsterManager:setMode(monster: ClientMonster, mode: number)
 	if monster.mode == mode then
 		return
 	end
-	monster.mode = mode
-	if mode == MODE_PROXY then
-		if monster.rig then
-			self:releaseRig(monster.rig :: Rig)
-			monster.rig = nil
-		end
-		if not monster.proxy then
-			monster.proxy = self:acquireProxy(monster.visual)
-		end
-		return
+	local key = self:poolKey(monster.visual)
+	if mode ~= MODE_ANIMATED and not monster.held and self.hasNoHeldPart[key] ~= true then
+		monster.held = self:acquireHeld(monster.visual)
 	end
-	if monster.proxy then
-		self:releaseProxy(monster.proxy :: ProxyEntry)
-		monster.proxy = nil
-	end
-	if not monster.rig then
+	local wantsRig = mode == MODE_ANIMATED or (mode == MODE_HELD and monster.held == nil)
+	if wantsRig and not monster.rig then
 		monster.rig = self:acquireRig(monster.visual)
+		if not monster.rig then
+			self.isRankPending = true
+			mode = MODE_PROXY
+			wantsRig = false
+		end
+	end
+	monster.mode = mode
+	monster.isBodyDirty = true
+	local spareRig: Rig? = monster.rig
+	if spareRig and not wantsRig then
+		self:releaseRig(spareRig)
+		monster.rig = nil
+	end
+	local spareHeld: BodyEntry? = monster.held
+	if spareHeld and wantsRig then
+		self:releaseBody(spareHeld)
+		monster.held = nil
+	end
+	local spareProxy: BodyEntry? = monster.proxy
+	if not wantsRig and not monster.held then
+		monster.proxy = spareProxy or self:acquireProxy(monster.visual)
+	elseif spareProxy then
+		self:releaseBody(spareProxy)
+		monster.proxy = nil
 	end
 	local rig = monster.rig
 	if not rig then
 		return
 	end
-	if mode == MODE_HELD then
-		self:stopTracks(rig)
-	else
+	if mode == MODE_ANIMATED then
 		monster.shownAttackCounter = monster.attackCounter
 		self:playLoop(monster, rig)
+	else
+		self:stopTracks(rig)
 	end
 end
 
--- where the monster is drawn at renderTime, from the samples around it
-function ClientMonsterManager:sampleAt(monster: ClientMonster, renderTime: number): CFrame?
-	local samples = monster.samples
-	local count = #samples
+-- where the monster is at renderTime, from the samples around it, as
+-- plain numbers written to its render fields; false with no samples
+function ClientMonsterManager:sampleInto(monster: ClientMonster, renderTime: number): boolean
+	local count = monster.sampleCount
 	if count == 0 then
-		return nil
+		return false
 	end
-	local position: Vector3
-	local yaw: number
-	if count == 1 or renderTime <= samples[1].time then
-		position = samples[1].position
-		yaw = samples[1].yawDegrees
-	elseif renderTime >= samples[count].time then
-		local last = samples[count]
-		local before = samples[count - 1]
-		local span = last.time - before.time
-		local ahead = math.min(renderTime - last.time, MAX_EXTRAPOLATE_SEC)
-		local velocity = if span > 1e-4 then (last.position - before.position) / span else Vector3.zero
-		position = last.position + velocity * ahead
-		yaw = last.yawDegrees
-	else
-		position = samples[count].position
-		yaw = samples[count].yawDegrees
-		for index = 1, count - 1 do
-			local from = samples[index]
-			local to = samples[index + 1]
-			if renderTime >= from.time and renderTime < to.time then
-				local alpha = (renderTime - from.time) / (to.time - from.time)
-				position = from.position:Lerp(to.position, alpha)
-				yaw = yawLerp(from.yawDegrees, to.yawDegrees, alpha)
-				break
-			end
+	local head = monster.sampleHead
+	local times = monster.sampleTimes
+	local xs = monster.sampleXs
+	local ys = monster.sampleYs
+	local zs = monster.sampleZs
+	local yaws = monster.sampleYaws
+	local oldest = ringSlot(head, count, 1)
+	if count == 1 or renderTime <= times[oldest] then
+		monster.renderX = xs[oldest]
+		monster.renderY = ys[oldest]
+		monster.renderZ = zs[oldest]
+		monster.renderYaw = yaws[oldest]
+		return true
+	end
+	if renderTime >= times[head] then
+		local before = ringSlot(head, count, count - 1)
+		local span = times[head] - times[before]
+		local ahead = math.min(renderTime - times[head], MAX_EXTRAPOLATE_SEC)
+		local rate = if span > 1e-4 then ahead / span else 0
+		monster.renderX = xs[head] + (xs[head] - xs[before]) * rate
+		monster.renderY = ys[head] + (ys[head] - ys[before]) * rate
+		monster.renderZ = zs[head] + (zs[head] - zs[before]) * rate
+		monster.renderYaw = yaws[head]
+		return true
+	end
+	for k = 1, count - 1 do
+		local from = ringSlot(head, count, k)
+		local to = ringSlot(head, count, k + 1)
+		if renderTime >= times[from] and renderTime < times[to] then
+			local alpha = (renderTime - times[from]) / (times[to] - times[from])
+			monster.renderX = xs[from] + (xs[to] - xs[from]) * alpha
+			monster.renderY = ys[from] + (ys[to] - ys[from]) * alpha
+			monster.renderZ = zs[from] + (zs[to] - zs[from]) * alpha
+			monster.renderYaw = yawLerp(yaws[from], yaws[to], alpha)
+			return true
 		end
 	end
-	return CFrame.new(position) * CFrame.Angles(0, math.rad(yaw), 0)
+	monster.renderX = xs[head]
+	monster.renderY = ys[head]
+	monster.renderZ = zs[head]
+	monster.renderYaw = yaws[head]
+	return true
 end
 
-function ClientMonsterManager:addSample(monster: ClientMonster, sample: Sample)
-	local samples = monster.samples
-	local count = #samples
-	if count > 0 and sample.time <= samples[count].time then
-		-- an unreliable packet arrived out of order: slot it in, or drop a duplicate
-		for index = count, 1, -1 do
-			if samples[index].time == sample.time then
-				return
-			end
-			if samples[index].time < sample.time then
-				table.insert(samples, index + 1, sample)
-				break
-			end
-			if index == 1 then
-				table.insert(samples, 1, sample)
-			end
-		end
-	else
-		table.insert(samples, sample)
+-- one record of a snapshot applied to its monster; an unreliable packet
+-- that arrives behind a newer one is dropped, the next is on its way
+function ClientMonsterManager:applyRecord(id: number, x: number, y: number, z: number, yawDegrees: number, hpShare: number, action: number, attackCounter: number)
+	local monster = self.monstersById[id]
+	if not monster then
+		return
 	end
-	while #samples > MAX_SAMPLES do
-		table.remove(samples, 1)
+	local time = self.packetServerTime
+	local count = monster.sampleCount
+	local head = monster.sampleHead
+	if count > 0 and time <= monster.sampleTimes[head] then
+		return
 	end
-	local newest = samples[#samples]
-	local previous = samples[#samples - 1]
-	if previous and newest.time > previous.time then
-		local offset = newest.position - previous.position
-		monster.speedStudsPerSec = Vector3.new(offset.X, 0, offset.Z).Magnitude / (newest.time - previous.time)
+	local slot = head % MAX_SAMPLES + 1
+	monster.sampleHead = slot
+	monster.sampleCount = math.min(count + 1, MAX_SAMPLES)
+	monster.sampleTimes[slot] = time
+	monster.sampleXs[slot] = x
+	monster.sampleYs[slot] = y
+	monster.sampleZs[slot] = z
+	monster.sampleYaws[slot] = yawDegrees
+	if count > 0 then
+		local deltaX = x - monster.sampleXs[head]
+		local deltaZ = z - monster.sampleZs[head]
+		monster.speedStudsPerSec = math.sqrt(deltaX * deltaX + deltaZ * deltaZ) / (time - monster.sampleTimes[head])
+	end
+	monster.hpShare = hpShare
+	monster.action = action
+	monster.attackCounter = attackCounter
+	local rig = monster.rig
+	if rig and monster.mode == MODE_ANIMATED then
+		self:playLoop(monster, rig)
+		self:playAttackIfNeeded(monster, rig)
 	end
 end
 
 function ClientMonsterManager:onSnapshot(packet: any)
-	local serverTime, records = MonsterSnapshotCodec.decode(packet)
-	if not serverTime or not records then
+	if typeof(packet) ~= "buffer" then
+		return
+	end
+	-- the visitor reads the time from here, so a packet is one pass with
+	-- no record tables
+	self.packetServerTime = 0
+	local isSuccess, headerTime = pcall(buffer.readf64, packet, 0)
+	if not isSuccess then
+		return
+	end
+	self.packetServerTime = headerTime
+	local serverTime = MonsterSnapshotCodec.forEachRecord(packet, self.recordVisitor)
+	if not serverTime then
 		return
 	end
 	self.bytesThisSecond += buffer.len(packet)
 	self.packetsThisSecond += 1
-	for _, record in records do
-		local monster = self.monstersById[record.id]
-		if not monster then
-			continue
-		end
-		self:addSample(monster, {
-			time = serverTime,
-			position = record.position,
-			yawDegrees = record.yawDegrees,
-		})
-		monster.hpShare = record.hpShare
-		monster.action = record.action
-		monster.attackCounter = record.attackCounter
-	end
 end
 
 function ClientMonsterManager:onSpawned(payload: any)
-	if typeof(payload) ~= "table" or typeof(payload.ids) ~= "table" or typeof(payload.kinds) ~= "table" or typeof(payload.damageableIds) ~= "table" then
-		warn("ClientMonsterManager: malformed NotifyMonstersSpawned")
+	local isValid, errorMessage = Validate.isTableShape(payload, NOTIFY_MONSTERS_SPAWNED_SHAPE)
+	if not isValid then
+		warn("ClientMonsterManager: malformed NotifyMonstersSpawned:", errorMessage)
 		return
 	end
 	for index, id in payload.ids do
 		local kind = payload.kinds[index]
 		local damageableId = payload.damageableIds[index]
-		if typeof(id) ~= "number" or typeof(kind) ~= "number" or typeof(damageableId) ~= "string" then
+		if typeof(kind) ~= "number" or typeof(damageableId) ~= "string" then
 			continue
 		end
 		local previous = self.monstersById[id]
@@ -547,24 +744,36 @@ function ClientMonsterManager:onSpawned(payload: any)
 			kind = kind,
 			damageableId = damageableId,
 			visual = visual,
-			samples = {},
+			body = self:getBodyMetrics(visual),
+			sampleCount = 0,
+			sampleHead = MAX_SAMPLES,
+			sampleTimes = table.create(MAX_SAMPLES, 0),
+			sampleXs = table.create(MAX_SAMPLES, 0),
+			sampleYs = table.create(MAX_SAMPLES, 0),
+			sampleZs = table.create(MAX_SAMPLES, 0),
+			sampleYaws = table.create(MAX_SAMPLES, 0),
 			hpShare = 1,
 			action = Enums.MonsterAction.MOVING,
 			attackCounter = 0,
 			shownAttackCounter = 0,
 			mode = MODE_NONE,
 			rig = nil,
+			held = nil,
 			proxy = nil,
 			renderCFrame = nil,
+			renderX = 0,
+			renderY = 0,
+			renderZ = 0,
+			renderYaw = 0,
+			isBodyDirty = true,
 			distance = math.huge,
 			speedStudsPerSec = 0,
-			body = self:getBodyMetrics(visual),
 		}
 		self.monstersById[id] = monster
 		self.monsterByDamageableId[damageableId] = monster
 	end
 	-- a fresh crowd is ranked on the next frame
-	self.lastRankTime = 0
+	self.isRankPending = true
 end
 
 -- a death keeps the body a moment for its clip, then sinks it away; a
@@ -573,7 +782,8 @@ function ClientMonsterManager:removeMonster(monster: ClientMonster, isDeath: boo
 	self.monstersById[monster.id] = nil
 	self.monsterByDamageableId[monster.damageableId] = nil
 	local cframe = monster.renderCFrame
-	if isDeath and cframe and (monster.rig or monster.proxy) then
+	local body = monster.held or monster.proxy
+	if isDeath and cframe and (monster.rig or body) then
 		local rig = monster.rig
 		if rig and monster.mode == MODE_ANIMATED then
 			self:stopTracks(rig)
@@ -585,7 +795,7 @@ function ClientMonsterManager:removeMonster(monster: ClientMonster, isDeath: boo
 		end
 		table.insert(self.dying, {
 			rig = rig,
-			proxy = monster.proxy,
+			body = body,
 			cframe = cframe,
 			startTime = workspace:GetServerTimeNow(),
 		})
@@ -594,14 +804,15 @@ function ClientMonsterManager:removeMonster(monster: ClientMonster, isDeath: boo
 	if monster.rig then
 		self:releaseRig(monster.rig :: Rig)
 	end
-	if monster.proxy then
-		self:releaseProxy(monster.proxy :: ProxyEntry)
+	if body then
+		self:releaseBody(body)
 	end
 end
 
 function ClientMonsterManager:onDied(payload: any)
-	if typeof(payload) ~= "table" or typeof(payload.ids) ~= "table" then
-		warn("ClientMonsterManager: malformed NotifyMonstersDied")
+	local isValid, errorMessage = Validate.isTableShape(payload, NOTIFY_MONSTERS_DIED_SHAPE)
+	if not isValid then
+		warn("ClientMonsterManager: malformed NotifyMonstersDied:", errorMessage)
 		return
 	end
 	for _, id in payload.ids do
@@ -613,13 +824,14 @@ function ClientMonsterManager:onDied(payload: any)
 end
 
 function ClientMonsterManager:onProjectile(payload: any)
-	if typeof(payload) ~= "table" or typeof(payload.from) ~= "Vector3" or typeof(payload.to) ~= "Vector3" or typeof(payload.flightSec) ~= "number" then
-		warn("ClientMonsterManager: malformed NotifyMonsterProjectile")
+	local isValid, errorMessage = Validate.isTableShape(payload, NOTIFY_MONSTER_PROJECTILE_SHAPE)
+	if not isValid then
+		warn("ClientMonsterManager: malformed NotifyMonsterProjectile:", errorMessage)
 		return
 	end
 	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
 	local folder = if gameAssets then gameAssets:FindFirstChild(Constants.PROJECTILE_TEMPLATES_FOLDER) else nil
-	local template = if folder and typeof(payload.projectile) == "string" then folder:FindFirstChild(payload.projectile) else nil
+	local template = if folder and payload.projectile ~= "" then folder:FindFirstChild(payload.projectile) else nil
 	local part: BasePart
 	if template and template:IsA("BasePart") then
 		part = template:Clone()
@@ -635,6 +847,7 @@ function ClientMonsterManager:onProjectile(payload: any)
 	part.CanCollide = false
 	part.CanQuery = false
 	part.CanTouch = false
+	part.CastShadow = false
 	part.CFrame = CFrame.new(payload.from)
 	part.Parent = self:getFolder()
 	table.insert(self.projectiles, {
@@ -647,24 +860,25 @@ function ClientMonsterManager:onProjectile(payload: any)
 end
 
 function ClientMonsterManager:onBlast(payload: any)
-	if typeof(payload) ~= "table" or typeof(payload.position) ~= "Vector3" then
-		warn("ClientMonsterManager: malformed NotifyMonsterBlast")
+	local isValid, errorMessage = Validate.isTableShape(payload, NOTIFY_MONSTER_BLAST_SHAPE)
+	if not isValid then
+		warn("ClientMonsterManager: malformed NotifyMonsterBlast:", errorMessage)
 		return
 	end
 	if ClientPostManager:playAuthoredBlast(payload.position, BLAST_TEMPLATE) then
 		return
 	end
-	local radius = if typeof(payload.radius) == "number" then payload.radius else 5
 	local ball = Instance.new("Part")
 	ball.Shape = Enum.PartType.Ball
 	ball.Anchored = true
 	ball.CanCollide = false
 	ball.CanQuery = false
 	ball.CanTouch = false
+	ball.CastShadow = false
 	ball.Material = Enum.Material.Neon
 	ball.Color = BLAST_PLACEHOLDER_COLOR
 	ball.Transparency = 0.4
-	ball.Size = Vector3.one * radius * 2
+	ball.Size = Vector3.one * payload.radius * 2
 	ball.CFrame = CFrame.new(payload.position)
 	ball.Parent = self:getFolder()
 	Debris:AddItem(ball, BLAST_PLACEHOLDER_SEC)
@@ -677,26 +891,56 @@ function ClientMonsterManager:getBodyPosition(damageableId: string): Vector3?
 	return if cframe then cframe.Position else nil
 end
 
+-- an animated rig flashes its own Highlight; a body further away, or one
+-- past the flash cap, takes the hit silently
 function ClientMonsterManager:flashHit(damageableId: string): boolean
 	local monster = self.monsterByDamageableId[damageableId]
 	if not monster then
 		return false
 	end
 	local rig = monster.rig
-	if rig then
-		local highlight = Instance.new("Highlight")
-		highlight.FillColor = HIT_FLASH_COLOR
-		highlight.FillTransparency = 0.3
-		highlight.OutlineTransparency = 1
-		highlight.DepthMode = Enum.HighlightDepthMode.Occluded
-		highlight.Parent = rig.model
-		Debris:AddItem(highlight, HIT_FLASH_SEC)
+	if not rig or monster.mode ~= MODE_ANIMATED then
+		return true
 	end
+	local now = workspace:GetServerTimeNow()
+	if rig.flashUntil <= now then
+		if #self.flashing >= MAX_FLASHES then
+			return true
+		end
+		table.insert(self.flashing, rig)
+		rig.highlight.Enabled = true
+	end
+	rig.flashUntil = now + HIT_FLASH_SEC
 	return true
+end
+
+function ClientMonsterManager:stepFlashes(now: number)
+	local flashing = self.flashing
+	local index = #flashing
+	while index > 0 do
+		local rig = flashing[index]
+		if now >= rig.flashUntil then
+			rig.highlight.Enabled = false
+			flashing[index] = flashing[#flashing]
+			flashing[#flashing] = nil
+		end
+		index -= 1
+	end
 end
 
 function ClientMonsterManager:getStats(): Stats
 	return self.stats
+end
+
+-- the world the aim ray stops at: every monster body and this character
+-- are see-through
+function ClientMonsterManager:refreshAimFilter()
+	local excluded: { Instance } = { self:getFolder() }
+	local character = Players.LocalPlayer.Character
+	if character then
+		table.insert(excluded, character)
+	end
+	self.aimParameters.FilterDescendantsInstances = excluded
 end
 
 -- the damaged monster under the screen centre, nearest first; the world
@@ -704,15 +948,7 @@ end
 function ClientMonsterManager:findAimedMonster(camera: Camera): ClientMonster?
 	local origin = camera.CFrame.Position
 	local direction = camera.CFrame.LookVector
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local excluded: { Instance } = { self:getFolder() }
-	local character = Players.LocalPlayer.Character
-	if character then
-		table.insert(excluded, character)
-	end
-	params.FilterDescendantsInstances = excluded
-	local worldHit = workspace:Raycast(origin, direction * AIM_RAY_LENGTH_STUDS, params)
+	local worldHit = workspace:Raycast(origin, direction * AIM_RAY_LENGTH_STUDS, self.aimParameters)
 	local reach = if worldHit then worldHit.Distance else AIM_RAY_LENGTH_STUDS
 	local best: ClientMonster? = nil
 	local bestDistance = reach
@@ -781,12 +1017,21 @@ function ClientMonsterManager:writeHpBar(billboard: BillboardGui, monster: Clien
 	end
 	if fill and fill:IsA("Frame") then
 		fill.Size = UDim2.fromScale(share, 1)
-		fill.BackgroundColor3 = HP_EMPTY_COLOR:Lerp(HP_FULL_COLOR, share)
+		fill.BackgroundColor3 = UiStyle.HP_EMPTY_COLOR:Lerp(UiStyle.HP_FULL_COLOR, share)
 	end
 end
 
--- aims a few times a second; the bar follows whichever body (rig or
--- proxy) the monster is drawn with, and is rewritten only when it changes
+-- the part the bar hangs on: the rig's root, else the one-part body
+function ClientMonsterManager:adorneeOf(monster: ClientMonster): BasePart?
+	if monster.rig then
+		return (monster.rig :: Rig).root
+	end
+	local body = monster.held or monster.proxy
+	return if body then body.part else nil
+end
+
+-- aims a few times a second; the bar follows whichever body the monster is
+-- drawn with, and every write happens only when its value changes
 function ClientMonsterManager:updateHpBar(now: number)
 	local camera = workspace.CurrentCamera
 	if camera and now - self.lastAimTime >= AIM_INTERVAL_SEC then
@@ -808,18 +1053,24 @@ function ClientMonsterManager:updateHpBar(now: number)
 	if not billboard then
 		return
 	end
-	local adornee = if monster and monster.rig then (monster.rig :: Rig).root elseif monster and monster.proxy then (monster.proxy :: ProxyEntry).part else nil
+	local adornee = if monster then self:adorneeOf(monster) else nil
 	if not monster or not adornee or monster.hpShare >= 1 then
-		billboard.Enabled = false
-		billboard.Adornee = nil
-		self.shownHpMonsterId = nil
+		if self.shownAdornee ~= nil then
+			billboard.Enabled = false
+			billboard.Adornee = nil
+			self.shownAdornee = nil
+			self.shownHpMonsterId = nil
+		end
 		return
 	end
-	billboard.Adornee = adornee
-	-- the proxy is centred on the body, the rig's root sits at its middle
-	local topOffset = if monster.rig then monster.body.boxOffsetY + monster.body.boxSize.Y / 2 else monster.body.boxSize.Y / 2
-	billboard.StudsOffsetWorldSpace = Vector3.new(0, topOffset + HP_BAR_LIFT_STUDS, 0)
-	billboard.Enabled = true
+	if self.shownAdornee ~= adornee then
+		self.shownAdornee = adornee
+		billboard.Adornee = adornee
+		-- the one-part bodies are centred on the box, the rig's root sits at its middle
+		local topOffset = if monster.rig then monster.body.boxOffsetY + monster.body.boxSize.Y / 2 else monster.body.boxSize.Y / 2
+		billboard.StudsOffsetWorldSpace = Vector3.new(0, topOffset + HP_BAR_LIFT_STUDS, 0)
+		billboard.Enabled = true
+	end
 	if self.shownHpMonsterId ~= monster.id or self.shownHpShare ~= monster.hpShare then
 		self.shownHpMonsterId = monster.id
 		self.shownHpShare = monster.hpShare
@@ -827,13 +1078,19 @@ function ClientMonsterManager:updateHpBar(now: number)
 	end
 end
 
--- which monsters are animated, held, or proxies, by distance from the camera
+-- which monsters are animated, held, or proxies, by distance from the
+-- camera. A monster keeps the body it has a little past the line it
+-- earned it at, so one hovering on a line does not swap bodies every rank
 function ClientMonsterManager:rank(cameraPosition: Vector3)
-	local ordered = {}
+	self.isRankPending = false
+	self.rigClonesLeft = MAX_RIG_CLONES_PER_FRAME
+	local ordered: { ClientMonster } = {}
 	for _, monster in self.monstersById do
 		local cframe = monster.renderCFrame
 		monster.distance = if cframe then (cframe.Position - cameraPosition).Magnitude else math.huge
-		table.insert(ordered, monster)
+		if cframe then
+			table.insert(ordered, monster)
+		end
 	end
 	table.sort(
 		ordered,
@@ -841,15 +1098,31 @@ function ClientMonsterManager:rank(cameraPosition: Vector3)
 			return first.distance < second.distance
 		end
 	)
+	local heldLimit = self.heldPoseDistanceStuds
+	local keepHeldLimit = heldLimit * DEMOTE_DISTANCE_SHARE
+	local animatedSlots = self.nearAnimatedMax
+	local keepAnimatedRank = math.floor(animatedSlots * DEMOTE_RANK_SHARE)
+	-- pass one: the animated that are still close enough keep their rigs
 	local animated = 0
+	for rankIndex, monster in ordered do
+		if monster.mode == MODE_ANIMATED and rankIndex <= keepAnimatedRank and monster.distance <= keepHeldLimit and animated < animatedSlots then
+			animated += 1
+		else
+			monster.distance = -monster.distance
+		end
+	end
+	-- pass two: the nearest others fill the slots left; the sign marks who
+	-- was kept in pass one
 	for _, monster in ordered do
-		if monster.distance == math.huge then
+		if monster.distance >= 0 then
 			continue
 		end
-		if monster.distance <= self.heldPoseDistanceStuds and animated < self.nearAnimatedMax then
+		local distance = -monster.distance
+		monster.distance = distance
+		if animated < animatedSlots and distance <= heldLimit then
 			animated += 1
 			self:setMode(monster, MODE_ANIMATED)
-		elseif monster.distance <= self.heldPoseDistanceStuds then
+		elseif distance <= heldLimit or (monster.mode == MODE_HELD and distance <= keepHeldLimit) then
 			self:setMode(monster, MODE_HELD)
 		else
 			self:setMode(monster, MODE_PROXY)
@@ -857,113 +1130,129 @@ function ClientMonsterManager:rank(cameraPosition: Vector3)
 	end
 end
 
+function ClientMonsterManager:pushBulk(part: BasePart, cframe: CFrame)
+	local count = self.bulkCount + 1
+	self.bulkCount = count
+	self.bulkParts[count] = part
+	self.bulkCFrames[count] = cframe
+end
+
 function ClientMonsterManager:stepProjectiles(now: number)
-	if #self.projectiles == 0 then
-		return
-	end
-	local flying = {}
-	for _, projectile in self.projectiles do
+	local projectiles = self.projectiles
+	local index = #projectiles
+	while index > 0 do
+		local projectile = projectiles[index]
 		local alpha = (now - projectile.startTime) / projectile.flightSec
 		if alpha >= 1 then
 			projectile.part:Destroy()
-			continue
+			projectiles[index] = projectiles[#projectiles]
+			projectiles[#projectiles] = nil
+		else
+			local length = (projectile.to - projectile.from).Magnitude
+			local lift = math.sin(alpha * math.pi) * length * PROJECTILE_ARC_SHARE
+			self:pushBulk(projectile.part, CFrame.new(projectile.from:Lerp(projectile.to, alpha) + Vector3.new(0, lift, 0)))
 		end
-		local length = (projectile.to - projectile.from).Magnitude
-		local lift = math.sin(alpha * math.pi) * length * PROJECTILE_ARC_SHARE
-		table.insert(self.bulkParts, projectile.part)
-		table.insert(self.bulkCFrames, CFrame.new(projectile.from:Lerp(projectile.to, alpha) + Vector3.new(0, lift, 0)))
-		table.insert(flying, projectile)
+		index -= 1
 	end
-	self.projectiles = flying
 end
 
 function ClientMonsterManager:stepDying(now: number)
-	if #self.dying == 0 then
-		return
-	end
-	local remaining = {}
-	for _, entry in self.dying do
+	local dying = self.dying
+	local index = #dying
+	while index > 0 do
+		local entry = dying[index]
 		local age = now - entry.startTime
 		if age >= DEATH_HOLD_SEC + DEATH_SINK_SEC then
 			if entry.rig then
 				self:releaseRig(entry.rig :: Rig)
 			end
-			if entry.proxy then
-				self:releaseProxy(entry.proxy :: ProxyEntry)
+			if entry.body then
+				self:releaseBody(entry.body :: BodyEntry)
 			end
-			continue
+			dying[index] = dying[#dying]
+			dying[#dying] = nil
+		else
+			local sink = math.max(0, age - DEATH_HOLD_SEC) / DEATH_SINK_SEC * DEATH_SINK_STUDS
+			local cframe: CFrame = entry.cframe * CFrame.new(0, -sink, 0)
+			if entry.rig then
+				self:pushBulk((entry.rig :: Rig).root, cframe)
+			end
+			if entry.body then
+				local body = entry.body :: BodyEntry
+				self:pushBulk(body.part, cframe * body.offset)
+			end
 		end
-		local sink = math.max(0, age - DEATH_HOLD_SEC) / DEATH_SINK_SEC * DEATH_SINK_STUDS
-		local cframe = entry.cframe - Vector3.new(0, sink, 0)
-		if entry.rig then
-			table.insert(self.bulkParts, (entry.rig :: Rig).root)
-			table.insert(self.bulkCFrames, cframe)
-		end
-		if entry.proxy then
-			local proxy = entry.proxy :: ProxyEntry
-			table.insert(self.bulkParts, proxy.part)
-			table.insert(self.bulkCFrames, cframe * proxy.offset)
-		end
-		table.insert(remaining, entry)
+		index -= 1
 	end
-	self.dying = remaining
 end
 
 function ClientMonsterManager:render()
 	local startTime = workspace:GetServerTimeNow()
 	local camera = workspace.CurrentCamera
 	local renderTime = startTime - self.interpolationDelaySec
-	if camera and startTime - self.lastRankTime >= RANK_INTERVAL_SEC then
+	self.frameCount += 1
+	if camera and (self.isRankPending or startTime - self.lastRankTime >= RANK_INTERVAL_SEC) then
 		self.lastRankTime = startTime
 		self:rank(camera.CFrame.Position)
 	end
-	table.clear(self.bulkParts)
-	table.clear(self.bulkCFrames)
+	self.bulkCount = 0
+	local frameParity = self.frameCount % 2
 	local animatedCount = 0
 	local heldCount = 0
 	local proxyCount = 0
 	local aliveCount = 0
-	for _, monster in self.monstersById do
+	for id, monster in self.monstersById do
 		aliveCount += 1
-		local cframe = self:sampleAt(monster, renderTime)
-		monster.renderCFrame = cframe
-		if not cframe then
-			continue
-		end
-		local rig = monster.rig
-		if rig then
-			table.insert(self.bulkParts, rig.root)
-			table.insert(self.bulkCFrames, cframe)
-			if monster.mode == MODE_ANIMATED then
-				animatedCount += 1
-				self:playLoop(monster, rig)
-				local loop = if rig.loopId then rig.tracksById[rig.loopId] else nil
-				if loop and monster.action == Enums.MonsterAction.MOVING then
-					loop:AdjustSpeed(math.clamp(monster.speedStudsPerSec / WALK_CLIP_SPEED_STUDS_PER_SEC, 0.5, 2.5))
-				end
-				if monster.attackCounter ~= monster.shownAttackCounter then
-					monster.shownAttackCounter = monster.attackCounter
-					local attack = self:getTrack(rig, monster.visual.attackAnimationId)
-					if attack then
-						attack.Looped = false
-						attack:Play(0.05)
-					end
-				end
-			else
-				heldCount += 1
+		local mode = monster.mode
+		if mode == MODE_ANIMATED then
+			animatedCount += 1
+		elseif mode == MODE_HELD then
+			heldCount += 1
+		elseif mode == MODE_PROXY then
+			proxyCount += 1
+			-- a far block is small on screen: half of them move each frame
+			if id % 2 ~= frameParity and not monster.isBodyDirty then
+				continue
 			end
 		end
-		local proxy = monster.proxy
-		if proxy then
-			proxyCount += 1
-			table.insert(self.bulkParts, proxy.part)
-			table.insert(self.bulkCFrames, cframe * proxy.offset)
+		local previousX = monster.renderX
+		local previousY = monster.renderY
+		local previousZ = monster.renderZ
+		local previousYaw = monster.renderYaw
+		if not self:sampleInto(monster, renderTime) then
+			continue
+		end
+		local isMoved = monster.renderCFrame == nil
+			or previousX ~= monster.renderX
+			or previousY ~= monster.renderY
+			or previousZ ~= monster.renderZ
+			or previousYaw ~= monster.renderYaw
+		if not isMoved and not monster.isBodyDirty then
+			continue
+		end
+		local cframe: CFrame = if isMoved or monster.renderCFrame == nil then yawCFrame(monster.renderX, monster.renderY, monster.renderZ, monster.renderYaw) else monster.renderCFrame :: CFrame
+		monster.renderCFrame = cframe
+		monster.isBodyDirty = false
+		local rig = monster.rig
+		if rig then
+			self:pushBulk(rig.root, cframe)
+		end
+		local body = monster.held or monster.proxy
+		if body then
+			self:pushBulk(body.part, cframe * body.offset)
 		end
 	end
 	self:stepDying(startTime)
 	self:stepProjectiles(startTime)
+	self:stepFlashes(startTime)
 	self:updateHpBar(startTime)
-	if #self.bulkParts > 0 then
+	local bulkCount = self.bulkCount
+	if bulkCount > 0 then
+		-- the arrays are reused; anything past this frame's count is stale
+		for index = #self.bulkParts, bulkCount + 1, -1 do
+			self.bulkParts[index] = nil
+			self.bulkCFrames[index] = nil
+		end
 		workspace:BulkMoveTo(self.bulkParts, self.bulkCFrames, Enum.BulkMoveMode.FireCFrameChanged)
 	end
 	local endTime = workspace:GetServerTimeNow()
@@ -983,6 +1272,20 @@ function ClientMonsterManager:render()
 	end
 end
 
+-- the budget for this device from the server's tiers
+function ClientMonsterManager:applyBudget()
+	local budgets = self.budgets
+	if not budgets then
+		return
+	end
+	local budget = MonsterRules.pickDrawBudget(budgets, UserInputService.TouchEnabled, savedQualityLevel())
+	if budget.nearAnimatedMax ~= self.nearAnimatedMax or budget.heldPoseDistanceStuds ~= self.heldPoseDistanceStuds then
+		self.nearAnimatedMax = budget.nearAnimatedMax
+		self.heldPoseDistanceStuds = budget.heldPoseDistanceStuds
+		self.isRankPending = true
+	end
+end
+
 function ClientMonsterManager:readTuning()
 	local catalog = MonsterRules.decodeVisualCatalog(ClientDataManager:getGameMetadata(Attributes.MONSTER_VISUAL_CATALOG))
 	if catalog then
@@ -992,24 +1295,34 @@ function ClientMonsterManager:readTuning()
 	if typeof(delay) == "number" then
 		self.interpolationDelaySec = delay
 	end
-	local nearMax = ClientDataManager:getGameMetadata(Attributes.MONSTER_NEAR_ANIMATED_MAX)
-	if typeof(nearMax) == "number" then
-		self.nearAnimatedMax = nearMax
+	local budgets = MonsterRules.decodeDrawBudgets(ClientDataManager:getGameMetadata(Attributes.MONSTER_DRAW_BUDGETS))
+	if budgets then
+		self.budgets = budgets
 	end
-	local heldDistance = ClientDataManager:getGameMetadata(Attributes.MONSTER_HELD_POSE_DISTANCE_STUDS)
-	if typeof(heldDistance) == "number" then
-		self.heldPoseDistanceStuds = heldDistance
-	end
+	self:applyBudget()
 end
 
 function ClientMonsterManager:init()
 	self:readTuning()
+	self:refreshAimFilter()
 	ClientDamageableManager:setBodyProvider(self)
-	for _, key in { Attributes.MONSTER_VISUAL_CATALOG, Attributes.MONSTER_INTERPOLATION_DELAY_SEC, Attributes.MONSTER_NEAR_ANIMATED_MAX, Attributes.MONSTER_HELD_POSE_DISTANCE_STUDS } do
+	for _, key in { Attributes.MONSTER_VISUAL_CATALOG, Attributes.MONSTER_INTERPOLATION_DELAY_SEC, Attributes.MONSTER_DRAW_BUDGETS } do
 		ClientDataManager:subscribeGameMetadataAttribute(
 			key,
 			function(_value: any)
 				self:readTuning()
+			end
+		)
+	end
+	local isSuccess, gameSettings = pcall(
+		function()
+			return UserSettings():GetService("UserGameSettings")
+		end
+	)
+	if isSuccess then
+		gameSettings:GetPropertyChangedSignal("SavedQualityLevel"):Connect(
+			function()
+				self:applyBudget()
 			end
 		)
 	end
@@ -1055,7 +1368,8 @@ function ClientMonsterManager:init()
 	Players.LocalPlayer.CharacterAdded:Connect(
 		function()
 			-- a respawned camera is somewhere new: rank again at once
-			self.lastRankTime = 0
+			self.isRankPending = true
+			self:refreshAimFilter()
 		end
 	)
 end
@@ -1065,17 +1379,30 @@ function ClientMonsterManager.new(): ClientMonsterManager
 	self.monstersById = {}
 	self.monsterByDamageableId = {}
 	self.catalog = {}
-	self.interpolationDelaySec = 0.15
-	self.nearAnimatedMax = 40
-	self.heldPoseDistanceStuds = 250
+	self.interpolationDelaySec = DEFAULT_INTERPOLATION_DELAY_SEC
+	self.budgets = nil
+	self.nearAnimatedMax = DEFAULT_NEAR_ANIMATED_MAX
+	self.heldPoseDistanceStuds = DEFAULT_HELD_POSE_DISTANCE_STUDS
 	self.folder = nil
 	self.rigPools = {}
+	self.heldPools = {}
 	self.proxyPools = {}
+	self.hasNoHeldPart = {}
 	self.dying = {}
 	self.projectiles = {}
+	self.flashing = {}
 	self.lastRankTime = 0
+	self.isRankPending = true
+	self.rigClonesLeft = MAX_RIG_CLONES_PER_FRAME
+	self.frameCount = 0
 	self.bulkParts = {}
 	self.bulkCFrames = {}
+	self.bulkCount = 0
+	self.packetServerTime = 0
+	local visitor: MonsterSnapshotCodec.RecordVisitor = function(id: number, x: number, y: number, z: number, yawDegrees: number, hpShare: number, action: number, attackCounter: number, _isSlowed: boolean, _isBurning: boolean)
+		self:applyRecord(id, x, y, z, yawDegrees, hpShare, action, attackCounter)
+	end
+	self.recordVisitor = visitor
 	self.bytesThisSecond = 0
 	self.packetsThisSecond = 0
 	self.statsWindowStart = 0
@@ -1091,11 +1418,15 @@ function ClientMonsterManager.new(): ClientMonsterManager
 	self.warnedModels = {}
 	self.bodyMetricsByKey = {}
 	self.hpBillboard = nil
+	local aimParameters = RaycastParams.new()
+	aimParameters.FilterType = Enum.RaycastFilterType.Exclude
+	self.aimParameters = aimParameters
 	self.aimedMonster = nil
 	self.hpBarUntil = 0
 	self.lastAimTime = 0
 	self.shownHpMonsterId = nil
 	self.shownHpShare = 1
+	self.shownAdornee = nil
 	self.hasWarnedHpTemplate = false
 	return self
 end

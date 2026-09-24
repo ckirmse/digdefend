@@ -1269,7 +1269,7 @@ Wave Area
    * Walls, the gate, and placements count as passable at a heavy cost, so enemies take any open way round and attack what blocks them only when there is none
    * A barrier costs more the thicker it is, cell by cell: the gate's box is three cells deep where a wall is one, so a blocked crowd breaks through a wall before the gate
    * Every monster walks its own lane, up to 12 studs to either side of the shared route (chosen at spawn, LANE_SPREAD_STUDS), so a crowd moves as a band rather than a line; the lane narrows wherever the ground does, as at the gate. A monster heads straight for the farthest point up to 8 cells along its route it can see (LOOKAHEAD_CELLS), so it walks smooth lines rather than cell to cell (decided 2026-09-23)
-   * Monsters push apart from each other (SEPARATION_STUDS, 4). A monster attacking holds its ground, and one that makes no headway toward where it is going (a crowd stalled at a wall or round the Refinery) stands still rather than churning
+   * Monsters push apart from each other (SEPARATION_STUDS, 4). A monster attacking holds its ground, and one that makes no headway toward where it is going (a crowd stalled at a wall or round the Refinery) stands still rather than churning. One that has made no headway for JAMMED_REROUTE_SEC (1.5 s) moves its lane to the other side of the route and, for JAMMED_TARGET_IGNORE_SEC (3 s), follows the route instead of the target it could not get to, so a Bomber stuck behind a crowd of zombies at a wall walks round them rather than into their backs (decided 2026-09-24)
 Creating Waves
 * The goal of the wave creation system is to easily generate waves for different maps with minimal set up, as maps are a major content vector
 * Every wave consists of groups of monsters that spawn at a specific spawn at a specific time
@@ -1357,10 +1357,10 @@ Monster Creation & Behavior
 Monster Performance
 * Many monsters on screen at once must run well on low end devices, and monsters are visible at all times, never popping in when streamed (decided 2026-09-23). Built to hold 300 at once and stress tested to 500
 * Monsters exist only as data on the server, never as models. Their positions reach every player as a small packed update about 10 times a second, so no monster is ever streamed in or out
-* Each player’s game draws the monsters itself from GameAssets.Monsters, with no Humanoid, moving them all together. Near monsters are fully animated, mid distance ones move in a held pose, and far ones are drawn as a single block (the template’s Proxy)
+* Each player’s game draws the monsters itself from GameAssets.Monsters, with no Humanoid, moving them all together. Near monsters are fully animated; every other monster is drawn as its Held body, the whole rig baked into one part, so it keeps its own shape at any distance (the template’s Proxy block only stands in until a new monster has been baked; decided 2026-09-24)
 * The update rate is by distance from each player (GameData/Monsters/Behavior): a moving monster within 80 studs every tenth of a second, within 200 studs every fifth, and anything further, or standing still, every 0.4 seconds. Each monster is drawn a moment behind the newest update and blended between updates, so movement stays smooth
 * Measured in Studio (M29, a desktop PC): 300 monsters take about 2.6 ms of the server's time per update (10 a second) and 8 to 18 KB/s per player at the busiest, with the client at 60 fps; 500 take about 2.2 to 3 ms and 19 KB/s. Still to check on a phone
-* The 40 nearest monsters are animated (NEAR_ANIMATED_MAX); the rest within 250 studs move in a held pose; anything further is its Proxy block
+* The nearest monsters are animated (40 on desktop, 12 on touch devices or at a low saved graphics quality; DRAW_BUDGETS) and only monsters within the held distance (250 studs, 120 on the low budget) can be; everything else is the template’s Held body, its whole rig baked into one part so a crowd of hundreds is hundreds of parts rather than thousands, drawn at every distance and placed every other frame when far (decided 2026-09-24)
 * Admins have a stress test dev tool that spawns any number of monsters and shows server step time, network use, and frame time
 Monster Health Bars
 * One health bar at a time (decided 2026-09-23): over the damaged monster under the reticle (the centre of the screen), showing its name and its HP; a monster at full health never shows one. It stays half a second after the reticle moves off, so sweeping across a crowd does not flicker, and it shows at any distance. A monster behind a wall is never picked. It is the same StructureHp bar the walls use, without the repair price
@@ -1600,7 +1600,7 @@ Bomber
    * TargetDamageTypes: {“Walls”, “Traps”, “Towers”, “Players”}
    * AttackType: Melee
    * DetectionRange: 20
-   * AttackRange: 5
+   * AttackRange: 10
    * AttackRadius: 20
    * DieOnAttack: true
    * DamageOnDeath: false
@@ -1622,7 +1622,7 @@ Bomber II
    * TargetDamageTypes: {“Walls”, “Traps”, “Towers”, “Players”}
    * AttackType: Melee
    * DetectionRange: 20
-   * AttackRange: 5
+   * AttackRange: 10
    * AttackRadius: 20
    * DieOnAttack: true
    * DamageOnDeath: false
@@ -1644,7 +1644,7 @@ Bomber III
    * TargetDamageTypes: {“Walls”, “Traps”, “Towers”, “Players”}
    * AttackType: Melee
    * DetectionRange: 20
-   * AttackRange: 5
+   * AttackRange: 10
    * AttackRadius: 20
    * DieOnAttack: true
    * DamageOnDeath: false

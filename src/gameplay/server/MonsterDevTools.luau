@@ -39,9 +39,9 @@ local function register(name: string, shape: { [string]: any }, handler: (args: 
 	DevTools:registerPlaceCommand(
 		name,
 		function(_player: Player, args: { [string]: any })
-			local isValid, err = Validate.isTableShape(args, shape)
+			local isValid, errorMessage = Validate.isTableShape(args, shape)
 			if not isValid then
-				warn(`MonsterDevTools: {name} with invalid args:`, err)
+				warn(`MonsterDevTools: {name} with invalid args:`, errorMessage)
 				return
 			end
 			handler(args)

@@ -23,6 +23,13 @@ export type Wave = {
 	GROUPS: { Group },
 }
 
+-- one GameData/Waves/<Map> file
+export type MapWaves = {
+	SPAWN_RADIUS_STUDS: number,
+	LEASH_DISTANCE_STUDS: number,
+	WAVES: { Wave },
+}
+
 type IndexedGroup = {
 	index: number,
 	group: Group,

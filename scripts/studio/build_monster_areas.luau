@@ -56,12 +56,12 @@ ChangeHistoryService:SetWaypoint("Before monster areas")
 local map = workspace:FindFirstChild(MAP_NAME)
 assert(map, MAP_NAME .. " is not loaded in Workspace; run map_tools.luau with ACTION = \"load\" first")
 
-local function groundY(x, z)
+local function groundY(x: number, z: number): number
 	local hit = workspace:Raycast(Vector3.new(x, 300, z), Vector3.new(0, -600, 0))
 	return if hit then hit.Position.Y else 0
 end
 
-local function makeFlatPart(name, minX, maxX, minZ, maxZ, color, parent)
+local function makeFlatPart(name: string, minX: number, maxX: number, minZ: number, maxZ: number, color: Color3, parent: Instance): Part
 	local centerX = (minX + maxX) / 2
 	local centerZ = (minZ + maxZ) / 2
 	local part = Instance.new("Part")
@@ -80,7 +80,7 @@ local function makeFlatPart(name, minX, maxX, minZ, maxZ, color, parent)
 	return part
 end
 
-local function buildFolder(folderName, build)
+local function buildFolder(folderName: string, build: (folder: Folder) -> ())
 	if map:FindFirstChild(folderName) then
 		print(`build_monster_areas: {map:GetFullName()}.{folderName} already exists; left alone`)
 		return
@@ -92,34 +92,43 @@ local function buildFolder(folderName, build)
 	print(`build_monster_areas: built {folder:GetFullName()} ({#folder:GetChildren()} part(s))`)
 end
 
-buildFolder(Constants.CAMP_WAVE_AREAS_FOLDER, function(folder)
-	for _, area in WAVE_AREAS do
-		makeFlatPart(area.name, area.minX, area.maxX, area.minZ, area.maxZ, WAVE_AREA_COLOR, folder)
+buildFolder(
+	Constants.CAMP_WAVE_AREAS_FOLDER,
+	function(folder)
+		for _, area in WAVE_AREAS do
+			makeFlatPart(area.name, area.minX, area.maxX, area.minZ, area.maxZ, WAVE_AREA_COLOR, folder)
+		end
 	end
-end)
+)
 
-buildFolder(Constants.CAMP_CAMP_AREA_FOLDER, function(folder)
-	for _, area in CAMP_AREAS do
-		makeFlatPart(area.name, area.minX, area.maxX, area.minZ, area.maxZ, CAMP_AREA_COLOR, folder)
+buildFolder(
+	Constants.CAMP_CAMP_AREA_FOLDER,
+	function(folder)
+		for _, area in CAMP_AREAS do
+			makeFlatPart(area.name, area.minX, area.maxX, area.minZ, area.maxZ, CAMP_AREA_COLOR, folder)
+		end
 	end
-end)
+)
 
-buildFolder(Constants.CAMP_MONSTER_SPAWNS_FOLDER, function(folder)
-	for number, position in SPAWNS do
-		local spawn = Instance.new("Part")
-		spawn.Name = tostring(number)
-		spawn.Size = SPAWN_SIZE
-		spawn.CFrame = CFrame.new(position.X, groundY(position.X, position.Z) + SPAWN_SIZE.Y / 2, position.Z)
-		spawn.Anchored = true
-		spawn.CanCollide = false
-		spawn.CanQuery = false
-		spawn.CanTouch = false
-		spawn.CastShadow = false
-		spawn.Transparency = 0.5
-		spawn.Color = SPAWN_COLOR
-		spawn.Material = Enum.Material.Neon
-		spawn.Parent = folder
+buildFolder(
+	Constants.CAMP_MONSTER_SPAWNS_FOLDER,
+	function(folder)
+		for number, position in SPAWNS do
+			local spawn = Instance.new("Part")
+			spawn.Name = tostring(number)
+			spawn.Size = SPAWN_SIZE
+			spawn.CFrame = CFrame.new(position.X, groundY(position.X, position.Z) + SPAWN_SIZE.Y / 2, position.Z)
+			spawn.Anchored = true
+			spawn.CanCollide = false
+			spawn.CanQuery = false
+			spawn.CanTouch = false
+			spawn.CastShadow = false
+			spawn.Transparency = 0.5
+			spawn.Color = SPAWN_COLOR
+			spawn.Material = Enum.Material.Neon
+			spawn.Parent = folder
+		end
 	end
-end)
+)
 
 ChangeHistoryService:SetWaypoint("After monster areas")

@@ -136,6 +136,8 @@ Constants.TRAP_TEMPLATES_FOLDER = "Traps"
 -- Proxy drawn in its place far away (scripts/studio/build_monster_templates.luau)
 Constants.MONSTER_TEMPLATES_FOLDER = "Monsters"
 Constants.MONSTER_PROXY_PART = "Proxy"
+-- the one-part baked body a template may carry for the middle distance
+Constants.MONSTER_HELD_PART = "Held"
 -- Camp.WaveAreas and Camp.CampArea (M29): anchored parts whose footprints
 -- are where monsters may walk (GDD "Wave Area"); MonsterPathManager lays
 -- one grid over all of them. Camp.MonsterSpawns holds one part per spawn

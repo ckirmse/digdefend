@@ -105,5 +105,27 @@ describe(
 				expect(MonsterSnapshotCodec.decode(truncated)).toBe(nil)
 			end
 		)
+		it(
+			"visits each record as plain numbers and hands back the time",
+			function()
+				local packets = MonsterSnapshotCodec.encode({ record(7), record(9, { hpShare = 0 }) }, 42, 900)
+				local seen = {}
+				local serverTime = MonsterSnapshotCodec.forEachRecord(
+					packets[1],
+					function(id: number, x: number, y: number, z: number, yawDegrees: number, hpShare: number, action: number, attackCounter: number, isSlowed: boolean, isBurning: boolean)
+						table.insert(seen, { id, x, y, z, yawDegrees, hpShare, action, attackCounter, isSlowed, isBurning })
+					end
+				)
+				expect(serverTime).toBe(42)
+				expect(#seen).toBe(2)
+				expect(seen[1][1]).toBe(7)
+				expect(seen[1][2]).toBeCloseTo(12.25, 5)
+				expect(seen[1][5]).toBeCloseTo(90, 5)
+				expect(seen[1][7]).toBe(2)
+				expect(seen[1][9]).toBe(true)
+				expect(seen[2][6]).toBe(0)
+				expect(MonsterSnapshotCodec.forEachRecord("junk", function() end)).toBe(nil)
+			end
+		)
 	end
 )

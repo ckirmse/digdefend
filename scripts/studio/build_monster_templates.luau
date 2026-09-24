@@ -10,7 +10,8 @@
 -- drawing.
 -- The source rig is read and never changed. Run in the gameplay place from
 -- the command bar or the MCP execute_luau tool; it replaces any existing copy
--- of each listed template and leaves other templates alone.
+-- of each listed template and leaves other templates alone. Run
+-- bake_monster_held.luau afterwards to give the new template its Held body.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
@@ -52,7 +53,7 @@ if not monsters then
 	monsters.Parent = gameAssets
 end
 
-local function isStripped(instance)
+local function isStripped(instance: Instance): boolean
 	for _, className in STRIPPED_CLASSES do
 		if instance:IsA(className) then
 			return true
@@ -61,7 +62,7 @@ local function isStripped(instance)
 	return false
 end
 
-local function buildTemplate(source, templateName)
+local function buildTemplate(source: Model, templateName: string): Model
 	local rig = source:Clone()
 	rig.Name = templateName
 
@@ -89,6 +90,8 @@ local function buildTemplate(source, templateName)
 		descendant.CanCollide = false
 		descendant.CanQuery = false
 		descendant.CanTouch = false
+		-- hundreds of shadow casters is a phone's worst frame; none of them cast
+		descendant.CastShadow = false
 		descendant.Massless = true
 	end
 

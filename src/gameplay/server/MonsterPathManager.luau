@@ -41,6 +41,8 @@ export type MonsterPathManager = typeof(setmetatable(
 		spawnPositions: { [number]: Vector3 },
 		isDirty: boolean,
 		lastComputeTime: number,
+		-- counts up on every grid or field change, so a cached route knows it is stale
+		version: number,
 		debugFolder: Folder?,
 	},
 	MonsterPathManager
@@ -89,6 +91,10 @@ end
 
 function MonsterPathManager:getField(isAir: boolean): FlowField.Field?
 	return if isAir then self.airField else self.groundField
+end
+
+function MonsterPathManager:getVersion(): number
+	return self.version
 end
 
 function MonsterPathManager:getRefineryPosition(): Vector3?
@@ -152,14 +158,14 @@ function MonsterPathManager:cellsUnderBox(cframe: CFrame, size: Vector3): { numb
 end
 
 function MonsterPathManager:scanCells(grid: FlowField.Grid, areas: { BasePart }, excluded: { Instance })
-	local rayParams = RaycastParams.new()
-	rayParams.FilterType = Enum.RaycastFilterType.Exclude
-	rayParams.FilterDescendantsInstances = excluded
-	rayParams.RespectCanCollide = true
-	local overlapParams = OverlapParams.new()
-	overlapParams.FilterType = Enum.RaycastFilterType.Exclude
-	overlapParams.FilterDescendantsInstances = excluded
-	overlapParams.RespectCanCollide = true
+	local rayParameters = RaycastParams.new()
+	rayParameters.FilterType = Enum.RaycastFilterType.Exclude
+	rayParameters.FilterDescendantsInstances = excluded
+	rayParameters.RespectCanCollide = true
+	local overlapParameters = OverlapParams.new()
+	overlapParameters.FilterType = Enum.RaycastFilterType.Exclude
+	overlapParameters.FilterDescendantsInstances = excluded
+	overlapParameters.RespectCanCollide = true
 	local boxSize = Vector3.new(grid.cellSizeStuds * OBSTACLE_CELL_SHARE, OBSTACLE_HEIGHT_STUDS, grid.cellSizeStuds * OBSTACLE_CELL_SHARE)
 	for index = 1, grid.columns * grid.rows do
 		local x, z = FlowField.centerOf(grid, index)
@@ -175,11 +181,11 @@ function MonsterPathManager:scanCells(grid: FlowField.Grid, areas: { BasePart },
 		end
 		grid.inside[index] = true
 		local topY = containing.Position.Y + containing.Size.Y / 2
-		local hit = workspace:Raycast(Vector3.new(x, topY + GROUND_RAY_START_ABOVE_STUDS, z), Vector3.new(0, -GROUND_RAY_LENGTH_STUDS, 0), rayParams)
+		local hit = workspace:Raycast(Vector3.new(x, topY + GROUND_RAY_START_ABOVE_STUDS, z), Vector3.new(0, -GROUND_RAY_LENGTH_STUDS, 0), rayParameters)
 		local groundY = if hit then hit.Position.Y else topY
 		grid.heights[index] = groundY
 		local boxCenter = CFrame.new(x, groundY + OBSTACLE_CLEARANCE_STUDS + OBSTACLE_HEIGHT_STUDS / 2, z)
-		grid.walkable[index] = #workspace:GetPartBoundsInBox(boxCenter, boxSize, overlapParams) == 0
+		grid.walkable[index] = #workspace:GetPartBoundsInBox(boxCenter, boxSize, overlapParameters) == 0
 	end
 end
 
@@ -334,6 +340,7 @@ function MonsterPathManager:recompute(now: number)
 	})
 	self.isDirty = false
 	self.lastComputeTime = now
+	self.version += 1
 	if self.debugFolder then
 		self:drawDebug()
 	end
@@ -468,6 +475,7 @@ function MonsterPathManager.new(): MonsterPathManager
 	self.spawnPositions = {}
 	self.isDirty = false
 	self.lastComputeTime = 0
+	self.version = 0
 	self.debugFolder = nil
 	return self
 end

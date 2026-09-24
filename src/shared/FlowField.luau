@@ -240,7 +240,7 @@ function FlowField.nearestEnterable(grid: Grid, x: number, z: number, isAir: boo
 	local row = math.clamp(math.floor((z - grid.originZ) / grid.cellSizeStuds) + 1, 1, grid.rows)
 	for ring = 0, maxRings do
 		local best: number? = nil
-		local bestDistance = math.huge
+		local bestSquaredDistance = math.huge
 		for rowOffset = -ring, ring do
 			for columnOffset = -ring, ring do
 				if math.max(math.abs(rowOffset), math.abs(columnOffset)) ~= ring then
@@ -256,10 +256,10 @@ function FlowField.nearestEnterable(grid: Grid, x: number, z: number, isAir: boo
 					continue
 				end
 				local centerX, centerZ = FlowField.centerOf(grid, index)
-				local distance = (centerX - x) ^ 2 + (centerZ - z) ^ 2
-				if distance < bestDistance then
+				local squaredDistance = (centerX - x) ^ 2 + (centerZ - z) ^ 2
+				if squaredDistance < bestSquaredDistance then
 					best = index
-					bestDistance = distance
+					bestSquaredDistance = squaredDistance
 				end
 			end
 		end

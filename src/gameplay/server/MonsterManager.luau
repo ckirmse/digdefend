@@ -43,6 +43,9 @@ local StructureManager = require(script.Parent.StructureManager)
 local MonsterManager = {}
 MonsterManager.__index = MonsterManager
 
+-- typed once here so every roster read is checked against MonsterData
+local ROSTER_BY_KIND: { [number]: MonsterRules.MonsterData } = RosterData.BY_KIND
+
 -- the template measures a kind's body is built from
 type ModelMetrics = {
 	rootHeightStuds: number,
@@ -84,6 +87,16 @@ type Monster = {
 	-- monster from a walking one
 	tickStartPosition: Vector3,
 	tickDestination: Vector3?,
+	-- how long it has made no headway, and until when it follows the route
+	-- rather than a target it could not get to
+	jammedSec: number,
+	ignoreTargetUntil: number,
+	-- the route point last worked out, good while the monster stays in the
+	-- same cell and the path field is the same version
+	waypoint: Vector3?,
+	waypointBarrierId: string?,
+	waypointCellIndex: number?,
+	waypointPathVersion: number,
 }
 
 type Projectile = {
@@ -119,6 +132,11 @@ export type MonsterManager = typeof(setmetatable(
 		lastDownWarnTime: number,
 		killedHandlers: { (kind: number) -> () },
 		random: Random,
+		-- per kind, so a tick allocates no priority list per monster
+		priorityOrderByKind: { [number]: { number } },
+		-- the push-apart buckets, kept between ticks and cleared, not rebuilt
+		separationBuckets: { [number]: { Monster } },
+		separationUsedKeys: { number },
 	},
 	MonsterManager
 ))
@@ -141,6 +159,11 @@ local NEAREST_CELL_RINGS = 8
 -- stays put, so a stalled crowd stands still instead of churning, and
 -- costs no bandwidth
 local JAMMED_STEP_SHARE = 0.3
+
+-- the bucket a flat point falls in for the push-apart hash
+local function separationKey(x: number, z: number, spacing: number): number
+	return (math.floor(x / spacing) + 32768) * 65536 + (math.floor(z / spacing) + 32768)
+end
 -- a lane that does not fit is halved this many times before giving up
 local LANE_SHRINK_TRIES = 3
 
@@ -159,7 +182,7 @@ function MonsterManager:subscribeKilled(handler: (kind: number) -> ())
 end
 
 function MonsterManager:getRosterData(kind: number): MonsterRules.MonsterData?
-	return (RosterData.BY_KIND :: any)[kind]
+	return ROSTER_BY_KIND[kind]
 end
 
 function MonsterManager:getModelMetrics(modelName: string): ModelMetrics
@@ -219,7 +242,8 @@ function MonsterManager:spawnMonster(kind: number, flatPosition: Vector3): numbe
 		warn("MonsterManager: no Roster entry for monster kind", kind)
 		return nil
 	end
-	if #self.monsters >= BehaviorData.MAX_ALIVE then
+	-- the alive count, not the list: the dead stay listed until the sweep
+	if self:getAliveCount() >= BehaviorData.MAX_ALIVE then
 		return nil
 	end
 	local networkId = self:allocateNetworkId()
@@ -262,6 +286,12 @@ function MonsterManager:spawnMonster(kind: number, flatPosition: Vector3): numbe
 		wasChangedLastTick = true,
 		tickStartPosition = Vector3.zero,
 		tickDestination = nil,
+		jammedSec = 0,
+		ignoreTargetUntil = 0,
+		waypoint = nil,
+		waypointBarrierId = nil,
+		waypointCellIndex = nil,
+		waypointPathVersion = -1,
 	}
 	monster.position = Vector3.new(flatPosition.X, self:rootY(monster, groundY), flatPosition.Z)
 	monster.damageableId = DamageableManager:register({
@@ -336,13 +366,7 @@ end
 
 -- everything a monster could attack this tick, by target type
 function MonsterManager:buildCandidates()
-	local candidatesByType: MonsterRules.CandidatesByType = {
-		[Enums.MonsterTargetType.PLAYERS] = {},
-		[Enums.MonsterTargetType.TOWERS] = {},
-		[Enums.MonsterTargetType.TRAPS] = {},
-		[Enums.MonsterTargetType.WALLS] = {},
-		[Enums.MonsterTargetType.REFINERY] = {},
-	}
+	local candidatesByType = MonsterRules.emptyCandidates()
 	local candidateById: { [string]: MonsterRules.Candidate } = {}
 	local playerByCandidateId: { [string]: Player } = {}
 	local function add(candidate: MonsterRules.Candidate)
@@ -426,7 +450,7 @@ function MonsterManager:hurt(candidate: MonsterRules.Candidate, amount: number)
 			local now = workspace:GetServerTimeNow()
 			if now - self.lastDownWarnTime >= DOWN_WARN_INTERVAL_SEC then
 				self.lastDownWarnTime = now
-				print(`[MonsterManager] {player.Name} would be down (held at {BehaviorData.PLAYER_MIN_HEALTH} HP until Revives, M32)`)
+				warn(`MonsterManager: {player.Name} would be down (held at {BehaviorData.PLAYER_MIN_HEALTH} HP until Revives, M32)`)
 			end
 			health = BehaviorData.PLAYER_MIN_HEALTH
 		end
@@ -597,6 +621,30 @@ function MonsterManager:nextWaypoint(monster: Monster): (Vector3?, string?)
 	return lane or Vector3.new(baseX, 0, baseZ), nil
 end
 
+-- the route point is worked out once per cell per path version, not
+-- every tick: with hundreds of monsters the line checks were the tick's
+-- biggest cost. It is redone early when the monster is about to reach it
+function MonsterManager:cachedWaypoint(monster: Monster): (Vector3?, string?)
+	local grid = MonsterPathManager:getGrid()
+	local version = MonsterPathManager:getVersion()
+	local cellIndex = if grid then FlowField.indexAt(grid, monster.position.X, monster.position.Z) else nil
+	local cached = monster.waypoint
+	local isFresh = cached ~= nil and cellIndex ~= nil and cellIndex == monster.waypointCellIndex and version == monster.waypointPathVersion
+	if isFresh and cached and grid then
+		local deltaX = cached.X - monster.position.X
+		local deltaZ = cached.Z - monster.position.Z
+		isFresh = deltaX * deltaX + deltaZ * deltaZ > grid.cellSizeStuds * grid.cellSizeStuds
+	end
+	if not isFresh then
+		local waypoint, barrierId = self:nextWaypoint(monster)
+		monster.waypoint = waypoint
+		monster.waypointBarrierId = barrierId
+		monster.waypointCellIndex = cellIndex
+		monster.waypointPathVersion = version
+	end
+	return monster.waypoint, monster.waypointBarrierId
+end
+
 function MonsterManager:face(monster: Monster, toward: Vector3)
 	local offset = toward - monster.position
 	if offset.X * offset.X + offset.Z * offset.Z > 1e-4 then
@@ -648,14 +696,23 @@ end
 -- that stands in the way
 function MonsterManager:stepMonster(monster: Monster, now: number, deltaSec: number)
 	local data = monster.data
-	local target = MonsterRules.pickTarget(monster.position, data, monster.reachStuds, self.candidatesByType)
-	if target and not MonsterRules.isInAttackRange(monster.position, data, monster.reachStuds, target) and not self:canWalkTo(monster, MonsterRules.closestPoint(monster.position, target)) then
-		target = nil
+	local priorityOrder = self.priorityOrderByKind[monster.kind]
+	if not priorityOrder then
+		priorityOrder = MonsterRules.priorityOrder(data)
+		self.priorityOrderByKind[monster.kind] = priorityOrder
+	end
+	local target = MonsterRules.pickTarget(monster.position, data, monster.reachStuds, self.candidatesByType, priorityOrder)
+	if target and not MonsterRules.isInAttackRange(monster.position, data, monster.reachStuds, target) then
+		-- a target it cannot walk straight to, or one it was stuck behind a
+		-- crowd trying to reach, is left alone; the route goes round
+		if now < monster.ignoreTargetUntil or not self:canWalkTo(monster, MonsterRules.closestPoint(monster.position, target)) then
+			target = nil
+		end
 	end
 	local waypoint: Vector3? = nil
 	if not target then
 		local barrierId
-		waypoint, barrierId = self:nextWaypoint(monster)
+		waypoint, barrierId = self:cachedWaypoint(monster)
 		if barrierId then
 			target = self.candidateById[barrierId]
 		end
@@ -683,19 +740,24 @@ end
 -- through a hash of cells that size, and never onto a cell they may not enter
 function MonsterManager:separate()
 	local spacing = BehaviorData.SEPARATION_STUDS
-	local buckets: { [number]: { Monster } } = {}
-	local function key(x: number, z: number): number
-		return (math.floor(x / spacing) + 32768) * 65536 + (math.floor(z / spacing) + 32768)
+	local buckets = self.separationBuckets
+	local usedKeys = self.separationUsedKeys
+	for _, bucketKey in usedKeys do
+		table.clear(buckets[bucketKey])
 	end
+	table.clear(usedKeys)
 	for _, monster in self.monsters do
 		if monster.isDead or monster.isAir then
 			continue
 		end
-		local bucketKey = key(monster.position.X, monster.position.Z)
+		local bucketKey = separationKey(monster.position.X, monster.position.Z, spacing)
 		local bucket = buckets[bucketKey]
 		if not bucket then
 			bucket = {}
 			buckets[bucketKey] = bucket
+		end
+		if #bucket == 0 then
+			table.insert(usedKeys, bucketKey)
 		end
 		table.insert(bucket, monster)
 	end
@@ -756,9 +818,13 @@ function MonsterManager:separate()
 	end
 end
 
-function MonsterManager:holdJammed(deltaSec: number)
+-- a jammed walker stands still; one jammed JAMMED_REROUTE_SEC running
+-- moves its lane to the far side of the route and follows the route for
+-- a while, so a crowd stalled at a wall is walked round, not into
+function MonsterManager:holdJammed(now: number, deltaSec: number)
 	for _, monster in self.monsters do
 		if monster.action ~= Enums.MonsterAction.MOVING or monster.isAir then
+			monster.jammedSec = 0
 			continue
 		end
 		-- the step it was allowed, so a slowed monster is not taken for a jammed one
@@ -772,10 +838,27 @@ function MonsterManager:holdJammed(deltaSec: number)
 		local progress = startOffset.Magnitude - endOffset.Magnitude
 		-- the last sliver onto a cell centre is short but it arrived
 		local isArrived = endOffset.Magnitude < 0.05
-		if not isArrived and progress < stepStuds * JAMMED_STEP_SHARE then
-			monster.position = monster.tickStartPosition
+		if isArrived or progress >= stepStuds * JAMMED_STEP_SHARE then
+			monster.jammedSec = 0
+			continue
+		end
+		monster.position = monster.tickStartPosition
+		monster.jammedSec += deltaSec
+		if monster.jammedSec >= BehaviorData.JAMMED_REROUTE_SEC then
+			self:reroute(monster, now)
 		end
 	end
+end
+
+-- a new lane on the other side of the route, the target it was stuck on
+-- ignored for a while, and the cached route point thrown away
+function MonsterManager:reroute(monster: Monster, now: number)
+	local spread = BehaviorData.LANE_SPREAD_STUDS
+	local side = if monster.laneOffsetStuds >= 0 then -1 else 1
+	monster.laneOffsetStuds = side * self.random:NextNumber(spread * 0.25, spread)
+	monster.ignoreTargetUntil = now + BehaviorData.JAMMED_TARGET_IGNORE_SEC
+	monster.jammedSec = 0
+	monster.waypointCellIndex = nil
 end
 
 -- the tick's snapshot record for each monster, written in place, noting
@@ -792,7 +875,7 @@ function MonsterManager:refreshRecords()
 		local isChanged = math.abs(moved.X) >= step
 			or math.abs(moved.Y) >= step
 			or math.abs(moved.Z) >= step
-			or math.abs(monster.yawDegrees - record.yawDegrees) >= 2
+			or math.abs((monster.yawDegrees - record.yawDegrees + 180) % 360 - 180) >= 2
 			or record.hpShare ~= hpShare
 			or record.action ~= monster.action
 			or record.attackCounter ~= monster.attackCounter
@@ -913,7 +996,7 @@ function MonsterManager:tick(deltaSec: number)
 	self:landProjectiles(startTime)
 	self:sweepDead()
 	self:separate()
-	self:holdJammed(deltaSec)
+	self:holdJammed(startTime, deltaSec)
 	self:refreshRecords()
 	self:flushNotifies()
 	self:sendSnapshots(startTime)
@@ -948,7 +1031,7 @@ end
 
 function MonsterManager:init()
 	-- a flier without a height would walk the ground, so say so at startup
-	for kind, data in RosterData.BY_KIND :: any do
+	for kind, data in ROSTER_BY_KIND do
 		if MonsterRules.isAir(data) and typeof(data.FLIGHT_HEIGHT_STUDS) ~= "number" then
 			warn(`MonsterManager: {Enums.getName(Enums.MonsterKind, kind)} is an AIR monster with no FLIGHT_HEIGHT_STUDS in GameData/Monsters/Roster`)
 		end
@@ -957,10 +1040,9 @@ function MonsterManager:init()
 	snapshotEvent.Name = Constants.MONSTER_SNAPSHOT_EVENT_NAME
 	snapshotEvent.Parent = ReplicatedStorage
 	self.snapshotEvent = snapshotEvent
-	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_VISUAL_CATALOG, MonsterRules.encodeVisualCatalog(RosterData.BY_KIND :: any))
+	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_VISUAL_CATALOG, MonsterRules.encodeVisualCatalog(ROSTER_BY_KIND))
 	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_INTERPOLATION_DELAY_SEC, BehaviorData.INTERPOLATION_DELAY_SEC)
-	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_NEAR_ANIMATED_MAX, BehaviorData.NEAR_ANIMATED_MAX)
-	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_HELD_POSE_DISTANCE_STUDS, BehaviorData.HELD_POSE_DISTANCE_STUDS)
+	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_DRAW_BUDGETS, MonsterRules.encodeDrawBudgets(BehaviorData.DRAW_BUDGETS, BehaviorData.LOW_BUDGET_MAX_QUALITY_LEVEL))
 	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_ALIVE_COUNT, 0)
 	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_STEP_MS, 0)
 	GameController:registerPlaceManager(self)
@@ -993,7 +1075,7 @@ function MonsterManager.new(): MonsterManager
 	self.metricsByModel = {}
 	self.warnedModels = {}
 	self.snapshotEvent = nil
-	self.candidatesByType = {}
+	self.candidatesByType = MonsterRules.emptyCandidates()
 	self.candidateById = {}
 	self.playerByCandidateId = {}
 	self.lastStatsTime = 0
@@ -1002,6 +1084,9 @@ function MonsterManager.new(): MonsterManager
 	self.lastDownWarnTime = 0
 	self.killedHandlers = {}
 	self.random = Random.new()
+	self.priorityOrderByKind = {}
+	self.separationBuckets = {}
+	self.separationUsedKeys = {}
 	return self
 end
 

@@ -150,8 +150,6 @@ function StructureManager:subscribeRefineryDestroyed(handler: () -> ())
 	table.insert(self.refineryDestroyedHandlers, handler)
 end
 
--- the live post models, one slot per Camp.Posts marker; PostManager hangs
--- claims and weapons on them
 -- the monsters' way through the camp is recomputed from here (M29)
 function StructureManager:subscribeBarriersChanged(handler: () -> ())
 	table.insert(self.barriersChangedHandlers, handler)

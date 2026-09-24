@@ -248,7 +248,6 @@ function PlacementManager:replicatePlacement(placement: Placement)
 	end
 end
 
--- every placement standing, in id order
 -- the monsters' way round the defenses is recomputed from here (M29)
 function PlacementManager:subscribePlacementsChanged(handler: () -> ())
 	table.insert(self.placementsChangedHandlers, handler)

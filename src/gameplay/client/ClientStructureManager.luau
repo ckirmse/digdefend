@@ -87,9 +87,6 @@ local RETICLE_BORROWER = "RepairMode"
 local DEFAULT_DOOR_TWEEN_SEC = 0.6
 local BILLBOARD_LIFT_STUDS = 4
 local HP_FILL_TWEEN_SEC = 0.25
--- the bar runs green to red as the structure weakens
-local HP_FULL_COLOR = Color3.fromRGB(90, 200, 110)
-local HP_EMPTY_COLOR = Color3.fromRGB(220, 70, 60)
 local DESTROYED_TEXT = "Destroyed"
 local REBUILDING_FORMAT = "Rebuilding %d / %d"
 local COST_GAIN_FORMAT = "for %d HP"
@@ -215,7 +212,7 @@ function ClientStructureManager:refreshBillboard(shadow: BasePart, billboard: Bi
 	if fill and fill:IsA("Frame") then
 		local goal = {
 			Size = UDim2.fromScale(share, 1),
-			BackgroundColor3 = HP_EMPTY_COLOR:Lerp(HP_FULL_COLOR, share),
+			BackgroundColor3 = UiStyle.HP_EMPTY_COLOR:Lerp(UiStyle.HP_FULL_COLOR, share),
 		}
 		if isInstant then
 			fill.Size = goal.Size
@@ -244,7 +241,7 @@ end
 
 -- shows or hides a shadow's HP bar by isBarShown; a Tower's everyday info
 -- billboard steps aside for the bar so the two never stack
-function ClientStructureManager:applyRepairMode(shadow: BasePart, tracked: Tracked)
+function ClientStructureManager:applyBarVisibility(shadow: BasePart, tracked: Tracked)
 	local isTower = isTowerShadow(shadow)
 	local isRefinery = isRefineryShadow(shadow)
 	if not self:isBarShown(shadow) then
@@ -515,7 +512,7 @@ function ClientStructureManager:track(shadow: Instance)
 			tracked.connections,
 			shadow:GetAttributeChangedSignal(attribute):Connect(
 				function()
-					self:applyRepairMode(shadow, tracked)
+					self:applyBarVisibility(shadow, tracked)
 				end
 			)
 		)
@@ -551,7 +548,7 @@ function ClientStructureManager:track(shadow: Instance)
 		-- a gate met already open (a late join, a streamed-in camp) starts in place
 		self:applyGateOpen(shadow:GetAttribute(Attributes.GATE_IS_OPEN) == true, true)
 	end
-	self:applyRepairMode(shadow, tracked)
+	self:applyBarVisibility(shadow, tracked)
 end
 
 function ClientStructureManager:untrack(shadow: Instance)
@@ -594,7 +591,7 @@ function ClientStructureManager:setRepairMode(isRepairMode: boolean)
 		self:setTarget(nil, nil)
 	end
 	for shadow, tracked in self.trackedByShadow do
-		self:applyRepairMode(shadow, tracked)
+		self:applyBarVisibility(shadow, tracked)
 	end
 end
 

@@ -84,6 +84,7 @@ describe(
 					[PLAYERS] = { point("Player1", PLAYERS, Vector3.new(1, 0, 0)) },
 				}
 				local target = MonsterRules.pickTarget(Vector3.zero, monster(), 0, candidates)
+				expect(MonsterRules.pickTarget(Vector3.zero, monster(), 0, candidates, MonsterRules.priorityOrder(monster()))).toBe(target)
 				expect(target and target.id).toBe("Refinery")
 			end
 		)
@@ -219,6 +220,92 @@ describe(
 				expect(MonsterRules.attackIntervalSec(monster({ ATTACK_INTERVAL_SEC = 3 }), 1.5)).toBe(3)
 				expect(MonsterRules.flightSec(Vector3.zero, Vector3.new(0, 0, 60), 30)).toBeCloseTo(2, 5)
 				expect(MonsterRules.flightSec(Vector3.zero, Vector3.new(0, 0, 60), 0)).toBe(0)
+			end
+		)
+	end
+)
+
+describe(
+	"MonsterRules helpers",
+	function()
+		it(
+			"tells ranged and air kinds apart",
+			function()
+				expect(MonsterRules.isRanged(monster())).toBe(false)
+				expect(MonsterRules.isRanged(monster({ ATTACK_TYPE = Enums.MonsterAttackType.RANGED }))).toBe(true)
+				expect(MonsterRules.isAir(monster())).toBe(false)
+				expect(MonsterRules.isAir(monster({ TRAVERSAL = Enums.MonsterTraversal.AIR }))).toBe(true)
+			end
+		)
+		it(
+			"measures a box's flat radius as half its diagonal",
+			function()
+				expect(MonsterRules.boxRadius(Vector3.new(6, 100, 8))).toBeCloseTo(5, 5)
+			end
+		)
+		it(
+			"bounds the distance to a box from below and never above the exact measure",
+			function()
+				local wall = box("wall", WALLS, CFrame.new(20, 0, 0), Vector3.new(6, 4, 8))
+				local from = Vector3.new(0, 0, 0)
+				local rough = MonsterRules.roughDistanceTo(from, wall)
+				expect(rough).toBeCloseTo(15, 5)
+				expect(rough <= MonsterRules.distanceTo(from, wall)).toBe(true)
+				expect(MonsterRules.roughDistanceTo(from, point("player", PLAYERS, Vector3.new(3, 0, 4)))).toBeCloseTo(5, 5)
+			end
+		)
+		it(
+			"puts the Refinery first and drops repeats",
+			function()
+				local order = MonsterRules.priorityOrder(monster({ TARGET_PRIORITIES = { WALLS, REFINERY, PLAYERS, WALLS } }))
+				expect(order).toEqual({ REFINERY, WALLS, PLAYERS })
+				expect(MonsterRules.priorityOrder(monster({ TARGET_PRIORITIES = {} }))).toEqual({ REFINERY })
+			end
+		)
+		it(
+			"starts with an empty list for every target type",
+			function()
+				local candidates = MonsterRules.emptyCandidates()
+				for _, targetType in Enums.getAllValues(Enums.MonsterTargetType) do
+					expect(candidates[targetType]).toEqual({})
+				end
+			end
+		)
+	end
+)
+
+describe(
+	"MonsterRules draw budgets",
+	function()
+		local data = {
+			HIGH = {
+				NEAR_ANIMATED_MAX = 40,
+				HELD_POSE_DISTANCE_STUDS = 250,
+			},
+			LOW = {
+				NEAR_ANIMATED_MAX = 12,
+				HELD_POSE_DISTANCE_STUDS = 120,
+			},
+		}
+		it(
+			"round-trips the tiers and rejects junk",
+			function()
+				local budgets = MonsterRules.decodeDrawBudgets(MonsterRules.encodeDrawBudgets(data, 4))
+				expect(budgets and budgets.high.nearAnimatedMax).toBe(40)
+				expect(budgets and budgets.low.heldPoseDistanceStuds).toBe(120)
+				expect(budgets and budgets.lowMaxQualityLevel).toBe(4)
+				expect(MonsterRules.decodeDrawBudgets("{}")).toBe(nil)
+				expect(MonsterRules.decodeDrawBudgets(nil)).toBe(nil)
+			end
+		)
+		it(
+			"picks low for touch or a low saved quality, high otherwise",
+			function()
+				local budgets = MonsterRules.decodeDrawBudgets(MonsterRules.encodeDrawBudgets(data, 4)) :: MonsterRules.DrawBudgets
+				expect(MonsterRules.pickDrawBudget(budgets, true, nil)).toBe(budgets.low)
+				expect(MonsterRules.pickDrawBudget(budgets, false, 4)).toBe(budgets.low)
+				expect(MonsterRules.pickDrawBudget(budgets, false, 5)).toBe(budgets.high)
+				expect(MonsterRules.pickDrawBudget(budgets, false, nil)).toBe(budgets.high)
 			end
 		)
 	end

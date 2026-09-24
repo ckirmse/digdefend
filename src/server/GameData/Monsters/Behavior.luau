@@ -7,10 +7,14 @@
 -- NEAR_DISTANCE_STUDS of them and moving, every MID_EVERY_TICKS ticks out
 -- to MID_DISTANCE_STUDS, and every FAR_EVERY_TICKS ticks otherwise (and
 -- when it stands still), packed into packets of at most SNAPSHOT_MAX_BYTES
--- (the engine drops unreliable messages past 1000 bytes). Clients draw the NEAR_ANIMATED_MAX closest
--- monsters fully animated, the rest within HELD_POSE_DISTANCE_STUDS in a
--- held pose, and anything further as the one-part Proxy; nothing is ever
--- hidden for distance. Every number here is placeholder tuning.
+-- (the engine drops unreliable messages past 1000 bytes). Clients draw
+-- the NEAR_ANIMATED_MAX closest monsters fully animated, the rest within
+-- HELD_POSE_DISTANCE_STUDS as the template's one-part Held body (the rig
+-- standing still when a template has none), and anything further as the
+-- one-part Proxy; nothing is ever hidden for distance. The budget comes
+-- from DRAW_BUDGETS by device tier (decided 2026-09-24): a touch device,
+-- or a saved graphics quality at or below LOW_BUDGET_MAX_QUALITY_LEVEL of
+-- 10, draws with LOW. Every number here is placeholder tuning.
 return {
 	TICK_RATE_HZ = 10,
 	NEAR_DISTANCE_STUDS = 80,
@@ -21,8 +25,17 @@ return {
 	-- the client draws this far behind the newest snapshot so it has two to
 	-- blend between; a monster sent less often carries on at its last speed
 	INTERPOLATION_DELAY_SEC = 0.15,
-	NEAR_ANIMATED_MAX = 40,
-	HELD_POSE_DISTANCE_STUDS = 250,
+	DRAW_BUDGETS = {
+		HIGH = {
+			NEAR_ANIMATED_MAX = 40,
+			HELD_POSE_DISTANCE_STUDS = 250,
+		},
+		LOW = {
+			NEAR_ANIMATED_MAX = 12,
+			HELD_POSE_DISTANCE_STUDS = 120,
+		},
+	},
+	LOW_BUDGET_MAX_QUALITY_LEVEL = 4,
 
 	-- time between attacks for a monster whose Roster entry has none
 	DEFAULT_ATTACK_INTERVAL_SEC = 1.5,
@@ -41,6 +54,12 @@ return {
 	-- route when nothing is in the way, so it walks smooth lines rather
 	-- than cell to cell
 	LOOKAHEAD_CELLS = 8,
+	-- a walker that has made no headway this long (stuck behind a stalled
+	-- crowd) moves its lane to the other side and, for JAMMED_TARGET_IGNORE_SEC,
+	-- follows the route instead of the target it cannot get to, so it goes
+	-- round the crowd rather than into its back (decided 2026-09-24)
+	JAMMED_REROUTE_SEC = 1.5,
+	JAMMED_TARGET_IGNORE_SEC = 3,
 	-- the most the path grid is recomputed, however often defenses change
 	PATH_RECOMPUTE_MIN_SEC = 0.5,
 	-- until Revives (M32) a monster can bring a player down to this, not below

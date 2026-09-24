@@ -23,6 +23,9 @@ local RunManager = require(script.Parent.RunManager)
 local MonsterWaveManager = {}
 MonsterWaveManager.__index = MonsterWaveManager
 
+-- typed once here so every wave read is checked against WaveRules
+local WAVES_BY_MAP: { [number]: WaveRules.MapWaves } = WaveRegistryData
+
 type PendingSpawn = {
 	kind: number,
 	position: Vector3,
@@ -41,9 +44,9 @@ export type MonsterWaveManager = typeof(setmetatable(
 	MonsterWaveManager
 ))
 
-function MonsterWaveManager:getMapWaves(): any?
+function MonsterWaveManager:getMapWaves(): WaveRules.MapWaves?
 	local map = RunManager:getMap()
-	return if map then (WaveRegistryData :: any)[map] else nil
+	return if map then WAVES_BY_MAP[map] else nil
 end
 
 function MonsterWaveManager:isRunning(): boolean

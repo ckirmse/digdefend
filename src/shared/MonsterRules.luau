@@ -4,8 +4,9 @@
 -- M29: what its data looks like, which target it picks (the Refinery
 -- first, then its TargetPriorities in order, anything within its
 -- DetectionRange, a Decoy drawing a player hunter from further), when it
--- is close enough to hit (its AttackRange), what else a blast hurts, how long a projectile flies, and the visual catalogue the
--- server publishes so clients can dress monsters without GameData. The
+-- is close enough to hit (its AttackRange), what else a blast hurts, how
+-- long a projectile flies, and the visual catalogue the server publishes
+-- so clients can dress monsters without GameData. The
 -- server (MonsterManager) decides with these; candidates are snapshots so
 -- this never touches an instance.
 local HttpService = game:GetService("HttpService")
@@ -72,6 +73,34 @@ export type Visual = {
 
 export type VisualCatalog = { [number]: Visual }
 
+-- how much a client draws: the animated count and the held distance
+export type DrawBudget = {
+	nearAnimatedMax: number,
+	heldPoseDistanceStuds: number,
+}
+
+export type DrawBudgets = {
+	high: DrawBudget,
+	low: DrawBudget,
+	-- a saved graphics quality at or below this (of 10) draws with low
+	lowMaxQualityLevel: number,
+}
+
+-- the GameData/Monsters/Behavior DRAW_BUDGETS table
+export type DrawBudgetData = {
+	HIGH: { NEAR_ANIMATED_MAX: number, HELD_POSE_DISTANCE_STUDS: number },
+	LOW: { NEAR_ANIMATED_MAX: number, HELD_POSE_DISTANCE_STUDS: number },
+}
+
+-- one empty list per target type, so a lookup never meets nil
+function MonsterRules.emptyCandidates(): CandidatesByType
+	local candidates: CandidatesByType = {}
+	for _, targetType in Enums.getAllValues(Enums.MonsterTargetType) do
+		candidates[targetType] = {}
+	end
+	return candidates
+end
+
 function MonsterRules.isRanged(data: MonsterData): boolean
 	return data.ATTACK_TYPE == Enums.MonsterAttackType.RANGED
 end
@@ -108,6 +137,7 @@ function MonsterRules.closestPoint(position: Vector3, candidate: Candidate): Vec
 	if cframe and size then
 		local localPosition = cframe:PointToObjectSpace(position)
 		local clamped = Vector3.new(math.clamp(localPosition.X, -size.X / 2, size.X / 2), localPosition.Y, math.clamp(localPosition.Z, -size.Z / 2, size.Z / 2))
+		-- PointToWorldSpace is variadic; the parentheses keep one return
 		return (cframe:PointToWorldSpace(clamped))
 	end
 	return candidate.position
@@ -122,14 +152,11 @@ end
 -- candidate's centre less its radius, so never more than distanceTo. The
 -- radius is worked out from the box when the builder did not store it
 function MonsterRules.roughDistanceTo(position: Vector3, candidate: Candidate): number
-	local radius = candidate.radiusStuds
-	if radius == nil then
-		local size = candidate.size
-		radius = if size then MonsterRules.boxRadius(size) else 0
-	end
+	local size = candidate.size
+	local radius: number = candidate.radiusStuds or (if size then MonsterRules.boxRadius(size) else 0)
 	local deltaX = candidate.position.X - position.X
 	local deltaZ = candidate.position.Z - position.Z
-	return math.sqrt(deltaX * deltaX + deltaZ * deltaZ) - (radius :: number)
+	return math.sqrt(deltaX * deltaX + deltaZ * deltaZ) - radius
 end
 
 -- the priority order a monster checks: the Refinery, then its list
@@ -154,9 +181,11 @@ end
 -- width), so a big monster does not have to stand inside a wall. The first
 -- type in priority order with anything detected wins; within a type the
 -- nearest does. A detected target out of attack range is walked to
-function MonsterRules.pickTarget(position: Vector3, data: MonsterData, reachStuds: number, candidatesByType: CandidatesByType): Candidate?
+-- `priorityOrder` is the kind's MonsterRules.priorityOrder when the caller
+-- has it cached, so a tick allocates nothing per monster
+function MonsterRules.pickTarget(position: Vector3, data: MonsterData, reachStuds: number, candidatesByType: CandidatesByType, priorityOrder: { number }?): Candidate?
 	local range = MonsterRules.detectionRangeStuds(data) + reachStuds
-	for _, targetType in MonsterRules.priorityOrder(data) do
+	for _, targetType in priorityOrder or MonsterRules.priorityOrder(data) do
 		local candidates = candidatesByType[targetType]
 		if not candidates then
 			continue
@@ -253,6 +282,46 @@ function MonsterRules.encodeVisualCatalog(roster: { [number]: MonsterData }): st
 		encoded[tostring(kind)] = MonsterRules.visualFor(kind, data)
 	end
 	return HttpService:JSONEncode(encoded)
+end
+
+function MonsterRules.encodeDrawBudgets(data: DrawBudgetData, lowMaxQualityLevel: number): string
+	return HttpService:JSONEncode({
+		high = {
+			nearAnimatedMax = data.HIGH.NEAR_ANIMATED_MAX,
+			heldPoseDistanceStuds = data.HIGH.HELD_POSE_DISTANCE_STUDS,
+		},
+		low = {
+			nearAnimatedMax = data.LOW.NEAR_ANIMATED_MAX,
+			heldPoseDistanceStuds = data.LOW.HELD_POSE_DISTANCE_STUDS,
+		},
+		lowMaxQualityLevel = lowMaxQualityLevel,
+	})
+end
+
+local function isDrawBudget(value: any): boolean
+	return typeof(value) == "table" and typeof(value.nearAnimatedMax) == "number" and typeof(value.heldPoseDistanceStuds) == "number"
+end
+
+-- nil for anything but budgets this module encoded
+function MonsterRules.decodeDrawBudgets(json: any): DrawBudgets?
+	if typeof(json) ~= "string" or json == "" then
+		return nil
+	end
+	local isSuccess, decoded = pcall(HttpService.JSONDecode, HttpService, json)
+	if not isSuccess or typeof(decoded) ~= "table" or not isDrawBudget(decoded.high) or not isDrawBudget(decoded.low) or typeof(decoded.lowMaxQualityLevel) ~= "number" then
+		return nil
+	end
+	return decoded
+end
+
+-- the budget a device draws with: low on touch, or at a saved graphics
+-- quality (1 to 10) at or below the low level; nil quality is Automatic,
+-- which says nothing about the device
+function MonsterRules.pickDrawBudget(budgets: DrawBudgets, isTouch: boolean, qualityLevel: number?): DrawBudget
+	if isTouch or (qualityLevel ~= nil and qualityLevel <= budgets.lowMaxQualityLevel) then
+		return budgets.low
+	end
+	return budgets.high
 end
 
 -- nil for anything but a catalogue this module encoded
