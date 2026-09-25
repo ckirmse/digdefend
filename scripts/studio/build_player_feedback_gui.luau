@@ -1,9 +1,11 @@
 -- Rebuilds the "PlayerFeedback" ScreenGui under StarterGui. Run from the Studio
 -- command bar (or the MCP execute_luau tool) in either place; it replaces any
--- existing copy. Names must match Constants.PLAYER_FEEDBACK_*. Two boxes: the
--- feedback box at the bottom for ordinary messages, and the announcement box
+-- existing copy. Names must match Constants.PLAYER_FEEDBACK_*. Three boxes:
+-- the feedback box at the bottom for ordinary messages, the announcement box
 -- at the top centre, blue, for the beats nobody should miss (the Camp Level
--- rising; decided 2026-09-16). Layout follows the GUI standard in CLAUDE.md.
+-- rising; decided 2026-09-16), and the alert box under it, red, for danger
+-- (a wall down, the Refinery under attack; 2026-09-25). Layout follows the
+-- GUI standard in CLAUDE.md.
 local StarterGui = game:GetService("StarterGui")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
@@ -70,6 +72,8 @@ makeBox("FeedbackBox", Vector2.new(0.5, 1), UDim2.fromScale(0.5, 0.85), UiStyle.
 -- the left and the right-edge panels, per the reserved-regions rule
 -- under the day clock (M28, decided 2026-09-22), which owns the very top
 makeBox("AnnouncementBox", Vector2.new(0.5, 0), UDim2.fromScale(0.5, 0.115), UiStyle.ANNOUNCEMENT_COLOR)
+-- alerts, red, just under the announcement so both can show at once
+makeBox("AlertBox", Vector2.new(0.5, 0), UDim2.fromScale(0.5, 0.2), UiStyle.ALERT_COLOR)
 
 gui.Parent = StarterGui
 

@@ -26,6 +26,7 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
 local StructureRules = require("@game/ReplicatedStorage/Shared/StructureRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
@@ -34,6 +35,7 @@ local StructuresData = require("@game/ServerScriptService/GameData/Camp/Structur
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
+local SpatialSoundManager = require(script.Parent.Parent.Server.SpatialSoundManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 local MapManager = require(script.Parent.MapManager)
 local RefineryManager = require(script.Parent.RefineryManager)
@@ -99,6 +101,8 @@ export type StructureManager = typeof(setmetatable(
 		-- falls or is rebuilt, the gate opens or shuts, a run starts
 		barriersChangedHandlers: { () -> () },
 		warnedTemplates: { [string]: boolean },
+		-- a live monster is within the attack radius of the Refinery
+		isRefineryUnderAttack: boolean,
 	},
 	StructureManager
 ))
@@ -399,6 +403,36 @@ function StructureManager:syncModel(structure: Structure)
 	end
 end
 
+-- everyone hears a wall go: the red alert naming it, and its collapse
+-- from where it stood (2026-09-25)
+function StructureManager:announceWallDestroyed(structure: Structure)
+	local number = StructureRules.numberFromId(structure.id)
+	if number then
+		NetManager:notifyAllClients(NetEventNames.NOTIFY_WALL_DESTROYED, {
+			message = string.format(StructuresData.WALL_DESTROYED_MESSAGE_FORMAT, number),
+			displaySec = StructuresData.ALERT_DISPLAY_SEC,
+		})
+	end
+	SpatialSoundManager:playAt(structure.boundsCFrame.Position, SoundNames.Sfx.WALL_COLLAPSE, StructuresData.WALL_COLLAPSE_FULL_VOLUME_STUDS, StructuresData.WALL_COLLAPSE_SILENT_STUDS)
+end
+
+-- MonsterManager reports whether any live monster is within the attack
+-- radius; the alert goes out once as it becomes true, and the flag every
+-- client loops the siren on follows it (2026-09-25)
+function StructureManager:setRefineryUnderAttack(isUnderAttack: boolean)
+	if isUnderAttack == self.isRefineryUnderAttack then
+		return
+	end
+	self.isRefineryUnderAttack = isUnderAttack
+	SplendidReplicationManager:setGameMetadata(Attributes.REFINERY_UNDER_ATTACK, isUnderAttack)
+	if isUnderAttack then
+		NetManager:notifyAllClients(NetEventNames.NOTIFY_REFINERY_ATTACKED, {
+			message = StructuresData.REFINERY_ATTACKED_MESSAGE,
+			displaySec = StructuresData.ALERT_DISPLAY_SEC,
+		})
+	end
+end
+
 -- the one way HP goes down; enemies (M29) and the dev tool both come through here
 function StructureManager:damageStructure(id: string, amount: number)
 	local structure = self.structuresById[id]
@@ -410,6 +444,9 @@ function StructureManager:damageStructure(id: string, amount: number)
 		structure.isDestroyed = true
 		print(`[StructureManager] {id} destroyed`)
 		self:syncModel(structure)
+		if structure.kind == Enums.StructureKind.WALL then
+			self:announceWallDestroyed(structure)
+		end
 		if structure.kind == Enums.StructureKind.REFINERY then
 			for _, handler in self.refineryDestroyedHandlers do
 				handler()
@@ -632,6 +669,7 @@ end
 
 -- a run (or a dev-tool restart) rebuilds everything from the fresh map
 function StructureManager:onRunStarted()
+	self:setRefineryUnderAttack(false)
 	for _, connection in self.connections do
 		connection:Disconnect()
 	end
@@ -699,6 +737,7 @@ function StructureManager:init()
 	SplendidReplicationManager:setGameMetadata(Attributes.GATE_DOOR_TWEEN_SEC, StructuresData.GATE_DOOR_TWEEN_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.FORTIFICATION_TIER, STARTING_TIER)
 	SplendidReplicationManager:setGameMetadata(Attributes.IS_NIGHT, false)
+	SplendidReplicationManager:setGameMetadata(Attributes.REFINERY_UNDER_ATTACK, false)
 	SplendidReplicationManager:setGameMetadata(Attributes.REPAIR_CHUNK_HP, StructuresData.REPAIR_CHUNK_HP)
 	SplendidReplicationManager:setGameMetadata(Attributes.REPAIR_CHUNK_IRON, StructuresData.REPAIR_CHUNK_IRON)
 	SplendidReplicationManager:setGameMetadata(Attributes.HAMMER_HIT_INTERVAL_SEC, StructuresData.HAMMER_HIT_INTERVAL_SEC)
@@ -734,6 +773,7 @@ function StructureManager.new(): StructureManager
 	self.postModelsFilledHandlers = {}
 	self.barriersChangedHandlers = {}
 	self.warnedTemplates = {}
+	self.isRefineryUnderAttack = false
 	return self
 end
 

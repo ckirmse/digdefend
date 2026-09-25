@@ -321,8 +321,8 @@ Difficulty
 Party scaling
 * Parties are 1 to 6 players and the count can drop mid-run. The mine grid is fixed at generation and never resized; everything that scales with party size is applied at the moment of effect (a rock breaking, a wave spawning) from the current player count, so drop-outs adjust the run with nothing to migrate.
 * Levers live in one PartyScaling table keyed by player count 1–6 (GameData/Control/PartyScaling), so 3 players can be tuned separately from 5:
-   * Wave difficulty and enemy HP multipliers (WAVE_DIFFICULTY_MULTIPLIER_BY_PLAYER_COUNT, ENEMY_HP_MULTIPLIER_BY_PLAYER_COUNT). The main lever: a bigger crew digs faster and attracts bigger nights. As built (M30): the generator aims for the night’s difficulty times the wave multiplier (an authored wave has every count multiplied instead, rounded half up), and every monster spawns with its HP times the HP multiplier; both read the crew count sampled at dawn, and the day-start line ends “Waves 1.60x”
-   * Uranium rescue target multiplier, kept modest (about 1.0 solo to 1.25 at six). Every mine must author enough uranium for the largest party; the generator validates supply against target × the six-player multiplier.. The difficulty multiplies the target too (GameData/Control/Difficulty URANIUM_TARGET_MULTIPLIER: Normal 1.0, Hard 1.15, Nightmare 1.3; M31), and the generator checks the mine’s supply against the worst case of both, so Deadman’s Canyon authors 34 uranium for a target of 20
+   * Wave difficulty and enemy HP multipliers (WAVE_DIFFICULTY_MULTIPLIER_BY_PLAYER_COUNT, ENEMY_HP_MULTIPLIER_BY_PLAYER_COUNT). The main lever: a bigger crew digs faster and attracts bigger nights. As built (M30): the generator aims for the night’s difficulty times the wave multiplier (an authored wave has every count multiplied instead, rounded half up), and every monster spawns with its HP times the HP multiplier; both read the crew count sampled at dawn, and the day-start line ends “Waves 1.60x”. The wave multiplier was matched to the uranium table on 2026-09-25 (1.0, 1.5, 2.0, 2.5, 3.0, 3.5), and the map’s MIN_GROUP_DIFFICULTY is multiplied by it too, so a bigger crew meets the same number of groups as a solo player, each that much bigger
+   * Uranium rescue target multiplier, near-linear (1.0, 1.5, 2.0, 2.5, 3.0, 3.5 from solo to six; steepened from 1.0 to 1.25 on 2026-09-25: a crew digs about as many times faster as it is large, so the modest table let six players finish before the nights escalated while a solo run had to survive night 8 and beyond). Every mine must author enough uranium for the largest party; the generator validates supply against target × the six-player multiplier. The difficulty multiplies the target too (GameData/Control/Difficulty URANIUM_TARGET_MULTIPLIER: Normal 1.0, Hard 1.15, Nightmare 1.3; M31), and the generator checks the mine’s supply against the worst case of both, so Deadman’s Canyon authors 135 uranium for a solo target of 30 (6 / 9 / 9 / 111: 20%, 30%, 30% of the solo target in the first three zones, the rest in zone 4; decided 2026-09-25 after a 50 minute solo playtest at 2 / 4 / 8 / 20 against 20 found none, the target raised from 25 the same day). A scaled target is rounded to the nearest 5, halves up (RefineryRules.URANIUM_TARGET_STEP, decided 2026-09-25), so the radio reads 40 for two players rather than 38, and the generator rounds its worst-case check the same way
    * Per-player ore yield multiplier, applied only to Iron and Gold drops because those balances are per player. Diamonds and Uranium are shared and never scaled, so the mine’s authored totals stay their reference.
    * Rock HP is never scaled by party size. A crew of six clears rock faster, and the bigger night that follows is the balance.
 * Multipliers are sublinear: six players are not six times as effective.
@@ -370,6 +370,7 @@ Mines
 Refinery
 * Located just outside the mine entrance is the Refinery
 * Players bring their raw materials here to get refined
+* Under attack (2026-09-25): while any live monster is within 20 studs of the Refinery (GameData/Camp/Structures REFINERY_ATTACK_RADIUS_STUDS, checked four times a second) every client loops the RefineryUnderAttack siren, and the red alert "The Refinery is under attack" shows once as the attack begins; the state clears, and the siren stops, once the last monster leaves the radius
 * It functions like a simulator game, players walk up to to refinery, press a proximity prompt attached to the refinery that says “Refine Raw Resources” and all the raw resources are sucked from the player into the Refinery, which spits out the appropriate refined materials, which go straight into the player balance for spending (unless it’s diamonds, in which case it gets added to the Camp Level progress bar). 
 * The Refinery is the focal point of the camp, as it displays the camp level and if destroyed, ends the game
 * Players must protect the refinery at all costs
@@ -393,7 +394,7 @@ Walls
 * Each Wall has its own Health
 * As enemies attack, they can break a wall and enter the base
 * Walls can be repaired and upgraded with Iron (see Wall Repair)
-* As built (M23): 6 wall segments per map, each with its own HP. A destroyed segment turns to a low heap of rubble that players and enemies can walk over, and stays rubble until it is fully rebuilt
+* As built (M23): 6 wall segments per map, each with its own HP. A destroyed segment turns to a low heap of rubble that players and enemies can walk over, and stays rubble until it is fully rebuilt. Each wall carries its number ("WALL 3") over its HP bar, and when one falls every player gets the red alert "Wall 3 destroyed" with the WallDestroyed sound, and hears the WallCollapse crash from where it stood, full within 30 studs and gone past 250 (2026-09-25)
 * The map's Wall, Gate, and Post models are placement markers: at run start the server swaps each for the current level's template (GameAssets/Structures: WALL_n, GATE_n, POST_n, plus WALL_RUBBLE and GATE_RUBBLE) at the marker's pivot, so a look is authored once and reused on every map
 Defensive Posts
 * There are 6 available Posts in each map (1 for each player, up to 6). 
@@ -430,7 +431,7 @@ Tool Bar System
 * The bar shows what the server says the player holds (tool slots and the equipped tool are server state replicated as attributes); every tap is a request. The bar slides away while a menu is open
 * The held model is a real Roblox Tool (decided 2026-09-15, as in the reference games): the server builds it from the GameAssets/Tools template when a tool is equipped and destroys it when not, so the Humanoid grips it, plays the arm pose and the forward swing on every use, and keeps it visible in first person. The Tool is only the visual; slots and counts stay in server Lua state and it is never stored in the Roblox Backpack (a Roblox-side unequip counts as an unequip request). Roblox's own hotbar is switched off
 * Consumables (Torch, Dynamite) show how many are held as an "xN" badge on their slot and leave the bar when the last one is used
-* Every slot shows its tool's picture (shared Icons, TOOL by tool kind and WEAPON by weapon kind; one picture for every pick axe level), with the name standing in only for a tool without one (decided 2026-09-21). The backpack button and the jet pack bar carry pictures the same way
+* Every slot shows its tool's picture (shared Icons, TOOL by tool kind and WEAPON by weapon kind; one picture for every pick axe level), with the name standing in only for a tool without one (decided 2026-09-21), and an action word under the slot saying what the tool does, never what it is: MINE, SHOOT, LIGHT, BLAST, REPAIR, BUILD (2026-09-25). The backpack button and the jet pack bar carry pictures the same way
 * Everyone also carries a Defenses tool from the start (M26, decided 2026-09-21): it has no held model, and equipping it is Build Mode, where the tool bar slides away and the Tower and Trap loadout takes its place (see "Building Towers")
 Pick Axe (Default Tool)
 * Every player starts with a basic Pick Axe Tool by default
@@ -545,7 +546,7 @@ Collecting Ore
 * Players can tap their Backpack icon to bring up a Backpack inventory menu
 * This menu shows how much of each Ore is in their backpack (only showing Ore that the player actually has) 
 * Capacity is counted in ore units, so the HUD’s taken/total is total ore over capacity (“12/15”). Contents, level, and capacity are server run state replicated as private attributes; the backpack HUD button is always shown and opens the contents menu as an overlay
-* A broken resource rock gives the breaker its yield. Iron and Gold are multiplied by the party table (PartyScaling) and rounded half up; Crystal and Uranium never are. Party size is the crew count RunCycleManager samples at run start and every dawn (M28), never the live player count
+* A broken resource rock gives the breaker its yield. Iron and Gold are multiplied by the party table (PartyScaling) and rounded half up; Crystal and Uranium never are. Party size is the crew count RunCycleManager samples at run start, every dawn, and on every departure (M28; departures 2026-09-25), never the live player count
 * Ore that does not fit lands by the block as a pickup (one invisible server part carrying resource and amount; clients draw a bobbing cube in the ore’s colour), scattered up to 1.5 studs and settled onto the ground beneath (inside the mine the server walks the grid column down to the next rock; outside it raycasts the camp), so drops never hang where the block was. Ore at the player's feet still flies into the HUD backpack from the nearest screen edge. Any player with room within 5 studs collects it, partial amounts included; the server checks four times a second. A pickup nobody takes disappears after 120 s, and past 300 pickups the oldest go first (GameData/Mining/Backpack)
 Refining Ore
 * Players refine Raw Resources by taking them to the Refinery
@@ -559,7 +560,7 @@ Refining Ore
 * The Refinery spins and grinds the resources for a few seconds and spits out icons for each of the Refined Resources it generates, which should fly into the player’s HUD to the appropriate balance bar
 * The balance bars should shake and update as each icon hits it
 * This process should all feel very satisfying, both visually and audibly – lots of particle effects, sounds, etc
-* As built (M20, decided 2026-09-14): every ore refines one to one (GameData/Refinery, adjustable per ore). The prompt is heard by the server directly, never as a client message; it empties the whole backpack, disables itself for a 2 second grind, then pays out. Iron Bars and Gold Bars are private per-player balances; Diamonds go into the shared Camp Level pool and Uranium into the shared rescue count, both shown to every player. The Uranium row reads “total / target”, the target being the mine’s solo uraniumTarget times the PartyScaling multiplier for the current crew (the crew count sampled at run start and every dawn, M28), and turns green once reached
+* As built (M20, decided 2026-09-14): every ore refines one to one (GameData/Refinery, adjustable per ore). The prompt is heard by the server directly, never as a client message; it empties the whole backpack, disables itself for a 2 second grind, then pays out. Iron Bars and Gold Bars are private per-player balances; Diamonds go into the shared Camp Level pool and Uranium into the shared rescue count, both shown to every player. The Uranium row reads “total / target”, the target being the mine’s solo uraniumTarget times the PartyScaling multiplier for the current crew (the crew count sampled at run start, every dawn, and on every departure, M28), rounded to the nearest 5, and turns green once reached
 * Placeholder sequence until Phase 9 polish: coloured discs (at most six per resource) fly from the backpack button into the Refinery on screen while RefineryGrind plays, then from the Refinery to each balance row (Diamonds to the Camp Level billboard above the Refinery) with RefineryPayout; a row bumps as each icon lands and its value updates when the last one does. The Refinery must be visible on screen for the icons to aim at it; otherwise they aim at the screen centre
 * Dev tools: Fill backpack spreads all four ores evenly; Reset refinery clears every balance and the camp progress
 Randomized Mine Creation
@@ -567,7 +568,7 @@ Randomized Mine Creation
 
 1. What a mine is
 A mine is a single grid of 4×4×4 stud cube blocks, generated on the server when a run starts. It is never built by hand in Studio.
-The grid is one open volume of rock inside a bedrock shell, entered through a short tunnel at the mouth. It is authored as zones: consecutive depth bands running back into the mountain, each setting the rock mix, ore, uranium, and pocket count for its band. Nothing inside the mine is walled or gated; the deeper rock is simply harder (decided 2026-09-15).
+The grid is one open volume of rock inside a bedrock shell, entered through a short tunnel at the mouth. It is authored as zones: consecutive depth bands running back into the mountain, each setting the rock mix, ore, uranium, and pocket count for its band. Nothing inside the mine is walled or gated; the deeper rock is simply harder (decided 2026-09-15). Every uranium rock hums (Sfx.UraniumHum, a 3D loop, full volume within 4 studs and silent past 20; GameData/Mines/Streaming), buried or exposed, so a crew can find the win condition by ear through solid rock and the depth HP curve stays the pacing (decided 2026-09-25). Client side only: one looping player feeds an invisible emitter per uranium rock within 6 blocks of the player, kept with the block stream, so the cost is a handful of voices at most.
 Pockets are small caverns pre-carved into each zone so ore is exposed on their walls and there is something to discover.
 A designer authors roughly 40 numbers per mine. Difficulty is one more.
 ________________
@@ -1001,7 +1002,7 @@ return {
     veinEntranceClearance = 0,
     pocketRadiusMin = 1,
     pocketRadiusMax = 2,
-    uraniumTarget = 20,
+    uraniumTarget = 30,
 
     defaultZoneHeight = 8,
     defaultZoneWidth = 24,
@@ -1011,23 +1012,15 @@ return {
             depth = 20,
             hardness = 1.0,
             tierBias = 1.0,
-            iron = 34, gold = 12, crystal = 2, uranium = 2,
+            iron = 34, gold = 12, crystal = 6, uranium = 6,
             pockets = 2,
-
-            handPlaced = {
-                -- The upgrade advertisement. A few
-                -- blocks past the mouth, barely dentable
-                -- with a starting pickaxe.
-                { rock = "Crystal 3", depth = 6,
-                  height = 1, widthOffset = 2 },
-            },
         },
 
         {   -- 2: mixed rock, better ore
             depth = 24,
             hardness = 2.0,
             tierBias = 2.0,
-            iron = 30, gold = 18, crystal = 6, uranium = 4,
+            iron = 30, gold = 18, crystal = 6, uranium = 9,
             pockets = 3,
         },
 
@@ -1037,7 +1030,7 @@ return {
             floorDrop = 6,
             hardness = 3.0,
             tierBias = 3.0,
-            iron = 22, gold = 22, crystal = 12, uranium = 8,
+            iron = 22, gold = 22, crystal = 12, uranium = 9,
             pockets = 4,
         },
 
@@ -1047,12 +1040,12 @@ return {
             floorDrop = 8,
             hardness = 4.0,
             tierBias = 4.0,
-            iron = 16, gold = 20, crystal = 18, uranium = 14,
+            iron = 16, gold = 20, crystal = 18, uranium = 111,
             pockets = 5,
         },
     },
 }
-Uranium is spread 2 / 4 / 8 / 14 so the counter moves from the first zone. Nothing stops a crew tunnelling straight for zone 4, except that its rock is hardness 4.0 against a level 1 pick axe; that curve, and the camp level gating the pick axe tiers, is the pacing.
+Uranium is spread 6 / 9 / 9 / 111 against a solo target of 30, so the first three zones each hold 20%, 30%, and 30% of the solo target and the counter moves from the first zone; zone 4 holds the rest and covers the worst case (30 × 1.3 Nightmare × 3.5 six players = 136.5, rounded to the nearest 5 = 135). Zone 1 carries six crystal clusters (about 84 Diamonds) so Camp Level 2 is reachable from the first zone without clearing it. Nothing stops a crew tunnelling straight for zone 4, except that its rock is hardness 4.0 against a level 1 pick axe; that curve, and the camp level gating the pick axe tiers, is the pacing.
 As of 2026-09-15 the live file (GameData/Mines/DeadmansCanyon) also drops each zone below the entrance floor (floorDrop 2 / 4 / 6 / 8) and evens out zones 1 and 2 to 22 iron / 20 gold and 22 / 22, because Gold feeds the store now while Iron's sinks (walls, traps) arrive later.
 Darkness: the mine is lit by the client, not the sun. From the mouth to 100 studs in, each client blends the sun, ambient, and skybox light down to near black by how far along the mine's forward axis its character stands (ClientMineLightingManager), so torches are what light the deep mine and walking out never shows a step.
 At Nightmare (vein divisor 1.4), the same file generates zone 2 with the same rock, 21 iron, 13 gold, and 4 crystal clusters, and unchanged uranium. No second file, no overrides.
@@ -1088,8 +1081,8 @@ Posts
 * There are multiple Post Types. Players pick theirs before a run through the Post loadout slot (one only); every new player starts with the Machine Gun unlocked and equipped. The lobby store for posts is a later milestone, so until then the slot is empty and every claim spawns the Machine Gun (an admin dev tool picks the other type for testing)
 * As built (M25): two Post Types, Machine Gun and Rocket Launcher, models under ReplicatedStorage.GameAssets.PostWeapons named by their enum key. Neither has ammo or a reload (decided 2026-09-18): the fire rate is the only limit on a held trigger. The Machine Gun is hitscan. The Rocket Launcher fires a rocket (decided 2026-09-18): the server flies it in a straight line at 120 studs per second, cast segment by segment against the world and the enemies, and where it first lands everything within 12 studs of the impact takes the weapon's damage; past its range it bursts in the air. Every client flies the GameAssets/Projectiles Rocket model from the launch message, with the smoke trail authored under its TailAttachment (any ParticleEmitter there is the trail; a bare attachment gets a placeholder) and a 3D flight loop riding it, and bursts it where the server says with the authored GameAssets/Effects/RocketBlast effect (each emitter fires its BurstCount once, lights flash briefly; a missing template gets a placeholder fireball) and the explosion sound. Three sounds: Post_RocketLauncher_Fire at the launcher, Post_RocketLauncher_Flight on the rocket, Post_RocketLauncher_Explode at the impact; the gunner also hears the hit confirm when the burst hurt something
 Claiming a Post
-* Every map has 6 posts along the defensive wall; every post starts Unclaimed. The sign on each shows its number and status: UNCLAIMED and a "CLAIM FOR" line with a Gold Bar icon and the number (10) until somebody claims it; a player who already has a post does not see that line on any sign. The prompt hangs 3 studs below the sign's centre so it never covers the text, then the owner's headshot, display name, and Post Type
-* A "Claim Post" proximity prompt on the sign (1 second hold) shows only to players who have no post yet, on posts nobody owns. Triggering it deducts the Gold Bars and gives ownership; without enough Gold the player is told
+* Every map has 6 posts along the defensive wall; every post starts Unclaimed. The sign on each shows its number and status: UNCLAIMED, centred on the sign, until somebody claims it, then the owner's headshot, display name, and Post Type. The prompt hangs 3 studs below the sign's centre so it never covers the text
+* A "Claim Post" proximity prompt on the sign (1 second hold) shows only to players who have no post yet, on posts nobody owns. Triggering it gives ownership. Claiming is free (decided 2026-09-25: a post is every player's guaranteed role and the choice is where, not whether, so the old 10 Gold was only friction before the first night; CLAIM_PRICE_GOLD stays as the knob for the day posts become unequal, and a price above 0 would need its sign line back)
 * The owner's Post Weapon is cloned onto the post's Spawn part (the weapon's own base is the same cylinder), and a small workbench appears on the opposite side of the stairs from the sign, at the post template's WorkbenchSpawn marker (designer-movable). Only the owner can use the weapon or the bench
 * A claim lasts the run: it ends only when the player leaves (the weapon and bench go, the sign reads Unclaimed again). Their upgrades go with them
 Using a Post Weapon
@@ -1138,7 +1131,7 @@ Building Towers
 * Building places the Tower and deducts the currency. With too little currency the preview still turns green, but the price reads in red, and building gives "You don't have enough Iron Bars" in the feedback box with the Fail sound
 * A successful build spawns the Tower at the chosen cells and it becomes active
 * Every active Tower carries a BillboardGui showing its name, its HP bar, and the display name of its owner
-* As built (M26): the BuildBar ScreenGui (scripts/studio/build_build_bar_gui.luau) holds the entries and the Placement panel; the Defensive Zone grid is drawn as thin lines on the part's top face with a box around it, client-side only. A preview has no rotation (decided 2026-09-21): a footprint's columns run along the area's X axis and its rows along its Z, so the designer turns the zone part to turn the grid. Building exits Build Mode; tap the entry again for another. Tower placeholder prices: Sentry Gun 20, Flamethrower 30, AA Turret 35, Frost Tower 30, Tesla Coil 40, Sniper Tower 45 Iron, upgrades 15 / 30 / 60 / 120 (Tesla and Sniper 25 / 50 / 100 / 200), all in GameData/Defenses/Towers. A Tower whose builder leaves keeps standing under their name; nobody can sell or upgrade it
+* As built (M26): the BuildBar ScreenGui (scripts/studio/build_build_bar_gui.luau) holds the entries and the Placement panel; the Defensive Zone grid is drawn as thin lines on the part's top face with a box around it, client-side only. A preview has no rotation (decided 2026-09-21): a footprint's columns run along the area's X axis and its rows along its Z, so the designer turns the zone part to turn the grid. Building exits Build Mode; tap the entry again for another. Tower placeholder prices: Sentry Gun 30, Flamethrower 45, AA Turret 53, Frost Tower 45, Tesla Coil 60, Sniper Tower 68 Iron (raised 50% on 2026-09-25 after a solo playtest, halves rounded up), upgrades 15 / 30 / 60 / 120 (Tesla and Sniper 25 / 50 / 100 / 200), all in GameData/Defenses/Towers. A Tower whose builder leaves keeps standing under their name; nobody can sell or upgrade it
 * Server authority follows the tools rule: the client asks to build at a cell with a facing; the server checks Repair Mode, the loadout, the Tower limit, the cells, and the balance before spawning. Towers are Lua state with one shadow part each, rendered by the clients from the ReplicatedStorage template
 Upgrading and Selling Towers
 * A placed Tower has an "Upgrade/Sell" proximity prompt, visible only to its owner
@@ -1172,14 +1165,14 @@ Traps
 * Traps cannot be upgraded
 * Every Trap has HP and can be destroyed by enemies. Some Traps despawn on their own after use (a Bear Trap, for example, despawns once triggered)
 Buying Traps
-* Traps are bought in the Defense Store building (Camp.DefenseStore), structured like the Mining Supplies Store: a stand per Trap showing its model, price, and any Camp Level requirement, each with a purchase proximity prompt
+* Traps are bought in the Defense Store building (Camp.DefenseStore), structured like the Mining Supplies Store: a stand per Trap showing its model (the real trap template, shrunk by the DisplayScale attribute the designer sets on the standâs ItemSpawn part, since the templates are grid sized; 2026-09-25), price, and any Camp Level requirement, each with a purchase proximity prompt
 * With enough Iron the price is deducted and the Trap is added to the player's run inventory; with too little the player is told with the Fail sound
 Placing Traps
 * Placing a Trap works exactly like building a Tower: the owned Traps appear beside the Defense loadout in Build Mode, with the count owned in place of a price, and placing one consumes it
 Selling Traps
 * A placed Trap has a proximity prompt visible only to its owner reading "Sell: [price] Iron Bars", a 1 second hold, worth 50% of the purchase price. Activating it adds the value to the owner's Iron balance and despawns the Trap
 Trap Types
-* Stats and prices live in GameData/Defenses/Traps; models in ReplicatedStorage.GameAssets.Traps, named by their enum key. Placeholder prices: Wall 12, Spike Trap 15, Goo Pit 10, Land Mine 20, Bear Trap 8, Decoy 18 Iron; footprints in the same file. Every Trap has HP. A Trap that "touches" an enemy means the enemy's footprint overlaps the Trap's cells; air units never touch a Trap (M27, decided 2026-09-22)
+* Stats and prices live in GameData/Defenses/Traps; models in ReplicatedStorage.GameAssets.Traps, named by their enum key. Placeholder prices: Wall 12, Spike Trap 15, Goo Pit 10, Land Mine 20, Bear Trap 8, Decoy 18 Iron; footprints in the same file. The Wall is a run four cells long and one deep (16 x 4 studs), laid along the Defensive Zoneâs columns, which run across the monstersâ approach; it has no rotation, like every placement (changed from a 2 x 2 block on 2026-09-25). Every Trap has HP. A Trap that "touches" an enemy means the enemy's footprint overlaps the Trap's cells; air units never touch a Trap (M27, decided 2026-09-22)
 * Roster (behaviour built in M27; Tiger Teeth renamed Wall, a clearer concept):
    * Wall: a barrier meant to slow and corral enemies. If there is a path around it, enemies take that path; if there is none, they attack it (the routing is M29; until then a blocked dummy attacks the Wall in front of it). Stats: HP
    * Spike Trap: damages enemies that pass over it. Two states, Down (the default, spikes hidden below the platform) and Up. When an enemy touches it the spikes go Up and damage every unit on top; it stays Up for Up Time, then goes Down and recharges for Recharge Time before it can go Up again. Stats: HP, Damage, Up Time, Recharge Time
@@ -1189,12 +1182,12 @@ Trap Types
    * Decoy: a barrier with HP that draws enemies within its Range toward it, if those enemies prioritise attacking players. It carries a "draws attacks" flag that enemy targeting reads at M29. Stats: HP, Range
 * Status effects: a slow is a percentage off an enemy's speed for a duration and the strongest active slow wins (they never stack); a stun is a 100% slow; a burn is damage per second for a duration and a fresh burn restarts the clock. All three live on the target itself, so a Tower, a Trap, or later a weapon applies them the same way (M27)
 Wall Repair
-* Repair works like mining (decided 2026-09-17, replacing a single full-price repair prompt): in Repair Mode every Hammer swing at a damaged structure adds 10 HP and costs the player 4 Iron Bars. The last swing pays only for the HP still missing, rounded up. Swings repeat every 0.45 seconds while held, and the Hammer reaches 17 studs, 5 more than the pick axe, because a wall is big
+* Repair works like mining (decided 2026-09-17, replacing a single full-price repair prompt): in Repair Mode every Hammer swing at a damaged structure adds 10 HP and costs the player 2 Iron Bars (halved from 4 on 2026-09-25 after a solo playtest). The last swing pays only for the HP still missing, rounded up. Swings repeat every 0.45 seconds while held, and the Hammer reaches 17 studs, 5 more than the pick axe, because a wall is big
 * Every swing is a request the server validates (Hammer equipped, structure damaged, within reach of the structure's bounds, cooldown, enough Iron). A swing that lands plays the hammer sound for everyone nearby. With too little Iron the Hammer does not swing and the player is told once per press
-* A destroyed wall or gate is rubble and stays rubble while it is rebuilt swing by swing from zero; its bar reads "Rebuilding n / max". It stands back up only when fully rebuilt (GameData REBUILD_STAND_SHARE = 1, decided 2026-09-17: a wall that reappears after one swing could be flickered in front of the horde for 4 Iron a time). Rebuilding a level 1 wall is 20 swings and 80 Iron
+* A destroyed wall or gate is rubble and stays rubble while it is rebuilt swing by swing from zero; its bar reads "Rebuilding n / max". It stands back up only when fully rebuilt (GameData REBUILD_STAND_SHARE = 1, decided 2026-09-17: a wall that reappears after one swing could be flickered in front of the horde for 2 Iron a time). Rebuilding a level 1 wall is 30 swings and 60 Iron
 * Repair is never capped by Camp Level
 * Towers are repaired exactly like walls (decided 2026-09-22): in Repair Mode a Tower shows the same HP bar and swing price, anyone may swing at it, and each swing adds the same HP for the same Iron. A destroyed Tower is gone, never rubble; it is built again. Traps are consumables and are never repaired
-* Fortification level: the gate, all 6 walls, and the look of the posts share one level, 1 to 3 (decided 2026-09-17: a half-wood, half-concrete wall reads as a bug). HP by level: Wall 200 / 400 / 800, Gate 300 / 600 / 1200. An upgrade keeps each structure's share of HP rather than healing it, and rubble stays rubble
+* Fortification level: the gate, all 6 walls, and the look of the posts share one level, 1 to 3 (decided 2026-09-17: a half-wood, half-concrete wall reads as a bug). HP by level: Wall 300 / 600 / 1200, Gate 450 / 900 / 1800 (raised 50% on 2026-09-25 after the five-player test). An upgrade keeps each structure's share of HP rather than healing it, and rubble stays rubble
 * The Workbench: a bench just inside the gate with a floating sign like the Camp Level one, showing "FORTIFICATIONS LEVEL n", a bar of the crew's donated Iron ("pool / required", Iron Bar icon), and a red "Camp Level N required" line while the next level is locked. Its proximity prompt, "Donate Iron", moves 10 of the player's Iron Bars into the shared pool per press; no Hammer needed. When the pool reaches the price (150 Iron for level 2, 400 for level 3) the fortifications upgrade by themselves, and every player gets the CampLevelUp sound and "Fortifications upgraded to level n" in the blue announcement box. Level N needs Camp Level N, and donations are refused while locked so nobody's Iron is stranded in a pool that cannot complete
 * The Refinery is repaired with the Hammer like a wall but never bought: its HP level is the Camp Level (1000 / 1500 / 2200 / 3000), so Diamonds toughen it. Refinery destroyed is the loss condition hook for the run state machine (M28)
 * All numbers live in GameData/Camp/Structures and GameData/Camp/Level; placeholders until enemies exist to tune against
@@ -1248,11 +1241,11 @@ Wave Cycle
 * A run is a loop of Day and Night (GDD "Gameplay Loop"; built in M28, decided 2026-09-22). The run state is one of Day, Night, Won, or Lost, held by the gameplay server (RunCycleManager) and published to every client with the day number and the time the current phase ends, so every screen shows the same clock from server time
 * A run loads in the morning look with the clock still (the Waiting state) and day 1 begins PRE_DAY_SEC (10 s) after the helicopter leaves, which is when everyone the lobby sent is Ready or the arrival timeout has given up on the missing (decided 2026-09-22)
 * Day lasts 5 minutes (GameData/Control/RunCycle DAY_SEC). The gate stands open, players mine, refine, build, and place defenses
-* Dusk is the last stretch of the day (DUSK_SHARE, the final 20%): nothing changes in play, only the clock icon turns to dusk so a crew heads home in time
+* Dusk is the last stretch of the day (DUSK_SEC, the final 40 s; was the final 20% until 2026-09-25): nothing changes in play, only the clock icon turns to dusk and the dusk song starts, so a crew heads home in time
 * Night begins when the day clock runs out. The gate shuts, the night's wave spawns (GDD "Creating Waves"), and the night lasts until every group has spawned and every monster is dead, at which point the next day begins (M29). NIGHT_PLACEHOLDER_SEC (GameData/Control/RunCycle) is 0; above 0 it also ends a night that long after the 90 second spawn window, as a test switch
 * The day counter starts at 1 and each dawn adds one; the night’s wave is generated from it (Creating Waves, M30)
-* The sky: every map has four looks, day start, day end, night start, and night end (shared LightingPresets, keyed by map, read from Studio and ported by hand; decided 2026-09-22). Day start is set outright when the run loads. Over a day the sky blends steadily from day start (8:00) to day end (17:30, the same colours); the night opens with a LIGHTING_DUSK_TRANSITION_SEC (1 s) blend to night start (19:12, the light off, just past the engine's sun-to-moon handover, which cannot be blended), then blends night start into night end (20:00, the moon at full) over the 90 s spawn window and holds night end until the wave is done. A cleared night blends night end back to day start over LIGHTING_DAWN_TRANSITION_SEC (1 s) and only then does the day clock start. A DayNightNumber card ("DAY  N" / "NIGHT  N") shows for 3 s once each blend ends, with the Rooster or NightBell sound; day 1 gets no card. Lighting.ClockTime blends the same way between each look's hour, always turning forward round the clock
-* Every dawn, and at the first day, the announcement box states the day, the crew size, and the multipliers, in the words of "Adjusting for Different Player Counts"
+* The sky: every map has four looks, day start, day end, night start, and night end (shared LightingPresets, keyed by map, read from Studio and ported by hand; decided 2026-09-22). Day start is set outright when the run loads. Over a day the sky blends steadily from day start (8:00) to day end (17:30, the same colours); the night opens with a LIGHTING_DUSK_TRANSITION_SEC (1 s) blend to night start (19:12, the light off, just past the engine's sun-to-moon handover, which cannot be blended), then blends night start into night end (20:00, the moon at full) over the 90 s spawn window and holds night end until the wave is done. A cleared night blends night end back to day start over LIGHTING_DAWN_TRANSITION_SEC (1 s) and only then does the day clock start. A DayNightNumber card ("DAY  N" / "NIGHT  N") shows for 3 s once each blend ends, with the Rooster or NightBell sound; day 1 gets no card. Every day, as dusk begins (DUSK_SEC, 40 s before the night falls), every client starts the 2D track Music.DuskSong1 from the top (the track is 52 s, so it runs on into the night; decided 2026-09-25); a day the dev tool cuts short starts it as soon as the lead is reached. Lighting.ClockTime blends the same way between each look's hour, always turning forward round the clock
+* Every dawn, and at the first day, the server logs the day, the crew size, and the multipliers to the Output, in the words of "Adjusting for Different Player Counts"; the line no longer shows in the announcement box (2026-09-25), the DayNightNumber card and the clock carry the beat
 * The run ends as Lost when the Refinery is destroyed or every player is dead. The clock stops, the gate stays as it is, and the loss is announced; the trip back to the lobby and the end screen are M33. Won is the rescue helicopter leaving with the crew aboard (see Gameplay Loop; M31): the Rescue state sits between, night rules in force, the phase end being the landing time and then the boarding deadline
 * Day clock: a bar top centre of the screen (the DayClock ScreenGui). A circle on its left cycles through three pictures, Day, Dusk, and Night; the bar starts full at dawn and empties from right to left until night, so players always know how long they have; "Day N" reads under the bar. At night the bar is empty and the circle shows the night picture
 Setting Up Waves
@@ -1770,7 +1763,7 @@ Titan II
    * Projectile: None
 Random Events
 Adjusting for Different Player Counts
-* The crew size that scales a run (GDD "Maps": Party scaling) is a single number the gameplay server samples, never the live player count: once at run start (the party that boarded) and again at every dawn (M28, decided 2026-09-22). Nothing changes under a player mid-day
+* The crew size that scales a run (GDD "Maps": Party scaling) is a single number the gameplay server samples, never the live player count: once at run start (the party that boarded), again at every dawn (M28, decided 2026-09-22), and whenever a crew member leaves the run (2026-09-25); it only ever goes down. On a departure the uranium target drops at once and the radio re-checks it, and the next night is built for who is left; a night already under way keeps its wave
 * It only ever goes down. A player leaving eases the run at the next dawn; a player joining late never makes it harder
 * Everything that scales by crew reads this one number: ore yield per break, the uranium rescue target, the wave difficulty (the generator’s target, or an authored wave’s counts) and enemy HP (M30)
 * The day-start message states it plainly, for example "Day 3. Crew of 4. Ore 1.45x, Uranium target 1.15x", so the multipliers are never a surprise

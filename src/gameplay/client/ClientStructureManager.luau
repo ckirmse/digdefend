@@ -98,9 +98,14 @@ local DEFAULT_REPAIR_CHUNK_IRON = 4
 -- repairs by other players are heard only nearby
 local SOUND_RANGE_STUDS = 60
 
+local NOTIFY_ALERT_SHAPE = {
+	message = "string",
+	displaySec = "positiveNumber",
+}
+
 local NOTIFY_STRUCTURE_REPAIRED_SHAPE = {
 	id = "string",
-	userId = "positiveInteger",
+	userId = "integer",
 }
 -- a Tower's bar floats this far above its body
 local TOWER_BILLBOARD_LIFT_STUDS = 1.5
@@ -159,9 +164,16 @@ function ClientStructureManager:readRepairable(shadow: BasePart): Repairable?
 	if typeof(id) ~= "string" or typeof(hp) ~= "number" or typeof(maxHp) ~= "number" then
 		return nil
 	end
+	-- a numbered structure reads "Wall 3" over its bar, so an alert naming a
+	-- wall can be matched to the one in front of you (2026-09-25)
+	local name = if typeof(kind) == "number" then Enums.getPublicName(Enums.StructureKind, kind) or "" else ""
+	local number = StructureRules.numberFromId(id)
+	if number then
+		name = `{name} {number}`
+	end
 	return {
 		id = id,
-		name = if typeof(kind) == "number" then Enums.getPublicName(Enums.StructureKind, kind) or "" else "",
+		name = name,
 		hp = hp,
 		maxHp = maxHp,
 		isDestroyed = shadow:GetAttribute(Attributes.STRUCTURE_IS_DESTROYED) == true,
@@ -600,8 +612,56 @@ function ClientStructureManager:getIsRepairMode(): boolean
 end
 
 
+-- the red alert everyone gets when a wall falls, with its sound
+function ClientStructureManager:onWallDestroyed(payload: any)
+	if not Validate.isTableShape(payload, NOTIFY_ALERT_SHAPE) then
+		warn("ClientStructureManager: malformed NotifyWallDestroyed")
+		return
+	end
+	ClientPlayerFeedbackManager:alertLocal(payload.message, payload.displaySec)
+	ClientSoundManager:playSfx(SoundNames.Sfx.WALL_DESTROYED)
+end
+
+-- the red alert as the Refinery comes under attack; the siren follows the
+-- GameMetadata flag, which also ends it once the last monster backs off
+function ClientStructureManager:onRefineryAttacked(payload: any)
+	if not Validate.isTableShape(payload, NOTIFY_ALERT_SHAPE) then
+		warn("ClientStructureManager: malformed NotifyRefineryAttacked")
+		return
+	end
+	ClientPlayerFeedbackManager:alertLocal(payload.message, payload.displaySec)
+end
+
+function ClientStructureManager:refreshRefinerySiren()
+	local isUnderAttack = ClientDataManager:getGameMetadata(Attributes.REFINERY_UNDER_ATTACK) == true
+	if isUnderAttack then
+		ClientSoundManager:setSfxLoopLevel(SoundNames.Sfx.REFINERY_UNDER_ATTACK, 1)
+	else
+		ClientSoundManager:stopSfxLoop(SoundNames.Sfx.REFINERY_UNDER_ATTACK)
+	end
+end
+
 function ClientStructureManager:init()
 	self:readTuning()
+	ClientNetManager:registerHandler(
+		NetEventNames.NOTIFY_WALL_DESTROYED,
+		function(payload: any)
+			self:onWallDestroyed(payload)
+		end
+	)
+	ClientNetManager:registerHandler(
+		NetEventNames.NOTIFY_REFINERY_ATTACKED,
+		function(payload: any)
+			self:onRefineryAttacked(payload)
+		end
+	)
+	ClientDataManager:subscribeGameMetadataAttribute(
+		Attributes.REFINERY_UNDER_ATTACK,
+		function()
+			self:refreshRefinerySiren()
+		end
+	)
+	self:refreshRefinerySiren()
 	for _, key in { Attributes.HAMMER_HIT_INTERVAL_SEC, Attributes.HAMMER_REACH_STUDS, Attributes.REPAIR_CHUNK_HP, Attributes.REPAIR_CHUNK_IRON } do
 		ClientDataManager:subscribeGameMetadataAttribute(
 			key,

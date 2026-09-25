@@ -21,7 +21,11 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 return {
 	-- every new player starts with this one unlocked and equipped
 	DEFAULT_POST_WEAPON = Enums.PostWeaponKind.MACHINE_GUN,
-	CLAIM_PRICE_GOLD = 10,
+	-- 0 since 2026-09-25: a post is every player's guaranteed role and the
+	-- choice is where, not whether, so a price was only friction before the
+	-- first night. Kept as the knob for the day posts become unequal; the
+	-- sign has no price line any more, so a price above 0 needs one back
+	CLAIM_PRICE_GOLD = 0,
 	CLAIM_PROMPT_ACTION_TEXT = "Claim Post",
 	CLAIM_PROMPT_HOLD_SEC = 1,
 	CLAIM_PROMPT_MAX_DISTANCE_STUDS = 12,

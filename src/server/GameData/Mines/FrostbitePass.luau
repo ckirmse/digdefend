@@ -17,7 +17,8 @@ return {
 	veinEntranceClearance = 0,
 	pocketRadiusMin = 1,
 	pocketRadiusMax = 2,
-	uraniumTarget = 20,
+	-- mirrors Deadman's Canyon (6 / 9 / 9 / 111 against 30) until this map is designed
+	uraniumTarget = 30,
 
 	defaultZoneHeight = 8,
 	defaultZoneWidth = 24,
@@ -29,12 +30,9 @@ return {
 			tierBias = 1.0,
 			iron = 34,
 			gold = 12,
-			crystal = 2,
-			uranium = 2,
+			crystal = 6,
+			uranium = 6,
 			pockets = 2,
-			handPlaced = {
-				{ rock = Enums.RockName.CRYSTAL_3, depth = 6, height = 1, widthOffset = 2 },
-			},
 		},
 		{
 			depth = 24,
@@ -43,7 +41,7 @@ return {
 			iron = 30,
 			gold = 18,
 			crystal = 6,
-			uranium = 4,
+			uranium = 9,
 			pockets = 3,
 		},
 		{
@@ -54,7 +52,7 @@ return {
 			iron = 22,
 			gold = 22,
 			crystal = 12,
-			uranium = 8,
+			uranium = 9,
 			pockets = 4,
 		},
 		{
@@ -65,7 +63,7 @@ return {
 			iron = 16,
 			gold = 20,
 			crystal = 18,
-			uranium = 14,
+			uranium = 111,
 			pockets = 5,
 		},
 	},

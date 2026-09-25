@@ -180,7 +180,7 @@ local NOTIFY_POST_CLAIMED_SHAPE = {
 }
 local NOTIFY_POST_ROCKET_LAUNCHED_SHAPE = {
 	rocketId = "string",
-	userId = "positiveInteger",
+	userId = "integer",
 	postIndex = "positiveInteger",
 	weaponKind = { type = "enum", name = "PostWeaponKind" },
 	origin = "vector3",
@@ -189,7 +189,7 @@ local NOTIFY_POST_ROCKET_LAUNCHED_SHAPE = {
 }
 local NOTIFY_POST_ROCKET_EXPLODED_SHAPE = {
 	rocketId = "string",
-	userId = "positiveInteger",
+	userId = "integer",
 	weaponKind = { type = "enum", name = "PostWeaponKind" },
 	position = "vector3",
 	hitCount = "nonnegativeInteger",
@@ -201,7 +201,7 @@ local BLAST_FLASH_SEC = 0.15
 -- a rocket that never hears its burst (a lost message) is dropped after this
 local ROCKET_MAX_LIFETIME_SEC = 10
 local NOTIFY_POST_WEAPON_FIRED_SHAPE = {
-	userId = "positiveInteger",
+	userId = "integer",
 	postIndex = "positiveInteger",
 	weaponKind = { type = "enum", name = "PostWeaponKind" },
 	origin = "vector3",
@@ -248,16 +248,12 @@ function ClientPostManager:readStats()
 	self.kindData = catalog.kinds[kind]
 end
 
--- the sign's Claim Post prompt and its "Claim for" line: only for a player
--- without a post, on a post nobody owns
+-- the sign's Claim Post prompt: only for a player without a post, on a
+-- post nobody owns
 function ClientPostManager:renderPostPrompt(model: Model, prompt: ProximityPrompt)
 	local owner = readNumber(model:GetAttribute(Attributes.POST_OWNER_USER_ID), PostRules.NOBODY)
 	local canClaim = owner == PostRules.NOBODY and self:getOwnPostIndex() == PostRules.NO_POST
 	prompt.Enabled = canClaim
-	local priceRow = model:FindFirstChild(Constants.POST_SIGN_CLAIM_PRICE_ROW, true)
-	if priceRow and priceRow:IsA("GuiObject") then
-		priceRow.Visible = canClaim
-	end
 end
 
 -- the weapon's Use prompt: only for its owner, while they are on foot

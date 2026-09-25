@@ -39,6 +39,7 @@ local GenerationData = require(GameData.Mines.Generation)
 local RockDefinitionsData = require(GameData.Rocks.RockDefinitions)
 local WeightsData = require(GameData.Rocks.Weights)
 local DifficultyData = require(GameData.Control.Difficulty)
+local PartyScalingData = require(GameData.Control.PartyScaling)
 local StudioDefaultsData = require(GameData.Run.StudioDefaults)
 
 local maps = ServerStorage:FindFirstChild(Constants.MAPS_FOLDER)
@@ -120,6 +121,15 @@ local function previewMine(mapFolder: Folder)
 	-- mirrors MineManager:buildConfig; kept inline so Edit mode never loads
 	-- the gameplay managers
 	local difficulty = StudioDefaultsData.DIFFICULTY
+	-- the worst case the mine must cover: the largest party on the hardest difficulty
+	local largestDifficultyMultiplier = 1
+	for _, multiplier in DifficultyData.URANIUM_TARGET_MULTIPLIER do
+		largestDifficultyMultiplier = math.max(largestDifficultyMultiplier, multiplier)
+	end
+	local largestPartyMultiplier = 1
+	for _, multiplier in PartyScalingData.URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT do
+		largestPartyMultiplier = math.max(largestPartyMultiplier, multiplier)
+	end
 	local config = {
 		rockTable = RockDefinitionsData,
 		spread = WeightsData.SPREAD,
@@ -130,7 +140,7 @@ local function previewMine(mapFolder: Folder)
 		veinDivisor = DifficultyData.VEIN_DIVISOR[difficulty],
 		pickaxeReachBlocks = GenerationData.PICKAXE_REACH_BLOCKS,
 		isClimbingEnabled = GenerationData.IS_CLIMBING_ENABLED,
-		maxPartyUraniumTargetMultiplier = GenerationData.MAX_PARTY_URANIUM_TARGET_MULTIPLIER,
+		maxPartyUraniumTargetMultiplier = largestDifficultyMultiplier * largestPartyMultiplier,
 	}
 	local result, errors, warnings = MineGenerator.generate(definition, config, PREVIEW_SEED)
 	for _, warning in warnings do

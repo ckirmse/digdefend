@@ -26,6 +26,20 @@ export type SpatialSoundManager = typeof(setmetatable(
 local ONE_SHOT_MAX_LIFETIME_SEC = 10
 local EMITTER_NAME = "SpatialEmitter"
 
+-- an emitter's default is the real inverse-square law, nearly gone by 60
+-- studs; a caller that wants to be heard across the camp shapes its own
+-- falloff: full out to fullVolumeStuds, silent at silentStuds
+local function distanceCurve(fullVolumeStuds: number, silentStuds: number): { [number]: number }
+	local fadeStuds = math.max(1, silentStuds - fullVolumeStuds)
+	return {
+		[0] = 1,
+		[fullVolumeStuds] = 1,
+		[fullVolumeStuds + fadeStuds * 0.25] = 0.45,
+		[fullVolumeStuds + fadeStuds * 0.6] = 0.15,
+		[fullVolumeStuds + fadeStuds] = 0,
+	}
+end
+
 function SpatialSoundManager:warnOnce(name: string, message: string)
 	if self.warnedNames[name] then
 		return
@@ -53,7 +67,7 @@ end
 -- the helicopter rotor loop); the caller keeps the returned player to stop
 -- or destroy it. The template's own Wire (to the device output) is dropped
 -- so the clone is only spatial.
-function SpatialSoundManager:attach(part: BasePart, name: string, isLooping: boolean?, isAutoPlay: boolean?): AudioPlayer?
+function SpatialSoundManager:attach(part: BasePart, name: string, isLooping: boolean?, isAutoPlay: boolean?, fullVolumeStuds: number?, silentStuds: number?): AudioPlayer?
 	local template = self:findTemplate(name)
 	if not template then
 		return nil
@@ -69,6 +83,9 @@ function SpatialSoundManager:attach(part: BasePart, name: string, isLooping: boo
 	end
 	local emitter = Instance.new("AudioEmitter")
 	emitter.Name = EMITTER_NAME
+	if fullVolumeStuds and silentStuds then
+		emitter:SetDistanceAttenuation(distanceCurve(fullVolumeStuds, silentStuds))
+	end
 	emitter.Parent = part
 	local wire = Instance.new("Wire")
 	wire.SourceInstance = player
@@ -81,8 +98,9 @@ function SpatialSoundManager:attach(part: BasePart, name: string, isLooping: boo
 	return player
 end
 
--- a one-shot at a world position on a throwaway part that goes when the sound does
-function SpatialSoundManager:playAt(position: Vector3, name: string)
+-- a one-shot at a world position on a throwaway part that goes when the
+-- sound does; the two distances, when given, shape how far it carries
+function SpatialSoundManager:playAt(position: Vector3, name: string, fullVolumeStuds: number?, silentStuds: number?)
 	if not self:findTemplate(name) then
 		return
 	end
@@ -96,7 +114,7 @@ function SpatialSoundManager:playAt(position: Vector3, name: string)
 	anchor.Size = Vector3.one
 	anchor.CFrame = CFrame.new(position)
 	anchor.Parent = workspace
-	local player = self:attach(anchor, name, false)
+	local player = self:attach(anchor, name, false, nil, fullVolumeStuds, silentStuds)
 	if not player then
 		anchor:Destroy()
 		return

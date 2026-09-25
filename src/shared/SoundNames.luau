@@ -69,6 +69,15 @@ local sfx = {
 	-- DayNightNumber card
 	ROOSTER = "Rooster",
 	NIGHT_BELL = "NightBell",
+	-- the 3D loop every uranium rock gives off, buried or not, so the win
+	-- condition can be found by ear (2026-09-25; ClientMineManager)
+	URANIUM_HUM = "UraniumHum",
+	-- alerts (2026-09-25): a wall fell (2D, everyone, with the red alert),
+	-- the 3D collapse from where the wall stood (server-side), and the
+	-- siren every client loops while the Refinery is under attack
+	WALL_DESTROYED = "WallDestroyed",
+	WALL_COLLAPSE = "WallCollapse",
+	REFINERY_UNDER_ATTACK = "RefineryUnderAttack",
 }
 
 -- each weapon's sound set, by its Enums.WeaponKind key. A new weapon adds its
@@ -98,9 +107,16 @@ local postWeaponSfxByKindName: { [string]: PostWeaponSfx } = {
 	},
 }
 
+-- 2D music under SoundService.Music
+local music = {
+	-- plays from the top as dusk begins, DUSK_SEC before every night
+	-- (2026-09-25); the track is 52 s, so it runs on into the night
+	DUSK_SONG_1 = "DuskSong1",
+}
+
 local module = {
 	Sfx = sfx,
-	Music = {},
+	Music = music,
 	WeaponSfxByKindName = weaponSfxByKindName,
 	PostWeaponSfxByKindName = postWeaponSfxByKindName,
 }

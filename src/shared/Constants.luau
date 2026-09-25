@@ -34,6 +34,9 @@ Constants.PLAYER_FEEDBACK_GUI_NAME = "PlayerFeedback"
 Constants.PLAYER_FEEDBACK_BOX = "FeedbackBox"
 -- top-centre blue box for the beats nobody should miss (Camp Level up)
 Constants.PLAYER_FEEDBACK_ANNOUNCEMENT_BOX = "AnnouncementBox"
+-- red box under the announcement for danger (a wall down, the Refinery
+-- under attack; 2026-09-25)
+Constants.PLAYER_FEEDBACK_ALERT_BOX = "AlertBox"
 Constants.PLAYER_FEEDBACK_LABEL = "Message"
 Constants.HUD_GUI_NAME = "HUD"
 Constants.HUD_CASH_WALLET = "CashWallet"
@@ -257,10 +260,6 @@ Constants.POST_SIGN_NUMBER_LABEL = "DefensePostNumber"
 Constants.POST_SIGN_UNCLAIMED_LABEL = "Unclaimed"
 -- the row under it, "CLAIM FOR" + Gold Bar icon + number (decided 2026-09-18);
 -- a client that already owns a post hides it on every sign
-Constants.POST_SIGN_CLAIM_PRICE_ROW = "ClaimPrice"
-Constants.POST_SIGN_CLAIM_PRICE_TEXT = "Text"
-Constants.POST_SIGN_CLAIM_PRICE_ICON = "ResourceIcon"
-Constants.POST_SIGN_CLAIM_PRICE_LABEL = "Price"
 Constants.POST_SIGN_THUMBNAIL = "PlayerThumbnail"
 Constants.POST_SIGN_DISPLAY_NAME_LABEL = "DisplayName"
 Constants.POST_SIGN_POST_TYPE_LABEL = "PostType"
@@ -354,6 +353,9 @@ Constants.ROCK_TEMPLATES_FOLDER = "Rocks"
 Constants.MINE_BLOCKS_FOLDER = "MineBlocks"
 -- the GDD fixes every rock as a 4-stud cube; structural, not tuning
 Constants.MINE_BLOCK_SIZE_STUDS = 4
+-- the client-only folder of invisible parts carrying each nearby uranium rock's hum emitter
+Constants.URANIUM_HUM_FOLDER = "UraniumHum"
+Constants.URANIUM_HUM_PART = "Hum"
 -- held tool models under GameAssets, one per Enums.ToolKind key, each with a
 -- Handle part the client welds to the character's right hand
 -- the pick axe has one model per level, "PICK_AXE_<level>"
@@ -372,6 +374,8 @@ Constants.TOOL_SLOT_ICON = "Icon"
 Constants.TOOL_SLOT_LABEL = "Label"
 Constants.TOOL_SLOT_KEY_LABEL = "KeyLabel"
 Constants.TOOL_SLOT_COUNT_LABEL = "CountLabel"
+-- the action word under each slot ("MINE", "SHOOT", ...), outside the square
+Constants.TOOL_SLOT_CAPTION_LABEL = "CaptionLabel"
 Constants.MAX_TOOL_SLOTS = 9
 -- mining mode HUD (built by scripts/studio/build_mining_hud_gui.luau)
 Constants.MINING_HUD_GUI_NAME = "MiningHud"
@@ -385,6 +389,14 @@ Constants.MINING_TARGET_FILL = "Fill"
 Constants.DAY_CLOCK_GUI_NAME = "DayClock"
 Constants.DAY_CLOCK_ROOT_FRAME = "Root"
 Constants.DAY_CLOCK_PHASE_ICON = "PhaseIcon"
+-- one picture and one gradient per Enums.ClockPhase under PhaseIcon; the
+-- client shows the pair for the current phase and hides the rest
+Constants.DAY_CLOCK_PHASE_ICON_DAY = "IconDay"
+Constants.DAY_CLOCK_PHASE_ICON_DUSK = "IconDusk"
+Constants.DAY_CLOCK_PHASE_ICON_NIGHT = "IconNight"
+Constants.DAY_CLOCK_PHASE_GRADIENT_DAY = "UIGradientDay"
+Constants.DAY_CLOCK_PHASE_GRADIENT_DUSK = "UIGradientDusk"
+Constants.DAY_CLOCK_PHASE_GRADIENT_NIGHT = "UIGradientNight"
 Constants.DAY_CLOCK_BAR = "Bar"
 Constants.DAY_CLOCK_FILL = "Fill"
 Constants.DAY_CLOCK_DAY_LABEL = "DayLabel"

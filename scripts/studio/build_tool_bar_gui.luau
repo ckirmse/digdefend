@@ -37,12 +37,13 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Enabled = true
 
 -- the row: up to nine square slots, each at least 44 px so it is a touch
--- target, never above 96 px so a 4K screen does not get a giant bar
+-- target, never above 96 px so a 4K screen does not get a giant bar. It
+-- sits a little up from the bottom so the caption under each slot fits
 local SLOT_SCALE = 0.07
 local slots = Instance.new("Frame")
 slots.Name = "Slots"
 slots.AnchorPoint = Vector2.new(0.5, 1)
-slots.Position = UDim2.fromScale(0.5, 0.97)
+slots.Position = UDim2.fromScale(0.5, 0.93)
 slots.Size = UDim2.fromScale(0.7, SLOT_SCALE * 1.4)
 local slotsSize = Instance.new("UISizeConstraint")
 slotsSize.MaxSize = Vector2.new(1000, 110)
@@ -133,6 +134,27 @@ countLabel.FontFace = UiStyle.BODY_BOLD_FONT
 countLabel.Visible = false
 addTextSizeBounds(countLabel, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.LABEL_TEXT_MAX_PX)
 countLabel.Parent = template
+
+-- the action word under the square ("MINE", "SHOOT", "REPAIR", "BUILD",
+-- 2026-09-25); hangs below the button, which does not clip, and
+-- ClientToolBarManager writes it per tool
+local captionLabel = Instance.new("TextLabel")
+captionLabel.Name = "CaptionLabel"
+captionLabel.AnchorPoint = Vector2.new(0.5, 0)
+captionLabel.Position = UDim2.fromScale(0.5, 1.04)
+captionLabel.Size = UDim2.fromScale(1.3, 0.28)
+captionLabel.BackgroundTransparency = 1
+captionLabel.Text = "MINE"
+captionLabel.TextColor3 = UiStyle.TEXT_COLOR
+captionLabel.TextScaled = true
+captionLabel.TextXAlignment = Enum.TextXAlignment.Center
+captionLabel.FontFace = UiStyle.TITLE_FONT
+addTextSizeBounds(captionLabel, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.LABEL_TEXT_MAX_PX)
+local captionStroke = Instance.new("UIStroke")
+captionStroke.Thickness = UiStyle.STROKE_PX
+captionStroke.Color = UiStyle.PANEL_COLOR
+captionStroke.Parent = captionLabel
+captionLabel.Parent = template
 
 gui.Parent = StarterGui
 ChangeHistoryService:SetWaypoint("After ToolBar gui")

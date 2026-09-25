@@ -202,6 +202,38 @@ describe(
 )
 
 describe(
+	"StructureRules.numberFromId",
+	function()
+		it(
+			"reads the trailing number and gives nil without one",
+			function()
+				expect(StructureRules.numberFromId("Wall3")).toBe(3)
+				expect(StructureRules.numberFromId("Wall12")).toBe(12)
+				expect(StructureRules.numberFromId("Gate")).toBe(nil)
+				expect(StructureRules.numberFromId("Refinery")).toBe(nil)
+			end
+		)
+	end
+)
+
+describe(
+	"StructureRules.distanceToBox",
+	function()
+		it(
+			"is zero inside and the gap to the nearest face outside, in the box's own frame",
+			function()
+				local cframe = CFrame.new(10, 0, 0) * CFrame.Angles(0, math.rad(90), 0)
+				local size = Vector3.new(4, 2, 8)
+				expect(StructureRules.distanceToBox(Vector3.new(10, 0, 0), cframe, size)).toBe(0)
+				-- the box's Z axis (8 long) points along world X after the turn
+				expect(StructureRules.distanceToBox(Vector3.new(20, 0, 0), cframe, size)).toBeCloseTo(6, 5)
+				expect(StructureRules.distanceToBox(Vector3.new(10, 0, 5), cframe, size)).toBeCloseTo(3, 5)
+			end
+		)
+	end
+)
+
+describe(
 	"StructureRules.requiredCampLevel",
 	function()
 		it(

@@ -90,7 +90,8 @@ local NOTIFY_ROCK_BROKEN_SHAPE = {
 	height = "nonnegativeInteger",
 	width = "nonnegativeInteger",
 	rock = "positiveInteger",
-	breakerUserId = "positiveInteger",
+	-- any integer: Studio test players have negative user ids
+	breakerUserId = "integer",
 }
 
 local DEFAULT_HIT_INTERVAL_SEC = 0.45

@@ -65,11 +65,21 @@ function RefineryRules.applyDiamonds(level: number, pool: number, added: number,
 	return newLevel, newPool, gained
 end
 
+-- a scaled target is rounded to the nearest multiple of this (halves up,
+-- decided 2026-09-25) so the radio reads 40, never 38; the generator
+-- rounds its worst-case supply check the same way
+RefineryRules.URANIUM_TARGET_STEP = 5
+
+function RefineryRules.roundUraniumTarget(value: number): number
+	local step = RefineryRules.URANIUM_TARGET_STEP
+	return math.max(step, math.floor(value / step + 0.5) * step)
+end
+
 -- the mine's authored solo target scaled by the difficulty (M31) and the
--- party size, rounded half up
+-- party size, rounded to the nearest URANIUM_TARGET_STEP
 function RefineryRules.uraniumTarget(baseTarget: number, playerCount: number, multiplierByPlayerCount: { number }, difficultyMultiplier: number?): number
 	local clamped = math.clamp(math.floor(playerCount), 1, #multiplierByPlayerCount)
-	return math.floor(baseTarget * multiplierByPlayerCount[clamped] * (difficultyMultiplier or 1) + 0.5)
+	return RefineryRules.roundUraniumTarget(baseTarget * multiplierByPlayerCount[clamped] * (difficultyMultiplier or 1))
 end
 
 return RefineryRules

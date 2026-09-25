@@ -37,6 +37,7 @@ RunCycleManager.__index = RunCycleManager
 export type NightChangedHandler = (isNight: boolean) -> ()
 export type DayStartedHandler = (day: number, scalingCount: number) -> ()
 export type RunEndedHandler = (isWon: boolean) -> ()
+export type ScalingCountChangedHandler = (count: number) -> ()
 
 export type RunCycleManager = typeof(setmetatable(
 	{} :: {
@@ -52,6 +53,7 @@ export type RunCycleManager = typeof(setmetatable(
 		nightChangedHandlers: { NightChangedHandler },
 		dayStartedHandlers: { DayStartedHandler },
 		runEndedHandlers: { RunEndedHandler },
+		scalingCountChangedHandlers: { ScalingCountChangedHandler },
 	},
 	RunCycleManager
 ))
@@ -89,6 +91,12 @@ function RunCycleManager:subscribeRunEnded(handler: RunEndedHandler)
 	table.insert(self.runEndedHandlers, handler)
 end
 
+-- the crew size behind every party multiplier just changed (a dawn sample
+-- or a player leaving); the refinery republishes the uranium target
+function RunCycleManager:subscribeScalingCountChanged(handler: ScalingCountChangedHandler)
+	table.insert(self.scalingCountChangedHandlers, handler)
+end
+
 function RunCycleManager:replicate()
 	SplendidReplicationManager:setGameMetadata(Attributes.RUN_STATE, self.runState)
 	SplendidReplicationManager:setGameMetadata(Attributes.RUN_DAY, self.day)
@@ -104,15 +112,48 @@ function RunCycleManager:fireNightChanged(isNight: boolean)
 end
 
 -- the crew size at run start is the party that boarded (Studio has no
--- party, so the Ready count); every dawn samples the Ready count, capped
--- by the last sample
-function RunCycleManager:sampleScalingCount()
+-- party, so the Ready count); every dawn and every departure samples the
+-- Ready count, capped by the last sample, so it only ever goes down.
+-- leavingPlayer is the one on the way out, not always gone from the Ready
+-- list yet
+function RunCycleManager:sampleScalingCount(leavingPlayer: Player?)
 	local run = RunManager:getRun()
-	local liveCount = #GameController:getReadyPlayers()
+	local liveCount = 0
+	for _, player in GameController:getReadyPlayers() do
+		if player ~= leavingPlayer then
+			liveCount += 1
+		end
+	end
 	if self.scalingCount == nil and run and run.playerCount > 0 then
 		liveCount = run.playerCount
 	end
-	self.scalingCount = RunCycleRules.sampleScalingCount(self.scalingCount, liveCount, MAX_SCALING_COUNT)
+	local previous = self.scalingCount
+	self.scalingCount = RunCycleRules.sampleScalingCount(previous, liveCount, MAX_SCALING_COUNT)
+	if self.scalingCount ~= previous then
+		self:replicate()
+		for _, handler in self.scalingCountChangedHandlers do
+			handler(self.scalingCount)
+		end
+	end
+end
+
+-- a crew member leaving mid-run shrinks the crew at once (decided
+-- 2026-09-25), so the uranium target drops and the next night is built for
+-- who is left; a night already under way keeps its wave. Teardown-sequence
+-- entry (registered through GameController:registerPlaceManager)
+function RunCycleManager:onPlayerRemoved(player: Player)
+	if self.scalingCount == nil then
+		return
+	end
+	local state = self.runState
+	if state ~= Enums.RunState.DAY and state ~= Enums.RunState.NIGHT and state ~= Enums.RunState.RESCUE then
+		return
+	end
+	local before = self.scalingCount
+	self:sampleScalingCount(player)
+	if self.scalingCount ~= before then
+		print(`[RunCycleManager] {player.Name} left; crew of {self.scalingCount}`)
+	end
 end
 
 -- a day after a night starts after the dawn fade, so the morning look is
@@ -322,11 +363,13 @@ function RunCycleManager:onCrewLanded()
 end
 
 function RunCycleManager:init()
-	SplendidReplicationManager:setGameMetadata(Attributes.RUN_DUSK_SHARE, RunCycleData.DUSK_SHARE)
+	SplendidReplicationManager:setGameMetadata(Attributes.RUN_DUSK_SHARE, RunCycleData.DUSK_SEC / RunCycleData.DAY_SEC)
+	SplendidReplicationManager:setGameMetadata(Attributes.RUN_DUSK_SONG_LEAD_SEC, RunCycleData.DUSK_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.RUN_NIGHT_SPAWN_SEC, RunCycleData.NIGHT_SPAWN_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.RUN_LIGHTING_DUSK_TRANSITION_SEC, RunCycleData.LIGHTING_DUSK_TRANSITION_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.RUN_LIGHTING_DAWN_TRANSITION_SEC, RunCycleData.LIGHTING_DAWN_TRANSITION_SEC)
 	self:replicate()
+	GameController:registerPlaceManager(self)
 	ArrivalManager:subscribeLaunched(
 		function()
 			self:onCrewLanded()
@@ -351,6 +394,7 @@ function RunCycleManager.new(): RunCycleManager
 	self.nightChangedHandlers = {}
 	self.dayStartedHandlers = {}
 	self.runEndedHandlers = {}
+	self.scalingCountChangedHandlers = {}
 	return self
 end
 

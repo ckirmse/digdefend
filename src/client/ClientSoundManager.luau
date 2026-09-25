@@ -30,6 +30,20 @@ export type ClientSoundManager = typeof(setmetatable(
 -- long enough for any one-shot; the throwaway part goes with it
 local SPATIAL_ONE_SHOT_LIFETIME_SEC = 5
 
+-- an emitter's default is the real inverse-square law, fine within a few
+-- studs but nearly gone by 60 (measured 2026-09-17), so every 3D sound
+-- shapes its own falloff: full out to fullVolumeStuds, silent at silentStuds
+local function distanceCurve(fullVolumeStuds: number, silentStuds: number): { [number]: number }
+	local fadeStuds = math.max(1, silentStuds - fullVolumeStuds)
+	return {
+		[0] = 1,
+		[fullVolumeStuds] = 1,
+		[fullVolumeStuds + fadeStuds * 0.25] = 0.45,
+		[fullVolumeStuds + fadeStuds * 0.6] = 0.15,
+		[fullVolumeStuds + fadeStuds] = 0,
+	}
+end
+
 function ClientSoundManager:warnOnce(name: string, message: string)
 	if self.warnedNames[name] then
 		return
@@ -60,6 +74,21 @@ function ClientSoundManager:playSfx(name: string)
 		return
 	end
 	-- restart so rapid repeats (cash ticking up) each make a sound
+	player.TimePosition = 0
+	player:Play()
+end
+
+-- a 2D track from the Music folder, always from the top
+function ClientSoundManager:playMusic(name: string)
+	local player = self:findPlayer(self.musicFolder, name)
+	if not player then
+		self:warnOnce(name, `no AudioPlayer {Constants.MUSIC_FOLDER}.{name}`)
+		return
+	end
+	if player.Asset == "" then
+		self:warnOnce(name, `{Constants.MUSIC_FOLDER}.{name} has no asset yet`)
+		return
+	end
 	player.TimePosition = 0
 	player:Play()
 end
@@ -99,16 +128,7 @@ function ClientSoundManager:playSfxAt(position: Vector3, name: string, fullVolum
 	end
 	player.Looping = false
 	local emitter = Instance.new("AudioEmitter")
-	-- full volume up close, then a curve that drops quickly at first and
-	-- trails off, which is how distance is heard
-	local fadeStuds = math.max(1, silentStuds - fullVolumeStuds)
-	emitter:SetDistanceAttenuation({
-		[0] = 1,
-		[fullVolumeStuds] = 1,
-		[fullVolumeStuds + fadeStuds * 0.25] = 0.45,
-		[fullVolumeStuds + fadeStuds * 0.6] = 0.15,
-		[fullVolumeStuds + fadeStuds] = 0,
-	})
+	emitter:SetDistanceAttenuation(distanceCurve(fullVolumeStuds, silentStuds))
 	emitter.Parent = anchor
 	local wire = Instance.new("Wire")
 	wire.SourceInstance = player
@@ -142,14 +162,7 @@ function ClientSoundManager:attachLoop(part: BasePart, name: string, fullVolumeS
 	end
 	player.Looping = true
 	local emitter = Instance.new("AudioEmitter")
-	local fadeStuds = math.max(1, silentStuds - fullVolumeStuds)
-	emitter:SetDistanceAttenuation({
-		[0] = 1,
-		[fullVolumeStuds] = 1,
-		[fullVolumeStuds + fadeStuds * 0.25] = 0.45,
-		[fullVolumeStuds + fadeStuds * 0.6] = 0.15,
-		[fullVolumeStuds + fadeStuds] = 0,
-	})
+	emitter:SetDistanceAttenuation(distanceCurve(fullVolumeStuds, silentStuds))
 	emitter.Parent = part
 	local wire = Instance.new("Wire")
 	wire.SourceInstance = player
@@ -160,6 +173,44 @@ function ClientSoundManager:attachLoop(part: BasePart, name: string, fullVolumeS
 		player:Play()
 	end
 	return player
+end
+
+-- one looping player that many emitters share (every uranium rock's hum):
+-- the sound is decoded once and each emitter is only a voice at a position,
+-- so the count of emitters is what costs, never the count of players.
+-- Returns nil when the sound is not authored yet; the caller keeps the
+-- player and attaches emitters to it with attachEmitter
+function ClientSoundManager:createSharedLoop(name: string): AudioPlayer?
+	local template = self:findPlayer(self.sfxFolder, name)
+	if not template then
+		self:warnOnce(name, `no AudioPlayer {Constants.SFX_FOLDER}.{name}`)
+		return nil
+	end
+	if template.Asset == "" then
+		self:warnOnce(name, `{Constants.SFX_FOLDER}.{name} has no asset yet`)
+		return nil
+	end
+	local player = template:Clone()
+	for _, child in player:GetChildren() do
+		if child:IsA("Wire") then
+			child:Destroy()
+		end
+	end
+	player.Looping = true
+	player.Parent = SoundService
+	player:Play()
+	return player
+end
+
+-- a positioned voice for a shared loop; the emitter and its wire die with the part
+function ClientSoundManager:attachEmitter(player: AudioPlayer, part: BasePart, fullVolumeStuds: number, silentStuds: number)
+	local emitter = Instance.new("AudioEmitter")
+	emitter:SetDistanceAttenuation(distanceCurve(fullVolumeStuds, silentStuds))
+	emitter.Parent = part
+	local wire = Instance.new("Wire")
+	wire.SourceInstance = player
+	wire.TargetInstance = emitter
+	wire.Parent = emitter
 end
 
 -- a 2D loop for this player only (the turret whirring under the gunner):

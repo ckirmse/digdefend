@@ -341,6 +341,14 @@ end
 function RefineryManager:init()
 	SplendidReplicationManager:setGameMetadata(Attributes.REFINE_DURATION_SEC, RefineryData.REFINE_DURATION_SEC)
 	GameController:registerPlaceManager(self)
+	-- a smaller crew means a smaller target: republish it and let the rescue
+	-- re-check the radio, since the total may already meet the new target
+	RunCycleManager:subscribeScalingCountChanged(
+		function()
+			self:replicateShared()
+			self:fireUraniumChanged()
+		end
+	)
 end
 
 function RefineryManager.new(): RefineryManager

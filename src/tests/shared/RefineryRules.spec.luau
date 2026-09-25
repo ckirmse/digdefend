@@ -19,7 +19,7 @@ local RATE_BY_RAW = {
 	[RawResource.URANIUM_ORE] = 1,
 }
 local DIAMONDS_REQUIRED_BY_LEVEL = { 20, 60, 150 }
-local URANIUM_TARGET_BY_COUNT = { 1.0, 1.05, 1.1, 1.15, 1.2, 1.25 }
+local URANIUM_TARGET_BY_COUNT = { 1.0, 1.5, 2.0, 2.5, 3.0, 3.5 }
 
 describe(
 	"RefineryRules.convert",
@@ -126,20 +126,32 @@ describe(
 	"RefineryRules.uraniumTarget",
 	function()
 		it(
-			"scales the solo target by party size, rounded half up, and clamps",
+			"scales the solo target by party size, rounds to the nearest 5 with halves up, and clamps",
 			function()
-				expect(RefineryRules.uraniumTarget(20, 1, URANIUM_TARGET_BY_COUNT)).toBe(20)
-				-- 20 x 1.05 = 21
-				expect(RefineryRules.uraniumTarget(20, 2, URANIUM_TARGET_BY_COUNT)).toBe(21)
-				-- 20 x 1.15 = 23
-				expect(RefineryRules.uraniumTarget(20, 4, URANIUM_TARGET_BY_COUNT)).toBe(23)
-				expect(RefineryRules.uraniumTarget(20, 6, URANIUM_TARGET_BY_COUNT)).toBe(25)
-				expect(RefineryRules.uraniumTarget(20, 9, URANIUM_TARGET_BY_COUNT)).toBe(25)
-				expect(RefineryRules.uraniumTarget(20, 0, URANIUM_TARGET_BY_COUNT)).toBe(20)
-				-- 15 x 1.1 = 16.5 -> 17
-				expect(RefineryRules.uraniumTarget(15, 3, URANIUM_TARGET_BY_COUNT)).toBe(17)
-				-- the difficulty multiplies on top: 20 x 1.15 x 1.3 = 29.9 -> 30
-				expect(RefineryRules.uraniumTarget(20, 4, URANIUM_TARGET_BY_COUNT, 1.3)).toBe(30)
+				expect(RefineryRules.uraniumTarget(25, 1, URANIUM_TARGET_BY_COUNT)).toBe(25)
+				-- 25 x 1.5 = 37.5 -> 40
+				expect(RefineryRules.uraniumTarget(25, 2, URANIUM_TARGET_BY_COUNT)).toBe(40)
+				-- 25 x 2.5 = 62.5 -> 65
+				expect(RefineryRules.uraniumTarget(25, 4, URANIUM_TARGET_BY_COUNT)).toBe(65)
+				-- 25 x 3.5 = 87.5 -> 90
+				expect(RefineryRules.uraniumTarget(25, 6, URANIUM_TARGET_BY_COUNT)).toBe(90)
+				expect(RefineryRules.uraniumTarget(25, 9, URANIUM_TARGET_BY_COUNT)).toBe(90)
+				expect(RefineryRules.uraniumTarget(25, 0, URANIUM_TARGET_BY_COUNT)).toBe(25)
+				-- 21 x 2.0 = 42 -> 40, below the half
+				expect(RefineryRules.uraniumTarget(21, 3, URANIUM_TARGET_BY_COUNT)).toBe(40)
+				-- the difficulty multiplies on top: 25 x 2.5 x 1.3 = 81.25 -> 80
+				expect(RefineryRules.uraniumTarget(25, 4, URANIUM_TARGET_BY_COUNT, 1.3)).toBe(80)
+				-- 25 x 3.5 x 1.3 = 113.75 -> 115, the worst case the generator checks
+				expect(RefineryRules.uraniumTarget(25, 6, URANIUM_TARGET_BY_COUNT, 1.3)).toBe(115)
+			end
+		)
+
+		it(
+			"never rounds a target below one step",
+			function()
+				expect(RefineryRules.roundUraniumTarget(1)).toBe(5)
+				expect(RefineryRules.roundUraniumTarget(2.4)).toBe(5)
+				expect(RefineryRules.roundUraniumTarget(7.5)).toBe(10)
 			end
 		)
 	end

@@ -40,7 +40,11 @@ return {
 		[Enums.TrapKind.WALL] = {
 			PRICE_IRON = 12,
 			MAX_HP = 300,
-			FOOTPRINT_CELLS = { 2, 2 },
+			-- a run of wall, four cells along the zone's columns and one deep
+			-- (2026-09-25, was a 2 x 2 block): the Defensive Zone's columns run
+			-- across the monsters' approach, so a placed wall lies across it.
+			-- The template (GameAssets/Traps/WALL) is sized to match
+			FOOTPRINT_CELLS = { 4, 1 },
 			REQUIRED_CAMP_LEVEL = 1,
 			BEHAVIOR = Enums.TrapBehavior.BARRIER,
 			DRAWS_ATTACKS = false,

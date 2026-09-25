@@ -34,7 +34,7 @@ return {
 	MUZZLE_HEIGHT_STUDS = 3,
 	BY_KIND = {
 		[Enums.TowerKind.SENTRY_GUN] = {
-			BUILD_PRICE_IRON = 20,
+			BUILD_PRICE_IRON = 30,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 15, 30, 60, 120 },
 			FOOTPRINT_CELLS = { 4, 4 },
 			STAT_ROWS = { Enums.TowerStat.FIRE_RATE, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
@@ -56,7 +56,7 @@ return {
 		-- rate"); DAMAGE lands every TICK_INTERVAL_SEC while it burns, and
 		-- the turret rests REST_SEC between flames
 		[Enums.TowerKind.FLAMETHROWER] = {
-			BUILD_PRICE_IRON = 30,
+			BUILD_PRICE_IRON = 45,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 20, 40, 80, 160 },
 			FOOTPRINT_CELLS = { 4, 4 },
 			STAT_ROWS = { Enums.TowerStat.FLAME_LENGTH, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
@@ -78,7 +78,7 @@ return {
 			},
 		},
 		[Enums.TowerKind.AA_TURRET] = {
-			BUILD_PRICE_IRON = 35,
+			BUILD_PRICE_IRON = 53,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 20, 40, 80, 160 },
 			FOOTPRINT_CELLS = { 4, 4 },
 			STAT_ROWS = { Enums.TowerStat.FIRE_RATE, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
@@ -100,7 +100,7 @@ return {
 		-- of everything in the cone for SLOW_SEC (StatusRules; the strongest
 		-- slow wins). The frost pulses for FLAME_SEC and rests REST_SEC
 		[Enums.TowerKind.FROST_TOWER] = {
-			BUILD_PRICE_IRON = 30,
+			BUILD_PRICE_IRON = 45,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 20, 40, 80, 160 },
 			FOOTPRINT_CELLS = { 4, 4 },
 			STAT_ROWS = { Enums.TowerStat.SLOW_RATE, Enums.TowerStat.FREEZE_LENGTH, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
@@ -126,7 +126,7 @@ return {
 		-- CHAIN_COUNT more, each within CHAIN_JUMP_STUDS of the last, every
 		-- FIRE_INTERVAL_SEC, stunning each for STUN_SEC
 		[Enums.TowerKind.TESLA_COIL] = {
-			BUILD_PRICE_IRON = 40,
+			BUILD_PRICE_IRON = 60,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 25, 50, 100, 200 },
 			FOOTPRINT_CELLS = { 4, 4 },
 			STAT_ROWS = { Enums.TowerStat.DAMAGE, Enums.TowerStat.FIRE_RATE, Enums.TowerStat.RANGE, Enums.TowerStat.CHAIN_COUNT },
@@ -147,7 +147,7 @@ return {
 			},
 		},
 		[Enums.TowerKind.SNIPER_TOWER] = {
-			BUILD_PRICE_IRON = 45,
+			BUILD_PRICE_IRON = 68,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 25, 50, 100, 200 },
 			FOOTPRINT_CELLS = { 4, 4 },
 			STAT_ROWS = { Enums.TowerStat.FIRE_RATE, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },

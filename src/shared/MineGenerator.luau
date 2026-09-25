@@ -14,6 +14,7 @@
 -- to discover, and the only opening is the entrance tunnel at the mouth.
 local Enums = require(script.Parent.Enums)
 local RockRules = require(script.Parent.RockRules)
+local RefineryRules = require(script.Parent.RefineryRules)
 
 local MineGenerator = {}
 
@@ -452,7 +453,7 @@ local function validateMine(definition: MineDefinition, zones: { ResolvedZone },
 		uraniumTotal += zone.veins[Enums.RawResource.URANIUM_ORE]
 	end
 	if typeof(definition.uraniumTarget) == "number" then
-		local required = math.ceil(definition.uraniumTarget * config.maxPartyUraniumTargetMultiplier)
+		local required = RefineryRules.roundUraniumTarget(definition.uraniumTarget * config.maxPartyUraniumTargetMultiplier)
 		if uraniumTotal < required then
 			table.insert(errors, "uranium: " .. uraniumTotal .. " rocks authored across all zones, but uraniumTarget " .. definition.uraniumTarget .. " x " .. config.maxPartyUraniumTargetMultiplier .. " for the largest party needs " .. required .. "; the run is unwinnable")
 		end
@@ -862,7 +863,7 @@ function MineGenerator.generate(definition: MineDefinition, config: GeneratorCon
 	-- the authored counts passed validation; this checks what actually
 	-- survived stamping and carving, so no seed can ship unwinnable
 	local placedUranium = report.zones[#report.zones].uraniumSoFar
-	local requiredUranium = math.ceil(definition.uraniumTarget * config.maxPartyUraniumTargetMultiplier)
+	local requiredUranium = RefineryRules.roundUraniumTarget(definition.uraniumTarget * config.maxPartyUraniumTargetMultiplier)
 	if placedUranium < requiredUranium then
 		return nil, { "uranium: only " .. placedUranium .. " rocks survived generation with seed " .. (resolvedSeed :: number) .. ", but the largest party needs " .. requiredUranium .. "; the run is unwinnable" }, warnings
 	end

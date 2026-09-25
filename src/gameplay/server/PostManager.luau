@@ -27,7 +27,6 @@ local RunService = game:GetService("RunService")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
-local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local MiningRules = require("@game/ReplicatedStorage/Shared/MiningRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
@@ -130,7 +129,6 @@ local MIN_DIRECTION_MAGNITUDE = 0.001
 local WEAPON_MODEL_FORMAT = "PostWeapon%d"
 local WORKBENCH_MODEL_FORMAT = "PostWorkbench%d"
 local UNCLAIMED_TEXT = "Unclaimed"
-local CLAIM_FOR_TEXT = "Claim for"
 local CLAIM_PROMPT_ATTACHMENT = "ClaimPromptAttachment"
 local HEADSHOT_FORMAT = "rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150"
 -- R15: the chain each hand's IKControl solves from
@@ -267,8 +265,7 @@ function PostManager:replicateFireState(post: Post)
 	weaponModel:SetAttribute(Attributes.POST_WEAPON_RELOAD_END_TIME, post.reloadEndTime)
 end
 
--- the sign reads UNCLAIMED and the price, or the owner's headshot, name,
--- and weapon. Written on the server because the models are server
+-- the sign reads UNCLAIMED, or the owner's headshot, name, and weapon. Written on the server because the models are server
 -- instances already (StructureManager numbers them the same way)
 function PostManager:renderSign(post: Post)
 	local slotModel = self:findSlotModel(post.index)
@@ -283,23 +280,6 @@ function PostManager:renderSign(post: Post)
 	if unclaimed and unclaimed:IsA("TextLabel") then
 		unclaimed.Text = UiStyle.formatTitle(UNCLAIMED_TEXT)
 		unclaimed.Visible = owner == nil
-	end
-	local priceRow = gui:FindFirstChild(Constants.POST_SIGN_CLAIM_PRICE_ROW)
-	if priceRow and priceRow:IsA("GuiObject") then
-		priceRow.Visible = owner == nil
-		local text = priceRow:FindFirstChild(Constants.POST_SIGN_CLAIM_PRICE_TEXT)
-		if text and text:IsA("TextLabel") then
-			text.Text = UiStyle.formatTitle(CLAIM_FOR_TEXT)
-		end
-		local icon = priceRow:FindFirstChild(Constants.POST_SIGN_CLAIM_PRICE_ICON)
-		if icon and icon:IsA("ImageLabel") then
-			local imageId = Icons.REFINED_RESOURCE[Enums.RefinedResource.GOLD_BAR]
-			icon.Image = if Icons.isPlaceholder(imageId) then "" else imageId
-		end
-		local price = priceRow:FindFirstChild(Constants.POST_SIGN_CLAIM_PRICE_LABEL)
-		if price and price:IsA("TextLabel") then
-			price.Text = tostring(self.catalog.claimPriceGold)
-		end
 	end
 	local thumbnail = gui:FindFirstChild(Constants.POST_SIGN_THUMBNAIL)
 	if thumbnail and thumbnail:IsA("ImageLabel") then

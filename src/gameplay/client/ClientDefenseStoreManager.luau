@@ -99,6 +99,12 @@ function ClientDefenseStoreManager:setDisplay(view: StandView)
 	end
 	local model = template:Clone()
 	model.Name = "Display"
+	-- the templates are the real grid-sized traps; the designer sets the
+	-- stand's DisplayScale attribute to fit them on the shelf
+	local displayScale = readNumber(itemSpawn:GetAttribute(Attributes.STAND_DISPLAY_SCALE), 1)
+	if displayScale > 0 and displayScale ~= 1 then
+		model:ScaleTo(displayScale)
+	end
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("BasePart") then
 			descendant.Anchored = true

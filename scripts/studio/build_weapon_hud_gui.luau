@@ -28,8 +28,9 @@ gui.Enabled = true
 local button = Instance.new("TextButton")
 button.Name = "AmmoButton"
 button.AnchorPoint = Vector2.new(0.5, 1)
--- the tool bar's top edge is near 0.87
-button.Position = UDim2.fromScale(0.5, 0.855)
+-- the tool bar's slots now end at 0.93 with a caption under each, so their
+-- top edge is near 0.83 (2026-09-25); the button sits just above it
+button.Position = UDim2.fromScale(0.5, 0.815)
 button.Size = UDim2.fromScale(0.16, 0.05)
 button.BackgroundColor3 = UiStyle.PANEL_COLOR
 button.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY

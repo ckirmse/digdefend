@@ -8,7 +8,7 @@
 -- rubble, and stays rubble while it is rebuilt swing by swing from zero,
 -- until its HP reaches REBUILD_STAND_SHARE of its maximum (1 = fully
 -- rebuilt, decided 2026-09-17: a wall that stands up after one swing can be
--- flickered in front of the horde for 4 Iron a time). The gate, the walls, and the look of the
+-- flickered in front of the horde for 2 Iron a time). The gate, the walls, and the look of the
 -- posts share one fortification tier (decided 2026-09-17: a half-wood,
 -- half-concrete wall reads as a bug), paid for by the whole crew at the
 -- Workbench: each press donates FORTIFICATION_DONATION_IRON into a shared
@@ -21,11 +21,13 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 
 return {
 	BY_KIND = {
+		-- walls and the gate raised 50% on 2026-09-25 after the five-player
+		-- test (waves now scale with the crew like the uranium target)
 		[Enums.StructureKind.WALL] = {
-			MAX_HP_BY_TIER = { 200, 400, 800 },
+			MAX_HP_BY_TIER = { 300, 600, 1200 },
 		},
 		[Enums.StructureKind.GATE] = {
-			MAX_HP_BY_TIER = { 300, 600, 1200 },
+			MAX_HP_BY_TIER = { 450, 900, 1800 },
 		},
 		-- never bought: the Refinery's tier is the Camp Level, so Diamonds
 		-- toughen it (one entry per camp level)
@@ -38,8 +40,24 @@ return {
 	WORKBENCH_PROMPT_ACTION_TEXT = "Donate Iron",
 	WORKBENCH_PROMPT_OBJECT_TEXT = "Workbench",
 	WORKBENCH_PROMPT_MAX_DISTANCE_STUDS = 10,
+	-- alerts (2026-09-25): a wall falling and the Refinery coming under attack
+	-- are announced to everyone in the red alert box, for ALERT_DISPLAY_SEC.
+	-- The Refinery is under attack while any live monster is within
+	-- REFINERY_ATTACK_RADIUS_STUDS of its box (MonsterManager checks every
+	-- REFINERY_ATTACK_POLL_SEC); the alert fires once per attack, and the
+	-- siren every client loops runs until the last one leaves the radius.
+	-- A wall that falls also plays its 3D collapse from where it stood,
+	-- full out to WALL_COLLAPSE_FULL_VOLUME_STUDS and gone past
+	-- WALL_COLLAPSE_SILENT_STUDS
+	WALL_DESTROYED_MESSAGE_FORMAT = "Wall %d destroyed",
+	REFINERY_ATTACKED_MESSAGE = "The Refinery is under attack",
+	ALERT_DISPLAY_SEC = 4,
+	REFINERY_ATTACK_RADIUS_STUDS = 20,
+	REFINERY_ATTACK_POLL_SEC = 0.25,
+	WALL_COLLAPSE_FULL_VOLUME_STUDS = 30,
+	WALL_COLLAPSE_SILENT_STUDS = 250,
 	REPAIR_CHUNK_HP = 10,
-	REPAIR_CHUNK_IRON = 4,
+	REPAIR_CHUNK_IRON = 2,
 	REBUILD_STAND_SHARE = 1,
 	-- the Hammer swings like the pick axe: how often a held input swings,
 	-- the faster rate the server refuses (latency jitter never drops a

@@ -99,6 +99,17 @@ function ClientToolBarManager:cycle(direction: number)
 	self:requestEquip(self.slots[next])
 end
 
+-- the action word under each slot (2026-09-25): what the tool does, not
+-- what it is, since the picture already says that
+local CAPTION_BY_TOOL: { [number]: string } = {
+	[Enums.ToolKind.PICK_AXE] = "Mine",
+	[Enums.ToolKind.WEAPON] = "Shoot",
+	[Enums.ToolKind.TORCH] = "Light",
+	[Enums.ToolKind.DYNAMITE] = "Blast",
+	[Enums.ToolKind.HAMMER] = "Repair",
+	[Enums.ToolKind.DEFENSES] = "Build",
+}
+
 function ClientToolBarManager:renderSlots()
 	local slotsFrame = self.slotsFrame
 	local template = self.slotTemplate
@@ -137,6 +148,10 @@ function ClientToolBarManager:renderSlots()
 		if keyLabel and keyLabel:IsA("TextLabel") then
 			(keyLabel :: TextLabel).Text = tostring(index)
 			keyLabel.Visible = UserInputService.KeyboardEnabled
+		end
+		local captionLabel = frame:FindFirstChild(Constants.TOOL_SLOT_CAPTION_LABEL)
+		if captionLabel and captionLabel:IsA("TextLabel") then
+			(captionLabel :: TextLabel).Text = UiStyle.formatTitle(CAPTION_BY_TOOL[tool] or publicName or "?")
 		end
 		frame.Activated:Connect(
 			function()

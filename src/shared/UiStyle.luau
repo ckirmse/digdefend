@@ -14,6 +14,8 @@ UiStyle.BODY_FONT_FAMILY = "rbxasset://fonts/families/Montserrat.json"
 UiStyle.TITLE_FONT = Font.new(UiStyle.TITLE_FONT_FAMILY, Enum.FontWeight.Bold)
 UiStyle.BODY_FONT = Font.new(UiStyle.BODY_FONT_FAMILY, Enum.FontWeight.Regular)
 UiStyle.BODY_BOLD_FONT = Font.new(UiStyle.BODY_FONT_FAMILY, Enum.FontWeight.SemiBold)
+-- a lighter title face for small HUD captions such as the day counter (designer, 2026-09-25)
+UiStyle.TITLE_SEMIBOLD_FONT = Font.new(UiStyle.TITLE_FONT_FAMILY, Enum.FontWeight.SemiBold)
 
 UiStyle.BACKGROUND_COLOR = Color3.fromRGB(18, 16, 14)
 UiStyle.PANEL_COLOR = Color3.fromRGB(34, 31, 28)
@@ -31,6 +33,8 @@ UiStyle.HP_EMPTY_COLOR = Color3.fromRGB(220, 70, 60)
 UiStyle.EMPTY_SLOT_COLOR = Color3.fromRGB(52, 48, 44)
 -- the announcement box (top centre): blue so it never reads as an error
 UiStyle.ANNOUNCEMENT_COLOR = Color3.fromRGB(40, 100, 200)
+-- the alert box: danger, red (2026-09-25)
+UiStyle.ALERT_COLOR = Color3.fromRGB(190, 40, 40)
 
 UiStyle.CORNER_RADIUS_PX = 10
 UiStyle.STROKE_PX = 2

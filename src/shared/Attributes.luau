@@ -56,6 +56,10 @@ module = {
 	-- GameMetadata (gameplay): the store catalogue as JSON (StoreRules codec)
 	-- and the jet pack tuning the client animates from
 	STORE_CATALOG = "StoreCatalog",
+	-- on a stand's ItemSpawn part: the designer's uniform scale for the
+	-- display model cloned onto it (1 when absent); the defense store shows
+	-- the real trap templates, which are grid sized, so this shrinks them
+	STAND_DISPLAY_SCALE = "DisplayScale",
 	JET_PACK_CLIMB_SPEED = "JetPackClimbSpeed",
 	-- GameMetadata (gameplay): pick axe input tuning the client needs
 	PICK_AXE_HIT_INTERVAL_SEC = "PickAxeHitIntervalSec",
@@ -132,6 +136,9 @@ module = {
 	FORTIFICATION_POOL_REQUIRED = "FortificationPoolRequired",
 	FORTIFICATION_REQUIRED_CAMP_LEVEL = "FortificationRequiredCampLevel",
 	IS_NIGHT = "IsNight",
+	-- GameMetadata: a live monster is within the attack radius of the
+	-- Refinery; clients loop the siren while it is true (2026-09-25)
+	REFINERY_UNDER_ATTACK = "RefineryUnderAttack",
 	-- GameMetadata, the run's day and night loop (RunCycleManager, M28): the
 	-- Enums.RunState, the day number, when the current phase began and
 	-- ends (server time; a night's end is 0 while unknown), the crew size
@@ -147,6 +154,7 @@ module = {
 	RESCUE_ABOARD_COUNT = "RescueAboardCount",
 	RESCUE_CREW_COUNT = "RescueCrewCount",
 	RUN_DUSK_SHARE = "RunDuskShare",
+	RUN_DUSK_SONG_LEAD_SEC = "RunDuskSongLeadSec",
 	-- and the sky's blend lengths (shared LightingPresets): the dusk
 	-- seconds at the top of a night, the spawn window night start blends
 	-- into night end over, and the dawn stretch night end blends back to

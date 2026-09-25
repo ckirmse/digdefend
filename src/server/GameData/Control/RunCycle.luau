@@ -1,21 +1,27 @@
 --!strict
 
 -- The run's day and night loop (GDD "Wave Cycle"), M28. A day lasts
--- DAY_SEC with the gate open; its last DUSK_SHARE is dusk, which only
--- changes the clock's picture. Night shuts the gate, enemies spawn over
+-- DAY_SEC with the gate open; its last DUSK_SEC is dusk, which turns the
+-- clock's picture and starts the dusk song (one moment for both, decided
+-- 2026-09-25). Night shuts the gate, enemies spawn over
 -- NIGHT_SPAWN_SEC, and the night lasts until every group of the wave has
 -- spawned and every monster is dead (M29). NIGHT_PLACEHOLDER_SEC, above 0,
 -- also ends a night that long after the spawn window (a test switch; 0
 -- since M29, so only the monsters end a night).
--- The day-start announcement is DAY_START_FORMAT with the day number,
--- the crew size, and the two party multipliers; the loss announcements
--- name the cause. Every number here is designer tuning.
+-- The day-start line is DAY_START_FORMAT with the day number, the crew
+-- size, and the party multipliers; since 2026-09-25 it goes to the server
+-- Output only, never the announcement box. The loss announcements name
+-- the cause. Every number here is designer tuning.
 return {
 	-- once everyone the lobby sent is Ready (or the arrival timeout has
 	-- passed), the run waits this long in the morning look before day 1
 	PRE_DAY_SEC = 10,
 	DAY_SEC = 300,
-	DUSK_SHARE = 0.2,
+	-- the last stretch of the day: the clock turns to its dusk picture and
+	-- every client starts Music.DuskSong1 from the top (the track is 52 s,
+	-- so it runs on into the night). Published as GameMetadata (the share of
+	-- the day and the seconds); the client plays the song once per day
+	DUSK_SEC = 40,
 	NIGHT_SPAWN_SEC = 90,
 	NIGHT_PLACEHOLDER_SEC = 0,
 	-- the dev tool's "Dusk now" runs what is left of the day down over

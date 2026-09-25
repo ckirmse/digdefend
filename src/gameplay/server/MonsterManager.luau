@@ -30,6 +30,8 @@ local FlowField = require("@game/ReplicatedStorage/Shared/FlowField")
 local MonsterRules = require("@game/ReplicatedStorage/Shared/MonsterRules")
 local MonsterSnapshotCodec = require("@game/ReplicatedStorage/Shared/MonsterSnapshotCodec")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local StructureRules = require("@game/ReplicatedStorage/Shared/StructureRules")
+local StructuresData = require("@game/ServerScriptService/GameData/Camp/Structures")
 local BehaviorData = require("@game/ServerScriptService/GameData/Monsters/Behavior")
 local RosterData = require("@game/ServerScriptService/GameData/Monsters/Roster")
 local GameController = require(script.Parent.Parent.Server.GameController)
@@ -116,6 +118,7 @@ export type MonsterManager = typeof(setmetatable(
 		projectiles: { Projectile },
 		tickAccumulatorSec: number,
 		tickCount: number,
+		lastRefineryPollTime: number,
 		-- batched for the next tick's notifies
 		pendingSpawnIds: { number },
 		pendingDeathIds: { number },
@@ -1000,11 +1003,41 @@ function MonsterManager:publishStats(now: number, stepSec: number)
 	self.stepCount = 0
 end
 
+-- whether any live monster is within the attack radius of the standing
+-- Refinery, told to StructureManager a few times a second (2026-09-25)
+function MonsterManager:pollRefineryAttack(now: number)
+	if now - self.lastRefineryPollTime < StructuresData.REFINERY_ATTACK_POLL_SEC then
+		return
+	end
+	self.lastRefineryPollTime = now
+	local refineryBox = nil
+	for _, box in StructureManager:getStructureBoxes() do
+		if box.kind == Enums.StructureKind.REFINERY then
+			refineryBox = box
+			break
+		end
+	end
+	local isUnderAttack = false
+	if refineryBox and not refineryBox.isDestroyed then
+		for _, monster in self.monsters do
+			if monster.isDead then
+				continue
+			end
+			if StructureRules.distanceToBox(monster.position, refineryBox.cframe, refineryBox.size) <= StructuresData.REFINERY_ATTACK_RADIUS_STUDS then
+				isUnderAttack = true
+				break
+			end
+		end
+	end
+	StructureManager:setRefineryUnderAttack(isUnderAttack)
+end
+
 function MonsterManager:tick(deltaSec: number)
 	local startTime = workspace:GetServerTimeNow()
 	self.tickCount += 1
 	-- a Tower may have killed some since the last tick
 	self:sweepDead()
+	self:pollRefineryAttack(startTime)
 	MonsterPathManager:recomputeIfNeeded(startTime)
 	self:buildCandidates()
 	for _, monster in self.monsters do
@@ -1092,6 +1125,7 @@ function MonsterManager.new(): MonsterManager
 	self.projectiles = {}
 	self.tickAccumulatorSec = 0
 	self.tickCount = 0
+	self.lastRefineryPollTime = 0
 	self.pendingSpawnIds = {}
 	self.pendingDeathIds = {}
 	self.metricsByModel = {}

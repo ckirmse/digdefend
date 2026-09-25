@@ -29,7 +29,6 @@ local TweenService = game:GetService("TweenService")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
-local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local LightingPresets = require("@game/ReplicatedStorage/Shared/LightingPresets")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local RunCycleRules = require("@game/ReplicatedStorage/Shared/RunCycleRules")
@@ -53,10 +52,13 @@ export type ClientRunCycleManager = typeof(setmetatable(
 		numberGui: ScreenGui?,
 		numberLabel: TextLabel?,
 		numberGeneration: number,
-		phaseIcon: ImageLabel?,
+		-- the disc holding one picture and one gradient per phase
+		phaseIcon: Frame?,
 		fill: Frame?,
 		dayLabel: TextLabel?,
 		shownPhase: number?,
+		-- the day whose dusk song has already started, so it plays once a day
+		duskSongDay: number?,
 		-- which preset the sky was last sent toward (Enums.RunState DAY or NIGHT)
 		warnedChildren: { [string]: boolean },
 	},
@@ -85,20 +87,26 @@ local NIGHT_CARD_FORMAT = "Night  %d"
 local CARD_SHOW_SEC = 3
 -- day 1 gets no card: the crew has just landed and the run is plainly starting
 local FIRST_DAY = 1
-local DEFAULT_DUSK_SHARE = 0.2
+-- dusk is the last 40 s of a 300 s day; the server publishes the real numbers
+local DEFAULT_DUSK_SHARE = 40 / 300
+local DEFAULT_DUSK_SONG_LEAD_SEC = 40
 local DEFAULT_DAWN_TRANSITION_SEC = 1
 local DEFAULT_DUSK_TRANSITION_SEC = 1
 local DEFAULT_NIGHT_SPAWN_SEC = 90
-local ICON_BY_PHASE: { [number]: string } = {
-	[Enums.ClockPhase.DAY] = Icons.UI.CLOCK_DAY,
-	[Enums.ClockPhase.DUSK] = Icons.UI.CLOCK_DUSK,
-	[Enums.ClockPhase.NIGHT] = Icons.UI.CLOCK_NIGHT,
-}
--- until the art lands, the circle is tinted instead of pictured
-local TINT_BY_PHASE: { [number]: Color3 } = {
-	[Enums.ClockPhase.DAY] = Color3.fromRGB(255, 220, 90),
-	[Enums.ClockPhase.DUSK] = Color3.fromRGB(255, 140, 70),
-	[Enums.ClockPhase.NIGHT] = Color3.fromRGB(70, 80, 150),
+-- the designer-authored picture and disc gradient under PhaseIcon per phase
+local PHASE_CHILD_NAMES: { [number]: { icon: string, gradient: string } } = {
+	[Enums.ClockPhase.DAY] = {
+		icon = Constants.DAY_CLOCK_PHASE_ICON_DAY,
+		gradient = Constants.DAY_CLOCK_PHASE_GRADIENT_DAY,
+	},
+	[Enums.ClockPhase.DUSK] = {
+		icon = Constants.DAY_CLOCK_PHASE_ICON_DUSK,
+		gradient = Constants.DAY_CLOCK_PHASE_GRADIENT_DUSK,
+	},
+	[Enums.ClockPhase.NIGHT] = {
+		icon = Constants.DAY_CLOCK_PHASE_ICON_NIGHT,
+		gradient = Constants.DAY_CLOCK_PHASE_GRADIENT_NIGHT,
+	},
 }
 
 local function readNumber(value: any, default: number): number
@@ -115,7 +123,7 @@ function ClientRunCycleManager:findGui()
 	self.gui = gui
 	local root = gui:FindFirstChild(Constants.DAY_CLOCK_ROOT_FRAME)
 	local icon = if root then root:FindFirstChild(Constants.DAY_CLOCK_PHASE_ICON) else nil
-	self.phaseIcon = if icon and icon:IsA("ImageLabel") then icon else nil
+	self.phaseIcon = if icon and icon:IsA("Frame") then icon else nil
 	local bar = if root then root:FindFirstChild(Constants.DAY_CLOCK_BAR) else nil
 	local fill = if bar then bar:FindFirstChild(Constants.DAY_CLOCK_FILL) else nil
 	self.fill = if fill and fill:IsA("Frame") then fill else nil
@@ -173,6 +181,15 @@ function ClientRunCycleManager:showCard(text: string, sfxName: string)
 	)
 end
 
+-- a GUI child the designer removed or renamed is reported once, not per phase
+function ClientRunCycleManager:warnMissingChildOnce(childName: string)
+	if self.warnedChildren[childName] then
+		return
+	end
+	self.warnedChildren[childName] = true
+	warn(`ClientRunCycleManager: DayClock PhaseIcon has no {childName}; rebuild it with scripts/studio/build_day_clock_gui.luau`)
+end
+
 function ClientRunCycleManager:setPhase(phase: number)
 	if self.shownPhase == phase then
 		return
@@ -182,9 +199,21 @@ function ClientRunCycleManager:setPhase(phase: number)
 	if not icon then
 		return
 	end
-	local imageId = ICON_BY_PHASE[phase]
-	icon.Image = if Icons.isPlaceholder(imageId) then "" else imageId
-	icon.BackgroundColor3 = TINT_BY_PHASE[phase] or icon.BackgroundColor3
+	for childPhase, names in PHASE_CHILD_NAMES do
+		local isShown = childPhase == phase
+		local image = icon:FindFirstChild(names.icon)
+		if image and image:IsA("ImageLabel") then
+			image.Visible = isShown
+		else
+			self:warnMissingChildOnce(names.icon)
+		end
+		local gradient = icon:FindFirstChild(names.gradient)
+		if gradient and gradient:IsA("UIGradient") then
+			gradient.Enabled = isShown
+		else
+			self:warnMissingChildOnce(names.gradient)
+		end
+	end
 end
 
 function ClientRunCycleManager:getMapPresets(): LightingPresets.MapPresets
@@ -224,6 +253,25 @@ function ClientRunCycleManager:stepSky(runState: number, startTime: number, endT
 end
 
 -- every frame: the bar from the published phase times against server time
+-- the dusk song starts from the top a fixed lead before the night falls
+-- (the day's published end time), once per day; a day cut short by the
+-- dev tool starts it as soon as the lead is reached
+function ClientRunCycleManager:stepDuskSong(runState: number, endTime: number, now: number)
+	if runState ~= Enums.RunState.DAY then
+		return
+	end
+	local day = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_DAY), 1)
+	if self.duskSongDay == day then
+		return
+	end
+	local leadSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_DUSK_SONG_LEAD_SEC), DEFAULT_DUSK_SONG_LEAD_SEC)
+	if now < endTime - leadSec then
+		return
+	end
+	self.duskSongDay = day
+	ClientSoundManager:playMusic(SoundNames.Music.DUSK_SONG_1)
+end
+
 function ClientRunCycleManager:step()
 	local runState = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_STATE), Enums.RunState.DAY)
 	local startTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_PHASE_START_TIME), 0)
@@ -238,12 +286,13 @@ function ClientRunCycleManager:step()
 	self:setPhase(RunCycleRules.clockPhase(runState, shareLeft, duskShare))
 	self:setClockShown(runState == Enums.RunState.DAY or runState == Enums.RunState.WAITING)
 	self:stepSky(runState, startTime, endTime, now)
+	self:stepDuskSong(runState, endTime, now)
 end
 
 function ClientRunCycleManager:refreshDay()
 	local dayLabel = self.dayLabel
 	if dayLabel then
-		dayLabel.Text = string.format(DAY_FORMAT, RunCycleRules.shownDay(readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_DAY), 1)))
+		dayLabel.Text = UiStyle.formatTitle(string.format(DAY_FORMAT, RunCycleRules.shownDay(readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_DAY), 1))))
 	end
 end
 
@@ -252,7 +301,8 @@ function ClientRunCycleManager:onDayStarted(payload: any)
 		warn("ClientRunCycleManager: malformed NotifyRunDayStarted")
 		return
 	end
-	ClientPlayerFeedbackManager:announceLocal(payload.message, payload.displaySec)
+	-- the multiplier line is not shown any more (2026-09-25): the day card
+	-- and the clock say enough, and the numbers still go to the server Output
 	-- the card waits for the dawn blend: the day's start is published a
 	-- little ahead of the message, and the clock only runs from then
 	local day = payload.day
@@ -342,6 +392,7 @@ function ClientRunCycleManager.new(): ClientRunCycleManager
 	self.fill = nil
 	self.dayLabel = nil
 	self.shownPhase = nil
+	self.duskSongDay = nil
 	self.warnedChildren = {}
 	return self
 end

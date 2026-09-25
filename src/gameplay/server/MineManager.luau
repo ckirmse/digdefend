@@ -15,6 +15,7 @@ local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local RockRules = require("@game/ReplicatedStorage/Shared/RockRules")
 local DifficultyData = require("@game/ServerScriptService/GameData/Control/Difficulty")
+local PartyScalingData = require("@game/ServerScriptService/GameData/Control/PartyScaling")
 local GenerationData = require("@game/ServerScriptService/GameData/Mines/Generation")
 local MineRegistryData = require("@game/ServerScriptService/GameData/Mines/Registry")
 local StreamingData = require("@game/ServerScriptService/GameData/Mines/Streaming")
@@ -68,12 +69,18 @@ function MineManager:getDefinition(): MineGenerator.MineDefinition?
 	return self.definition
 end
 
+-- the worst case a mine's authored uranium must cover: the largest party on
+-- the hardest difficulty
 local function maxUraniumTargetMultiplier(): number
-	local largest = 1
+	local largestDifficulty = 1
 	for _, multiplier in DifficultyData.URANIUM_TARGET_MULTIPLIER do
-		largest = math.max(largest, multiplier)
+		largestDifficulty = math.max(largestDifficulty, multiplier)
 	end
-	return largest
+	local largestParty = 1
+	for _, multiplier in PartyScalingData.URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT do
+		largestParty = math.max(largestParty, multiplier)
+	end
+	return largestDifficulty * largestParty
 end
 
 function MineManager:buildConfig(difficulty: number): MineGenerator.GeneratorConfig
@@ -87,8 +94,7 @@ function MineManager:buildConfig(difficulty: number): MineGenerator.GeneratorCon
 		veinDivisor = DifficultyData.VEIN_DIVISOR[difficulty],
 		pickaxeReachBlocks = GenerationData.PICKAXE_REACH_BLOCKS,
 		isClimbingEnabled = GenerationData.IS_CLIMBING_ENABLED,
-		-- the worst case: the largest party on the hardest difficulty
-		maxPartyUraniumTargetMultiplier = GenerationData.MAX_PARTY_URANIUM_TARGET_MULTIPLIER * maxUraniumTargetMultiplier(),
+		maxPartyUraniumTargetMultiplier = maxUraniumTargetMultiplier(),
 	}
 end
 
@@ -182,6 +188,9 @@ function MineManager:buildHeader(): { [string]: any }
 		streamRadiusBlocks = StreamingData.STREAM_RADIUS_BLOCKS,
 		maxRenderedBlocks = StreamingData.MAX_RENDERED_BLOCKS,
 		streamPollSec = StreamingData.STREAM_POLL_SEC,
+		uraniumHumRadiusBlocks = StreamingData.URANIUM_HUM_RADIUS_BLOCKS,
+		uraniumHumFullVolumeStuds = StreamingData.URANIUM_HUM_FULL_VOLUME_STUDS,
+		uraniumHumSilentStuds = StreamingData.URANIUM_HUM_SILENT_STUDS,
 		zones = zones,
 	}
 end

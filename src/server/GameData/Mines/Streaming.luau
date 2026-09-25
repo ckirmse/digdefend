@@ -15,4 +15,13 @@ return {
 	MAX_RENDERED_BLOCKS = 6000,
 	-- how often a client checks whether the player moved to a new cell
 	STREAM_POLL_SEC = 0.2,
+	-- every uranium rock, buried or exposed, hums (Sfx.UraniumHum, one
+	-- looping player feeding an emitter per rock) so a crew can find the
+	-- win condition by ear (decided 2026-09-25). A client keeps an emitter
+	-- only for uranium within this many blocks of the player (Chebyshev,
+	-- rechecked with the stream), full volume out to the first distance and
+	-- silent past the second
+	URANIUM_HUM_RADIUS_BLOCKS = 6,
+	URANIUM_HUM_FULL_VOLUME_STUDS = 4,
+	URANIUM_HUM_SILENT_STUDS = 20,
 }

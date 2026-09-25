@@ -59,6 +59,11 @@ module = {
 	-- the hammer blow every nearby client hears
 	TRY_REPAIR_STRUCTURE = "TryRepairStructure",
 	NOTIFY_STRUCTURE_REPAIRED = "NotifyStructureRepaired",
+	-- alerts to every client (2026-09-25): a wall fell (the message names
+	-- its number) and the Refinery came under attack; both carry the text
+	-- and how long the red alert box shows it
+	NOTIFY_WALL_DESTROYED = "NotifyWallDestroyed",
+	NOTIFY_REFINERY_ATTACKED = "NotifyRefineryAttacked",
 	-- the Workbench (M23): donating is a ProximityPrompt trigger, not a
 	-- message. To the donor: Iron went into the pool (the sound). To every
 	-- client: the pool filled and the fortifications went up a tier

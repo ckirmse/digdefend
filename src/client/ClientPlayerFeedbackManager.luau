@@ -27,9 +27,13 @@ export type ClientPlayerFeedbackManager = typeof(setmetatable(
 		messageLabel: TextLabel?,
 		announcementBox: Frame?,
 		announcementLabel: TextLabel?,
+		-- the red box for danger (2026-09-25)
+		alertBox: Frame?,
+		alertLabel: TextLabel?,
 		-- bumps per message so an older hide timer cannot clear a newer message
 		showGeneration: number,
 		announceGeneration: number,
+		alertGeneration: number,
 	},
 	ClientPlayerFeedbackManager
 ))
@@ -89,6 +93,30 @@ function ClientPlayerFeedbackManager:announceLocal(message: string, displaySec: 
 	)
 end
 
+-- the red box under the announcement: danger everyone must see (a wall
+-- down, the Refinery under attack); falls back to the announcement box
+function ClientPlayerFeedbackManager:alertLocal(message: string, displaySec: number?)
+	local box = self.alertBox
+	local label = self.alertLabel
+	local seconds = displaySec or DEFAULT_DISPLAY_SEC
+	if not box or not label then
+		self:announceLocal(message, seconds)
+		return
+	end
+	self.alertGeneration += 1
+	local generation = self.alertGeneration
+	label.Text = message
+	box.Visible = true
+	task.delay(
+		seconds,
+		function()
+			if self.alertGeneration == generation then
+				box.Visible = false
+			end
+		end
+	)
+end
+
 function ClientPlayerFeedbackManager:dispatch(message: string, displaySec: number)
 	self:showInBox(message, displaySec)
 	for _, listener in self.listeners do
@@ -135,6 +163,15 @@ function ClientPlayerFeedbackManager:findGui()
 	else
 		warn(`ClientPlayerFeedbackManager: {gui:GetFullName()} is missing {Constants.PLAYER_FEEDBACK_ANNOUNCEMENT_BOX}; run scripts/studio/build_player_feedback_gui.luau`)
 	end
+	local alertBox = gui:FindFirstChild(Constants.PLAYER_FEEDBACK_ALERT_BOX)
+	local alertLabel = if alertBox then alertBox:FindFirstChild(Constants.PLAYER_FEEDBACK_LABEL) else nil
+	if alertBox and alertBox:IsA("Frame") and alertLabel and alertLabel:IsA("TextLabel") then
+		alertBox.Visible = false
+		self.alertBox = alertBox
+		self.alertLabel = alertLabel
+	else
+		warn(`ClientPlayerFeedbackManager: {gui:GetFullName()} is missing {Constants.PLAYER_FEEDBACK_ALERT_BOX}; run scripts/studio/build_player_feedback_gui.luau`)
+	end
 end
 
 function ClientPlayerFeedbackManager:init()
@@ -177,6 +214,9 @@ function ClientPlayerFeedbackManager.new(): ClientPlayerFeedbackManager
 	self.announceGeneration = 0
 	self.announcementBox = nil
 	self.announcementLabel = nil
+	self.alertBox = nil
+	self.alertLabel = nil
+	self.alertGeneration = 0
 	return self
 end
 

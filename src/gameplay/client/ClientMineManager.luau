@@ -18,7 +18,9 @@ local MineGridCodec = require("@game/ReplicatedStorage/Shared/MineGridCodec")
 local MineGridQuery = require("@game/ReplicatedStorage/Shared/MineGridQuery")
 local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
+local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientTicker = require(script.Parent.Parent.Client.ClientTicker)
 
 local ClientMineManager = {}
@@ -40,6 +42,9 @@ export type Header = {
 	streamRadiusBlocks: number,
 	maxRenderedBlocks: number,
 	streamPollSec: number,
+	uraniumHumRadiusBlocks: number,
+	uraniumHumFullVolumeStuds: number,
+	uraniumHumSilentStuds: number,
 	fillerOrder: { number },
 	rockHp: { [number]: number },
 	rockKind: { [number]: number },
@@ -85,6 +90,13 @@ export type ClientMineManager = typeof(setmetatable(
 		isDirty: boolean,
 		stopPolling: (() -> ())?,
 		warnedMissingTemplates: { [number]: boolean },
+		-- every uranium cell still in the rock, buried or exposed, so the hum
+		-- can lead a player to one they cannot see
+		uraniumCells: { [number]: boolean },
+		-- cell index -> the invisible part carrying that rock's hum emitter
+		humPartByCell: { [number]: BasePart },
+		humPlayer: AudioPlayer?,
+		humFolder: Folder?,
 	},
 	ClientMineManager
 ))
@@ -191,6 +203,12 @@ function ClientMineManager:clearCell(depth: number, height: number, width: numbe
 	grid.cells[cellIndex] = MineGenerator.AIR
 	self.exposedCells[cellIndex] = nil
 	self.crackStageByCell[cellIndex] = nil
+	self.uraniumCells[cellIndex] = nil
+	local humPart = self.humPartByCell[cellIndex]
+	if humPart then
+		humPart:Destroy()
+		self.humPartByCell[cellIndex] = nil
+	end
 	for _, offset in { { 1, 0, 0 }, { -1, 0, 0 }, { 0, 1, 0 }, { 0, -1, 0 }, { 0, 0, 1 }, { 0, 0, -1 } } do
 		local nd = depth + offset[1]
 		local nh = height + offset[2]
@@ -281,6 +299,86 @@ function ClientMineManager:clearRendered()
 	end
 	self.rendered = {}
 	self.renderedCount = 0
+	for _, part in self.humPartByCell do
+		part:Destroy()
+	end
+	self.humPartByCell = {}
+	self.uraniumCells = {}
+end
+
+function ClientMineManager:getHumFolder(): Folder
+	local folder = self.humFolder
+	if folder and folder.Parent then
+		return folder
+	end
+	folder = Instance.new("Folder")
+	folder.Name = Constants.URANIUM_HUM_FOLDER
+	folder.Parent = workspace
+	self.humFolder = folder
+	return folder
+end
+
+-- one emitter per uranium cell within the hum radius of the player's cell,
+-- on an invisible part at the rock's centre; the shared looping player is
+-- made on first need and lives for the session. Buried rock counts: the hum
+-- is how a crew finds uranium it cannot see (decided 2026-09-25)
+function ClientMineManager:refreshUraniumHum(playerDepth: number, playerHeight: number, playerWidth: number)
+	local grid = self.grid
+	local space = self.space
+	local header = self.header
+	if not grid or not space or not header then
+		return
+	end
+	local radius = header.uraniumHumRadiusBlocks
+	local width = grid.width
+	local height = grid.height
+	local desired: { [number]: boolean } = {}
+	for cellIndex in self.uraniumCells do
+		local zeroBased = cellIndex - 1
+		local cellWidth = zeroBased % width
+		local cellHeight = (zeroBased // width) % height
+		local cellDepth = zeroBased // (width * height)
+		if math.abs(cellDepth - playerDepth) > radius or math.abs(cellHeight - playerHeight) > radius or math.abs(cellWidth - playerWidth) > radius then
+			continue
+		end
+		desired[cellIndex] = true
+	end
+	for cellIndex, part in self.humPartByCell do
+		if not desired[cellIndex] then
+			part:Destroy()
+			self.humPartByCell[cellIndex] = nil
+		end
+	end
+	local folder = self:getHumFolder()
+	for cellIndex in desired do
+		if self.humPartByCell[cellIndex] then
+			continue
+		end
+		local player = self.humPlayer
+		if not player then
+			player = ClientSoundManager:createSharedLoop(SoundNames.Sfx.URANIUM_HUM)
+			if not player then
+				return
+			end
+			self.humPlayer = player
+		end
+		local zeroBased = cellIndex - 1
+		local cellWidth = zeroBased % width
+		local cellHeight = (zeroBased // width) % height
+		local cellDepth = zeroBased // (width * height)
+		local part = Instance.new("Part")
+		part.Name = Constants.URANIUM_HUM_PART
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.Transparency = 1
+		part.Size = Vector3.one
+		part.CFrame = CFrame.new(MineSpace.cellToWorld(space, cellDepth, cellHeight, cellWidth))
+		ClientSoundManager:attachEmitter(player, part, header.uraniumHumFullVolumeStuds, header.uraniumHumSilentStuds)
+		part.Parent = folder
+		self.humPartByCell[cellIndex] = part
+	end
 end
 
 function ClientMineManager:getPlayerPosition(): Vector3?
@@ -384,6 +482,7 @@ function ClientMineManager:refresh(playerDepth: number, playerHeight: number, pl
 		self.rendered[cellIndex] = part
 		self.renderedCount += 1
 	end
+	self:refreshUraniumHum(playerDepth, playerHeight, playerWidth)
 	self.lastRefreshMs = (workspace:GetServerTimeNow() - startClock) * 1000
 	-- mirrored onto the folder so the numbers are inspectable in the Explorer
 	folder:SetAttribute(Attributes.MINE_RENDERED_COUNT, self.renderedCount)
@@ -453,6 +552,13 @@ function ClientMineManager:onMineComplete()
 	self.grid = grid
 	self.crackStageByCell = {}
 	local exposedCount = self:rebuildExposedCells()
+	local uraniumCells = {}
+	for cellIndex, rock in grid.cells do
+		if rock == Enums.RockName.URANIUM then
+			uraniumCells[cellIndex] = true
+		end
+	end
+	self.uraniumCells = uraniumCells
 	self.space = MineSpace.new(header.origin, header.facing, header.centrelineWidth, header.floorHeight, header.blockSize)
 	self.isDirty = true
 	print(string.format("[ClientMineManager] mine v%d (seed %d) received: %d bytes in %d chunk(s); filler and exposure rebuilt in %.1f ms, %d exposed cells", header.version, header.seed, self.bytesReceived, header.chunkCount, (workspace:GetServerTimeNow() - startClock) * 1000, exposedCount))
@@ -533,6 +639,10 @@ function ClientMineManager.new(): ClientMineManager
 	self.lastCell = nil
 	self.isDirty = false
 	self.stopPolling = nil
+	self.uraniumCells = {}
+	self.humPartByCell = {}
+	self.humPlayer = nil
+	self.humFolder = nil
 	self.warnedMissingTemplates = {}
 	return self
 end

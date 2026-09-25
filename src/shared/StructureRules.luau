@@ -76,6 +76,25 @@ function StructureRules.donate(pool: number, required: number?, donationIron: nu
 end
 
 -- the Camp Level needed to reach `tier`; a tier past the table is never locked
+-- the number a map gives a numbered structure ("Wall3" is wall 3); nil for
+-- an id without a trailing number (the Gate, the Refinery)
+function StructureRules.numberFromId(id: string): number?
+	local digits = string.match(id, "(%d+)$")
+	return if digits then tonumber(digits) else nil
+end
+
+-- how far a point is from the nearest face of an oriented box; 0 inside it
+function StructureRules.distanceToBox(position: Vector3, boxCFrame: CFrame, boxSize: Vector3): number
+	local localPosition = boxCFrame:PointToObjectSpace(position)
+	local half = boxSize / 2
+	local clamped = Vector3.new(
+		math.clamp(localPosition.X, -half.X, half.X),
+		math.clamp(localPosition.Y, -half.Y, half.Y),
+		math.clamp(localPosition.Z, -half.Z, half.Z)
+	)
+	return (localPosition - clamped).Magnitude
+end
+
 function StructureRules.requiredCampLevel(requiredByTier: { number }, tier: number): number
 	return requiredByTier[math.floor(tier)] or 1
 end

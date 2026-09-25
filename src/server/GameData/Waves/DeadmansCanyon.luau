@@ -27,7 +27,8 @@ return {
 	-- a generated night makes one group for every MIN_GROUP_DIFFICULTY it
 	-- can pay, none worth less (so a small night is one big group, not a
 	-- trickle), and its groups spawn over this long after night fall (the
-	-- sky's NIGHT_SPAWN_SEC is separate)
+	-- sky's NIGHT_SPAWN_SEC is separate). The crew's wave multiplier scales
+	-- this too (2026-09-25), so a crew gets the solo group count, bigger
 	MIN_GROUP_DIFFICULTY = 40,
 	WAVE_SPAWN_LENGTH_SEC = 60,
 	-- and no two of its groups in a row are further apart than this, so a

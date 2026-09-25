@@ -25,8 +25,12 @@ return {
 	veinEntranceClearance = 0,
 	pocketRadiusMin = 1,
 	pocketRadiusMax = 2,
-	-- uranium rocks needed to call the rescue helicopter, solo
-	uraniumTarget = 20,
+	-- uranium rocks needed to call the rescue helicopter, solo. Authored
+	-- uranium per zone is 20%, 30%, 30% of this and the rest in zone 4, so a
+	-- crew clearing the first three zones is 80% of the way (decided
+	-- 2026-09-25 after a 50 minute solo playtest found none at 2/4/8/20
+	-- against 20; raised from 25 the same day)
+	uraniumTarget = 30,
 
 	defaultZoneHeight = 8,
 	defaultZoneWidth = 24,
@@ -42,14 +46,12 @@ return {
 			-- iron's sinks arrive with walls and traps)
 			iron = 22,
 			gold = 20,
-			crystal = 2,
-			uranium = 2,
+			-- six clusters (about 84 Diamonds) so Camp Level 2 (20) needs a
+			-- quarter of the zone, not three quarters of it (2026-09-25; two
+			-- clusters left one seed with 28 and the level a lottery)
+			crystal = 6,
+			uranium = 6,
 			pockets = 2,
-			handPlaced = {
-				-- the upgrade advertisement: a few blocks past the mouth,
-				-- barely dentable with a starting pickaxe
-				{ rock = Enums.RockName.CRYSTAL_3, depth = 6, height = 1, widthOffset = 2 },
-			},
 		},
 		{
 			-- 2: mixed rock, better ore
@@ -60,7 +62,7 @@ return {
 			iron = 22,
 			gold = 22,
 			crystal = 6,
-			uranium = 4,
+			uranium = 9,
 			pockets = 3,
 		},
 		{
@@ -73,7 +75,7 @@ return {
 			iron = 22,
 			gold = 22,
 			crystal = 12,
-			uranium = 8,
+			uranium = 9,
 			pockets = 4,
 		},
 		{
@@ -86,9 +88,10 @@ return {
 			iron = 16,
 			gold = 20,
 			crystal = 18,
-			-- 20 so the deepest zone alone nearly covers the worst-case target
-			-- (20 x 1.3 Nightmare x 1.25 six players = 33; M31)
-			uranium = 20,
+			-- the mine must hold the worst-case target or the generator refuses
+			-- it: 30 x 1.3 Nightmare x 3.5 six players = 136.5, rounded to the
+			-- nearest 5 = 135, so 6 + 9 + 9 + 111
+			uranium = 111,
 			pockets = 5,
 		},
 	},

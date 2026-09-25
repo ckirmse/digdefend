@@ -89,7 +89,7 @@ local MUZZLE_FLASH_SEC = 0.125
 local MUZZLE_SMOKE_SEC = 0.1
 
 local NOTIFY_WEAPON_FIRED_SHAPE = {
-	userId = "positiveInteger",
+	userId = "integer",
 	weaponKind = "positiveInteger",
 	origin = "vector3",
 	endPosition = "vector3",

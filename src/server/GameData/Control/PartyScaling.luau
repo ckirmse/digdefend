@@ -13,9 +13,18 @@
 -- effective, so the night grows less than the crew.
 return {
 	ORE_YIELD_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 1.15, 1.3, 1.45, 1.6, 1.75 },
-	-- the mine's solo uraniumTarget times this is the rescue target (M20);
-	-- kept modest so a big crew is not chasing the whole mine's supply
-	URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 1.05, 1.1, 1.15, 1.2, 1.25 },
-	WAVE_DIFFICULTY_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 1.3, 1.6, 1.9, 2.2, 2.5 },
+	-- the mine's solo uraniumTarget times this is the rescue target (M20).
+	-- Steep (decided 2026-09-25): a crew digs about as many times faster as
+	-- it is large, so a modest table let six players finish before the
+	-- nights escalated while a solo run had to survive night 8 and beyond;
+	-- near-linear keeps every crew size in the mine for a similar number of
+	-- nights. The last entry is the worst case the generator checks a
+	-- mine's authored uranium against (MineManager, map_tools)
+	URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 1.5, 2.0, 2.5, 3.0, 3.5 },
+	-- matched to the uranium table (2026-09-25) so a big crew meets nights
+	-- as much bigger as its target is; the map's MIN_GROUP_DIFFICULTY is
+	-- multiplied by the same number, so a crew gets the solo number of
+	-- groups, each that much bigger, rather than a trickle of small ones
+	WAVE_DIFFICULTY_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 1.5, 2.0, 2.5, 3.0, 3.5 },
 	ENEMY_HP_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 1.1, 1.2, 1.3, 1.4, 1.5 },
 }
