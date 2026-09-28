@@ -7,8 +7,19 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 -- template name under ReplicatedStorage/Rocks. Cluster radius is a property
 -- of the rock, not the mine: Iron 3 clusters the same way everywhere. Iron
 -- and Gold clusters were shrunk a step on 2026-09-15 (radius 0-1, so one
--- to seven blocks) after play showed them clumping.
+-- to seven blocks) after play showed them clumping, and every ore vein
+-- became a single block on 2026-09-28 with the mines holding four to six
+-- times as many veins (a seven-block Gold II vein was a whole day of Gold
+-- in one find; the designer wants more, smaller finds).
 --
+-- The mine is a simulator (decided 2026-09-28, docs/balance-plan.md):
+-- rock HP triples a tier (10 to 810 for stone), matching the pick that
+-- triples a level, so the deep mine is a wall until the pick has been
+-- earned; Gold and Diamonds per rock quadruple a tier, so the deeper the
+-- crew digs the faster they arrive, while Iron per rock only doubles a
+-- tier, under the rock's HP, so a bigger pick in deeper rock does not
+-- flood the tower budget (option 1 of
+-- the simulator plan: the mining loop ramps, Iron does not). Uranium stays one a rock at 100 HP: a hunt, not a number.
 -- FILLER_ORDER is load-bearing: the hardness kernel maps a center of 1.0 to
 -- the first entry and a center equal to the list length to the last, so it
 -- must stay sorted by HP. One filler rock, Stone, in five tiers (decided
@@ -50,10 +61,10 @@ return {
 
 	ROCKS = {
 		[Enums.RockName.STONE_1] = { kind = Enums.RockKind.FILLER, hp = 10 },
-		[Enums.RockName.STONE_2] = { kind = Enums.RockKind.FILLER, hp = 20 },
-		[Enums.RockName.STONE_3] = { kind = Enums.RockKind.FILLER, hp = 40 },
-		[Enums.RockName.STONE_4] = { kind = Enums.RockKind.FILLER, hp = 80 },
-		[Enums.RockName.STONE_5] = { kind = Enums.RockKind.FILLER, hp = 160 },
+		[Enums.RockName.STONE_2] = { kind = Enums.RockKind.FILLER, hp = 30 },
+		[Enums.RockName.STONE_3] = { kind = Enums.RockKind.FILLER, hp = 90 },
+		[Enums.RockName.STONE_4] = { kind = Enums.RockKind.FILLER, hp = 270 },
+		[Enums.RockName.STONE_5] = { kind = Enums.RockKind.FILLER, hp = 810 },
 
 		[Enums.RockName.IRON_1] = {
 			kind = Enums.RockKind.RESOURCE,
@@ -62,34 +73,34 @@ return {
 			hp = 15,
 			yield = 3,
 			clusterRadiusMin = 0,
-			clusterRadiusMax = 1,
+			clusterRadiusMax = 0,
 		},
 		[Enums.RockName.IRON_2] = {
 			kind = Enums.RockKind.RESOURCE,
 			resource = Enums.RawResource.IRON_ORE,
 			tier = 2,
-			hp = 30,
-			yield = 10,
+			hp = 45,
+			yield = 6,
 			clusterRadiusMin = 0,
-			clusterRadiusMax = 1,
+			clusterRadiusMax = 0,
 		},
 		[Enums.RockName.IRON_3] = {
 			kind = Enums.RockKind.RESOURCE,
 			resource = Enums.RawResource.IRON_ORE,
 			tier = 3,
-			hp = 60,
-			yield = 29,
+			hp = 135,
+			yield = 12,
 			clusterRadiusMin = 0,
-			clusterRadiusMax = 1,
+			clusterRadiusMax = 0,
 		},
 		[Enums.RockName.IRON_4] = {
 			kind = Enums.RockKind.RESOURCE,
 			resource = Enums.RawResource.IRON_ORE,
 			tier = 4,
-			hp = 110,
-			yield = 78,
+			hp = 405,
+			yield = 24,
 			clusterRadiusMin = 0,
-			clusterRadiusMax = 1,
+			clusterRadiusMax = 0,
 		},
 
 		[Enums.RockName.GOLD_1] = {
@@ -99,34 +110,34 @@ return {
 			hp = 20,
 			yield = 3,
 			clusterRadiusMin = 0,
-			clusterRadiusMax = 1,
+			clusterRadiusMax = 0,
 		},
 		[Enums.RockName.GOLD_2] = {
 			kind = Enums.RockKind.RESOURCE,
 			resource = Enums.RawResource.GOLD_ORE,
 			tier = 2,
-			hp = 40,
-			yield = 10,
+			hp = 60,
+			yield = 12,
 			clusterRadiusMin = 0,
-			clusterRadiusMax = 1,
+			clusterRadiusMax = 0,
 		},
 		[Enums.RockName.GOLD_3] = {
 			kind = Enums.RockKind.RESOURCE,
 			resource = Enums.RawResource.GOLD_ORE,
 			tier = 3,
-			hp = 75,
-			yield = 30,
+			hp = 180,
+			yield = 48,
 			clusterRadiusMin = 0,
-			clusterRadiusMax = 1,
+			clusterRadiusMax = 0,
 		},
 		[Enums.RockName.GOLD_4] = {
 			kind = Enums.RockKind.RESOURCE,
 			resource = Enums.RawResource.GOLD_ORE,
 			tier = 4,
-			hp = 140,
-			yield = 87,
+			hp = 540,
+			yield = 192,
 			clusterRadiusMin = 0,
-			clusterRadiusMax = 1,
+			clusterRadiusMax = 0,
 		},
 
 		[Enums.RockName.CRYSTAL_1] = {
@@ -135,35 +146,35 @@ return {
 			tier = 1,
 			hp = 30,
 			yield = 2,
-			clusterRadiusMin = 1,
-			clusterRadiusMax = 1,
+			clusterRadiusMin = 0,
+			clusterRadiusMax = 0,
 		},
 		[Enums.RockName.CRYSTAL_2] = {
 			kind = Enums.RockKind.RESOURCE,
 			resource = Enums.RawResource.CRYSTAL,
 			tier = 2,
-			hp = 60,
-			yield = 5,
-			clusterRadiusMin = 1,
-			clusterRadiusMax = 1,
+			hp = 90,
+			yield = 8,
+			clusterRadiusMin = 0,
+			clusterRadiusMax = 0,
 		},
 		[Enums.RockName.CRYSTAL_3] = {
 			kind = Enums.RockKind.RESOURCE,
 			resource = Enums.RawResource.CRYSTAL,
 			tier = 3,
-			hp = 110,
-			yield = 14,
+			hp = 270,
+			yield = 32,
 			clusterRadiusMin = 0,
-			clusterRadiusMax = 1,
+			clusterRadiusMax = 0,
 		},
 		[Enums.RockName.CRYSTAL_4] = {
 			kind = Enums.RockKind.RESOURCE,
 			resource = Enums.RawResource.CRYSTAL,
 			tier = 4,
-			hp = 200,
-			yield = 39,
+			hp = 810,
+			yield = 128,
 			clusterRadiusMin = 0,
-			clusterRadiusMax = 1,
+			clusterRadiusMax = 0,
 		},
 
 		[Enums.RockName.URANIUM] = {

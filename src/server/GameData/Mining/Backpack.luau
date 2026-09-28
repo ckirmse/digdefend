@@ -5,7 +5,9 @@
 -- length fixes it.
 -- Everyone is level 1 until the Mining Supplies Store (M21).
 return {
-	CAPACITY_BY_LEVEL = { 15, 25, 40, 60, 90 },
+	-- each level triples the last and costs three times as much
+	-- (2026-09-28, the simulator curve; ore per rock climbs to match)
+	CAPACITY_BY_LEVEL = { 15, 45, 135, 400, 1200 },
 	-- ore that did not fit lands on the ground near the broken block and is
 	-- collected by any player walking within this distance with room
 	PICKUP_RADIUS_STUDS = 5,

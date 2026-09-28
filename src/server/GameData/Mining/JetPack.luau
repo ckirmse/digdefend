@@ -7,7 +7,8 @@
 -- the 72-stud mine (retuned 2026-09-15: 22 x 3 s cleared the mine at level 2).
 return {
 	BASE_FUEL_SEC = 1.5,
-	FUEL_PER_LEVEL_SEC = 0.5,
+	-- twice the step of the first pass, at twice the price (2026-09-28)
+	FUEL_PER_LEVEL_SEC = 1,
 	-- straight up while burning; walk controls still steer
 	CLIMB_SPEED_STUDS_PER_SEC = 12,
 	-- the tank refills whenever the pack is not burning, anywhere, at this

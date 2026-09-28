@@ -36,7 +36,7 @@ local function makeCatalog()
 	return {
 		cellSizeStuds = CELL,
 		previewDistanceStuds = 10,
-		maxActiveTowersPerPlayer = 5,
+		maxActiveTowersCamp = 12,
 		maxTrapKindsCarried = 3,
 		towerSellShare = 0.5,
 		trapSellShare = 0.5,
@@ -323,12 +323,22 @@ describe(
 			end
 		)
 		it(
+			"shares the camp's Towers out evenly, rounding up",
+			function()
+				expect(PlacementRules.towerAllowance(12, 1)).toBe(12)
+				expect(PlacementRules.towerAllowance(12, 4)).toBe(3)
+				expect(PlacementRules.towerAllowance(12, 5)).toBe(3)
+				expect(PlacementRules.towerAllowance(12, 6)).toBe(2)
+				expect(PlacementRules.towerAllowance(12, 0)).toBe(12)
+			end
+		)
+		it(
 			"round-trips the catalogue",
 			function()
 				local catalog = makeCatalog()
 				local decoded = PlacementRules.decodeCatalog(PlacementRules.encodeCatalog(catalog))
 				expect(decoded.cellSizeStuds).toBe(CELL)
-				expect(decoded.maxActiveTowersPerPlayer).toBe(5)
+				expect(decoded.maxActiveTowersCamp).toBe(12)
 				expect(decoded.towers[Enums.TowerKind.SENTRY_GUN].STATS_BY_LEVEL[2].DAMAGE).toBe(8)
 				expect(decoded.traps[Enums.TrapKind.SPIKE_TRAP].PRICE_IRON).toBe(15)
 				expect(PlacementRules.decodeCatalog("nope")).toBeNil()

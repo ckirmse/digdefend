@@ -12,7 +12,7 @@ return {
 	RESCUE_FLIGHT_SEC = 60,
 	BOARDING_TIMEOUT_SEC = 30,
 	-- the final wave is the next night's wave, this many times over
-	FINAL_WAVE_MULTIPLIER = 1.5,
+	FINAL_WAVE_MULTIPLIER = 1.25,
 	-- the flown-off helicopter is destroyed this long after takeoff
 	DEPARTED_HELICOPTER_LIFETIME_SEC = 35,
 

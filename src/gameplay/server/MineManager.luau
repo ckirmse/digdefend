@@ -92,6 +92,8 @@ function MineManager:buildConfig(difficulty: number): MineGenerator.GeneratorCon
 		hardnessShift = DifficultyData.HARDNESS_SHIFT,
 		difficultyValue = DifficultyData.DIFFICULTY_VALUE[difficulty],
 		veinDivisor = DifficultyData.VEIN_DIVISOR[difficulty],
+		uraniumVeinDivisor = DifficultyData.URANIUM_VEIN_DIVISOR[difficulty],
+		tierMinDepthBlocks = WeightsData.TIER_MIN_DEPTH_BLOCKS,
 		pickaxeReachBlocks = GenerationData.PICKAXE_REACH_BLOCKS,
 		isClimbingEnabled = GenerationData.IS_CLIMBING_ENABLED,
 		maxPartyUraniumTargetMultiplier = maxUraniumTargetMultiplier(),

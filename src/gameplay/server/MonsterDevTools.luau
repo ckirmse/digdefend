@@ -9,9 +9,12 @@ local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local BehaviorData = require("@game/ServerScriptService/GameData/Monsters/Behavior")
 local DevTools = require(script.Parent.Parent.Server.DevTools)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
+local BalanceAudit = require(script.Parent.BalanceAudit)
 local MonsterManager = require(script.Parent.MonsterManager)
 local MonsterPathManager = require(script.Parent.MonsterPathManager)
 local MonsterWaveManager = require(script.Parent.MonsterWaveManager)
+local RunCycleManager = require(script.Parent.RunCycleManager)
+local RunManager = require(script.Parent.RunManager)
 
 local MonsterDevTools = {}
 MonsterDevTools.__index = MonsterDevTools
@@ -24,6 +27,7 @@ MonsterDevTools.STRESS_TEST_MONSTERS_COMMAND = "stressTestMonsters"
 MonsterDevTools.SET_MONSTER_PATHS_VISIBLE_COMMAND = "setMonsterPathsVisible"
 MonsterDevTools.PREVIEW_WAVE_COMMAND = "previewWave"
 MonsterDevTools.PREVIEW_CURVE_COMMAND = "previewWaveCurve"
+MonsterDevTools.BALANCE_REPORT_COMMAND = "balanceReport"
 
 local SPAWN_MONSTERS_ARGS_SHAPE = {
 	kind = { type = "enum", name = "MonsterKind" },
@@ -122,6 +126,27 @@ function MonsterDevTools:init()
 			local lines = MonsterWaveManager:describeCurve(PREVIEW_CURVE_NIGHTS)
 			print("[MonsterDevTools] curve\n" .. table.concat(lines, "\n"))
 			PlayerFeedbackManager:give(player, "The wave curve is in the Output")
+		end
+	)
+	-- the whole run on paper: income, threat, and the misses against the
+	-- targets in GameData/Control/Balance, for this run's map, difficulty,
+	-- and crew
+	register(
+		MonsterDevTools.BALANCE_REPORT_COMMAND,
+		NO_ARGS_SHAPE,
+		function(player: Player, _args: { [string]: any })
+			local map = RunManager:getMap()
+			local difficulty = RunManager:getDifficulty()
+			if not map or not difficulty then
+				PlayerFeedbackManager:give(player, "No run has started yet")
+				return
+			end
+			local lines = BalanceAudit:describe(map, difficulty, RunCycleManager:getScalingCount())
+			print("[BalanceAudit] sheet\n" .. table.concat(lines, "\n"))
+			local failures = BalanceAudit:auditAll()
+			local failureText = if #failures > 0 then ":\n  " .. table.concat(failures, "\n  ") else ""
+			print(string.format("[BalanceAudit] %d target(s) missed across every map, difficulty, and crew size%s", #failures, failureText))
+			PlayerFeedbackManager:give(player, "The balance sheet is in the Output")
 		end
 	)
 end

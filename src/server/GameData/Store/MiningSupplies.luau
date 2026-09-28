@@ -11,10 +11,14 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 return {
 	PRICE_RESOURCE = Enums.RefinedResource.GOLD_BAR,
 	UPGRADES = {
-		[Enums.StoreItem.PICK_AXE] = { priceByLevel = { 0, 15, 40, 100, 250 } },
-		[Enums.StoreItem.BOOTS] = { priceByLevel = { 0, 10, 25, 60, 150 } },
-		[Enums.StoreItem.BACKPACK] = { priceByLevel = { 0, 10, 30, 80, 200 } },
-		[Enums.StoreItem.JET_PACK] = { priceByLevel = { 0, 20, 50, 120, 300 } },
+		-- tripling a level along with each upgrade's effect (2026-09-28, the
+		-- simulator curve): the price is the brake now that no camp level
+		-- gates a rung, and Gold per rock climbs deeper so the last rung is
+		-- as reachable on day 9 as the first was on day 2
+		[Enums.StoreItem.PICK_AXE] = { priceByLevel = { 0, 30, 90, 270, 800 } },
+		[Enums.StoreItem.BOOTS] = { priceByLevel = { 0, 20, 60, 180, 540 } },
+		[Enums.StoreItem.BACKPACK] = { priceByLevel = { 0, 20, 60, 180, 540 } },
+		[Enums.StoreItem.JET_PACK] = { priceByLevel = { 0, 40, 120, 360, 1080 } },
 	},
 	-- one buy grants `amount` of the tool; never capped by Camp Level
 	CONSUMABLES = {

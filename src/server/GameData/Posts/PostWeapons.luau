@@ -50,8 +50,11 @@ return {
 	-- same reason
 	YAW_TOLERANCE_DEGREES = 15,
 	BY_KIND = {
+		-- about 85 DPS sustained through the overheat, against the rifle's
+		-- 55 (2026-09-28): a post is a stationary, exposed commitment and
+		-- must be worth leaving the rifle for
 		[Enums.PostWeaponKind.MACHINE_GUN] = {
-			DAMAGE = 12,
+			DAMAGE = 15,
 			FIRE_INTERVAL_SEC = 0.1,
 			FIRE_COOLDOWN_SEC = 0.08,
 			TURN_SPEED_DEGREES_PER_SEC = 22,
@@ -63,12 +66,14 @@ return {
 			-- fills the heat; it then refuses to fire until fully cooled, which
 			-- takes COOL_SEC from full. Heat only cools once the trigger rests
 			HEAT = {
-				FULL_SEC = 3,
+				FULL_SEC = 4,
 				COOL_SEC = 3,
 			},
 		},
+		-- 33 DPS to one target, about a hundred into a group at the 12-stud
+		-- splash (2026-09-28)
 		[Enums.PostWeaponKind.ROCKET_LAUNCHER] = {
-			DAMAGE = 150,
+			DAMAGE = 200,
 			-- the reload is the launcher's fire rate (decided 2026-09-18): one
 			-- rocket every RELOAD_SEC, and Fire Rate upgrades shorten it
 			FIRE_INTERVAL_SEC = 6,

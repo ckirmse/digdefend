@@ -20,11 +20,23 @@ return {
 	-- near-linear keeps every crew size in the mine for a similar number of
 	-- nights. The last entry is the worst case the generator checks a
 	-- mine's authored uranium against (MineManager, map_tools)
-	URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 1.5, 2.0, 2.5, 3.0, 3.5 },
+	-- near-linear and then some (2026-09-28, docs/balance-plan.md): the
+	-- balance sheet has a crew stripping every zone it passes and hunting
+	-- humming uranium, so a crew of four holds four times solo's uranium
+	-- by day 10 and the target must match or the run ends early
+	URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 2.5, 4.5, 8.0, 10.0, 12.0 },
 	-- matched to the uranium table (2026-09-25) so a big crew meets nights
 	-- as much bigger as its target is; the map's MIN_GROUP_DIFFICULTY is
 	-- multiplied by the same number, so a crew gets the solo number of
 	-- groups, each that much bigger, rather than a trickle of small ones
-	WAVE_DIFFICULTY_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 1.5, 2.0, 2.5, 3.0, 3.5 },
-	ENEMY_HP_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 1.1, 1.2, 1.3, 1.4, 1.5 },
+	-- sublinear (2026-09-28): the camp's tower cap is shared, so a big
+	-- crew's towers plateau where a solo player's do and only its posts
+	-- and faster Iron grow with it. Set so the biggest crew can still hold
+	-- Nightmare's final wave; on Normal a crew keeps more margin than solo
+	WAVE_DIFFICULTY_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 1.6, 2.1, 2.4, 2.6, 2.8 },
+	-- 1 everywhere (decided 2026-09-28, docs/balance-plan.md): a crew's
+	-- size scales the night through the wave budget only, never through a
+	-- monster's stats, so the two never compound (they did: four players
+	-- met 3.25x solo HP). The table stays so a map can bring it back
+	ENEMY_HP_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 },
 }

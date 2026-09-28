@@ -425,6 +425,68 @@ describe(
 		)
 
 		it(
+			"keeps higher ore tiers away from the mine mouth and deeper within a zone",
+			function()
+				local config = makeConfig({ tierMinDepthBlocks = { 0, 14, 44, 68 } })
+				local mine = makeMine()
+				-- a strong tier-2 lean in zone 1 so the floor has something to hold back
+				mine.zones[1].tierBias = 1.5
+				mine.zones[1].iron = 40
+				mine.zones[1].gold = 40
+				local result = generateOrFail(mine, config, SEED)
+				local grid = result.grid
+				local shallowHigh = 0
+				local deepHigh = 0
+				for depth = 0, grid.depth - 1 do
+					for height = 0, grid.height - 1 do
+						for width = 0, grid.width - 1 do
+							local cell = MineGenerator.getCell(grid, depth, height, width)
+							if cell == RockName.IRON_2 or cell == RockName.GOLD_2 or cell == RockName.IRON_3 or cell == RockName.GOLD_3 then
+								-- a cluster centred on row 14 can spill two rows shallower
+								if depth < 12 then
+									shallowHigh += 1
+								else
+									deepHigh += 1
+								end
+							end
+						end
+					end
+				end
+				expect(shallowHigh).toBe(0)
+				expect(deepHigh).toBeGreaterThan(0)
+				-- without floors, a zone leaning on tier 2 puts it in the first rows
+				mine.zones[1].tierBias = 2.0
+				local free = generateOrFail(mine, makeConfig(), SEED)
+				local shallowFree = 0
+				for depth = 0, 9 do
+					for height = 0, free.grid.height - 1 do
+						for width = 0, free.grid.width - 1 do
+							local cell = MineGenerator.getCell(free.grid, depth, height, width)
+							if cell == RockName.IRON_2 or cell == RockName.GOLD_2 then
+								shallowFree += 1
+							end
+						end
+					end
+				end
+				expect(shallowFree).toBeGreaterThan(0)
+			end
+		)
+		it(
+			"thins uranium by its own divisor and the ore by the vein divisor",
+			function()
+				local config = makeConfig({ veinDivisor = 2, uraniumVeinDivisor = 4 })
+				local mine = makeMine()
+				-- the thinned supply must still cover the target for the preview to run
+				mine.uraniumTarget = 1
+				-- zone 4 authors 14 uranium: 4 at a divisor of 4, 14 without one
+				local zones = MineGenerator.preview(mine, config)
+				expect(zones[4].requestedOre[Enums.RawResource.URANIUM_ORE]).toBe(4)
+				config.uraniumVeinDivisor = nil
+				zones = MineGenerator.preview(mine, config)
+				expect(zones[4].requestedOre[Enums.RawResource.URANIUM_ORE]).toBe(14)
+			end
+		)
+		it(
 			"reports diggable volume, reach, pockets, and placed versus requested ore",
 			function()
 				local result = generateOrFail(makeMine())

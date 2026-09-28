@@ -11,12 +11,19 @@
 -- entry per Enums.Difficulty: the night-1 difficulty, how much each night
 -- adds and by what share it compounds (the crew's power compounds, so the
 -- night must too; decided 2026-09-24), how close a wave must land, and
--- each kind's first night. Difficulty is these
--- parameters, never a stat multiplier: Hard starts higher, compounds
--- faster, and unlocks every kind two nights earlier than Normal,
--- Nightmare four. On Normal the target runs 10, 16, 23, 31, 41 ... 84 on
--- night 8, 190 on night 12. Every number is
--- first-pass tuning for M34's playtest.
+-- each kind's first night. Difficulty is these parameters, never a stat
+-- multiplier. The curves were set from the balance sheet on 2026-09-28
+-- (docs/balance-plan.md) against the wall progression the designer
+-- asked for: on Normal, night 2 dents a wall, night 3 nearly breaks one,
+-- night 4 breaks one (the second playtest, at 27 / 27 / 10%, broke a
+-- wall on night 2 and three structures on night 3); Hard and Nightmare
+-- bring Runners, Bombers, and Brutes on night 2 and break a wall that
+-- night, and are the same unlock order shifted two and four nights
+-- earlier, each above the easier tier through its target night. A small start keeps Normal's first nights gentle and the
+-- increment makes night 10 a real fight; every tier climbs mostly by
+-- increment, so its last nights stay under a solo crew's ceiling once
+-- backpack trips eat the late days. The balance sheet (BalanceAudit at
+-- startup, the Monsters dev panel) checks it all.
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 
 local MonsterKind = Enums.MonsterKind
@@ -37,9 +44,9 @@ return {
 	WAVES = {},
 	GENERATOR = {
 		[Enums.Difficulty.NORMAL] = {
-			STARTING_DIFFICULTY = 18,
-			DIFFICULTY_INCREASE_PER_WAVE = 18,
-			GROWTH_PER_WAVE = 0.12,
+			STARTING_DIFFICULTY = 24,
+			DIFFICULTY_INCREASE_PER_WAVE = 12,
+			GROWTH_PER_WAVE = 0.10,
 			WAVE_DIFFICULTY_RANGE = 4,
 			AVAILABLE_ENEMIES = {
 				{
@@ -117,9 +124,10 @@ return {
 			},
 		},
 		[Enums.Difficulty.HARD] = {
-			STARTING_DIFFICULTY = 14,
-			DIFFICULTY_INCREASE_PER_WAVE = 5,
-			GROWTH_PER_WAVE = 0.15,
+			-- a steeper climb from a low start, every kind two nights earlier
+			STARTING_DIFFICULTY = 28,
+			DIFFICULTY_INCREASE_PER_WAVE = 26,
+			GROWTH_PER_WAVE = 0.06,
 			WAVE_DIFFICULTY_RANGE = 4,
 			AVAILABLE_ENEMIES = {
 				{
@@ -197,9 +205,10 @@ return {
 			},
 		},
 		[Enums.Difficulty.NIGHTMARE] = {
-			STARTING_DIFFICULTY = 18,
-			DIFFICULTY_INCREASE_PER_WAVE = 6,
-			GROWTH_PER_WAVE = 0.18,
+			-- the same climb from a higher start, every kind four nights earlier
+			STARTING_DIFFICULTY = 30,
+			DIFFICULTY_INCREASE_PER_WAVE = 26,
+			GROWTH_PER_WAVE = 0.06,
 			WAVE_DIFFICULTY_RANGE = 5,
 			AVAILABLE_ENEMIES = {
 				{

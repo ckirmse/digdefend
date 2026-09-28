@@ -37,6 +37,7 @@ local STRESS_TEST_MONSTERS_COMMAND = "stressTestMonsters"
 local SET_MONSTER_PATHS_VISIBLE_COMMAND = "setMonsterPathsVisible"
 local PREVIEW_WAVE_COMMAND = "previewWave"
 local PREVIEW_CURVE_COMMAND = "previewWaveCurve"
+local BALANCE_REPORT_COMMAND = "balanceReport"
 
 function ClientMonsterDevTools:send(command: string, args: { [string]: any })
 	ClientNetManager:fireServer(
@@ -89,6 +90,9 @@ function ClientMonsterDevTools:renderSection()
 	end
 	if Iris.Button({ "Preview curve, nights 1-20 (Output)" }).clicked() then
 		self:send(PREVIEW_CURVE_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Balance sheet (Output)" }).clicked() then
+		self:send(BALANCE_REPORT_COMMAND, {} :: { [string]: any })
 	end
 end
 

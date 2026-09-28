@@ -47,6 +47,7 @@ local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedback
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 local MapManager = require(script.Parent.MapManager)
 local RefineryManager = require(script.Parent.RefineryManager)
+local RunCycleManager = require(script.Parent.RunCycleManager)
 local ToolManager = require(script.Parent.ToolManager)
 
 local PlacementManager = {}
@@ -417,8 +418,9 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 			PlayerFeedbackManager:give(player, FEEDBACK_NOT_IN_LOADOUT)
 			return
 		end
-		if self:countActiveTowers(player) >= self.catalog.maxActiveTowersPerPlayer then
-			PlayerFeedbackManager:give(player, string.format(FEEDBACK_TOWER_LIMIT_FORMAT, self.catalog.maxActiveTowersPerPlayer))
+		local allowance = PlacementRules.towerAllowance(self.catalog.maxActiveTowersCamp, RunCycleManager:getScalingCount())
+		if self:countActiveTowers(player) >= allowance then
+			PlayerFeedbackManager:give(player, string.format(FEEDBACK_TOWER_LIMIT_FORMAT, allowance))
 			return
 		end
 		local price = PlacementRules.buildPrice(self.catalog, placementKind, typeKind)
@@ -650,7 +652,7 @@ function PlacementManager:init()
 	self.catalog = {
 		cellSizeStuds = PlacementData.CELL_SIZE_STUDS,
 		previewDistanceStuds = PlacementData.PREVIEW_DISTANCE_STUDS,
-		maxActiveTowersPerPlayer = TowersData.MAX_ACTIVE_TOWERS_PER_PLAYER,
+		maxActiveTowersCamp = TowersData.MAX_ACTIVE_TOWERS_CAMP,
 		maxTrapKindsCarried = TrapsData.MAX_TRAP_KINDS_CARRIED,
 		towerSellShare = TowersData.SELL_SHARE,
 		trapSellShare = TrapsData.SELL_SHARE,
@@ -678,7 +680,7 @@ function PlacementManager.new(): PlacementManager
 	self.catalog = {
 		cellSizeStuds = PlacementData.CELL_SIZE_STUDS,
 		previewDistanceStuds = PlacementData.PREVIEW_DISTANCE_STUDS,
-		maxActiveTowersPerPlayer = 0,
+		maxActiveTowersCamp = 0,
 		maxTrapKindsCarried = 0,
 		towerSellShare = 0,
 		trapSellShare = 0,

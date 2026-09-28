@@ -22,11 +22,13 @@ return {
 	-- night of two groups is not one group, a long lull, then the other
 	MAX_TIME_BETWEEN_GROUPS_SEC = 20,
 	WAVES = {},
+	-- Deadman's Canyon's curves, copied on 2026-09-28 so the balance audit
+	-- holds this map to the same targets until it is authored for real
 	GENERATOR = {
 		[Enums.Difficulty.NORMAL] = {
-			STARTING_DIFFICULTY = 10,
-			DIFFICULTY_INCREASE_PER_WAVE = 4,
-			GROWTH_PER_WAVE = 0.12,
+			STARTING_DIFFICULTY = 24,
+			DIFFICULTY_INCREASE_PER_WAVE = 12,
+			GROWTH_PER_WAVE = 0.10,
 			WAVE_DIFFICULTY_RANGE = 4,
 			AVAILABLE_ENEMIES = {
 				{
@@ -104,9 +106,10 @@ return {
 			},
 		},
 		[Enums.Difficulty.HARD] = {
-			STARTING_DIFFICULTY = 10,
-			DIFFICULTY_INCREASE_PER_WAVE = 4,
-			GROWTH_PER_WAVE = 0.12,
+			-- a steeper climb from a low start, every kind two nights earlier
+			STARTING_DIFFICULTY = 28,
+			DIFFICULTY_INCREASE_PER_WAVE = 26,
+			GROWTH_PER_WAVE = 0.06,
 			WAVE_DIFFICULTY_RANGE = 4,
 			AVAILABLE_ENEMIES = {
 				{
@@ -115,79 +118,80 @@ return {
 				},
 				{
 					KIND = MonsterKind.RUNNER_1,
-					WAVE_UNLOCKED = 2,
+					WAVE_UNLOCKED = 1,
 				},
 				{
 					KIND = MonsterKind.BOMBER_1,
-					WAVE_UNLOCKED = 3,
+					WAVE_UNLOCKED = 1,
 				},
 				{
 					KIND = MonsterKind.ZOMBIE_2,
-					WAVE_UNLOCKED = 4,
+					WAVE_UNLOCKED = 2,
 				},
 				{
 					KIND = MonsterKind.BRUTE_1,
-					WAVE_UNLOCKED = 4,
+					WAVE_UNLOCKED = 2,
 				},
 				{
 					KIND = MonsterKind.FLYER_1,
-					WAVE_UNLOCKED = 5,
+					WAVE_UNLOCKED = 3,
 				},
 				{
 					KIND = MonsterKind.RUNNER_2,
-					WAVE_UNLOCKED = 6,
+					WAVE_UNLOCKED = 4,
 				},
 				{
 					KIND = MonsterKind.BOMBER_2,
-					WAVE_UNLOCKED = 7,
+					WAVE_UNLOCKED = 5,
 				},
 				{
 					KIND = MonsterKind.ZOMBIE_3,
-					WAVE_UNLOCKED = 8,
+					WAVE_UNLOCKED = 6,
 				},
 				{
 					KIND = MonsterKind.BRUTE_2,
-					WAVE_UNLOCKED = 8,
+					WAVE_UNLOCKED = 6,
 				},
 				{
 					KIND = MonsterKind.LAUNCHER_1,
-					WAVE_UNLOCKED = 9,
+					WAVE_UNLOCKED = 7,
 				},
 				{
 					KIND = MonsterKind.FLYER_2,
-					WAVE_UNLOCKED = 10,
+					WAVE_UNLOCKED = 8,
 				},
 				{
 					KIND = MonsterKind.RUNNER_3,
-					WAVE_UNLOCKED = 11,
+					WAVE_UNLOCKED = 9,
 				},
 				{
 					KIND = MonsterKind.BOMBER_3,
-					WAVE_UNLOCKED = 12,
+					WAVE_UNLOCKED = 10,
 				},
 				{
 					KIND = MonsterKind.BRUTE_3,
-					WAVE_UNLOCKED = 12,
+					WAVE_UNLOCKED = 10,
 				},
 				{
 					KIND = MonsterKind.TITAN_1,
-					WAVE_UNLOCKED = 14,
+					WAVE_UNLOCKED = 12,
 				},
 				{
 					KIND = MonsterKind.FLYER_3,
-					WAVE_UNLOCKED = 15,
+					WAVE_UNLOCKED = 13,
 				},
 				{
 					KIND = MonsterKind.TITAN_2,
-					WAVE_UNLOCKED = 20,
+					WAVE_UNLOCKED = 18,
 				},
 			},
 		},
 		[Enums.Difficulty.NIGHTMARE] = {
-			STARTING_DIFFICULTY = 10,
-			DIFFICULTY_INCREASE_PER_WAVE = 4,
-			GROWTH_PER_WAVE = 0.12,
-			WAVE_DIFFICULTY_RANGE = 4,
+			-- the same climb from a higher start, every kind four nights earlier
+			STARTING_DIFFICULTY = 30,
+			DIFFICULTY_INCREASE_PER_WAVE = 26,
+			GROWTH_PER_WAVE = 0.06,
+			WAVE_DIFFICULTY_RANGE = 5,
 			AVAILABLE_ENEMIES = {
 				{
 					KIND = MonsterKind.ZOMBIE_1,
@@ -195,71 +199,71 @@ return {
 				},
 				{
 					KIND = MonsterKind.RUNNER_1,
-					WAVE_UNLOCKED = 2,
+					WAVE_UNLOCKED = 1,
 				},
 				{
 					KIND = MonsterKind.BOMBER_1,
-					WAVE_UNLOCKED = 3,
+					WAVE_UNLOCKED = 1,
 				},
 				{
 					KIND = MonsterKind.ZOMBIE_2,
-					WAVE_UNLOCKED = 4,
+					WAVE_UNLOCKED = 1,
 				},
 				{
 					KIND = MonsterKind.BRUTE_1,
-					WAVE_UNLOCKED = 4,
+					WAVE_UNLOCKED = 1,
 				},
 				{
 					KIND = MonsterKind.FLYER_1,
-					WAVE_UNLOCKED = 5,
+					WAVE_UNLOCKED = 1,
 				},
 				{
 					KIND = MonsterKind.RUNNER_2,
-					WAVE_UNLOCKED = 6,
+					WAVE_UNLOCKED = 2,
 				},
 				{
 					KIND = MonsterKind.BOMBER_2,
-					WAVE_UNLOCKED = 7,
+					WAVE_UNLOCKED = 3,
 				},
 				{
 					KIND = MonsterKind.ZOMBIE_3,
-					WAVE_UNLOCKED = 8,
+					WAVE_UNLOCKED = 4,
 				},
 				{
 					KIND = MonsterKind.BRUTE_2,
-					WAVE_UNLOCKED = 8,
+					WAVE_UNLOCKED = 4,
 				},
 				{
 					KIND = MonsterKind.LAUNCHER_1,
-					WAVE_UNLOCKED = 9,
+					WAVE_UNLOCKED = 5,
 				},
 				{
 					KIND = MonsterKind.FLYER_2,
-					WAVE_UNLOCKED = 10,
+					WAVE_UNLOCKED = 6,
 				},
 				{
 					KIND = MonsterKind.RUNNER_3,
-					WAVE_UNLOCKED = 11,
+					WAVE_UNLOCKED = 7,
 				},
 				{
 					KIND = MonsterKind.BOMBER_3,
-					WAVE_UNLOCKED = 12,
+					WAVE_UNLOCKED = 8,
 				},
 				{
 					KIND = MonsterKind.BRUTE_3,
-					WAVE_UNLOCKED = 12,
+					WAVE_UNLOCKED = 8,
 				},
 				{
 					KIND = MonsterKind.TITAN_1,
-					WAVE_UNLOCKED = 14,
+					WAVE_UNLOCKED = 10,
 				},
 				{
 					KIND = MonsterKind.FLYER_3,
-					WAVE_UNLOCKED = 15,
+					WAVE_UNLOCKED = 11,
 				},
 				{
 					KIND = MonsterKind.TITAN_2,
-					WAVE_UNLOCKED = 20,
+					WAVE_UNLOCKED = 16,
 				},
 			},
 		},

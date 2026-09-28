@@ -91,6 +91,17 @@ export type GeneratorConfig = {
 	hardnessShift: number,
 	difficultyValue: number,
 	veinDivisor: number,
+	-- uranium's own divisor (decided 2026-09-28, docs/balance-plan.md): a
+	-- harder difficulty thins the uranium too, so a crew that strips zones
+	-- finds it slower and the longer run holds; nil is 1
+	uraniumVeinDivisor: number?,
+	-- how many blocks from the mine mouth each ore tier may first appear
+	-- (decided 2026-09-28: a Gold II vein a few blocks in let a player buy
+	-- three upgrades on day 1); a cluster whose tier is not allowed at its
+	-- zone's deepest row is demoted to the highest tier that is. Within a
+	-- zone, tiers above its bias sit in the back half and tiers below it
+	-- in the front half, so the ore climbs with the depth. nil allows all
+	tierMinDepthBlocks: { number }?,
 	pickaxeReachBlocks: number,
 	isClimbingEnabled: boolean,
 	maxPartyUraniumTargetMultiplier: number,
@@ -376,7 +387,7 @@ local function resolveZones(definition: MineDefinition, config: GeneratorConfig,
 				baseCount = 0
 			end
 			if entry.resource == Enums.RawResource.URANIUM_ORE then
-				veins[entry.resource] = baseCount
+				veins[entry.resource] = RockRules.effectiveVeinCount(baseCount, config.uraniumVeinDivisor or 1)
 			else
 				veins[entry.resource] = RockRules.effectiveVeinCount(baseCount, config.veinDivisor)
 			end
@@ -597,8 +608,42 @@ local function carvePockets(grid: MineGrid, definition: MineDefinition, zones: {
 	end
 end
 
+-- the deepest tier the floors allow at a depth, 1 when none is listed
+local function highestTierAllowedAt(depth: number, tierMinDepthBlocks: { number }?, tierCount: number): number
+	if tierMinDepthBlocks == nil then
+		return tierCount
+	end
+	local allowed = 1
+	for tier = 2, tierCount do
+		local floor = tierMinDepthBlocks[tier]
+		if floor ~= nil and depth >= floor then
+			allowed = tier
+		end
+	end
+	return allowed
+end
+
+-- the depth rows a cluster of this tier may centre on within its zone:
+-- the tier floor, and the zone's front or back half around its bias
+local function tierDepthRange(tier: number, zone: ResolvedZone, bounds: Box, tierMinDepthBlocks: { number }?): (number, number)
+	local minDepth = bounds.depthStart
+	local maxDepth = bounds.depthEnd
+	local middle = math.floor((bounds.depthStart + bounds.depthEnd) / 2)
+	local biasTier = math.round(zone.tierBias)
+	if tier > biasTier then
+		minDepth = math.max(minDepth, middle + 1)
+	elseif tier < biasTier then
+		maxDepth = math.min(maxDepth, middle)
+	end
+	if tierMinDepthBlocks ~= nil and tierMinDepthBlocks[tier] ~= nil then
+		minDepth = math.max(minDepth, tierMinDepthBlocks[tier])
+	end
+	return minDepth, math.max(maxDepth, minDepth)
+end
+
 -- Step 8: per zone, per resource, split the count across tiers and drop
--- each cluster at a random rock position outside the entrance clearance.
+-- each cluster at a random rock position outside the entrance clearance,
+-- higher tiers deeper in the zone and never shallower than their floor.
 local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: GeneratorConfig, zoneRandoms: { Random }, exclude: Box, warnings: { string })
 	local rocks = config.rockTable.ROCKS
 	for _, zone in zones do
@@ -637,16 +682,33 @@ local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: Gener
 			if entry.resource == Enums.RawResource.URANIUM_ORE then
 				maxCenterHeight = math.min(bounds.heightEnd, bounds.heightStart + config.pickaxeReachBlocks - 1)
 			end
-			for tier, tierCount in tierCounts do
+			for wantedTier, tierCount in tierCounts do
+				-- a tier the floors keep out of this zone entirely drops to the
+				-- deepest one allowed at the zone's last row
+				local tier = math.min(wantedTier, highestTierAllowedAt(bounds.depthEnd, config.tierMinDepthBlocks, #tiers))
 				local rock = tiers[tier]
 				local definitionOfRock = rocks[rock]
+				local minDepth, maxDepth = tierDepthRange(tier, zone, bounds, if #tiers > 1 then config.tierMinDepthBlocks else nil)
+				local hasFreeCellInRange = false
+				for depth = minDepth, maxDepth do
+					for height = bounds.heightStart, maxCenterHeight do
+						for width = bounds.widthStart, bounds.widthEnd do
+							if not isInBox(exclude, depth, height, width) and MineGenerator.getCell(grid, depth, height, width) ~= MineGenerator.AIR then
+								hasFreeCellInRange = true
+							end
+						end
+					end
+				end
+				if not hasFreeCellInRange then
+					minDepth, maxDepth = bounds.depthStart, bounds.depthEnd
+				end
 				for _ = 1, tierCount do
 					local radius = random:NextInteger(definitionOfRock.clusterRadiusMin :: number, definitionOfRock.clusterRadiusMax :: number)
 					-- rejection sampling keeps the distribution uniform over the
 					-- allowed volume; the free-cell check above guarantees it ends
 					local centerDepth, centerHeight, centerWidth
 					repeat
-						centerDepth = random:NextInteger(bounds.depthStart, bounds.depthEnd)
+						centerDepth = random:NextInteger(minDepth, maxDepth)
 						centerHeight = random:NextInteger(bounds.heightStart, maxCenterHeight)
 						centerWidth = random:NextInteger(bounds.widthStart, bounds.widthEnd)
 					until not isInBox(exclude, centerDepth, centerHeight, centerWidth)

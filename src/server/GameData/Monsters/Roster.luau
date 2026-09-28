@@ -1,5 +1,14 @@
 --!strict
 
+-- DIFFICULTY_VALUE is the kind's price in a night's wave budget (decided
+-- 2026-09-28, docs/balance-plan.md): its HP over 50 (a Zombie 1 is 2),
+-- times its speed over 10 (a fast kind is under fire for less of its
+-- walk, Goal Defense's L/v), times an ability factor: 2 for a Bomber
+-- (its blast is the point, not its HP), 1.5 for a Flyer (needs its own
+-- counter, hits players over the walls), a Launcher (out-ranges the
+-- walls), and a Titan (one swing takes any tower). Abilities are mostly
+-- handled by the night a kind first appears (GameData/Waves), not its
+-- price, as the genre does; the price keeps a budget's HP predictable.
 -- Every monster (GDD "Monsters", "Monster Types"), M29. One entry per
 -- Enums.MonsterKind: the enum key is the monster's system Name and its
 -- PublicNames entry is its DisplayName, so neither is repeated here. A
@@ -65,7 +74,7 @@ return {
 		[Enums.MonsterKind.ZOMBIE_2] = {
 			DIFFICULTY_VALUE = 4,
 			MAX_HP = 200,
-			DAMAGE = 10,
+			DAMAGE = 15,
 			SPEED_STUDS_PER_SEC = 10,
 			TARGET_PRIORITIES = { PLAYERS },
 			TARGET_DAMAGE_TYPES = {},
@@ -83,7 +92,7 @@ return {
 		[Enums.MonsterKind.ZOMBIE_3] = {
 			DIFFICULTY_VALUE = 6,
 			MAX_HP = 300,
-			DAMAGE = 10,
+			DAMAGE = 20,
 			SPEED_STUDS_PER_SEC = 10,
 			TARGET_PRIORITIES = { PLAYERS },
 			TARGET_DAMAGE_TYPES = {},
@@ -100,7 +109,7 @@ return {
 		},
 		-- fast, but more fragile; sprints across the map
 		[Enums.MonsterKind.RUNNER_1] = {
-			DIFFICULTY_VALUE = 6,
+			DIFFICULTY_VALUE = 5,
 			MAX_HP = 120,
 			DAMAGE = 15,
 			SPEED_STUDS_PER_SEC = 22,
@@ -118,7 +127,7 @@ return {
 			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
 		},
 		[Enums.MonsterKind.RUNNER_2] = {
-			DIFFICULTY_VALUE = 12,
+			DIFFICULTY_VALUE = 11,
 			MAX_HP = 240,
 			DAMAGE = 30,
 			SPEED_STUDS_PER_SEC = 22,
@@ -136,7 +145,7 @@ return {
 			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
 		},
 		[Enums.MonsterKind.RUNNER_3] = {
-			DIFFICULTY_VALUE = 18,
+			DIFFICULTY_VALUE = 16,
 			MAX_HP = 360,
 			DAMAGE = 45,
 			SPEED_STUDS_PER_SEC = 22,
@@ -211,7 +220,7 @@ return {
 		-- stops at a distance and spits projectiles from its mouth; its range
 		-- is past every Tower's reach and inside a Rifle's
 		[Enums.MonsterKind.LAUNCHER_1] = {
-			DIFFICULTY_VALUE = 50,
+			DIFFICULTY_VALUE = 36,
 			MAX_HP = 1200,
 			DAMAGE = 200,
 			SPEED_STUDS_PER_SEC = 10,
@@ -234,7 +243,7 @@ return {
 		-- kamikaze carrying explosives: walks up to a placement and blows up
 		-- on its first attack, hurting everything in its radius
 		[Enums.MonsterKind.BOMBER_1] = {
-			DIFFICULTY_VALUE = 12,
+			DIFFICULTY_VALUE = 6,
 			MAX_HP = 100,
 			DAMAGE = 100,
 			SPEED_STUDS_PER_SEC = 15,
@@ -252,7 +261,7 @@ return {
 			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
 		},
 		[Enums.MonsterKind.BOMBER_2] = {
-			DIFFICULTY_VALUE = 24,
+			DIFFICULTY_VALUE = 12,
 			MAX_HP = 200,
 			DAMAGE = 200,
 			SPEED_STUDS_PER_SEC = 15,
@@ -270,7 +279,7 @@ return {
 			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
 		},
 		[Enums.MonsterKind.BOMBER_3] = {
-			DIFFICULTY_VALUE = 36,
+			DIFFICULTY_VALUE = 18,
 			MAX_HP = 300,
 			DAMAGE = 300,
 			SPEED_STUDS_PER_SEC = 15,
@@ -289,7 +298,7 @@ return {
 		},
 		-- ignores walls and all placements and goes for the Refinery
 		[Enums.MonsterKind.FLYER_1] = {
-			DIFFICULTY_VALUE = 25,
+			DIFFICULTY_VALUE = 16,
 			MAX_HP = 350,
 			DAMAGE = 100,
 			SPEED_STUDS_PER_SEC = 15,
@@ -311,7 +320,7 @@ return {
 			ATTACK_INTERVAL_SEC = 2,
 		},
 		[Enums.MonsterKind.FLYER_2] = {
-			DIFFICULTY_VALUE = 50,
+			DIFFICULTY_VALUE = 32,
 			MAX_HP = 700,
 			DAMAGE = 200,
 			SPEED_STUDS_PER_SEC = 15,
@@ -333,7 +342,7 @@ return {
 			ATTACK_INTERVAL_SEC = 2,
 		},
 		[Enums.MonsterKind.FLYER_3] = {
-			DIFFICULTY_VALUE = 75,
+			DIFFICULTY_VALUE = 47,
 			MAX_HP = 1050,
 			DAMAGE = 300,
 			SPEED_STUDS_PER_SEC = 15,
@@ -356,7 +365,7 @@ return {
 		},
 		-- boss: enormous HP, devastating melee
 		[Enums.MonsterKind.TITAN_1] = {
-			DIFFICULTY_VALUE = 100,
+			DIFFICULTY_VALUE = 75,
 			MAX_HP = 2500,
 			DAMAGE = 500,
 			SPEED_STUDS_PER_SEC = 5,
@@ -375,7 +384,7 @@ return {
 			ATTACK_INTERVAL_SEC = 2.5,
 		},
 		[Enums.MonsterKind.TITAN_2] = {
-			DIFFICULTY_VALUE = 200,
+			DIFFICULTY_VALUE = 150,
 			MAX_HP = 5000,
 			DAMAGE = 1000,
 			SPEED_STUDS_PER_SEC = 5,

@@ -335,8 +335,11 @@ function ClientPlacementToolManager:renderTowerCount()
 		return
 	end
 	local count = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.ACTIVE_TOWER_COUNT), 0)
-	label.Text = string.format(TOWER_COUNT_FORMAT, count, catalog.maxActiveTowersPerPlayer)
-	label.TextColor3 = if count >= catalog.maxActiveTowersPerPlayer then UiStyle.NEGATIVE_COLOR else UiStyle.TEXT_COLOR
+	-- the camp's Towers shared among the crew sampled at dawn
+	local crewCount = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_SCALING_COUNT), 1)
+	local allowance = PlacementRules.towerAllowance(catalog.maxActiveTowersCamp, crewCount)
+	label.Text = string.format(TOWER_COUNT_FORMAT, count, allowance)
+	label.TextColor3 = if count >= allowance then UiStyle.NEGATIVE_COLOR else UiStyle.TEXT_COLOR
 end
 
 function ClientPlacementToolManager:renderAffordability()
@@ -967,6 +970,12 @@ function ClientPlacementToolManager:init()
 	)
 	ClientDataManager:subscribeCurrentPlayerAttribute(
 		Attributes.ACTIVE_TOWER_COUNT,
+		function()
+			self:renderTowerCount()
+		end
+	)
+	ClientDataManager:subscribeGameMetadataAttribute(
+		Attributes.RUN_SCALING_COUNT,
 		function()
 			self:renderTowerCount()
 		end

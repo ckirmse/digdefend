@@ -5,6 +5,7 @@
 local AimManager = require(script.Parent.AimManager)
 local ArrivalManager = require(script.Parent.ArrivalManager)
 local BackpackManager = require(script.Parent.BackpackManager)
+local BalanceAudit = require(script.Parent.BalanceAudit)
 local BootsManager = require(script.Parent.BootsManager)
 local DamageableManager = require(script.Parent.DamageableManager)
 local DefenseStoreManager = require(script.Parent.DefenseStoreManager)
@@ -195,3 +196,5 @@ WeaponDevTools:init()
 PostDevTools:init()
 PlacementDevTools:init()
 MonsterDevTools:init()
+-- last, so a missed balance target is the final startup line
+BalanceAudit:init()

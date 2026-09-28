@@ -14,13 +14,19 @@ return {
 	entranceWidth = 3,
 	entranceHeight = 3,
 	entranceDepth = 3,
-	veinEntranceClearance = 0,
+	-- no vein may centre in or spill into the rock within this many blocks
+	-- of the entrance tunnel, so the faces a crew sees before its first
+	-- swing are plain stone (decided 2026-09-28; was 0)
+	veinEntranceClearance = 4,
 	pocketRadiusMin = 1,
 	pocketRadiusMax = 2,
 	-- mirrors Deadman's Canyon (6 / 9 / 9 / 111 against 30) until this map is designed
-	uraniumTarget = 30,
+	uraniumTarget = 40,
 
 	defaultZoneHeight = 8,
+	-- vein counts are single blocks since 2026-09-28: four times the old
+	-- iron and gold counts and six times the crystal, the same ore in more,
+	-- smaller finds
 	defaultZoneWidth = 24,
 
 	zones = {
@@ -28,20 +34,20 @@ return {
 			depth = 20,
 			hardness = 1.0,
 			tierBias = 1.0,
-			iron = 34,
-			gold = 12,
-			crystal = 6,
-			uranium = 6,
+			iron = 64,
+			gold = 136,
+			crystal = 36,
+			uranium = 9,
 			pockets = 2,
 		},
 		{
 			depth = 24,
 			hardness = 2.0,
 			tierBias = 2.0,
-			iron = 30,
-			gold = 18,
-			crystal = 6,
-			uranium = 9,
+			iron = 64,
+			gold = 136,
+			crystal = 36,
+			uranium = 14,
 			pockets = 3,
 		},
 		{
@@ -49,10 +55,10 @@ return {
 			height = 12,
 			hardness = 3.0,
 			tierBias = 3.0,
-			iron = 22,
-			gold = 22,
-			crystal = 12,
-			uranium = 9,
+			iron = 64,
+			gold = 136,
+			crystal = 72,
+			uranium = 20,
 			pockets = 4,
 		},
 		{
@@ -60,10 +66,10 @@ return {
 			height = 16,
 			hardness = 4.0,
 			tierBias = 4.0,
-			iron = 16,
-			gold = 20,
-			crystal = 18,
-			uranium = 111,
+			iron = 48,
+			gold = 104,
+			crystal = 108,
+			uranium = 950,
 			pockets = 5,
 		},
 	},

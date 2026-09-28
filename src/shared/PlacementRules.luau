@@ -75,7 +75,7 @@ export type TrapData = {
 export type Catalog = {
 	cellSizeStuds: number,
 	previewDistanceStuds: number,
-	maxActiveTowersPerPlayer: number,
+	maxActiveTowersCamp: number,
 	maxTrapKindsCarried: number,
 	towerSellShare: number,
 	trapSellShare: number,
@@ -462,11 +462,16 @@ function PlacementRules.decodeTrapCounts(encoded: any): { [number]: number }
 	return counts
 end
 
+-- the camp's Towers shared out evenly: each player may hold this many
+function PlacementRules.towerAllowance(maxActiveTowersCamp: number, crewCount: number): number
+	return math.ceil(maxActiveTowersCamp / math.max(crewCount, 1))
+end
+
 function PlacementRules.encodeCatalog(catalog: Catalog): string
 	return HttpService:JSONEncode({
 		cellSizeStuds = catalog.cellSizeStuds,
 		previewDistanceStuds = catalog.previewDistanceStuds,
-		maxActiveTowersPerPlayer = catalog.maxActiveTowersPerPlayer,
+		maxActiveTowersCamp = catalog.maxActiveTowersCamp,
 		maxTrapKindsCarried = catalog.maxTrapKindsCarried,
 		towerSellShare = catalog.towerSellShare,
 		trapSellShare = catalog.trapSellShare,
@@ -487,7 +492,7 @@ function PlacementRules.decodeCatalog(json: any): Catalog?
 	return {
 		cellSizeStuds = decoded.cellSizeStuds,
 		previewDistanceStuds = decoded.previewDistanceStuds or 10,
-		maxActiveTowersPerPlayer = decoded.maxActiveTowersPerPlayer or 0,
+		maxActiveTowersCamp = decoded.maxActiveTowersCamp or 0,
 		maxTrapKindsCarried = decoded.maxTrapKindsCarried or 0,
 		towerSellShare = decoded.towerSellShare or 0,
 		trapSellShare = decoded.trapSellShare or 0,

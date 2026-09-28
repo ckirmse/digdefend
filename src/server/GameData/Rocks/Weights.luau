@@ -9,6 +9,11 @@
 -- reads as flat. Tune once, globally, after seeing a mine in-game.
 return {
 	SPREAD = 1.2,
+	-- blocks from the mine mouth each ore tier may first appear (decided
+	-- 2026-09-28: a Gold II vein a few blocks in let a player buy three
+	-- upgrades on day 1). Tier 2 from the back of zone 1, tier 3 from
+	-- zone 3, tier 4 from zone 4 on Deadman's Canyon
+	TIER_MIN_DEPTH_BLOCKS = { 0, 14, 44, 68 },
 	-- tierBias is authored in this range (one per ore tier); hardness runs
 	-- from MIN_CENTER to the stone tier count (FILLER_ORDER length). Outside
 	-- the range the generator warns and clamps
