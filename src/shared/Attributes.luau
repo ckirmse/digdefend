@@ -46,6 +46,29 @@ module = {
 	-- Mining Supplies Store upgrade tracks (M21): private run state
 	BOOTS_LEVEL = "BootsLevel",
 	JET_PACK_LEVEL = "JetPackLevel",
+	-- the compass (CompassManager): 1 until bought, 2 once owned; private
+	COMPASS_LEVEL = "CompassLevel",
+	-- public on AllPlayers: where the player stands (whole studs, a few times
+	-- a second; streaming hides far characters from a client) and which of
+	-- the dot colours is theirs for the run
+	COMPASS_POSITION = "CompassPosition",
+	COMPASS_COLOR_INDEX = "CompassColorIndex",
+	-- GameMetadata: the Refinery's position (the home icon) and the tuning
+	-- the client draws the bar from (GameData/Mining/Compass)
+	COMPASS_HOME_POSITION = "CompassHomePosition",
+	COMPASS_FIELD_OF_VIEW_DEGREES = "CompassFieldOfViewDegrees",
+	COMPASS_DOT_FULL_SIZE_STUDS = "CompassDotFullSizeStuds",
+	COMPASS_DOT_SMALLEST_STUDS = "CompassDotSmallestStuds",
+	COMPASS_DOT_SMALLEST_SCALE = "CompassDotSmallestScale",
+	COMPASS_VERTICAL_HINT_STUDS = "CompassVerticalHintStuds",
+	-- the Geiger Counter (GeigerCounterManager), private: 1 until bought, then
+	-- 2 and up with each upgrade, and how far that level detects uranium
+	GEIGER_COUNTER_LEVEL = "GeigerCounterLevel",
+	GEIGER_COUNTER_RANGE_STUDS = "GeigerCounterRangeStuds",
+	-- GameMetadata: JSON list of the share of the range each ring lights at,
+	-- inner ring first (GeigerRules codec), and how often the client looks
+	GEIGER_COUNTER_RING_SHARES = "GeigerCounterRingShares",
+	GEIGER_COUNTER_SCAN_INTERVAL_SEC = "GeigerCounterScanIntervalSec",
 	-- jet pack (JetPackManager): the tank is private, the burning flag is
 	-- public so every client shows the flame
 	JET_PACK_FUEL_SEC = "JetPackFuelSec",
@@ -125,6 +148,11 @@ module = {
 	-- rubble: true from the blow that emptied it until it is rebuilt, so HP
 	-- climbing from zero reads as a rebuild, not a standing wall
 	STRUCTURE_IS_DESTROYED = "StructureIsDestroyed",
+	-- the box the structure stood in when whole (its model's bounds), so a
+	-- client can aim the Hammer at a wall that is rubble by looking at
+	-- where it stood (2026-09-30)
+	STRUCTURE_BOUNDS_CFRAME = "StructureBoundsCFrame",
+	STRUCTURE_BOUNDS_SIZE = "StructureBoundsSize",
 	-- on the gate's shadow: clients tween the door leaves to match
 	GATE_IS_OPEN = "GateIsOpen",
 	-- GameMetadata: the shared tier of the gate, walls, and posts; whether it
@@ -246,14 +274,25 @@ module = {
 	-- size, the Tower limit, and the sell share
 	DEFENSE_CATALOG = "DefenseCatalog",
 	-- CurrentPlayer (private): JSON list of the Enums.TowerKind values the
-	-- loadout brought (PlacementRules codec), JSON { [trapKind] = count } of
-	-- Traps carried, and how many Towers this player has standing
+	-- loadout brought (PlacementRules codec) and how many Towers this
+	-- player has standing
 	TOWER_LOADOUT = "TowerLoadout",
-	TRAP_COUNTS = "TrapCounts",
 	ACTIVE_TOWER_COUNT = "ActiveTowerCount",
+	-- the Defense Table (DefenseTableManager). CurrentPlayer (private):
+	-- whether the player is in Build Mode, the overhead view. GameMetadata:
+	-- the overhead camera's tuning (GameData/Defenses/Table)
+	IS_IN_BUILD_MODE = "IsInBuildMode",
+	BUILD_CAMERA_DISTANCE_STUDS = "BuildCameraDistanceStuds",
+	BUILD_CAMERA_MIN_DISTANCE_STUDS = "BuildCameraMinDistanceStuds",
+	BUILD_CAMERA_MAX_DISTANCE_STUDS = "BuildCameraMaxDistanceStuds",
+	BUILD_CAMERA_PITCH_DEGREES = "BuildCameraPitchDegrees",
+	BUILD_CAMERA_PAN_SCREENS_PER_SEC = "BuildCameraPanScreensPerSec",
 	-- on every Defensive Zone part (Tags.DEFENSIVE_ZONE): its number, the
 	-- key the build request names
 	DEFENSIVE_ZONE_INDEX = "DefensiveZoneIndex",
+	-- and the cells kept clear along the walls and posts, as
+	-- PlacementRules.encodeCells writes them (2026-09-30)
+	DEFENSIVE_ZONE_RESERVED_CELLS = "DefensiveZoneReservedCells",
 	-- on every placement shadow (Tags.PLACEMENT): its id, what it is
 	-- (Enums.PlacementKind and the Tower or Trap kind), who built it, its
 	-- level (Towers: 1 plus upgrades bought), HP, and target priority

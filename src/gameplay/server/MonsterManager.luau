@@ -405,13 +405,17 @@ function MonsterManager:buildCandidates()
 		if box.isDestroyed then
 			continue
 		end
+		local isRefinery = box.kind == Enums.StructureKind.REFINERY
+		-- a wall or the gate is attacked from a stud further out
+		local padding = if isRefinery then 0 else StructuresData.MONSTER_ATTACK_PADDING_STUDS * 2
+		local size = box.size + Vector3.new(padding, 0, padding)
 		add({
 			id = box.id,
-			targetType = if box.kind == Enums.StructureKind.REFINERY then Enums.MonsterTargetType.REFINERY else Enums.MonsterTargetType.WALLS,
+			targetType = if isRefinery then Enums.MonsterTargetType.REFINERY else Enums.MonsterTargetType.WALLS,
 			position = box.cframe.Position,
 			cframe = box.cframe,
-			size = box.size,
-			radiusStuds = MonsterRules.boxRadius(box.size),
+			size = size,
+			radiusStuds = MonsterRules.boxRadius(size),
 		})
 	end
 	local catalog = PlacementManager:getCatalog()

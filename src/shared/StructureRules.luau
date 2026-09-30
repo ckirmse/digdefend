@@ -100,6 +100,16 @@ function StructureRules.numberFromId(id: string): number?
 	return if digits then tonumber(digits) else nil
 end
 
+-- a map's "Wall0" models are decoration that joins the fortification line
+-- to the terrain (decided 2026-09-30): filled from the wall template so
+-- they match the tier, but with no HP, no repair, and nothing for the
+-- monsters to attack. A map may have any number of them
+StructureRules.DECORATIVE_WALL_NUMBER = 0
+
+function StructureRules.isDecorativeWall(id: string): boolean
+	return StructureRules.numberFromId(id) == StructureRules.DECORATIVE_WALL_NUMBER
+end
+
 -- how far a point is from the nearest face of an oriented box; 0 inside it
 function StructureRules.distanceToBox(position: Vector3, boxCFrame: CFrame, boxSize: Vector3): number
 	local localPosition = boxCFrame:PointToObjectSpace(position)
@@ -110,6 +120,41 @@ function StructureRules.distanceToBox(position: Vector3, boxCFrame: CFrame, boxS
 		math.clamp(localPosition.Z, -half.Z, half.Z)
 	)
 	return (localPosition - clamped).Magnitude
+end
+
+-- how far along a ray it first meets an oriented box; nil when it misses
+-- or the box lies beyond maxDistance. A ray starting inside the box meets
+-- it at 0. This is how a player aims the Hammer at a wall that is rubble:
+-- at the space the wall stood in, not at the pile on the ground
+function StructureRules.rayBoxDistance(origin: Vector3, direction: Vector3, boxCFrame: CFrame, boxSize: Vector3, maxDistance: number): number?
+	local localOrigin = boxCFrame:PointToObjectSpace(origin)
+	local localDirection = boxCFrame:VectorToObjectSpace(direction)
+	local half = boxSize / 2
+	local nearest = 0
+	local farthest = maxDistance
+	for _, axis in { "X", "Y", "Z" } do
+		local start = (localOrigin :: any)[axis]
+		local step = (localDirection :: any)[axis]
+		local limit = (half :: any)[axis]
+		if math.abs(step) < 1e-6 then
+			-- running alongside this pair of faces: inside them or never
+			if math.abs(start) > limit then
+				return nil
+			end
+		else
+			local first = (-limit - start) / step
+			local second = (limit - start) / step
+			if first > second then
+				first, second = second, first
+			end
+			nearest = math.max(nearest, first)
+			farthest = math.min(farthest, second)
+			if nearest > farthest then
+				return nil
+			end
+		end
+	end
+	return nearest
 end
 
 function StructureRules.requiredCampLevel(requiredByTier: { number }, tier: number): number

@@ -22,6 +22,7 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local FlowField = require("@game/ReplicatedStorage/Shared/FlowField")
 local PathAreaRules = require("@game/ReplicatedStorage/Shared/PathAreaRules")
+local StructureRules = require("@game/ReplicatedStorage/Shared/StructureRules")
 local BehaviorData = require("@game/ServerScriptService/GameData/Monsters/Behavior")
 local PlacementData = require("@game/ServerScriptService/GameData/Defenses/Placement")
 local MapManager = require(script.Parent.MapManager)
@@ -252,11 +253,16 @@ function MonsterPathManager:buildGrid(camp: Instance)
 			end
 		end
 	end
-	-- the walls and the gate are barriers, set apart from what never moves
-	for _, name in { Constants.CAMP_WALLS_FOLDER, Constants.CAMP_GATE_MODEL } do
-		local child = camp:FindFirstChild(name)
-		if child then
-			table.insert(excluded, child)
+	-- the walls and the gate are barriers, set apart from what never moves;
+	-- a decorative Wall0 never falls, so it stays solid like a post's tower
+	local gate = camp:FindFirstChild(Constants.CAMP_GATE_MODEL)
+	if gate then
+		table.insert(excluded, gate)
+	end
+	local walls = camp:FindFirstChild(Constants.CAMP_WALLS_FOLDER)
+	for _, wall in if walls then walls:GetChildren() else {} do
+		if not StructureRules.isDecorativeWall(wall.Name) then
+			table.insert(excluded, wall)
 		end
 	end
 	for _, player in Players:GetPlayers() do

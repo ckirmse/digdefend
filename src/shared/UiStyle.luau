@@ -36,6 +36,17 @@ UiStyle.ANNOUNCEMENT_COLOR = Color3.fromRGB(40, 100, 200)
 -- the alert box: danger, red (2026-09-25)
 UiStyle.ALERT_COLOR = Color3.fromRGB(190, 40, 40)
 
+-- the compass dot of each crew member, by the colour index the server
+-- hands out (GameData/Mining/Compass.PLAYER_COLOR_COUNT of them)
+UiStyle.COMPASS_PLAYER_COLORS = {
+	Color3.fromRGB(80, 170, 255),
+	Color3.fromRGB(255, 90, 90),
+	Color3.fromRGB(90, 230, 100),
+	Color3.fromRGB(255, 150, 40),
+	Color3.fromRGB(200, 110, 255),
+	Color3.fromRGB(255, 120, 200),
+}
+
 UiStyle.CORNER_RADIUS_PX = 10
 UiStyle.STROKE_PX = 2
 

@@ -8,10 +8,12 @@ local BackpackManager = require(script.Parent.BackpackManager)
 local BalanceAudit = require(script.Parent.BalanceAudit)
 local BootsManager = require(script.Parent.BootsManager)
 local ClearanceManager = require(script.Parent.ClearanceManager)
+local CompassManager = require(script.Parent.CompassManager)
 local DamageableManager = require(script.Parent.DamageableManager)
-local DefenseStoreManager = require(script.Parent.DefenseStoreManager)
+local DefenseTableManager = require(script.Parent.DefenseTableManager)
 local DynamiteManager = require(script.Parent.DynamiteManager)
 local GameplayMapManager = require(script.Parent.GameplayMapManager)
+local GeigerCounterManager = require(script.Parent.GeigerCounterManager)
 local JetPackManager = require(script.Parent.JetPackManager)
 local MapManager = require(script.Parent.MapManager)
 local MineDevTools = require(script.Parent.MineDevTools)
@@ -74,6 +76,14 @@ BackpackManager:init()
 BootsManager:init()
 ClearanceManager:init()
 JetPackManager:init()
+-- the compass reads the fresh camp's Refinery at run start
+CompassManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		CompassManager:onRunStarted()
+	end
+)
+GeigerCounterManager:init()
 OrePickupManager:init()
 MiningManager:init()
 DynamiteManager:init()
@@ -115,6 +125,14 @@ RunManager:subscribeRunStarted(
 		PostManager:onRunStarted()
 	end
 )
+-- the Defense Table (Build Mode): after the tools it locks, and before the
+-- placements, which ask it who may build; it binds the fresh camp's table
+DefenseTableManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		DefenseTableManager:onRunStarted()
+	end
+)
 -- after the tools (Repair Mode is the Hammer) and the refinery, which owns
 -- the Iron a build, an upgrade, and a Trap spend; it reads the fresh map's
 -- Defensive Zones at run start
@@ -142,13 +160,6 @@ MonsterManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
 		MonsterManager:onRunStarted()
-	end
-)
--- after the placements, whose inventory it fills
-DefenseStoreManager:init()
-RunManager:subscribeRunStarted(
-	function(_map: number, _difficulty: number)
-		DefenseStoreManager:onRunStarted()
 	end
 )
 -- the day and night loop: last, so every manager that reacts to a dawn or

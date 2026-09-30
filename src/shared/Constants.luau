@@ -136,9 +136,13 @@ Constants.STAND_CAMP_LEVEL_LABEL = "CampLevel"
 -- display models for the store stands under GameAssets: "<KEY>_<level>" for
 -- upgrade tracks and "<KEY>" for consumables (scripts/studio/build_store_displays.luau)
 Constants.STORE_DISPLAY_TEMPLATES_FOLDER = "StoreDisplays"
--- Camp.DefenseStore (M26): one "<Kind>Stand" Model per Enums.TrapKind
--- (StoreRules.standNameFromKey), built like the Mining Store's stands
+-- Camp.DefenseStore: the building that holds the Defense Table (decided
+-- 2026-09-30, replacing the Trap stands): a Model whose anchored Prompt
+-- part carries the prompt into Build Mode
+-- (scripts/studio/build_defense_table.luau)
 Constants.CAMP_DEFENSE_STORE_MODEL = "DefenseStore"
+Constants.DEFENSE_TABLE_MODEL = "DefenseTable"
+Constants.DEFENSE_TABLE_PROMPT_PART = "Prompt"
 -- Camp.DefensiveZones (M26): one anchored BasePart per Defensive Zone; its
 -- top face is the build surface and its size and rotation define the grid
 -- (PlacementRules.measureZone). PlacementManager numbers them by name
@@ -167,9 +171,15 @@ Constants.MONSTER_SNAPSHOT_EVENT_NAME = "MonsterSnapshotEvent"
 -- the client-only Workspace folders of placement bodies and grid lines
 Constants.PLACEMENT_BODIES_FOLDER = "PlacementBodies"
 Constants.PLACEMENT_GRID_FOLDER = "PlacementGrid"
--- the BuildBar ScreenGui (scripts/studio/build_build_bar_gui.luau): the
--- row of Tower and Trap entries above the tool bar in Repair Mode, and the
--- Placement panel (Build with the price, Cancel) while a preview is out
+-- Build Mode's two ScreenGuis (scripts/studio/build_build_bar_gui.luau),
+-- shown while the player is at the Defense Table. BuildSurface sits under
+-- every HUD and is one invisible full-screen Modal button: it frees the
+-- first-person mouse and hears every tap and drag on the world
+Constants.BUILD_SURFACE_GUI_NAME = "BuildSurface"
+Constants.BUILD_SURFACE_BUTTON = "Surface"
+-- BuildBar: the scrolling row of Tower and Trap entries along the bottom,
+-- the Exit button, the Tower counter, the hint, and the two panels that
+-- float beside what they act on
 Constants.BUILD_BAR_GUI_NAME = "BuildBar"
 Constants.BUILD_BAR_ENTRIES_FRAME = "Entries"
 Constants.BUILD_BAR_ENTRY_TEMPLATE = "EntryTemplate"
@@ -183,24 +193,27 @@ Constants.BUILD_BAR_ENTRY_PRICE_ROW = "PriceRow"
 Constants.BUILD_BAR_ENTRY_PRICE_ICON = "ResourceIcon"
 Constants.BUILD_BAR_ENTRY_PRICE_LABEL = "Price"
 Constants.BUILD_BAR_ENTRY_KEY_LABEL = "KeyLabel"
--- always up in Build Mode: "EXIT BUILD MODE", tapped on touch, with the
--- shortcut in its corner for keyboard and gamepad
+-- always up in Build Mode: "EXIT", back to the character at the table
 Constants.BUILD_BAR_EXIT_BUTTON = "ExitButton"
--- "[Backspace]" / "[B]" in its corner; hidden on touch
-Constants.BUILD_BAR_EXIT_KEY_LABEL = "KeyLabel"
--- the "DEFENSIVE ZONE" sign floated over every zone in Build Mode
--- (scripts/studio/build_defensive_zone_billboard.luau)
-Constants.DEFENSIVE_ZONE_BILLBOARD = "DefensiveZone"
-Constants.DEFENSIVE_ZONE_LABEL = "Label"
-Constants.BUILD_BAR_PLACEMENT_PANEL = "Placement"
-Constants.BUILD_BAR_BUILD_BUTTON = "BuildButton"
+-- floats under the ghost: Place with the Iron price, and Cancel to put the
+-- ghost away
+Constants.BUILD_BAR_PLACE_PANEL = "PlacePanel"
+Constants.BUILD_BAR_PLACE_BUTTON = "PlaceButton"
+Constants.BUILD_BAR_CANCEL_BUTTON = "CancelButton"
+-- floats under one of the player's own Traps once tapped: Sell with the
+-- Iron it returns, and Close
+Constants.BUILD_BAR_SELL_PANEL = "SellPanel"
+Constants.BUILD_BAR_SELL_BUTTON = "SellButton"
+-- beside Sell: picks the Trap up as a ghost to set down on other cells
+Constants.BUILD_BAR_MOVE_BUTTON = "MoveButton"
+Constants.BUILD_BAR_CLOSE_BUTTON = "CloseButton"
+-- inside the Place and Sell buttons (and the Tower Menu's Upgrade button):
+-- the word, then the Iron icon and the number
 Constants.BUILD_BAR_BUILD_PRICE_ROW = "PriceRow"
 Constants.BUILD_BAR_BUILD_PRICE_ICON = "ResourceIcon"
 Constants.BUILD_BAR_BUILD_PRICE_LABEL = "Price"
 Constants.BUILD_BAR_BUILD_TEXT_LABEL = "Text"
-Constants.BUILD_BAR_CANCEL_BUTTON = "CancelButton"
--- keyboard and gamepad see this instead of the buttons: "Click to build,
--- Backspace to cancel" or "RT to build, B to cancel"
+-- one line of guidance near the top: what a tap does right now
 Constants.BUILD_BAR_HINT_LABEL = "Hint"
 -- "2 / 5" beside a Tower icon: Towers standing against the per-player limit
 Constants.BUILD_BAR_TOWER_COUNT_FRAME = "TowerCount"
@@ -223,6 +236,8 @@ Constants.TOWER_MENU_STAT_VALUE_LABEL = "ValueLabel"
 Constants.TOWER_MENU_STAT_NEXT_LABEL = "NextLabel"
 Constants.TOWER_MENU_STAT_ARROW_LABEL = "ArrowLabel"
 Constants.TOWER_MENU_SELL_BUTTON = "SellButton"
+-- beside Sell: closes the menu and picks the Tower up to set down elsewhere
+Constants.TOWER_MENU_MOVE_BUTTON = "MoveButton"
 Constants.TOWER_MENU_UPGRADE_BUTTON = "UpgradeButton"
 Constants.TOWER_MENU_UPGRADE_NAME_LABEL = "NameLabel"
 Constants.TOWER_MENU_UPGRADE_PRICE_ROW = "PriceRow"
@@ -297,6 +312,16 @@ Constants.EFFECT_TEMPLATES_FOLDER = "Effects"
 Constants.PROJECTILE_TAIL_ATTACHMENT = "TailAttachment"
 -- the folder in the camp the server parents spawned weapons and benches to
 Constants.CAMP_POST_WEAPONS_FOLDER = "PostWeapons"
+-- the camp children a bullet flies straight through (decided 2026-09-30:
+-- the wall line curves and a post must be able to cover every wall, so the
+-- fortifications and the mounted guns never stop a hitscan shot; rockets
+-- still burst on them)
+Constants.BULLET_PASS_THROUGH_CAMP_CHILDREN = {
+	Constants.CAMP_WALLS_FOLDER,
+	Constants.CAMP_POSTS_FOLDER,
+	Constants.CAMP_GATE_MODEL,
+	Constants.CAMP_POST_WEAPONS_FOLDER,
+}
 -- the PostHud ScreenGui (scripts/studio/build_post_hud_gui.luau): the touch
 -- Fire button, the touch Exit button that stands in for the hidden jump
 -- button, and the "how to exit" hint for keyboard and gamepad
@@ -356,9 +381,6 @@ Constants.MINE_BLOCK_SIZE_STUDS = 4
 -- the invisible collider ClearanceManager welds over every character's
 -- head, so a mine passage has to be two blocks tall
 Constants.CHARACTER_CLEARANCE_PART = "Clearance"
--- the client-only folder of invisible parts carrying each nearby uranium rock's hum emitter
-Constants.URANIUM_HUM_FOLDER = "UraniumHum"
-Constants.URANIUM_HUM_PART = "Hum"
 -- held tool models under GameAssets, one per Enums.ToolKind key, each with a
 -- Handle part the client welds to the character's right hand
 -- the pick axe has one model per level, "PICK_AXE_<level>"
@@ -403,6 +425,31 @@ Constants.DAY_CLOCK_PHASE_GRADIENT_NIGHT = "UIGradientNight"
 Constants.DAY_CLOCK_BAR = "Bar"
 Constants.DAY_CLOCK_FILL = "Fill"
 Constants.DAY_CLOCK_DAY_LABEL = "DayLabel"
+-- the compass (scripts/studio/build_compass_gui.luau): a locator bar hung
+-- directly under the day clock. Markers slide along the Markers frame: the
+-- one HomeIcon (the Refinery) and a clone of PlayerDotTemplate per
+-- crewmate; each carries an up and a down arrow for a target above or below
+Constants.COMPASS_GUI_NAME = "Compass"
+Constants.COMPASS_ROOT_FRAME = "Root"
+Constants.COMPASS_BAR = "Bar"
+Constants.COMPASS_MARKERS_FRAME = "Markers"
+Constants.COMPASS_HOME_ICON = "HomeIcon"
+Constants.COMPASS_PLAYER_DOT_TEMPLATE = "PlayerDotTemplate"
+Constants.COMPASS_ARROW_UP = "ArrowUp"
+Constants.COMPASS_ARROW_DOWN = "ArrowDown"
+-- the Geiger Counter (scripts/studio/build_geiger_counter_gui.luau): a
+-- round dial to the right of the day clock, shown in mining mode. The raw
+-- uranium icon sits in the middle of three rings, Ring1 (inner) to Ring3
+-- (outer); the client shows as many as GeigerRules says are lit
+Constants.GEIGER_COUNTER_GUI_NAME = "GeigerCounter"
+Constants.GEIGER_COUNTER_ROOT_FRAME = "Root"
+Constants.GEIGER_COUNTER_DIAL = "Dial"
+Constants.GEIGER_COUNTER_ICON = "Icon"
+Constants.GEIGER_COUNTER_RING_PREFIX = "Ring"
+-- a crewmate's name over their head in their compass dot colour
+-- (GameAssets/Gui/PlayerName, scripts/studio/build_player_name_billboard.luau)
+Constants.PLAYER_NAME_BILLBOARD = "PlayerName"
+Constants.PLAYER_NAME_LABEL = "NameLabel"
 -- the "DAY N" / "NIGHT N" card shown for a moment at every dawn and dusk
 -- (designer-authored ScreenGui, M28)
 Constants.DAY_NIGHT_NUMBER_GUI_NAME = "DayNightNumber"
@@ -455,6 +502,11 @@ Constants.FORTIFICATION_BILLBOARD_LIFT_STUDS = 4
 -- the Repair Mode HP bar cloned onto every structure shadow while the Hammer
 -- is equipped (scripts/studio/build_structure_hp_billboard.luau)
 Constants.STRUCTURE_HP_BILLBOARD = "StructureHp"
+-- the Refinery's own copy of it: the name half as big again inside a
+-- NameRow, beside the compass's home icon (2026-09-30)
+Constants.STRUCTURE_HP_REFINERY_BILLBOARD = "RefineryHp"
+Constants.STRUCTURE_HP_NAME_ROW = "NameRow"
+Constants.STRUCTURE_HP_HOME_ICON = "HomeIcon"
 Constants.STRUCTURE_HP_ROOT_FRAME = "Root"
 Constants.STRUCTURE_HP_NAME_LABEL = "NameLabel"
 Constants.STRUCTURE_HP_BAR = "Bar"

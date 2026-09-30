@@ -5,7 +5,6 @@
 -- builds the Tower loadout their build bar shows here, grants Traps
 -- without a store trip, damages a placement to test HP and destruction,
 -- and clears the grid.
-local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local DevTools = require(script.Parent.Parent.Server.DevTools)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -23,7 +22,6 @@ export type PlacementDevTools = typeof(setmetatable(
 
 PlacementDevTools.ADD_LOADOUT_TOWER_COMMAND = "addLoadoutTower"
 PlacementDevTools.CLEAR_LOADOUT_TOWERS_COMMAND = "clearLoadoutTowers"
-PlacementDevTools.GRANT_TRAP_COMMAND = "grantTrap"
 PlacementDevTools.DAMAGE_PLACEMENT_COMMAND = "damagePlacement"
 PlacementDevTools.CLEAR_PLACEMENTS_COMMAND = "clearPlacements"
 
@@ -31,10 +29,6 @@ local ADD_LOADOUT_TOWER_ARGS_SHAPE = {
 	kind = { type = "enum", name = "TowerKind" },
 }
 local CLEAR_ARGS_SHAPE = {}
-local GRANT_TRAP_ARGS_SHAPE = {
-	kind = { type = "enum", name = "TrapKind" },
-	amount = "positiveInteger",
-}
 local DAMAGE_PLACEMENT_ARGS_SHAPE = {
 	id = "string",
 	amount = "positiveInteger",
@@ -76,18 +70,6 @@ function PlacementDevTools:init()
 			self.loadoutByPlayer[player] = nil
 			PlacementManager:setLoadoutOverride(player, nil)
 			PlayerFeedbackManager:give(player, "Tower loadout back to the saved one")
-		end
-	)
-	DevTools:registerPlaceCommand(
-		PlacementDevTools.GRANT_TRAP_COMMAND,
-		function(player: Player, args: { [string]: any })
-			local isValid, err = Validate.isTableShape(args, GRANT_TRAP_ARGS_SHAPE)
-			if not isValid then
-				warn("PlacementDevTools: grantTrap with invalid args:", err)
-				return
-			end
-			PlacementManager:addTrap(player, args.kind, args.amount)
-			PlayerFeedbackManager:give(player, `Granted {args.amount} {Enums.getPublicName(Enums.TrapKind, args.kind)}`)
 		end
 	)
 	DevTools:registerPlaceCommand(

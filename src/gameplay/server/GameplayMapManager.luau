@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
+local StructureRules = require("@game/ReplicatedStorage/Shared/StructureRules")
 local HelicopterManager = require(script.Parent.Parent.Server.HelicopterManager)
 
 local GameplayMapManager = {}
@@ -157,12 +158,22 @@ function GameplayMapManager:checkMiningStore(camp: Folder)
 	self:checkStore(camp, Constants.CAMP_MINING_STORE_MODEL, standNames)
 end
 
+-- the Defense Store holds the Defense Table (2026-09-30): a Model whose
+-- anchored Prompt part carries the Build Mode prompt
 function GameplayMapManager:checkDefenseStore(camp: Folder)
-	local standNames = {}
-	for _, kind in Enums.getAllValues(Enums.TrapKind) do
-		table.insert(standNames, StoreRules.standNameFromKey(Enums.getName(Enums.TrapKind, kind) :: string))
+	-- a Model or a Folder both serve; the table inside is what matters
+	local store = self:requireChild(camp, Constants.CAMP_DEFENSE_STORE_MODEL)
+	if not store then
+		return
 	end
-	self:checkStore(camp, Constants.CAMP_DEFENSE_STORE_MODEL, standNames)
+	local tableModel = self:requireChild(store, Constants.DEFENSE_TABLE_MODEL, "Model")
+	if not tableModel then
+		return
+	end
+	local promptPart = self:requireChild(tableModel, Constants.DEFENSE_TABLE_PROMPT_PART, "BasePart")
+	if promptPart and promptPart:IsA("BasePart") and not promptPart.Anchored then
+		self:report(`{promptPart:GetFullName()} must be anchored`)
+	end
 end
 
 -- the Defensive Zones (M26): at least one anchored part whose top face is
@@ -189,7 +200,8 @@ function GameplayMapManager:checkDefensiveZones(camp: Folder)
 end
 
 -- the fortification markers StructureManager swaps for templates: numbered
--- wall and post models and the gate, each a Model so it has a pivot
+-- wall and post models and the gate, each a Model so it has a pivot. Any
+-- number of walls may be "Wall0", the decorative ones (2026-09-30)
 function GameplayMapManager:checkFortifications(camp: Folder)
 	local prefixByFolder = {
 		[Constants.CAMP_WALLS_FOLDER] = Constants.WALL_NAME_PREFIX,
@@ -209,7 +221,8 @@ function GameplayMapManager:checkFortifications(camp: Folder)
 			if not tonumber(child.Name:sub(#prefix + 1)) or child.Name:sub(1, #prefix) ~= prefix then
 				self:report(`{child:GetFullName()} must be named {prefix} and its number`)
 			end
-			if seen[child.Name] then
+			local isDecorative = folderName == Constants.CAMP_WALLS_FOLDER and StructureRules.isDecorativeWall(child.Name)
+			if seen[child.Name] and not isDecorative then
 				self:report(`{folder:GetFullName()} has more than one {child.Name}`)
 			end
 			seen[child.Name] = true

@@ -55,6 +55,10 @@ return {
 	-- A wall that falls also plays its 3D collapse from where it stood,
 	-- full out to WALL_COLLAPSE_FULL_VOLUME_STUDS and gone past
 	-- WALL_COLLAPSE_SILENT_STUDS
+	-- the box a monster measures its attack reach to is the wall's (or the
+	-- gate's) box grown this much on every side (decided 2026-09-30), so a
+	-- monster stands a stud further back while it beats on the wall
+	MONSTER_ATTACK_PADDING_STUDS = 1,
 	WALL_DESTROYED_MESSAGE_FORMAT = "Wall %d destroyed",
 	REFINERY_ATTACKED_MESSAGE = "The Refinery is under attack",
 	ALERT_DISPLAY_SEC = 4,

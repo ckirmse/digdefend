@@ -14,6 +14,7 @@
 local Players = game:GetService("Players")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
+local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
@@ -110,12 +111,23 @@ end
 
 -- how far the ray travels before the world stops it. Characters never
 -- block: players cannot be shot, and a crewmate in the way must not eat
--- the bullet either
-function WeaponManager:getWorldDistance(origin: Vector3, unitDirection: Vector3, rangeStuds: number): number
+-- the bullet either. A bullet (isBullet) also flies through the walls,
+-- the posts, the gate, and the mounted guns, so a post covers every wall
+-- of a curved line; a rocket does not
+function WeaponManager:getWorldDistance(origin: Vector3, unitDirection: Vector3, rangeStuds: number, isBullet: boolean): number
 	local excluded: { Instance } = {}
 	for _, other in Players:GetPlayers() do
 		if other.Character then
 			table.insert(excluded, other.Character)
+		end
+	end
+	local camp = workspace:FindFirstChild(Constants.CAMP_FOLDER)
+	if isBullet and camp then
+		for _, childName in Constants.BULLET_PASS_THROUGH_CAMP_CHILDREN do
+			local child = camp:FindFirstChild(childName)
+			if child then
+				table.insert(excluded, child)
+			end
 		end
 	end
 	local params = RaycastParams.new()
@@ -150,7 +162,7 @@ function WeaponManager:fire(player: Player, origin: Vector3, direction: Vector3)
 	state.lastFireTime = now
 	state.ammo -= 1
 
-	local worldDistance = self:getWorldDistance(origin, unitDirection, data.RANGE_STUDS)
+	local worldDistance = self:getWorldDistance(origin, unitDirection, data.RANGE_STUDS, true)
 	local hitId, hitDistance = WeaponRules.findClosestHit(origin, unitDirection, worldDistance, DamageableManager:getHitBoxes())
 	local endDistance = hitDistance or worldDistance
 	if hitId then

@@ -273,6 +273,40 @@ describe(
 )
 
 describe(
+	"StructureRules.rayBoxDistance",
+	function()
+		-- a wall 8 long, 10 tall, 2 thick, centred at x = 20
+		local cframe = CFrame.new(20, 5, 0)
+		local size = Vector3.new(2, 10, 8)
+		it(
+			"meets the near face of a box ahead",
+			function()
+				expect(StructureRules.rayBoxDistance(Vector3.new(0, 5, 0), Vector3.new(1, 0, 0), cframe, size, 50)).toBeCloseTo(19, 5)
+				expect(StructureRules.rayBoxDistance(Vector3.new(0, 9, 3), Vector3.new(1, 0, 0), cframe, size, 50)).toBeCloseTo(19, 5)
+			end
+		)
+		it(
+			"misses to the side, above, behind, or out of reach",
+			function()
+				expect(StructureRules.rayBoxDistance(Vector3.new(0, 5, 5), Vector3.new(1, 0, 0), cframe, size, 50)).toBe(nil)
+				expect(StructureRules.rayBoxDistance(Vector3.new(0, 11, 0), Vector3.new(1, 0, 0), cframe, size, 50)).toBe(nil)
+				expect(StructureRules.rayBoxDistance(Vector3.new(0, 5, 0), Vector3.new(-1, 0, 0), cframe, size, 50)).toBe(nil)
+				expect(StructureRules.rayBoxDistance(Vector3.new(0, 5, 0), Vector3.new(1, 0, 0), cframe, size, 12)).toBe(nil)
+			end
+		)
+		it(
+			"is 0 from inside and follows a turned box",
+			function()
+				expect(StructureRules.rayBoxDistance(Vector3.new(20, 5, 0), Vector3.new(0, 0, 1), cframe, size, 50)).toBe(0)
+				-- turned a quarter, the 8-stud length runs along world X
+				local turned = CFrame.new(20, 5, 0) * CFrame.Angles(0, math.rad(90), 0)
+				expect(StructureRules.rayBoxDistance(Vector3.new(0, 5, 0), Vector3.new(1, 0, 0), turned, size, 50)).toBeCloseTo(16, 4)
+			end
+		)
+	end
+)
+
+describe(
 	"StructureRules.requiredCampLevel",
 	function()
 		it(
@@ -280,6 +314,21 @@ describe(
 			function()
 				expect(StructureRules.requiredCampLevel({ 1, 2, 3 }, 2)).toBe(2)
 				expect(StructureRules.requiredCampLevel({ 1, 2, 3 }, 7)).toBe(1)
+			end
+		)
+	end
+)
+
+describe(
+	"StructureRules.isDecorativeWall",
+	function()
+		it(
+			"is true only for a wall numbered 0",
+			function()
+				expect(StructureRules.isDecorativeWall("Wall0")).toBe(true)
+				expect(StructureRules.isDecorativeWall("Wall1")).toBe(false)
+				expect(StructureRules.isDecorativeWall("Wall10")).toBe(false)
+				expect(StructureRules.isDecorativeWall("Gate")).toBe(false)
 			end
 		)
 	end

@@ -21,6 +21,8 @@ local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedback
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 local BackpackManager = require(script.Parent.BackpackManager)
 local BootsManager = require(script.Parent.BootsManager)
+local CompassManager = require(script.Parent.CompassManager)
+local GeigerCounterManager = require(script.Parent.GeigerCounterManager)
 local JetPackManager = require(script.Parent.JetPackManager)
 local MapManager = require(script.Parent.MapManager)
 local RefineryManager = require(script.Parent.RefineryManager)
@@ -38,6 +40,10 @@ export type MiningStoreManager = typeof(setmetatable(
 ))
 
 local FEEDBACK_MAXED = "Already maxed out"
+local FEEDBACK_OWNED = "Already owned"
+local FEEDBACK_GEIGER_COUNTER_BOUGHT = "The Geiger Counter is visible when mining"
+-- level 1 is not owning one, so the buy that reaches level 2 is the first
+local GEIGER_COUNTER_FIRST_LEVEL = 2
 local FEEDBACK_NOT_ENOUGH_GOLD = "Not enough Gold"
 
 function MiningStoreManager:getCatalog(): StoreRules.Catalog
@@ -53,6 +59,10 @@ function MiningStoreManager:getLevel(player: Player, item: number): number
 		return BackpackManager:getLevel(player)
 	elseif item == Enums.StoreItem.JET_PACK then
 		return JetPackManager:getLevel(player)
+	elseif item == Enums.StoreItem.COMPASS then
+		return CompassManager:getLevel(player)
+	elseif item == Enums.StoreItem.GEIGER_COUNTER then
+		return GeigerCounterManager:getLevel(player)
 	end
 	return 1
 end
@@ -66,6 +76,10 @@ function MiningStoreManager:applyUpgrade(player: Player, item: number, level: nu
 		BackpackManager:setLevel(player, level)
 	elseif item == Enums.StoreItem.JET_PACK then
 		JetPackManager:setLevel(player, level)
+	elseif item == Enums.StoreItem.COMPASS then
+		CompassManager:setLevel(player, level)
+	elseif item == Enums.StoreItem.GEIGER_COUNTER then
+		GeigerCounterManager:setLevel(player, level)
 	end
 end
 
@@ -79,7 +93,7 @@ function MiningStoreManager:buy(player: Player, item: number)
 		return
 	end
 	if offer.status == Enums.StoreOffer.MAXED then
-		PlayerFeedbackManager:give(player, FEEDBACK_MAXED)
+		PlayerFeedbackManager:give(player, if offer.isSinglePurchase then FEEDBACK_OWNED else FEEDBACK_MAXED)
 		return
 	end
 	if offer.status == Enums.StoreOffer.LOCKED then
@@ -97,6 +111,11 @@ function MiningStoreManager:buy(player: Player, item: number)
 	local consumable = self.catalog.consumables[item]
 	if offer.level then
 		self:applyUpgrade(player, item, offer.level)
+		-- the dial only shows with the pick axe out, so a first-time buyer
+		-- standing in the store would otherwise see nothing happen
+		if item == Enums.StoreItem.GEIGER_COUNTER and offer.level == GEIGER_COUNTER_FIRST_LEVEL then
+			PlayerFeedbackManager:give(player, FEEDBACK_GEIGER_COUNTER_BOUGHT)
+		end
 	elseif consumable then
 		ToolManager:addConsumable(player, consumable.tool, consumable.amount)
 	end
@@ -170,6 +189,7 @@ function MiningStoreManager:init()
 		upgrades[item] = {
 			priceByLevel = track.priceByLevel,
 			requiredCampLevelByLevel = LevelData.MINING_UPGRADE_REQUIRED_CAMP_LEVEL_BY_LEVEL,
+			startsUnowned = (track :: any).startsUnowned == true,
 		}
 	end
 	self.catalog = {

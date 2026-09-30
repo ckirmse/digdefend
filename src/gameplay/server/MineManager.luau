@@ -190,9 +190,6 @@ function MineManager:buildHeader(): { [string]: any }
 		streamRadiusBlocks = StreamingData.STREAM_RADIUS_BLOCKS,
 		maxRenderedBlocks = StreamingData.MAX_RENDERED_BLOCKS,
 		streamPollSec = StreamingData.STREAM_POLL_SEC,
-		uraniumHumRadiusBlocks = StreamingData.URANIUM_HUM_RADIUS_BLOCKS,
-		uraniumHumFullVolumeStuds = StreamingData.URANIUM_HUM_FULL_VOLUME_STUDS,
-		uraniumHumSilentStuds = StreamingData.URANIUM_HUM_SILENT_STUDS,
 		zones = zones,
 	}
 end

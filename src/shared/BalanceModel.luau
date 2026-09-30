@@ -47,6 +47,12 @@ export type PostUpgrades = {
 	requiredCampLevelByLevel: { number },
 	damageBonusPerLevel: number,
 	fireRateBonusPerLevel: number,
+	-- the machine gun's Cooldown rung (2026-09-30): each level cuts the
+	-- cooling time by this share of the authored one, so the gun fires a
+	-- bigger share of the time. Absent for a post without heat
+	cooldownBonusPerLevel: number?,
+	heatFullSec: number?,
+	heatCoolSec: number?,
 }
 
 export type MonsterStats = {
@@ -420,25 +426,42 @@ end
 -- how many post upgrade levels a player's Gold buys, damage and fire
 -- rate alternating so both climb, each level gated by the camp level;
 -- returns the damage level, the fire rate level, and the Gold spent
-function BalanceModel.affordablePostLevels(goldSpendable: number, upgrades: PostUpgrades, campLevel: number): (number, number, number)
-	local damageLevel = 0
-	local rateLevel = 0
+-- the post's rungs bought in turn, damage first, then fire rate, then (for
+-- a gun with heat) cooldown, each round taking the cheapest next rung
+function BalanceModel.affordablePostLevels(goldSpendable: number, upgrades: PostUpgrades, campLevel: number): (number, number, number, number)
+	local levels = { 0, 0, 0 }
+	local attributeCount = if upgrades.cooldownBonusPerLevel then 3 else 2
 	local spent = 0
 	while true do
-		local nextLevel = if damageLevel <= rateLevel then damageLevel + 1 else rateLevel + 1
+		local lowest = 1
+		for index = 2, attributeCount do
+			if levels[index] < levels[lowest] then
+				lowest = index
+			end
+		end
+		local nextLevel = levels[lowest] + 1
 		local price = upgrades.priceByLevel[nextLevel]
 		local required = upgrades.requiredCampLevelByLevel[nextLevel] or 1
 		if price == nil or spent + price > goldSpendable or required > campLevel then
 			break
 		end
 		spent += price
-		if damageLevel <= rateLevel then
-			damageLevel += 1
-		else
-			rateLevel += 1
-		end
+		levels[lowest] += 1
 	end
-	return damageLevel, rateLevel, spent
+	return levels[1], levels[2], spent, levels[3]
+end
+
+-- how much more a gun with heat fires once its cooling time is cut by the
+-- Cooldown rungs: the new firing share over the authored one
+function BalanceModel.cooldownFactor(upgrades: PostUpgrades, cooldownLevel: number): number
+	local fullSec = upgrades.heatFullSec
+	local coolSec = upgrades.heatCoolSec
+	local bonus = upgrades.cooldownBonusPerLevel
+	if not fullSec or not coolSec or not bonus or fullSec + coolSec <= 0 then
+		return 1
+	end
+	local cooledSec = math.max(coolSec * (1 - bonus * cooldownLevel), 0)
+	return (fullSec / (fullSec + cooledSec)) / (fullSec / (fullSec + coolSec))
 end
 
 -- the camp level a shared Diamond total has reached, each step costing
@@ -562,9 +585,9 @@ function BalanceModel.simulate(input: Input): Result
 		local postLevel = 0
 		local postUpgrades = input.postUpgrades
 		if postUpgrades ~= nil then
-			local damageLevel, rateLevel = BalanceModel.affordablePostLevels(goldPerPlayer * assumptions.POST_GOLD_SHARE, postUpgrades, campLevel)
-			postDps *= (1 + postUpgrades.damageBonusPerLevel * damageLevel) * (1 + postUpgrades.fireRateBonusPerLevel * rateLevel)
-			postLevel = damageLevel + rateLevel
+			local damageLevel, rateLevel, _, cooldownLevel = BalanceModel.affordablePostLevels(goldPerPlayer * assumptions.POST_GOLD_SHARE, postUpgrades, campLevel)
+			postDps *= (1 + postUpgrades.damageBonusPerLevel * damageLevel) * (1 + postUpgrades.fireRateBonusPerLevel * rateLevel) * BalanceModel.cooldownFactor(postUpgrades, cooldownLevel)
+			postLevel = damageLevel + rateLevel + cooldownLevel
 		end
 		-- the post's paper DPS assumes every shot lands and the trigger is
 		-- released the instant it would overheat; a player manages less
@@ -642,9 +665,21 @@ function BalanceModel.simulate(input: Input): Result
 end
 
 -- the leak should leave a wall standing two nights before the breach
--- night, nearly break one the night before, and break one on it
-function BalanceModel.checkWallPressure(label: string, result: Result, breachNight: number): { string }
+-- night, nearly break one the night before, and break one on it; and on
+-- no night up to targetNight may it exceed maxWallDamageShare of a wall,
+-- since a breach of several walls' worth reaches the Refinery (2026-09-30)
+function BalanceModel.checkWallPressure(label: string, result: Result, breachNight: number, maxWallDamageShare: number?, targetNight: number?): { string }
 	local failures = {}
+	if maxWallDamageShare then
+		for _, row in result.rows do
+			if targetNight and row.night > targetNight then
+				break
+			end
+			if row.wallDamageShare > maxWallDamageShare then
+				table.insert(failures, string.format("%s night %d leaks %.0f%% of a wall, over the %.0f%% a breach may do", label, row.night, row.wallDamageShare * 100, maxWallDamageShare * 100))
+			end
+		end
+	end
 	local dent = result.rows[breachNight - 2]
 	local near = result.rows[breachNight - 1]
 	if dent ~= nil and dent.wallDamageShare >= 0.9 then

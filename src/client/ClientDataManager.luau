@@ -33,6 +33,10 @@ export type PublicData = {
 	postIndex: number,
 	postWeaponKind: number,
 	mannedPostIndex: number,
+	-- the compass (CompassManager): where the player stands, nil until first
+	-- published, and which dot colour is theirs
+	compassPosition: Vector3?,
+	compassColorIndex: number,
 }
 
 export type AllPlayersHandlers = {
@@ -73,6 +77,8 @@ local function readPublicData(folder: Instance): PublicData
 		postIndex = (folder:GetAttribute(Attributes.POST_INDEX) :: number?) or 0,
 		postWeaponKind = (folder:GetAttribute(Attributes.POST_WEAPON_KIND) :: number?) or 0,
 		mannedPostIndex = (folder:GetAttribute(Attributes.MANNED_POST_INDEX) :: number?) or 0,
+		compassPosition = folder:GetAttribute(Attributes.COMPASS_POSITION) :: Vector3?,
+		compassColorIndex = (folder:GetAttribute(Attributes.COMPASS_COLOR_INDEX) :: number?) or 1,
 	}
 end
 

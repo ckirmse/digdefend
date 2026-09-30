@@ -1,10 +1,9 @@
 --!strict
 
 -- The Tower Menu on this client (GDD "Upgrading and Selling Towers"),
--- M26. A placed Tower's shadow carries an Upgrade/Sell prompt the server
--- creates; ClientPlacementManager shows it only to the owner, and when it
--- fires here this manager opens the TowerMenu overlay in the tower
--- defense layout: the Tower's picture, name, and level; the Target
+-- M26. Tapping one of the player's own Towers from the Defense Table's
+-- overhead view (ClientDefenseTableManager, 2026-09-30) opens the
+-- TowerMenu overlay through openMenu, in the tower defense layout: the Tower's picture, name, and level; the Target
 -- Priority toggle with its arrows; the current stats; a red Sell button
 -- with the sale value; the Upgrade button naming the next level and its
 -- Iron price, with four pips filled one per upgrade bought; and the stats
@@ -12,7 +11,6 @@
 -- catalogue in GameMetadata, the shadow's attributes, and the Iron
 -- balance; every button sends a request and the server decides.
 local Players = game:GetService("Players")
-local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -61,6 +59,8 @@ export type ClientTowerMenuManager = typeof(setmetatable(
 		isMenuOpen: boolean,
 		openShadow: BasePart?,
 		shadowConnections: { RBXScriptConnection },
+		-- the Defense Table's hook: the Move button hands it the open Tower
+		moveHandler: ((shadow: BasePart) -> ())?,
 	},
 	ClientTowerMenuManager
 ))
@@ -211,6 +211,24 @@ function ClientTowerMenuManager:closeMenu()
 	if overlay then
 		ClientOverlayManager:notifyEndOverlay(overlay)
 	end
+end
+
+function ClientTowerMenuManager:setMoveHandler(handler: (shadow: BasePart) -> ())
+	self.moveHandler = handler
+end
+
+-- the menu closes and the table's view takes the Tower from here
+function ClientTowerMenuManager:requestMove()
+	local shadow = self.openShadow
+	local handler = self.moveHandler
+	self:closeMenu()
+	if shadow and handler then
+		handler(shadow)
+	end
+end
+
+function ClientTowerMenuManager:getIsMenuOpen(): boolean
+	return self.isMenuOpen
 end
 
 function ClientTowerMenuManager:openMenu(shadow: BasePart)
@@ -379,6 +397,14 @@ function ClientTowerMenuManager:findMenu()
 			end
 		)
 	end
+	local moveButton = dialog:FindFirstChild(Constants.TOWER_MENU_MOVE_BUTTON)
+	if moveButton and moveButton:IsA("GuiButton") then
+		moveButton.Activated:Connect(
+			function()
+				self:requestMove()
+			end
+		)
+	end
 	local upgradeButton = dialog:FindFirstChild(Constants.TOWER_MENU_UPGRADE_BUTTON)
 	if upgradeButton and upgradeButton:IsA("GuiButton") then
 		self.upgradeButton = upgradeButton
@@ -436,22 +462,6 @@ end
 
 function ClientTowerMenuManager:init()
 	self:findMenu()
-	-- the prompt fires here as well as on the server; only a Tower of ours opens the menu
-	ProximityPromptService.PromptTriggered:Connect(
-		function(prompt: ProximityPrompt, player: Player)
-			if player ~= Players.LocalPlayer then
-				return
-			end
-			local shadow = prompt.Parent
-			if not shadow or not shadow:IsA("BasePart") or shadow:GetAttribute(Attributes.PLACEMENT_KIND) ~= Enums.PlacementKind.TOWER then
-				return
-			end
-			if readNumber(shadow:GetAttribute(Attributes.PLACEMENT_OWNER_USER_ID), PlacementRules.NOBODY) ~= Players.LocalPlayer.UserId then
-				return
-			end
-			self:openMenu(shadow)
-		end
-	)
 	ClientDataManager:subscribeCurrentPlayerAttribute(
 		Attributes.BALANCE_IRON_BARS,
 		function()
@@ -492,6 +502,7 @@ function ClientTowerMenuManager.new(): ClientTowerMenuManager
 	self.isMenuOpen = false
 	self.openShadow = nil
 	self.shadowConnections = {}
+	self.moveHandler = nil
 	return self
 end
 

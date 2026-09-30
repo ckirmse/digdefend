@@ -31,10 +31,14 @@ return {
 	-- dawn, so a leaver's share opens up the next morning
 	MAX_ACTIVE_TOWERS_CAMP = 12,
 	PRICE_RESOURCE = Enums.RefinedResource.IRON_BAR,
+	-- every kind's DAMAGE doubled on 2026-09-30: the ninth playtest (solo
+	-- Normal, lost on night 4) and the sheet agreed the towers a player
+	-- can buy by night 4 shot less than the rifle, so the night's leak was
+	-- three walls' worth; at twice the damage the towers are about half
+	-- the defense early and about 60% at the cap against a maxed post,
+	-- the designer's brief (towers take at most half a wave)
 	-- selling returns this share of everything spent on the Tower
 	SELL_SHARE = 0.5,
-	MENU_PROMPT_ACTION_TEXT = "Upgrade/Sell",
-	PROMPT_MAX_DISTANCE_STUDS = 10,
 	-- a shot leaves the turret this far above the Tower's base pose
 	MUZZLE_HEIGHT_STUDS = 3,
 	BY_KIND = {
@@ -50,11 +54,11 @@ return {
 				HAS_TURRET = true,
 			},
 			STATS_BY_LEVEL = {
-				{ DAMAGE = 6, FIRE_INTERVAL_SEC = 0.5, RANGE_STUDS = 40, MAX_HP = 150 },
-				{ DAMAGE = 8, FIRE_INTERVAL_SEC = 0.45, RANGE_STUDS = 44, MAX_HP = 180 },
-				{ DAMAGE = 10, FIRE_INTERVAL_SEC = 0.4, RANGE_STUDS = 48, MAX_HP = 220 },
-				{ DAMAGE = 13, FIRE_INTERVAL_SEC = 0.35, RANGE_STUDS = 52, MAX_HP = 270 },
-				{ DAMAGE = 16, FIRE_INTERVAL_SEC = 0.3, RANGE_STUDS = 60, MAX_HP = 330 },
+				{ DAMAGE = 12, FIRE_INTERVAL_SEC = 0.5, RANGE_STUDS = 40, MAX_HP = 150 },
+				{ DAMAGE = 16, FIRE_INTERVAL_SEC = 0.45, RANGE_STUDS = 44, MAX_HP = 180 },
+				{ DAMAGE = 20, FIRE_INTERVAL_SEC = 0.4, RANGE_STUDS = 48, MAX_HP = 220 },
+				{ DAMAGE = 26, FIRE_INTERVAL_SEC = 0.35, RANGE_STUDS = 52, MAX_HP = 270 },
+				{ DAMAGE = 32, FIRE_INTERVAL_SEC = 0.3, RANGE_STUDS = 60, MAX_HP = 330 },
 			},
 		},
 		-- FLAME_SEC is how long each flame lasts (the designer's "fire
@@ -75,11 +79,11 @@ return {
 				REST_SEC = 1.5,
 			},
 			STATS_BY_LEVEL = {
-				{ DAMAGE = 3, FLAME_SEC = 2, RANGE_STUDS = 18, MAX_HP = 180 },
-				{ DAMAGE = 4, FLAME_SEC = 2.4, RANGE_STUDS = 20, MAX_HP = 220 },
-				{ DAMAGE = 5, FLAME_SEC = 2.8, RANGE_STUDS = 22, MAX_HP = 270 },
-				{ DAMAGE = 6, FLAME_SEC = 3.2, RANGE_STUDS = 24, MAX_HP = 330 },
-				{ DAMAGE = 8, FLAME_SEC = 4, RANGE_STUDS = 28, MAX_HP = 400 },
+				{ DAMAGE = 6, FLAME_SEC = 2, RANGE_STUDS = 18, MAX_HP = 180 },
+				{ DAMAGE = 8, FLAME_SEC = 2.4, RANGE_STUDS = 20, MAX_HP = 220 },
+				{ DAMAGE = 10, FLAME_SEC = 2.8, RANGE_STUDS = 22, MAX_HP = 270 },
+				{ DAMAGE = 12, FLAME_SEC = 3.2, RANGE_STUDS = 24, MAX_HP = 330 },
+				{ DAMAGE = 16, FLAME_SEC = 4, RANGE_STUDS = 28, MAX_HP = 400 },
 			},
 		},
 		[Enums.TowerKind.AA_TURRET] = {
@@ -94,11 +98,11 @@ return {
 				HAS_TURRET = true,
 			},
 			STATS_BY_LEVEL = {
-				{ DAMAGE = 10, FIRE_INTERVAL_SEC = 0.4, RANGE_STUDS = 70, MAX_HP = 150 },
-				{ DAMAGE = 13, FIRE_INTERVAL_SEC = 0.36, RANGE_STUDS = 76, MAX_HP = 180 },
-				{ DAMAGE = 16, FIRE_INTERVAL_SEC = 0.32, RANGE_STUDS = 82, MAX_HP = 220 },
-				{ DAMAGE = 20, FIRE_INTERVAL_SEC = 0.28, RANGE_STUDS = 90, MAX_HP = 270 },
-				{ DAMAGE = 25, FIRE_INTERVAL_SEC = 0.24, RANGE_STUDS = 100, MAX_HP = 330 },
+				{ DAMAGE = 20, FIRE_INTERVAL_SEC = 0.4, RANGE_STUDS = 70, MAX_HP = 150 },
+				{ DAMAGE = 26, FIRE_INTERVAL_SEC = 0.36, RANGE_STUDS = 76, MAX_HP = 180 },
+				{ DAMAGE = 32, FIRE_INTERVAL_SEC = 0.32, RANGE_STUDS = 82, MAX_HP = 220 },
+				{ DAMAGE = 40, FIRE_INTERVAL_SEC = 0.28, RANGE_STUDS = 90, MAX_HP = 270 },
+				{ DAMAGE = 50, FIRE_INTERVAL_SEC = 0.24, RANGE_STUDS = 100, MAX_HP = 330 },
 			},
 		},
 		-- no damage: every SLOW_SEC of frost takes SLOW_SHARE of the speed
@@ -144,11 +148,11 @@ return {
 				STUN_SEC = 0.4,
 			},
 			STATS_BY_LEVEL = {
-				{ DAMAGE = 12, FIRE_INTERVAL_SEC = 1.2, RANGE_STUDS = 30, CHAIN_COUNT = 1, MAX_HP = 170 },
-				{ DAMAGE = 15, FIRE_INTERVAL_SEC = 1.1, RANGE_STUDS = 33, CHAIN_COUNT = 2, MAX_HP = 200 },
-				{ DAMAGE = 19, FIRE_INTERVAL_SEC = 1, RANGE_STUDS = 36, CHAIN_COUNT = 2, MAX_HP = 240 },
-				{ DAMAGE = 24, FIRE_INTERVAL_SEC = 0.9, RANGE_STUDS = 40, CHAIN_COUNT = 3, MAX_HP = 290 },
-				{ DAMAGE = 30, FIRE_INTERVAL_SEC = 0.8, RANGE_STUDS = 45, CHAIN_COUNT = 4, MAX_HP = 350 },
+				{ DAMAGE = 24, FIRE_INTERVAL_SEC = 1.2, RANGE_STUDS = 30, CHAIN_COUNT = 1, MAX_HP = 170 },
+				{ DAMAGE = 30, FIRE_INTERVAL_SEC = 1.1, RANGE_STUDS = 33, CHAIN_COUNT = 2, MAX_HP = 200 },
+				{ DAMAGE = 38, FIRE_INTERVAL_SEC = 1, RANGE_STUDS = 36, CHAIN_COUNT = 2, MAX_HP = 240 },
+				{ DAMAGE = 48, FIRE_INTERVAL_SEC = 0.9, RANGE_STUDS = 40, CHAIN_COUNT = 3, MAX_HP = 290 },
+				{ DAMAGE = 60, FIRE_INTERVAL_SEC = 0.8, RANGE_STUDS = 45, CHAIN_COUNT = 4, MAX_HP = 350 },
 			},
 		},
 		[Enums.TowerKind.SNIPER_TOWER] = {
@@ -163,11 +167,11 @@ return {
 				HAS_TURRET = true,
 			},
 			STATS_BY_LEVEL = {
-				{ DAMAGE = 40, FIRE_INTERVAL_SEC = 2.5, RANGE_STUDS = 120, MAX_HP = 200 },
-				{ DAMAGE = 50, FIRE_INTERVAL_SEC = 2.3, RANGE_STUDS = 130, MAX_HP = 240 },
-				{ DAMAGE = 62, FIRE_INTERVAL_SEC = 2.1, RANGE_STUDS = 140, MAX_HP = 290 },
-				{ DAMAGE = 78, FIRE_INTERVAL_SEC = 1.9, RANGE_STUDS = 155, MAX_HP = 350 },
-				{ DAMAGE = 100, FIRE_INTERVAL_SEC = 1.7, RANGE_STUDS = 175, MAX_HP = 420 },
+				{ DAMAGE = 80, FIRE_INTERVAL_SEC = 2.5, RANGE_STUDS = 120, MAX_HP = 200 },
+				{ DAMAGE = 100, FIRE_INTERVAL_SEC = 2.3, RANGE_STUDS = 130, MAX_HP = 240 },
+				{ DAMAGE = 124, FIRE_INTERVAL_SEC = 2.1, RANGE_STUDS = 140, MAX_HP = 290 },
+				{ DAMAGE = 156, FIRE_INTERVAL_SEC = 1.9, RANGE_STUDS = 155, MAX_HP = 350 },
+				{ DAMAGE = 200, FIRE_INTERVAL_SEC = 1.7, RANGE_STUDS = 175, MAX_HP = 420 },
 			},
 		},
 	},

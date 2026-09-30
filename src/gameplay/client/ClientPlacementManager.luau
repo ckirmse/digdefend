@@ -6,16 +6,15 @@
 -- is, its level, and its HP. This manager dresses each shadow locally (the
 -- shadow system): the GameAssets/Towers or GameAssets/Traps model cloned
 -- onto it in the client-only PlacementBodies folder, solid so a player
--- cannot walk through it, the PlacementInfo billboard above it (name, HP
--- bar, owner's display name), and the shadow's prompt enabled only when
--- the placement is the local player's. The sounds for a build and a sale
+-- cannot walk through it, and the PlacementInfo billboard above it (name,
+-- HP bar, owner's display name). A placement carries no prompt: it is
+-- upgraded and sold from the Defense Table (2026-09-30). The sounds for a build and a sale
 -- arrive as notifies. Behaviour (M27) is drawn from attributes too: a
 -- Tower's turret (every part but the Base) eases round to the yaw the
 -- server publishes, a cone Tower shows its flame while IsAttacking, and a
 -- Spike Trap's spikes sit down, up, or dim by its TrapState. Nothing here
 -- decides anything.
 local CollectionService = game:GetService("CollectionService")
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
@@ -51,7 +50,6 @@ export type Tracked = {
 	shadow: BasePart,
 	body: Model?,
 	billboard: BillboardGui?,
-	prompt: ProximityPrompt?,
 	connections: { RBXScriptConnection },
 	turretParts: { TurretPart },
 	yawValue: NumberValue?,
@@ -258,16 +256,6 @@ function ClientPlacementManager:refreshBillboard(tracked: Tracked, isInstant: bo
 	end
 end
 
--- the prompt is the server's; only whether this viewer sees it is decided here
-function ClientPlacementManager:refreshPrompt(tracked: Tracked)
-	local prompt = tracked.prompt
-	if not prompt then
-		return
-	end
-	local ownerUserId = readNumber(tracked.shadow:GetAttribute(Attributes.PLACEMENT_OWNER_USER_ID), PlacementRules.NOBODY)
-	prompt.Enabled = ownerUserId == Players.LocalPlayer.UserId
-end
-
 function ClientPlacementManager:getCatalog(): PlacementRules.Catalog?
 	return PlacementRules.decodeCatalog(ClientDataManager:getGameMetadata(Attributes.DEFENSE_CATALOG))
 end
@@ -472,7 +460,6 @@ function ClientPlacementManager:dress(tracked: Tracked)
 		end
 	end
 	self:refreshBillboard(tracked, true)
-	self:refreshPrompt(tracked)
 end
 
 function ClientPlacementManager:track(shadow: Instance)
@@ -483,7 +470,6 @@ function ClientPlacementManager:track(shadow: Instance)
 		shadow = shadow,
 		body = nil,
 		billboard = nil,
-		prompt = shadow:FindFirstChildWhichIsA("ProximityPrompt"),
 		connections = {},
 		turretParts = {},
 		yawValue = nil,
@@ -494,19 +480,6 @@ function ClientPlacementManager:track(shadow: Instance)
 	local id = shadow:GetAttribute(Attributes.PLACEMENT_ID)
 	if typeof(id) == "string" then
 		self.lastPositionById[id] = shadow.Position
-	end
-	if not tracked.prompt then
-		table.insert(
-			tracked.connections,
-			shadow.ChildAdded:Connect(
-				function(child: Instance)
-					if child:IsA("ProximityPrompt") and not tracked.prompt then
-						tracked.prompt = child
-						self:refreshPrompt(tracked)
-					end
-				end
-			)
-		)
 	end
 	for _, attribute in { Attributes.PLACEMENT_HP, Attributes.PLACEMENT_MAX_HP } do
 		table.insert(
@@ -551,12 +524,36 @@ function ClientPlacementManager:track(shadow: Instance)
 			end
 		)
 	)
+	-- a placement its owner moved (Defense Table): the body follows the
+	-- shadow, and the cells it covers changed for anyone previewing a build
+	table.insert(
+		tracked.connections,
+		shadow:GetPropertyChangedSignal("CFrame"):Connect(
+			function()
+				local movedId = shadow:GetAttribute(Attributes.PLACEMENT_ID)
+				if typeof(movedId) == "string" then
+					self.lastPositionById[movedId] = shadow.Position
+				end
+				self:dress(tracked)
+				self:fireChanged()
+			end
+		)
+	)
+	for _, attribute in { Attributes.PLACEMENT_COLUMN, Attributes.PLACEMENT_ROW, Attributes.DEFENSIVE_ZONE_INDEX } do
+		table.insert(
+			tracked.connections,
+			shadow:GetAttributeChangedSignal(attribute):Connect(
+				function()
+					self:fireChanged()
+				end
+			)
+		)
+	end
 	table.insert(
 		tracked.connections,
 		shadow:GetAttributeChangedSignal(Attributes.PLACEMENT_OWNER_USER_ID):Connect(
 			function()
 				self:refreshBillboard(tracked, true)
-				self:refreshPrompt(tracked)
 			end
 		)
 	)

@@ -107,6 +107,45 @@ describe(
 			end
 		)
 		it(
+			"shows a single purchase by its bare name, then as owned",
+			function()
+				local single = {
+					priceByLevel = { 0, 30 },
+					requiredCampLevelByLevel = {},
+					startsUnowned = true,
+				}
+				expect(StoreRules.isSinglePurchase(single)).toBe(true)
+				expect(StoreRules.isSinglePurchase(TRACK)).toBe(false)
+				local offer = StoreRules.getUpgradeOffer(single, 1, 1)
+				expect(offer.status).toBe(Enums.StoreOffer.AVAILABLE)
+				expect(offer.price).toBe(30)
+				expect(StoreRules.nameText(Enums.StoreItem.COMPASS, offer)).toBe("Compass")
+				local owned = StoreRules.getUpgradeOffer(single, 2, 1)
+				expect(owned.status).toBe(Enums.StoreOffer.MAXED)
+				expect(StoreRules.nameText(Enums.StoreItem.COMPASS, owned)).toBe(StoreRules.OWNED_TEXT)
+			end
+		)
+		it(
+			"counts a track that starts unowned from its first buy",
+			function()
+				local bought = {
+					priceByLevel = { 0, 90, 270, 800 },
+					requiredCampLevelByLevel = {},
+					startsUnowned = true,
+				}
+				expect(StoreRules.isSinglePurchase(bought)).toBe(false)
+				expect(StoreRules.nameText(Enums.StoreItem.GEIGER_COUNTER, StoreRules.getUpgradeOffer(bought, 1, 1))).toBe("Geiger Counter")
+				expect(StoreRules.nameText(Enums.StoreItem.GEIGER_COUNTER, StoreRules.getUpgradeOffer(bought, 2, 1))).toBe("Geiger Counter 2")
+				expect(StoreRules.nameText(Enums.StoreItem.GEIGER_COUNTER, StoreRules.getUpgradeOffer(bought, 3, 1))).toBe("Geiger Counter 3")
+				expect(StoreRules.nameText(Enums.StoreItem.GEIGER_COUNTER, StoreRules.getUpgradeOffer(bought, 4, 1))).toBe(StoreRules.MAXED_TEXT)
+				local decoded = StoreRules.decodeCatalog(StoreRules.encodeCatalog({
+					upgrades = { [Enums.StoreItem.GEIGER_COUNTER] = bought },
+					consumables = {},
+				}))
+				expect(decoded.upgrades[Enums.StoreItem.GEIGER_COUNTER].startsUnowned).toBe(true)
+			end
+		)
+		it(
 			"checks affordability",
 			function()
 				expect(StoreRules.canAfford(15, 15)).toBe(true)
@@ -135,6 +174,23 @@ describe(
 				expect(decoded.upgrades[Enums.StoreItem.PICK_AXE].requiredCampLevelByLevel[3]).toBe(2)
 				expect(decoded.consumables[Enums.StoreItem.TORCH].amount).toBe(4)
 				expect(decoded.consumables[Enums.StoreItem.TORCH].tool).toBe(Enums.ToolKind.TORCH)
+			end
+		)
+		it(
+			"keeps an item whose number does not follow the others",
+			function()
+				local sparse = {
+					upgrades = {
+						[Enums.StoreItem.PICK_AXE] = TRACK,
+						[Enums.StoreItem.BOOTS] = TRACK,
+						[Enums.StoreItem.COMPASS] = { priceByLevel = { 0, 30 }, requiredCampLevelByLevel = {} },
+					},
+					consumables = {},
+				}
+				local decoded = StoreRules.decodeCatalog(StoreRules.encodeCatalog(sparse))
+				expect(decoded.upgrades[Enums.StoreItem.PICK_AXE].priceByLevel[2]).toBe(15)
+				expect(decoded.upgrades[Enums.StoreItem.BOOTS].priceByLevel[2]).toBe(15)
+				expect(decoded.upgrades[Enums.StoreItem.COMPASS].priceByLevel[2]).toBe(30)
 			end
 		)
 		it(

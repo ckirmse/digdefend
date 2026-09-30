@@ -84,5 +84,34 @@ for level = 1, LEVEL_COUNT do
 	jetPack.Parent = displays
 end
 
+-- compass: a brass disc with a red needle. A single purchase shows the
+-- level a buy reaches, so the one model is "COMPASS_2"
+local compass = Instance.new("Model")
+compass.Name = "COMPASS_2"
+local compassCase = makePart("Case", Vector3.new(0.25, 1.4, 1.4), Color3.fromRGB(200, 160, 70), Enum.Material.Metal, CFrame.new(0, 0.8, 0) * CFrame.Angles(0, math.rad(90), 0), compass)
+compassCase.Shape = Enum.PartType.Cylinder
+local compassFace = makePart("Face", Vector3.new(0.27, 1.15, 1.15), Color3.fromRGB(235, 230, 215), Enum.Material.SmoothPlastic, CFrame.new(0, 0.8, 0) * CFrame.Angles(0, math.rad(90), 0), compass)
+compassFace.Shape = Enum.PartType.Cylinder
+makePart("NeedleNorth", Vector3.new(0.12, 0.5, 0.3), Color3.fromRGB(220, 50, 50), Enum.Material.SmoothPlastic, CFrame.new(0, 1.05, 0), compass)
+makePart("NeedleSouth", Vector3.new(0.12, 0.5, 0.3), Color3.fromRGB(60, 60, 70), Enum.Material.SmoothPlastic, CFrame.new(0, 0.55, 0), compass)
+compass.PrimaryPart = compassCase
+compass.Parent = displays
+
+-- geiger counter: a handheld box with a dial and a probe, trimmed by level.
+-- Level 1 is not owning one, so the models run "GEIGER_COUNTER_2" to the top
+for level = 2, LEVEL_COUNT do
+	local geiger = Instance.new("Model")
+	geiger.Name = "GEIGER_COUNTER_" .. level
+	local body = makePart("Body", Vector3.new(1.1, 0.8, 0.5), Color3.fromRGB(225, 200, 60), Enum.Material.Metal, CFrame.new(0, 0.6, 0), geiger)
+	local dial = makePart("Dial", Vector3.new(0.08, 0.5, 0.5), Color3.fromRGB(30, 30, 35), Enum.Material.SmoothPlastic, CFrame.new(-0.2, 0.65, -0.27) * CFrame.Angles(0, math.rad(90), 0), geiger)
+	dial.Shape = Enum.PartType.Cylinder
+	makePart("Trim", Vector3.new(1.1, 0.12, 0.52), TRIM_COLOR_BY_LEVEL[level], Enum.Material.SmoothPlastic, CFrame.new(0, 1.06, 0), geiger)
+	makePart("Handle", Vector3.new(0.7, 0.12, 0.2), Color3.fromRGB(50, 50, 55), Enum.Material.Metal, CFrame.new(0, 1.3, 0), geiger)
+	local probe = makePart("Probe", Vector3.new(0.7, 0.22, 0.22), Color3.fromRGB(150, 150, 155), Enum.Material.Metal, CFrame.new(0.9, 0.6, 0), geiger)
+	probe.Shape = Enum.PartType.Cylinder
+	geiger.PrimaryPart = body
+	geiger.Parent = displays
+end
+
 ChangeHistoryService:SetWaypoint("After store displays")
 print("build_store_displays: built " .. #displays:GetChildren() .. " display model(s) under " .. displays:GetFullName())

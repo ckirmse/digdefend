@@ -69,15 +69,18 @@ local sfx = {
 	-- DayNightNumber card
 	ROOSTER = "Rooster",
 	NIGHT_BELL = "NightBell",
-	-- the 3D loop every uranium rock gives off, buried or not, so the win
-	-- condition can be found by ear (2026-09-25; ClientMineManager)
-	URANIUM_HUM = "UraniumHum",
 	-- alerts (2026-09-25): a wall fell (2D, everyone, with the red alert),
 	-- the 3D collapse from where the wall stood (server-side), and the
 	-- siren every client loops while the Refinery is under attack
 	WALL_DESTROYED = "WallDestroyed",
 	WALL_COLLAPSE = "WallCollapse",
 	REFINERY_UNDER_ATTACK = "RefineryUnderAttack",
+	-- 2D loops only the counter's owner hears (ClientGeigerCounterManager,
+	-- 2026-09-30): exactly one plays at a time, the one for how many of the
+	-- dial's rings are lit, and none with no ring lit
+	GEIGER_1 = "Geiger1",
+	GEIGER_2 = "Geiger2",
+	GEIGER_3 = "Geiger3",
 }
 
 -- each weapon's sound set, by its Enums.WeaponKind key. A new weapon adds its

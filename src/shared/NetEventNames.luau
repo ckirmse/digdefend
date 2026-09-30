@@ -98,20 +98,24 @@ module = {
 	NOTIFY_POST_ROCKET_EXPLODED = "NotifyPostRocketExploded",
 	NOTIFY_POST_UPGRADED = "NotifyPostUpgraded",
 	-- placements (M26). Building is a request naming the kind, the area, and
-	-- the cell; the server checks Repair Mode, the loadout or the trap
-	-- inventory, the Tower limit, the cells, and the Iron, then spawns a
-	-- shadow (Tags.PLACEMENT). Selling a Tower and upgrading it come from
-	-- the Tower Menu; selling a Trap is its ProximityPrompt, which the
-	-- server hears directly. Buying a Trap is the store stand's prompt.
-	-- The notifies are the sounds for the player concerned
+	-- the cell; the server checks Build Mode (the Defense Table), the
+	-- loadout, the Tower limit, the cells, and the Iron, then spawns a
+	-- shadow (Tags.PLACEMENT). Selling and upgrading come from the table's
+	-- view and the Tower Menu. The notifies are the sounds for the player
+	-- concerned
 	TRY_BUILD_PLACEMENT = "TryBuildPlacement",
 	TRY_SELL_PLACEMENT = "TrySellPlacement",
+	-- the owner picks a placement up at the Defense Table and sets it down
+	-- on other cells, free of charge, keeping its level and HP (2026-09-30)
+	TRY_MOVE_PLACEMENT = "TryMovePlacement",
 	TRY_UPGRADE_TOWER = "TryUpgradeTower",
 	TRY_SET_TOWER_TARGET_PRIORITY = "TrySetTowerTargetPriority",
 	NOTIFY_PLACEMENT_BUILT = "NotifyPlacementBuilt",
 	NOTIFY_PLACEMENT_SOLD = "NotifyPlacementSold",
 	NOTIFY_TOWER_UPGRADED = "NotifyTowerUpgraded",
-	NOTIFY_TRAP_PURCHASED = "NotifyTrapPurchased",
+	-- the Defense Table (DefenseTableManager): the Exit button. Entering is
+	-- the table's prompt, heard by the server directly
+	TRY_EXIT_BUILD_MODE = "TryExitBuildMode",
 	-- behaviour (M27), to every client: a Tower fired at the listed target
 	-- ids (one for a shot, the chain in order for a bolt; a cone Tower
 	-- sends none, its shadow's IsAttacking attribute is the flame), and a
@@ -121,6 +125,8 @@ module = {
 	-- Tower repair (M27, decided 2026-09-22): one Hammer swing at a Tower by
 	-- id, exactly the wall flow (TryRepairStructure); the notify is the
 	-- hammer blow for everyone nearby
+	-- the request also serves a repairable Trap (the Wall, 2026-09-30); the
+	-- name is kept
 	TRY_REPAIR_TOWER = "TryRepairTower",
 	NOTIFY_TOWER_REPAIRED = "NotifyTowerRepaired",
 	-- the day and night loop (M28), to every client: a day began (the

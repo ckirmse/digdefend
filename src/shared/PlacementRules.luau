@@ -60,6 +60,8 @@ export type TrapData = {
 	MAX_HP: number,
 	FOOTPRINT_CELLS: { number },
 	REQUIRED_CAMP_LEVEL: number,
+	-- whether the Hammer can repair it, as it can any Tower
+	IS_REPAIRABLE: boolean?,
 	-- Enums.TrapBehavior and its numbers (GameData/Defenses/Traps), M27
 	BEHAVIOR: number?,
 	DRAWS_ATTACKS: boolean?,
@@ -74,9 +76,7 @@ export type TrapData = {
 -- what the server publishes as GameMetadata
 export type Catalog = {
 	cellSizeStuds: number,
-	previewDistanceStuds: number,
 	maxActiveTowersCamp: number,
-	maxTrapKindsCarried: number,
 	towerSellShare: number,
 	trapSellShare: number,
 	towers: { [number]: TowerData },
@@ -190,20 +190,114 @@ function PlacementRules.occupancyKey(cell: Cell): string
 	return `{cell.column},{cell.row}`
 end
 
--- whether every cell of the footprint is inside the grid and free
-function PlacementRules.canPlace(grid: Grid, occupancy: Occupancy, cell: Cell, footprint: { number }): boolean
+-- whether every cell of the footprint is inside the grid and free. A
+-- placement being moved passes its own id as ignoredId, so the cells it
+-- stands on now do not block it from shifting over by one
+function PlacementRules.canPlace(grid: Grid, occupancy: Occupancy, cell: Cell, footprint: { number }, ignoredId: string?): boolean
 	for _, covered in PlacementRules.footprintCells(cell, footprint) do
-		if not PlacementRules.isCellInside(grid, covered) or occupancy[PlacementRules.occupancyKey(covered)] ~= nil then
+		if not PlacementRules.isCellInside(grid, covered) then
+			return false
+		end
+		local occupant = occupancy[PlacementRules.occupancyKey(covered)]
+		if occupant ~= nil and occupant ~= ignoredId then
 			return false
 		end
 	end
 	return true
 end
 
--- the server's distance check: the placement's centre against the
--- player's root, so a preview 10 studs out with a big footprint passes
-function PlacementRules.isWithinBuildReach(playerPosition: Vector3, placementPosition: Vector3, maxDistanceStuds: number): boolean
-	return (placementPosition - playerPosition).Magnitude <= maxDistanceStuds
+-- an upright box a fortification stands in (a wall, a post, the gate)
+export type Box = {
+	cframe: CFrame,
+	size: Vector3,
+}
+
+-- the occupant of a cell nothing may ever be built on
+PlacementRules.RESERVED_OCCUPANT = "Reserved"
+local CELL_SEPARATOR = ";"
+
+-- how far a point is, across the ground, from the nearest side of an
+-- upright box; 0 under it. Height is left out so a low cell beside a tall
+-- wall still counts as beside it
+local function groundDistanceToBox(position: Vector3, box: Box): number
+	local localPosition = box.cframe:PointToObjectSpace(position)
+	local half = box.size / 2
+	local acrossX = localPosition.X - math.clamp(localPosition.X, -half.X, half.X)
+	local acrossZ = localPosition.Z - math.clamp(localPosition.Z, -half.Z, half.Z)
+	return math.sqrt(acrossX * acrossX + acrossZ * acrossZ)
+end
+
+-- the cells no defense may stand on: every cell whose centre is closer
+-- than clearanceStuds to a fortification box, so the grid keeps a gap
+-- along the wall whatever shape the wall line takes (decided 2026-09-30)
+function PlacementRules.reservedCells(grid: Grid, boxes: { Box }, clearanceStuds: number): { Cell }
+	local cells = {}
+	for column = 1, grid.columns do
+		for row = 1, grid.rows do
+			local cell = { column = column, row = row }
+			local center = PlacementRules.cellCenter(grid, cell)
+			for _, box in boxes do
+				if groundDistanceToBox(center, box) < clearanceStuds then
+					table.insert(cells, cell)
+					break
+				end
+			end
+		end
+	end
+	return cells
+end
+
+function PlacementRules.reserve(occupancy: Occupancy, cells: { Cell })
+	for _, cell in cells do
+		occupancy[PlacementRules.occupancyKey(cell)] = PlacementRules.RESERVED_OCCUPANT
+	end
+end
+
+-- the reserved cells travel on the zone part as one attribute string
+function PlacementRules.encodeCells(cells: { Cell }): string
+	local keys = {}
+	for _, cell in cells do
+		table.insert(keys, PlacementRules.occupancyKey(cell))
+	end
+	return table.concat(keys, CELL_SEPARATOR)
+end
+
+function PlacementRules.decodeCells(encoded: any): { Cell }
+	local cells = {}
+	if typeof(encoded) ~= "string" then
+		return cells
+	end
+	for key in string.gmatch(encoded, `[^{CELL_SEPARATOR}]+`) do
+		local column, row = string.match(key, "^(%d+),(%d+)$")
+		if column and row then
+			table.insert(cells, { column = tonumber(column) :: number, row = tonumber(row) :: number })
+		end
+	end
+	return cells
+end
+
+-- how many footprints out the search for a free spot looks
+PlacementRules.NEXT_FREE_MAX_STEPS = 8
+
+-- the nearest free spot beside `cell` for another of the same footprint:
+-- one footprint along the columns first (so a row of Walls joins up), then
+-- back the other way, then along the rows, stepping further out each
+-- round; nil when nothing near is free
+function PlacementRules.nextFreeAnchor(grid: Grid, occupancy: Occupancy, cell: Cell, footprint: { number }): Cell?
+	for step = 1, PlacementRules.NEXT_FREE_MAX_STEPS do
+		local candidates = {
+			{ column = cell.column + step * footprint[1], row = cell.row },
+			{ column = cell.column - step * footprint[1], row = cell.row },
+			{ column = cell.column, row = cell.row + step * footprint[2] },
+			{ column = cell.column, row = cell.row - step * footprint[2] },
+		}
+		for _, candidate in candidates do
+			if PlacementRules.canPlace(grid, occupancy, candidate, footprint) then
+				return candidate
+			end
+		end
+	end
+	return nil
 end
 
 function PlacementRules.footprintFor(catalog: Catalog, placementKind: number, typeKind: number): { number }?
@@ -302,13 +396,34 @@ function PlacementRules.maxHpFor(catalog: Catalog, placementKind: number, typeKi
 	return if trap then trap.MAX_HP else 0
 end
 
--- what a build costs: a Tower's price, 0 for a Trap (it is consumed instead)
+-- what a build costs in Iron: a Tower's build price or a Trap's price,
+-- both paid when it is placed (2026-09-30)
 function PlacementRules.buildPrice(catalog: Catalog, placementKind: number, typeKind: number): number
 	if placementKind == Enums.PlacementKind.TOWER then
 		local tower = catalog.towers[typeKind]
 		return if tower then tower.BUILD_PRICE_IRON else 0
 	end
-	return 0
+	local trap = catalog.traps[typeKind]
+	return if trap then trap.PRICE_IRON else 0
+end
+
+-- whether the Hammer can repair a placement: every Tower, and the Traps
+-- marked IS_REPAIRABLE (a Trap is otherwise a consumable)
+function PlacementRules.isRepairable(catalog: Catalog, placementKind: number, typeKind: number): boolean
+	if placementKind == Enums.PlacementKind.TOWER then
+		return catalog.towers[typeKind] ~= nil
+	end
+	local trap = catalog.traps[typeKind]
+	return trap ~= nil and trap.IS_REPAIRABLE == true
+end
+
+-- the Camp Level a build needs: a Trap's own, 1 for a Tower (the loadout gates those)
+function PlacementRules.requiredCampLevel(catalog: Catalog, placementKind: number, typeKind: number): number
+	if placementKind == Enums.PlacementKind.TRAP then
+		local trap = catalog.traps[typeKind]
+		return if trap then trap.REQUIRED_CAMP_LEVEL else 1
+	end
+	return 1
 end
 
 function PlacementRules.sellValueFor(catalog: Catalog, placementKind: number, typeKind: number, level: number): number
@@ -379,25 +494,6 @@ function PlacementRules.resolveLoadoutTowers(unlockNames: { string? }, defaultKi
 	return kinds
 end
 
--- how many different kinds a trap inventory holds
-function PlacementRules.countTrapKinds(counts: { [number]: number }): number
-	local kinds = 0
-	for _, count in counts do
-		if count > 0 then
-			kinds += 1
-		end
-	end
-	return kinds
-end
-
--- whether a buy of `kind` fits the carried-kinds limit
-function PlacementRules.canCarryTrap(counts: { [number]: number }, kind: number, maxKinds: number): boolean
-	if (counts[kind] or 0) > 0 then
-		return true
-	end
-	return PlacementRules.countTrapKinds(counts) < maxKinds
-end
-
 function PlacementRules.encodeTowerLoadout(kinds: { number }): string
 	return HttpService:JSONEncode(kinds)
 end
@@ -441,27 +537,6 @@ local function decodeNumberKeys(map: any): { [number]: any }
 	return decoded
 end
 
-function PlacementRules.encodeTrapCounts(counts: { [number]: number }): string
-	return HttpService:JSONEncode(encodeNumberKeys(counts))
-end
-
-function PlacementRules.decodeTrapCounts(encoded: any): { [number]: number }
-	if typeof(encoded) ~= "string" or encoded == "" then
-		return {}
-	end
-	local isSuccess, decoded = pcall(HttpService.JSONDecode, HttpService, encoded)
-	if not isSuccess then
-		return {}
-	end
-	local counts = {}
-	for kind, count in decodeNumberKeys(decoded) do
-		if typeof(count) == "number" and count > 0 and Enums.isValidValue(Enums.TrapKind, kind) then
-			counts[kind] = count
-		end
-	end
-	return counts
-end
-
 -- the camp's Towers shared out evenly: each player may hold this many
 function PlacementRules.towerAllowance(maxActiveTowersCamp: number, crewCount: number): number
 	return math.ceil(maxActiveTowersCamp / math.max(crewCount, 1))
@@ -470,9 +545,7 @@ end
 function PlacementRules.encodeCatalog(catalog: Catalog): string
 	return HttpService:JSONEncode({
 		cellSizeStuds = catalog.cellSizeStuds,
-		previewDistanceStuds = catalog.previewDistanceStuds,
 		maxActiveTowersCamp = catalog.maxActiveTowersCamp,
-		maxTrapKindsCarried = catalog.maxTrapKindsCarried,
 		towerSellShare = catalog.towerSellShare,
 		trapSellShare = catalog.trapSellShare,
 		towers = encodeNumberKeys(catalog.towers),
@@ -491,9 +564,7 @@ function PlacementRules.decodeCatalog(json: any): Catalog?
 	end
 	return {
 		cellSizeStuds = decoded.cellSizeStuds,
-		previewDistanceStuds = decoded.previewDistanceStuds or 10,
 		maxActiveTowersCamp = decoded.maxActiveTowersCamp or 0,
-		maxTrapKindsCarried = decoded.maxTrapKindsCarried or 0,
 		towerSellShare = decoded.towerSellShare or 0,
 		trapSellShare = decoded.trapSellShare or 0,
 		towers = decodeNumberKeys(decoded.towers),

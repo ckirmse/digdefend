@@ -235,11 +235,19 @@ local stats = makePanel("Stats", UDim2.fromScale(0, 0.54), UDim2.fromScale(0.46,
 stats.Parent = dialog
 makeStatRow(stats, false)
 
+-- Sell and Move share the bottom of the left column (Move added 2026-09-30:
+-- it closes the menu and picks the Tower up at the Defense Table)
 local sellButton = makeTextButton("SellButton", UiStyle.formatTitle("Sell 10"), UiStyle.NEGATIVE_COLOR, UiStyle.TEXT_COLOR)
 sellButton.Position = UDim2.fromScale(0, 0.88)
-sellButton.Size = UDim2.fromScale(0.46, 0.12)
-addTouchTarget(sellButton, Vector2.new(440, 64))
+sellButton.Size = UDim2.fromScale(0.27, 0.12)
+addTouchTarget(sellButton, Vector2.new(260, 64))
 sellButton.Parent = dialog
+
+local moveButton = makeTextButton("MoveButton", UiStyle.formatTitle("Move"), UiStyle.ACCENT_COLOR, UiStyle.ACCENT_STROKE_COLOR)
+moveButton.Position = UDim2.fromScale(0.29, 0.88)
+moveButton.Size = UDim2.fromScale(0.17, 0.12)
+addTouchTarget(moveButton, Vector2.new(165, 64))
+moveButton.Parent = dialog
 
 -- right column: from 52% across
 local upgradeButton = Instance.new("TextButton")

@@ -12,7 +12,11 @@
 -- The map's Wall / Gate / Post models are placement markers: at run start
 -- each is swapped for the tier's template from GameAssets/Structures at the
 -- marker's pivot, and swapped again on an upgrade, on destruction (rubble),
--- and on a rebuild. The gate, the walls, and the look of the posts share one
+-- and on a rebuild. A wall named "Wall0" is decoration that joins the line
+-- to the terrain (StructureRules.isDecorativeWall, 2026-09-30): filled and
+-- upgraded like a wall, but it has no HP, no shadow, no repair, and the
+-- monsters never target it; it only blocks their way. The gate, the walls,
+-- and the look of the posts share one
 -- tier, paid for by the whole crew at the Workbench: each prompt press
 -- donates a little Iron into a shared pool and the tier goes up by itself
 -- when the pool fills. Every segment is repaired on its own. The Refinery
@@ -26,6 +30,7 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local PlacementRules = require("@game/ReplicatedStorage/Shared/PlacementRules")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local RunCycleRules = require("@game/ReplicatedStorage/Shared/RunCycleRules")
 local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
@@ -89,6 +94,8 @@ export type StructureManager = typeof(setmetatable(
 	{} :: {
 		structuresById: { [string]: Structure },
 		postSlots: { Slot },
+		-- the map's Wall0 models, kept only so their look follows the tier
+		decorativeSlots: { Slot },
 		fortificationTier: number,
 		-- Iron the crew has donated toward the next tier
 		fortificationPool: number,
@@ -187,6 +194,30 @@ end
 
 function StructureManager:isGateOpenNow(): boolean
 	return self.isGateOpen
+end
+
+-- every fortification's box as it stands at run start (walls, decorative
+-- walls, posts, the gate): what the Defensive Zone grid keeps clear of
+function StructureManager:getFortificationBoxes(): { PlacementRules.Box }
+	local boxes = {}
+	for _, slot in self.decorativeSlots do
+		if slot.model then
+			local cframe, size = slot.model:GetBoundingBox()
+			table.insert(boxes, { cframe = cframe, size = size })
+		end
+	end
+	for _, structure in self.structuresById do
+		if structure.kind ~= Enums.StructureKind.REFINERY then
+			table.insert(boxes, { cframe = structure.boundsCFrame, size = structure.boundsSize })
+		end
+	end
+	for _, slot in self.postSlots do
+		if slot.model then
+			local cframe, size = slot.model:GetBoundingBox()
+			table.insert(boxes, { cframe = cframe, size = size })
+		end
+	end
+	return boxes
 end
 
 function StructureManager:getPostSlots(): { Slot }
@@ -578,6 +609,9 @@ function StructureManager:setFortificationTier(tier: number)
 	for _, slot in self.postSlots do
 		self:fillPostSlot(slot)
 	end
+	for _, slot in self.decorativeSlots do
+		self:fillSlot(slot, `{WALL_TEMPLATE_KEY}_{newTier}`)
+	end
 	self:firePostModelsFilled()
 	self:replicateAll()
 end
@@ -647,6 +681,8 @@ function StructureManager:addStructure(id: string, kind: number, model: Model, s
 	shadow.Position = Vector3.new(boundsCFrame.Position.X, boundsCFrame.Position.Y - boundsSize.Y / 2 + SHADOW_HEIGHT_ABOVE_FLOOR_STUDS, boundsCFrame.Position.Z)
 	shadow:SetAttribute(Attributes.STRUCTURE_ID, id)
 	shadow:SetAttribute(Attributes.STRUCTURE_KIND, kind)
+	shadow:SetAttribute(Attributes.STRUCTURE_BOUNDS_CFRAME, boundsCFrame)
+	shadow:SetAttribute(Attributes.STRUCTURE_BOUNDS_SIZE, boundsSize)
 	if kind == Enums.StructureKind.GATE then
 		shadow:SetAttribute(Attributes.GATE_IS_OPEN, false)
 	end
@@ -691,6 +727,7 @@ function StructureManager:onRunStarted()
 	self.connections = {}
 	self.structuresById = {}
 	self.postSlots = {}
+	self.decorativeSlots = {}
 	self.gateLeaves = {}
 	self.fortificationTier = STARTING_TIER
 	self.fortificationPool = 0
@@ -710,10 +747,15 @@ function StructureManager:onRunStarted()
 
 	local walls = camp:FindFirstChild(Constants.CAMP_WALLS_FOLDER)
 	for _, marker in if walls then walls:GetChildren() else {} do
-		if marker:IsA("Model") then
-			local slot = self:claimSlot(marker, WALL_TEMPLATE_KEY)
-			self:addStructure(slot.name, Enums.StructureKind.WALL, slot.model :: Model, shadowFolder, slot)
+		if not marker:IsA("Model") then
+			continue
 		end
+		local slot = self:claimSlot(marker, WALL_TEMPLATE_KEY)
+		if StructureRules.isDecorativeWall(slot.name) then
+			table.insert(self.decorativeSlots, slot)
+			continue
+		end
+		self:addStructure(slot.name, Enums.StructureKind.WALL, slot.model :: Model, shadowFolder, slot)
 	end
 	local posts = camp:FindFirstChild(Constants.CAMP_POSTS_FOLDER)
 	for _, marker in if posts then posts:GetChildren() else {} do
@@ -782,6 +824,7 @@ function StructureManager.new(): StructureManager
 	local self = setmetatable({}, StructureManager) :: StructureManager
 	self.structuresById = {}
 	self.postSlots = {}
+	self.decorativeSlots = {}
 	self.fortificationTier = STARTING_TIER
 	self.fortificationPool = 0
 	self.workbenchPrompt = nil

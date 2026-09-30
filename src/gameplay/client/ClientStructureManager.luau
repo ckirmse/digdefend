@@ -52,7 +52,7 @@ type Repairable = {
 	hp: number,
 	maxHp: number,
 	isDestroyed: boolean,
-	isTower: boolean,
+	isPlacement: boolean,
 }
 
 type Tracked = {
@@ -117,17 +117,25 @@ local STRUCTURE_BILLBOARD_MAX_DISTANCE_STUDS = 300
 -- Camp Level billboard had until 2026-09-29
 local TOWER_LEVEL_FORMAT = "%s %d"
 
-local function isTowerShadow(shadow: BasePart): boolean
-	return shadow:GetAttribute(Attributes.PLACEMENT_KIND) == Enums.PlacementKind.TOWER
+-- a Tower or a Trap on the grid, as against a camp structure; only the
+-- repairable ones are ever tracked here (see trackPlacementIfNeeded)
+local function isPlacementShadow(shadow: BasePart): boolean
+	return shadow:GetAttribute(Attributes.PLACEMENT_KIND) ~= nil
 end
 
 local function isRefineryShadow(shadow: BasePart): boolean
 	return shadow:GetAttribute(Attributes.STRUCTURE_KIND) == Enums.StructureKind.REFINERY
 end
 
-function ClientStructureManager:findBillboardTemplate(): BillboardGui?
+-- the Refinery has its own template (the home icon beside a bigger name);
+-- a place without it falls back to the plain one
+function ClientStructureManager:findBillboardTemplate(isRefinery: boolean): BillboardGui?
 	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
 	local guiFolder = if gameAssets then gameAssets:FindFirstChild(Constants.GUI_TEMPLATES_FOLDER) else nil
+	local refineryTemplate = if guiFolder and isRefinery then guiFolder:FindFirstChild(Constants.STRUCTURE_HP_REFINERY_BILLBOARD) else nil
+	if refineryTemplate and refineryTemplate:IsA("BillboardGui") then
+		return refineryTemplate
+	end
 	local template = if guiFolder then guiFolder:FindFirstChild(Constants.STRUCTURE_HP_BILLBOARD) else nil
 	if template and template:IsA("BillboardGui") then
 		return template
@@ -140,7 +148,7 @@ function ClientStructureManager:findBillboardTemplate(): BillboardGui?
 end
 
 function ClientStructureManager:readRepairable(shadow: BasePart): Repairable?
-	if isTowerShadow(shadow) then
+	if isPlacementShadow(shadow) then
 		local id = shadow:GetAttribute(Attributes.PLACEMENT_ID)
 		local hp = shadow:GetAttribute(Attributes.PLACEMENT_HP)
 		local maxHp = shadow:GetAttribute(Attributes.PLACEMENT_MAX_HP)
@@ -151,11 +159,14 @@ function ClientStructureManager:readRepairable(shadow: BasePart): Repairable?
 		end
 		return {
 			id = id,
-			name = string.format(TOWER_LEVEL_FORMAT, PlacementRules.publicName(Enums.PlacementKind.TOWER, typeKind), if typeof(level) == "number" then level else 1),
+			-- a Tower reads with its level; a Trap has none
+			name = if shadow:GetAttribute(Attributes.PLACEMENT_KIND) == Enums.PlacementKind.TOWER
+				then string.format(TOWER_LEVEL_FORMAT, PlacementRules.publicName(Enums.PlacementKind.TOWER, typeKind), if typeof(level) == "number" then level else 1)
+				else PlacementRules.publicName(Enums.PlacementKind.TRAP, typeKind),
 			hp = hp,
 			maxHp = maxHp,
 			isDestroyed = false,
-			isTower = true,
+			isPlacement = true,
 		}
 	end
 	local id = shadow:GetAttribute(Attributes.STRUCTURE_ID)
@@ -178,13 +189,14 @@ function ClientStructureManager:readRepairable(shadow: BasePart): Repairable?
 		hp = hp,
 		maxHp = maxHp,
 		isDestroyed = shadow:GetAttribute(Attributes.STRUCTURE_IS_DESTROYED) == true,
-		isTower = false,
+		isPlacement = false,
 	}
 end
 
 function ClientStructureManager:refreshBillboard(shadow: BasePart, billboard: BillboardGui, isInstant: boolean)
 	local root = billboard:FindFirstChild(Constants.STRUCTURE_HP_ROOT_FRAME)
-	local nameLabel = if root then root:FindFirstChild(Constants.STRUCTURE_HP_NAME_LABEL) else nil
+	-- recursive: the Refinery's template keeps the name inside its NameRow
+	local nameLabel = if root then root:FindFirstChild(Constants.STRUCTURE_HP_NAME_LABEL, true) else nil
 	local bar = if root then root:FindFirstChild(Constants.STRUCTURE_HP_BAR) else nil
 	local fill = if bar then bar:FindFirstChild(Constants.STRUCTURE_HP_FILL) else nil
 	local valueLabel = if bar then bar:FindFirstChild(Constants.STRUCTURE_HP_VALUE_LABEL) else nil
@@ -242,7 +254,7 @@ function ClientStructureManager:isBarShown(shadow: BasePart): boolean
 	if self.isRepairMode then
 		return true
 	end
-	if isTowerShadow(shadow) then
+	if isPlacementShadow(shadow) then
 		return false
 	end
 	if isRefineryShadow(shadow) then
@@ -265,42 +277,51 @@ function ClientStructureManager:refineryLift(shadow: BasePart): number
 	return boundsCFrame.Position.Y + boundsSize.Y / 2 + Constants.REFINERY_HP_BILLBOARD_LIFT_STUDS - shadow.Position.Y
 end
 
+-- a bar draws through the world only at night, when the crew is defending;
+-- by day it is hidden behind rock like anything else, so a miner cannot
+-- steer by the Refinery's bar to find the way out (2026-09-30)
+function ClientStructureManager:isNight(): boolean
+	return ClientDataManager:getGameMetadata(Attributes.IS_NIGHT) == true
+end
+
 -- shows or hides a shadow's HP bar by isBarShown; a Tower's everyday info
 -- billboard steps aside for the bar so the two never stack
 function ClientStructureManager:applyBarVisibility(shadow: BasePart, tracked: Tracked)
-	local isTower = isTowerShadow(shadow)
+	local isPlacement = isPlacementShadow(shadow)
 	local isRefinery = isRefineryShadow(shadow)
 	if not self:isBarShown(shadow) then
 		if tracked.billboard then
 			tracked.billboard:Destroy()
 			tracked.billboard = nil
 		end
-		if isTower then
+		if isPlacement then
 			ClientPlacementManager:setInfoVisible(shadow, true)
 		end
 		return
 	end
 	local billboard = tracked.billboard
 	if not billboard then
-		local template = self:findBillboardTemplate()
+		local template = self:findBillboardTemplate(isRefinery)
 		if not template then
 			return
 		end
 		billboard = template:Clone()
-		local lift = if isTower then ClientPlacementManager:getBodyHeight(shadow) + TOWER_BILLBOARD_LIFT_STUDS - shadow.Size.Y / 2 elseif isRefinery then self:refineryLift(shadow) else BILLBOARD_LIFT_STUDS
-		if isTower then
+		local lift = if isPlacement then ClientPlacementManager:getBodyHeight(shadow) + TOWER_BILLBOARD_LIFT_STUDS - shadow.Size.Y / 2 elseif isRefinery then self:refineryLift(shadow) else BILLBOARD_LIFT_STUDS
+		if isPlacement then
 			ClientPlacementManager:setInfoVisible(shadow, false)
 		end
 		billboard.StudsOffsetWorldSpace = Vector3.new(0, lift, 0)
-		if not isTower then
+		if not isPlacement then
 			billboard.MaxDistance = STRUCTURE_BILLBOARD_MAX_DISTANCE_STUDS
 		end
+		billboard.AlwaysOnTop = self:isNight()
 		billboard.Adornee = shadow
 		billboard.Parent = shadow
 		tracked.billboard = billboard
 		self:refreshBillboard(shadow, billboard, true)
 		return
 	end
+	billboard.AlwaysOnTop = self:isNight()
 	self:refreshBillboard(shadow, billboard, false)
 end
 
@@ -335,6 +356,18 @@ function ClientStructureManager:resolveStructure(part: Instance): (BasePart?, Mo
 		current = parent
 	end
 	return nil, nil
+end
+
+-- the model standing (or lying) in a wall's or the gate's slot, by its id
+function ClientStructureManager:findStructureModel(shadow: BasePart): Model?
+	local id = shadow:GetAttribute(Attributes.STRUCTURE_ID)
+	local camp = workspace:FindFirstChild(Constants.CAMP_FOLDER)
+	if typeof(id) ~= "string" or not camp then
+		return nil
+	end
+	local walls = camp:FindFirstChild(Constants.CAMP_WALLS_FOLDER)
+	local model = (if walls then walls:FindFirstChild(id) else nil) or camp:FindFirstChild(id)
+	return if model and model:IsA("Model") then model else nil
 end
 
 function ClientStructureManager:setTarget(shadow: BasePart?, model: Model?)
@@ -372,8 +405,8 @@ function ClientStructureManager:aim()
 			table.insert(included, child)
 		end
 	end
-	-- Tower bodies too (their shadows are tracked here); Trap bodies are
-	-- not repairable and stay out of the ray
+	-- the bodies of Towers and repairable Traps too (their shadows are
+	-- tracked here); any other Trap stays out of the ray
 	local bodies = workspace:FindFirstChild(Constants.PLACEMENT_BODIES_FOLDER)
 	if bodies then
 		for _, body in bodies:GetChildren() do
@@ -386,12 +419,35 @@ function ClientStructureManager:aim()
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = included
-	local result = workspace:Raycast(camera.CFrame.Position, camera.CFrame.LookVector * self.reachStuds, params)
-	if not result then
-		self:setTarget(nil, nil)
-		return
+	local origin = camera.CFrame.Position
+	local direction = camera.CFrame.LookVector
+	local result = workspace:Raycast(origin, direction * self.reachStuds, params)
+	local targetShadow: BasePart? = nil
+	local targetModel: Model? = nil
+	local targetDistance = math.huge
+	if result then
+		targetShadow, targetModel = self:resolveStructure(result.Instance)
+		targetDistance = result.Distance
 	end
-	self:setTarget(self:resolveStructure(result.Instance))
+	-- a wall or gate that is rubble is aimed at where it stood, not at the
+	-- pile on the ground (2026-09-30): the nearer of the two wins
+	for shadow in self.trackedByShadow do
+		if shadow:GetAttribute(Attributes.STRUCTURE_IS_DESTROYED) ~= true then
+			continue
+		end
+		local boundsCFrame = shadow:GetAttribute(Attributes.STRUCTURE_BOUNDS_CFRAME)
+		local boundsSize = shadow:GetAttribute(Attributes.STRUCTURE_BOUNDS_SIZE)
+		if typeof(boundsCFrame) ~= "CFrame" or typeof(boundsSize) ~= "Vector3" then
+			continue
+		end
+		local distance = StructureRules.rayBoxDistance(origin, direction, boundsCFrame, boundsSize, self.reachStuds)
+		if distance and distance < targetDistance then
+			targetDistance = distance
+			targetShadow = shadow
+			targetModel = self:findStructureModel(shadow)
+		end
+	end
+	self:setTarget(targetShadow, targetModel)
 end
 
 -- one swing: a request, never a result. False (nothing to repair, or no
@@ -418,7 +474,7 @@ function ClientStructureManager:swing(isFreshPress: boolean): boolean
 		return false
 	end
 	ClientHeldToolManager:playSwing()
-	ClientNetManager:fireServer(if repairable.isTower then NetEventNames.TRY_REPAIR_TOWER else NetEventNames.TRY_REPAIR_STRUCTURE, { id = repairable.id })
+	ClientNetManager:fireServer(if repairable.isPlacement then NetEventNames.TRY_REPAIR_TOWER else NetEventNames.TRY_REPAIR_STRUCTURE, { id = repairable.id })
 	return true
 end
 
@@ -526,13 +582,13 @@ function ClientStructureManager:track(shadow: Instance)
 	if not shadow:IsA("BasePart") or self.trackedByShadow[shadow] then
 		return
 	end
-	local isTower = isTowerShadow(shadow)
+	local isPlacement = isPlacementShadow(shadow)
 	local tracked: Tracked = {
 		billboard = nil,
 		connections = {},
 	}
 	self.trackedByShadow[shadow] = tracked
-	local watched = if isTower then { Attributes.PLACEMENT_HP, Attributes.PLACEMENT_MAX_HP, Attributes.PLACEMENT_LEVEL } else { Attributes.STRUCTURE_HP, Attributes.STRUCTURE_MAX_HP, Attributes.STRUCTURE_IS_DESTROYED }
+	local watched = if isPlacement then { Attributes.PLACEMENT_HP, Attributes.PLACEMENT_MAX_HP, Attributes.PLACEMENT_LEVEL } else { Attributes.STRUCTURE_HP, Attributes.STRUCTURE_MAX_HP, Attributes.STRUCTURE_IS_DESTROYED }
 	for _, attribute in watched do
 		table.insert(
 			tracked.connections,
@@ -676,6 +732,14 @@ function ClientStructureManager:init()
 		end
 	)
 	self:refreshRefinerySiren()
+	ClientDataManager:subscribeGameMetadataAttribute(
+		Attributes.IS_NIGHT,
+		function()
+			for shadow, tracked in self.trackedByShadow do
+				self:applyBarVisibility(shadow, tracked)
+			end
+		end
+	)
 	for _, key in { Attributes.HAMMER_HIT_INTERVAL_SEC, Attributes.HAMMER_REACH_STUDS, Attributes.REPAIR_CHUNK_HP, Attributes.REPAIR_CHUNK_IRON } do
 		ClientDataManager:subscribeGameMetadataAttribute(
 			key,
@@ -725,15 +789,21 @@ function ClientStructureManager:init()
 	)
 	-- Towers are repaired like walls; only a Tower shadow is tracked, a Trap
 	-- shadow is never a repair target
-	local function trackTowerIfNeeded(shadow: Instance)
-		if shadow:IsA("BasePart") and isTowerShadow(shadow) then
+	local function trackPlacementIfNeeded(shadow: Instance)
+		if not shadow:IsA("BasePart") then
+			return
+		end
+		local catalog = ClientPlacementManager:getCatalog()
+		local placementKind = shadow:GetAttribute(Attributes.PLACEMENT_KIND)
+		local typeKind = shadow:GetAttribute(Attributes.PLACEMENT_TYPE_KIND)
+		if catalog and typeof(placementKind) == "number" and typeof(typeKind) == "number" and PlacementRules.isRepairable(catalog, placementKind, typeKind) then
 			self:track(shadow)
 		end
 	end
 	for _, shadow in CollectionService:GetTagged(Tags.PLACEMENT) do
-		trackTowerIfNeeded(shadow)
+		trackPlacementIfNeeded(shadow)
 	end
-	CollectionService:GetInstanceAddedSignal(Tags.PLACEMENT):Connect(trackTowerIfNeeded)
+	CollectionService:GetInstanceAddedSignal(Tags.PLACEMENT):Connect(trackPlacementIfNeeded)
 	CollectionService:GetInstanceRemovedSignal(Tags.PLACEMENT):Connect(
 		function(shadow: Instance)
 			self:untrack(shadow)

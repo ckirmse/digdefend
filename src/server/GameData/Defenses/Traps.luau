@@ -1,13 +1,15 @@
 --!strict
 
 -- Traps (GDD "Traps", "Trap Types"), M26 and M27: consumable placements
--- bought at the Defense Store for Iron, placed on the Defensive Zone grid,
--- sold back for a share of the price, never upgraded. One entry per
--- Enums.TrapKind; a new Trap plugs in by adding its enum key, an entry
--- here, a model of that key's name under GameAssets/Traps, and a
--- "<Key>Stand" in the store. A player carries at most
--- MAX_TRAP_KINDS_CARRIED different kinds, any number of each.
--- REQUIRED_CAMP_LEVEL is the stand's lock line; every kind sits at 1
+-- bought for Iron as they are placed from the Defense Table, on the
+-- Defensive Zone grid, sold back for a share of the price, never upgraded.
+-- One entry per Enums.TrapKind; a new Trap plugs in by adding its enum
+-- key, an entry here, and a model of that key's name under
+-- GameAssets/Traps.
+-- IS_REPAIRABLE is whether the Hammer can mend the Trap like a Tower, a
+-- chunk of HP for a few Iron per swing (2026-09-30): only the Wall for now,
+-- since the rest are spent by doing their job.
+-- REQUIRED_CAMP_LEVEL locks the Trap on the table's bar; every kind sits at 1
 -- because Traps are never capped (GDD "Camp Level"), and the field is here
 -- so a designer can gate one without a code change.
 -- BEHAVIOR (Enums.TrapBehavior) is what the Trap does when an enemy's
@@ -26,16 +28,6 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 return {
 	PRICE_RESOURCE = Enums.RefinedResource.IRON_BAR,
 	SELL_SHARE = 0.5,
-	MAX_TRAP_KINDS_CARRIED = 3,
-	-- the store stand's prompt, like the Mining Store's: held for a second
-	-- so a walk-past never buys
-	BUY_PROMPT_ACTION_TEXT = "Buy",
-	BUY_PROMPT_HOLD_SEC = 1,
-	BUY_PROMPT_MAX_DISTANCE_STUDS = 8,
-	-- the placed Trap's prompt, only the owner sees it
-	SELL_PROMPT_ACTION_FORMAT = "Sell: %d Iron Bars",
-	SELL_PROMPT_HOLD_SEC = 1,
-	SELL_PROMPT_MAX_DISTANCE_STUDS = 10,
 	BY_KIND = {
 		[Enums.TrapKind.WALL] = {
 			PRICE_IRON = 12,
@@ -46,6 +38,7 @@ return {
 			-- The template (GameAssets/Traps/WALL) is sized to match
 			FOOTPRINT_CELLS = { 4, 1 },
 			REQUIRED_CAMP_LEVEL = 1,
+			IS_REPAIRABLE = true,
 			BEHAVIOR = Enums.TrapBehavior.BARRIER,
 			DRAWS_ATTACKS = false,
 		},
@@ -54,6 +47,7 @@ return {
 			MAX_HP = 120,
 			FOOTPRINT_CELLS = { 4, 4 },
 			REQUIRED_CAMP_LEVEL = 1,
+			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.SPIKES,
 			DAMAGE = 25,
 			UP_SEC = 1,
@@ -64,6 +58,7 @@ return {
 			MAX_HP = 100,
 			FOOTPRINT_CELLS = { 5, 2 },
 			REQUIRED_CAMP_LEVEL = 1,
+			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.GOO,
 			SLOW_SHARE = 0.5,
 			SLOW_SEC = 1.5,
@@ -73,6 +68,7 @@ return {
 			MAX_HP = 60,
 			FOOTPRINT_CELLS = { 1, 1 },
 			REQUIRED_CAMP_LEVEL = 1,
+			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.MINE,
 			DAMAGE = 120,
 			RANGE_STUDS = 10,
@@ -82,6 +78,7 @@ return {
 			MAX_HP = 80,
 			FOOTPRINT_CELLS = { 1, 1 },
 			REQUIRED_CAMP_LEVEL = 1,
+			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.SNARE,
 			DAMAGE = 40,
 			SLOW_SHARE = 1,
@@ -92,6 +89,7 @@ return {
 			MAX_HP = 400,
 			FOOTPRINT_CELLS = { 2, 2 },
 			REQUIRED_CAMP_LEVEL = 1,
+			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.BARRIER,
 			DRAWS_ATTACKS = true,
 			RANGE_STUDS = 30,

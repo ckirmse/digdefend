@@ -35,9 +35,7 @@ local SPIKES = {
 local function makeCatalog()
 	return {
 		cellSizeStuds = CELL,
-		previewDistanceStuds = 10,
 		maxActiveTowersCamp = 12,
-		maxTrapKindsCarried = 3,
 		towerSellShare = 0.5,
 		trapSellShare = 0.5,
 		towers = { [Enums.TowerKind.SENTRY_GUN] = SENTRY },
@@ -161,10 +159,62 @@ describe(
 			end
 		)
 		it(
-			"measures build reach from the placement's centre",
+			"lets a placement being moved overlap its own cells only",
 			function()
-				expect(PlacementRules.isWithinBuildReach(Vector3.zero, Vector3.new(0, 0, 20), 28)).toBe(true)
-				expect(PlacementRules.isWithinBuildReach(Vector3.zero, Vector3.new(0, 0, 30), 28)).toBe(false)
+				local occupancy = {}
+				occupancy[PlacementRules.occupancyKey({ column = 2, row = 1 })] = "Placement1"
+				occupancy[PlacementRules.occupancyKey({ column = 3, row = 1 })] = "Placement1"
+				occupancy[PlacementRules.occupancyKey({ column = 4, row = 1 })] = "Placement2"
+				expect(PlacementRules.canPlace(grid, occupancy, { column = 1, row = 1 }, { 2, 1 }, "Placement1")).toBe(true)
+				expect(PlacementRules.canPlace(grid, occupancy, { column = 3, row = 1 }, { 2, 1 }, "Placement1")).toBe(false)
+			end
+		)
+	end
+)
+
+describe(
+	"PlacementRules.nextFreeAnchor",
+	function()
+		local grid = PlacementRules.measureZone(ZONE_CFRAME, ZONE_SIZE, CELL)
+		local function occupy(occupancy, cell, footprint, id)
+			for _, covered in PlacementRules.footprintCells(cell, footprint) do
+				occupancy[PlacementRules.occupancyKey(covered)] = id
+			end
+		end
+		it(
+			"steps one footprint along the columns first",
+			function()
+				local occupancy = {}
+				occupy(occupancy, { column = 3, row = 2 }, { 2, 1 }, "Placement1")
+				local nextCell = PlacementRules.nextFreeAnchor(grid, occupancy, { column = 3, row = 2 }, { 2, 1 })
+				expect(nextCell.column).toBe(5)
+				expect(nextCell.row).toBe(2)
+			end
+		)
+		it(
+			"goes the other way, then along the rows, when the first side is taken or off the grid",
+			function()
+				local occupancy = {}
+				occupy(occupancy, { column = 9, row = 2 }, { 2, 1 }, "Placement1")
+				local back = PlacementRules.nextFreeAnchor(grid, occupancy, { column = 9, row = 2 }, { 2, 1 })
+				expect(back.column).toBe(7)
+				expect(back.row).toBe(2)
+				occupy(occupancy, { column = 7, row = 2 }, { 2, 1 }, "Placement2")
+				local along = PlacementRules.nextFreeAnchor(grid, occupancy, { column = 9, row = 2 }, { 2, 1 })
+				expect(along.column).toBe(9)
+				expect(along.row).toBe(3)
+			end
+		)
+		it(
+			"is nil when nothing near is free",
+			function()
+				local occupancy = {}
+				for column = 1, grid.columns do
+					for row = 1, grid.rows do
+						occupancy[PlacementRules.occupancyKey({ column = column, row = row })] = "Placement1"
+					end
+				end
+				expect(PlacementRules.nextFreeAnchor(grid, occupancy, { column = 3, row = 2 }, { 1, 1 })).toBeNil()
 			end
 		)
 	end
@@ -241,11 +291,26 @@ describe(
 			end
 		)
 		it(
-			"prices a build and a trap consumes instead",
+			"prices a Tower and a Trap alike, in Iron at the build",
 			function()
 				local catalog = makeCatalog()
 				expect(PlacementRules.buildPrice(catalog, Enums.PlacementKind.TOWER, Enums.TowerKind.SENTRY_GUN)).toBe(20)
-				expect(PlacementRules.buildPrice(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.SPIKE_TRAP)).toBe(0)
+				expect(PlacementRules.buildPrice(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.SPIKE_TRAP)).toBe(15)
+				expect(PlacementRules.buildPrice(catalog, Enums.PlacementKind.TRAP, 99)).toBe(0)
+				expect(PlacementRules.requiredCampLevel(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.SPIKE_TRAP)).toBe(1)
+				expect(PlacementRules.requiredCampLevel(catalog, Enums.PlacementKind.TOWER, Enums.TowerKind.SENTRY_GUN)).toBe(1)
+			end
+		)
+		it(
+			"lets the Hammer repair every Tower and only the Traps marked for it",
+			function()
+				local catalog = makeCatalog()
+				expect(PlacementRules.isRepairable(catalog, Enums.PlacementKind.TOWER, Enums.TowerKind.SENTRY_GUN)).toBe(true)
+				expect(PlacementRules.isRepairable(catalog, Enums.PlacementKind.TOWER, 99)).toBe(false)
+				expect(PlacementRules.isRepairable(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.SPIKE_TRAP)).toBe(false)
+				catalog.traps[Enums.TrapKind.WALL] = { PRICE_IRON = 12, MAX_HP = 300, FOOTPRINT_CELLS = { 4, 1 }, REQUIRED_CAMP_LEVEL = 1, IS_REPAIRABLE = true }
+				expect(PlacementRules.isRepairable(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.WALL)).toBe(true)
+				expect(PlacementRules.isRepairable(catalog, Enums.PlacementKind.TRAP, 99)).toBe(false)
 				expect(PlacementRules.maxHpFor(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.SPIKE_TRAP, 1)).toBe(120)
 				expect(PlacementRules.footprintFor(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.SPIKE_TRAP)[1]).toBe(2)
 				expect(PlacementRules.footprintFor(catalog, Enums.PlacementKind.TOWER, 99)).toBeNil()
@@ -285,22 +350,6 @@ describe(
 )
 
 describe(
-	"PlacementRules traps carried",
-	function()
-		it(
-			"counts kinds and allows a fourth of a carried kind only",
-			function()
-				local counts = { [Enums.TrapKind.SPIKE_TRAP] = 2, [Enums.TrapKind.GOO_PIT] = 1, [Enums.TrapKind.DECOY] = 1 }
-				expect(PlacementRules.countTrapKinds(counts)).toBe(3)
-				expect(PlacementRules.canCarryTrap(counts, Enums.TrapKind.SPIKE_TRAP, 3)).toBe(true)
-				expect(PlacementRules.canCarryTrap(counts, Enums.TrapKind.LAND_MINE, 3)).toBe(false)
-				expect(PlacementRules.canCarryTrap({}, Enums.TrapKind.LAND_MINE, 3)).toBe(true)
-			end
-		)
-	end
-)
-
-describe(
 	"PlacementRules codecs",
 	function()
 		it(
@@ -310,16 +359,6 @@ describe(
 				expect(PlacementRules.decodeTowerLoadout(encoded)).toEqual({ Enums.TowerKind.SENTRY_GUN, Enums.TowerKind.AA_TURRET })
 				expect(PlacementRules.decodeTowerLoadout("[99, \"x\"]")).toEqual({})
 				expect(PlacementRules.decodeTowerLoadout(nil)).toEqual({})
-			end
-		)
-		it(
-			"round-trips trap counts with numeric keys",
-			function()
-				local counts = { [Enums.TrapKind.SPIKE_TRAP] = 2, [Enums.TrapKind.BEAR_TRAP] = 1 }
-				local decoded = PlacementRules.decodeTrapCounts(PlacementRules.encodeTrapCounts(counts))
-				expect(decoded[Enums.TrapKind.SPIKE_TRAP]).toBe(2)
-				expect(decoded[Enums.TrapKind.BEAR_TRAP]).toBe(1)
-				expect(PlacementRules.decodeTrapCounts("")).toEqual({})
 			end
 		)
 		it(
@@ -342,6 +381,77 @@ describe(
 				expect(decoded.towers[Enums.TowerKind.SENTRY_GUN].STATS_BY_LEVEL[2].DAMAGE).toBe(8)
 				expect(decoded.traps[Enums.TrapKind.SPIKE_TRAP].PRICE_IRON).toBe(15)
 				expect(PlacementRules.decodeCatalog("nope")).toBeNil()
+			end
+		)
+	end
+)
+
+describe(
+	"PlacementRules.reservedCells",
+	function()
+		local grid = PlacementRules.measureZone(ZONE_CFRAME, ZONE_SIZE, CELL)
+		-- a wall standing across the first column, tall, 2 studs thick
+		local wall = {
+			cframe = CFrame.new(-18, 5, 0),
+			size = Vector3.new(4, 11, 24),
+		}
+		it(
+			"keeps the cells under and beside a box clear, measured across the ground",
+			function()
+				local cells = PlacementRules.reservedCells(grid, { wall }, 2 * CELL)
+				local keys = {}
+				for _, cell in cells do
+					keys[PlacementRules.occupancyKey(cell)] = true
+				end
+				-- column 1 is under the wall; columns 2 and 3 are the two squares
+				-- beside it (centres 2 and 6 studs off its face); column 4 is free
+				expect(keys["1,1"]).toBe(true)
+				expect(keys["2,3"]).toBe(true)
+				expect(keys["3,3"]).toBe(true)
+				expect(keys["4,3"]).toBeNil()
+				expect(#cells).toBe(3 * grid.rows)
+			end
+		)
+		it(
+			"follows a turned box",
+			function()
+				local turned = {
+					cframe = CFrame.new(0, 0, 0) * CFrame.Angles(0, math.rad(45), 0),
+					size = Vector3.new(2, 11, 60),
+				}
+				local cells = PlacementRules.reservedCells(grid, { turned }, CELL)
+				local keys = {}
+				for _, cell in cells do
+					keys[PlacementRules.occupancyKey(cell)] = true
+				end
+				-- the diagonal through the centre is reserved, a far corner is not
+				expect(keys["5,3"]).toBe(true)
+				expect(keys["6,4"]).toBe(true)
+				expect(keys["1,6"]).toBeNil()
+				expect(keys["10,1"]).toBeNil()
+			end
+		)
+		it(
+			"reserves cells so canPlace and nextFreeAnchor step around them",
+			function()
+				local occupancy = {}
+				PlacementRules.reserve(occupancy, PlacementRules.reservedCells(grid, { wall }, 2 * CELL))
+				expect(PlacementRules.canPlace(grid, occupancy, { column = 3, row = 1 }, { 1, 1 })).toBe(false)
+				expect(PlacementRules.canPlace(grid, occupancy, { column = 4, row = 1 }, { 1, 1 })).toBe(true)
+				local nextCell = PlacementRules.nextFreeAnchor(grid, occupancy, { column = 1, row = 1 }, { 1, 1 })
+				expect(nextCell).toEqual({ column = 4, row = 1 })
+			end
+		)
+		it(
+			"round-trips through the attribute codec",
+			function()
+				local cells = { { column = 1, row = 2 }, { column = 10, row = 6 } }
+				local encoded = PlacementRules.encodeCells(cells)
+				expect(encoded).toBe("1,2;10,6")
+				expect(PlacementRules.decodeCells(encoded)).toEqual(cells)
+				expect(PlacementRules.decodeCells("")).toEqual({})
+				expect(PlacementRules.decodeCells(nil)).toEqual({})
+				expect(PlacementRules.decodeCells("x,y;3,4")).toEqual({ { column = 3, row = 4 } })
 			end
 		)
 	end

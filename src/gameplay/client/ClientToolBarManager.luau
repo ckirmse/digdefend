@@ -41,8 +41,8 @@ export type ClientToolBarManager = typeof(setmetatable(
 		countByTool: { [number]: number },
 		equipped: number,
 		slotViews: { SlotView },
-		-- Build Mode (ClientPlacementToolManager) stands in for the bar:
-		-- the row hides and the number keys and bumpers are its to read
+		-- Build Mode (ClientDefenseTableManager) stands in for the bar:
+		-- the row hides and the number keys are its to read
 		isHidden: boolean,
 	},
 	ClientToolBarManager
@@ -108,7 +108,6 @@ local CAPTION_BY_TOOL: { [number]: string } = {
 	[Enums.ToolKind.TORCH] = "Light",
 	[Enums.ToolKind.DYNAMITE] = "Blast",
 	[Enums.ToolKind.HAMMER] = "Repair",
-	[Enums.ToolKind.DEFENSES] = "Build",
 }
 
 function ClientToolBarManager:renderSlots()

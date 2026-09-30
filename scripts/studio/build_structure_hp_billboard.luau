@@ -171,5 +171,73 @@ costIcon.Parent = costRow
 addCostText(Constants.STRUCTURE_HP_COST_GAIN_LABEL, "for 10 HP", 0, 0.44, 0.56, Enum.TextXAlignment.Left)
 
 billboard.Parent = guiFolder
+
+-- the Refinery's own copy (2026-09-30): the same bar under a name row half
+-- as tall again, holding the compass's home icon and the name as one
+-- centred pair, so the icon on the compass can be matched to the building
+local REFINERY_NAME_SCALE = 1.5
+local existingRefinery = guiFolder:FindFirstChild(Constants.STRUCTURE_HP_REFINERY_BILLBOARD)
+if existingRefinery then
+	existingRefinery:Destroy()
+end
+local refineryBillboard = billboard:Clone()
+refineryBillboard.Name = Constants.STRUCTURE_HP_REFINERY_BILLBOARD
+-- the taller row rises out of the top of the billboard's box
+refineryBillboard.ClipsDescendants = false
+local refineryRoot = refineryBillboard:FindFirstChild(Constants.STRUCTURE_HP_ROOT_FRAME)
+local refineryName = refineryRoot:FindFirstChild(Constants.STRUCTURE_HP_NAME_LABEL)
+local nameHeight = refineryName.Size.Y.Scale
+
+-- bottom edge where the plain name's was, so the bar below does not move
+local nameRow = Instance.new("Frame")
+nameRow.Name = Constants.STRUCTURE_HP_NAME_ROW
+nameRow.AnchorPoint = Vector2.new(0.5, 1)
+nameRow.Position = UDim2.fromScale(0.5, nameHeight)
+nameRow.Size = UDim2.fromScale(1, nameHeight * REFINERY_NAME_SCALE)
+nameRow.BackgroundTransparency = 1
+local nameRowLayout = Instance.new("UIListLayout")
+nameRowLayout.FillDirection = Enum.FillDirection.Horizontal
+nameRowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+nameRowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+nameRowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+nameRowLayout.Padding = UDim.new(0.015, 0)
+nameRowLayout.Parent = nameRow
+
+-- a list layout centres boxes, but capital letters sit above the middle of
+-- their box; the holder is the layout's square and the icon inside it is
+-- a little smaller and raised, so it lines up with the letters (2026-09-30)
+local homeIconHolder = Instance.new("Frame")
+homeIconHolder.Name = "HomeIconHolder"
+homeIconHolder.LayoutOrder = 1
+homeIconHolder.Size = UDim2.fromScale(1, 1)
+homeIconHolder.BackgroundTransparency = 1
+local homeIconAspect = Instance.new("UIAspectRatioConstraint")
+homeIconAspect.AspectRatio = 1
+homeIconAspect.DominantAxis = Enum.DominantAxis.Height
+homeIconAspect.Parent = homeIconHolder
+homeIconHolder.Parent = nameRow
+
+local homeIcon = Instance.new("ImageLabel")
+homeIcon.Name = Constants.STRUCTURE_HP_HOME_ICON
+homeIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+homeIcon.Position = UDim2.fromScale(0.5, 0.45)
+homeIcon.Size = UDim2.fromScale(0.88, 0.88)
+homeIcon.BackgroundTransparency = 1
+homeIcon.Image = Icons.UI.COMPASS_HOME
+homeIcon.ScaleType = Enum.ScaleType.Fit
+homeIcon.Parent = homeIconHolder
+
+-- the label hugs its text so the icon and the name centre as one pair
+refineryName.LayoutOrder = 2
+refineryName.Position = UDim2.fromScale(0, 0)
+refineryName.Size = UDim2.fromScale(0, 1)
+refineryName.AutomaticSize = Enum.AutomaticSize.X
+refineryName.Text = UiStyle.formatTitle("Refinery")
+local refineryNameBounds = refineryName:FindFirstChildOfClass("UITextSizeConstraint")
+refineryNameBounds.MaxTextSize = math.floor(refineryNameBounds.MaxTextSize * REFINERY_NAME_SCALE)
+refineryName.Parent = nameRow
+nameRow.Parent = refineryRoot
+refineryBillboard.Parent = guiFolder
+
 ChangeHistoryService:SetWaypoint("After StructureHp billboard")
-print("build_structure_hp_billboard: built " .. billboard:GetFullName())
+print("build_structure_hp_billboard: built " .. billboard:GetFullName() .. " and " .. refineryBillboard:GetFullName())

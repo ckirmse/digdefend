@@ -20,6 +20,11 @@ local StoreRules = {}
 export type UpgradeTrack = {
 	priceByLevel: { number },
 	requiredCampLevelByLevel: { number },
+	-- true when level 1 is not having the item at all (Compass, Geiger
+	-- Counter) rather than the starter everyone carries (Pick Axe): the
+	-- first buy is then the item itself, shown by its bare name, and the
+	-- player's level counts from there ("Geiger Counter 2" is the first upgrade)
+	startsUnowned: boolean?,
 }
 
 -- a consumable: one buy grants `amount` of `tool`
@@ -38,12 +43,19 @@ export type Offer = {
 	status: number,
 	-- the level the buy would reach, nil for consumables and when maxed
 	level: number?,
+	-- the number the stand shows after the name; nil for a bare name (a
+	-- consumable, or the first buy of a track that starts unowned)
+	nameLevel: number?,
 	price: number?,
 	-- the Camp Level an upgrade offer needs, met or not; nil otherwise
 	requiredCampLevel: number?,
+	-- true for a track with a single rung (the Compass): bought once, so
+	-- the stand shows no level number and reads "Owned" afterwards
+	isSinglePurchase: boolean?,
 }
 
 StoreRules.MAXED_TEXT = "Maxed out"
+StoreRules.OWNED_TEXT = "Owned"
 StoreRules.LOCKED_FORMAT = "Camp Level %d required"
 
 -- the Camp Level an upgrade offer needs, whether or not it is met; nil for
@@ -58,6 +70,8 @@ StoreRules.LEVEL_ATTRIBUTE_BY_ITEM = {
 	[Enums.StoreItem.BOOTS] = Attributes.BOOTS_LEVEL,
 	[Enums.StoreItem.BACKPACK] = Attributes.BACKPACK_LEVEL,
 	[Enums.StoreItem.JET_PACK] = Attributes.JET_PACK_LEVEL,
+	[Enums.StoreItem.COMPASS] = Attributes.COMPASS_LEVEL,
+	[Enums.StoreItem.GEIGER_COUNTER] = Attributes.GEIGER_COUNTER_LEVEL,
 }
 
 -- "PickAxeStand" from "PICK_AXE": the Studio model name of a stand, for
@@ -85,18 +99,33 @@ function StoreRules.requiredCampLevel(track: UpgradeTrack, targetLevel: number):
 	return if typeof(required) == "number" then required else 1
 end
 
+-- level 1 is owning nothing, so two entries are one buy and no upgrades
+function StoreRules.isSinglePurchase(track: UpgradeTrack): boolean
+	return track.startsUnowned == true and #track.priceByLevel == 2
+end
+
 function StoreRules.getUpgradeOffer(track: UpgradeTrack, ownedLevel: number, campLevel: number): Offer
 	local targetLevel = math.floor(ownedLevel) + 1
 	local price = track.priceByLevel[targetLevel]
+	local isSinglePurchase = StoreRules.isSinglePurchase(track)
 	if price == nil then
-		return { status = Enums.StoreOffer.MAXED }
+		return {
+			status = Enums.StoreOffer.MAXED,
+			isSinglePurchase = isSinglePurchase,
+		}
 	end
 	local required = StoreRules.requiredCampLevel(track, targetLevel)
+	local nameLevel: number? = targetLevel
+	if track.startsUnowned then
+		nameLevel = if targetLevel > 2 then targetLevel - 1 else nil
+	end
 	return {
 		status = if campLevel < required then Enums.StoreOffer.LOCKED else Enums.StoreOffer.AVAILABLE,
 		level = targetLevel,
+		nameLevel = nameLevel,
 		price = price,
 		requiredCampLevel = required,
+		isSinglePurchase = isSinglePurchase,
 	}
 end
 
@@ -125,21 +154,36 @@ function StoreRules.canAfford(gold: number, price: number): boolean
 end
 
 -- the stand's headline: "PICK AXE 3" for the next level, the item name for
--- consumables, and "Maxed out" (formatted by the caller) at the top
+-- consumables, and "Maxed out" (formatted by the caller) at the top; a
+-- single purchase is its bare name, then "Owned"
 function StoreRules.nameText(item: number, offer: Offer): string
 	local name = Enums.getPublicName(Enums.StoreItem, item) or "?"
 	if offer.status == Enums.StoreOffer.MAXED then
-		return StoreRules.MAXED_TEXT
+		return if offer.isSinglePurchase then StoreRules.OWNED_TEXT else StoreRules.MAXED_TEXT
 	end
-	if offer.level then
-		return `{name} {offer.level}`
+	if offer.nameLevel then
+		return `{name} {offer.nameLevel}`
 	end
 	return name
 end
 
--- JSON keys are strings, so numeric item keys are restored on decode
+-- JSON keys are strings, so numeric item keys are restored on decode. They
+-- are written as strings on purpose: the encoder turns a table keyed 1..n
+-- into a list and drops every other numeric key, which lost the Compass
+-- (item 7) when the tracks were items 1 to 4 (2026-09-30)
 function StoreRules.encodeCatalog(catalog: Catalog): string
-	return HttpService:JSONEncode(catalog)
+	local upgrades: { [string]: UpgradeTrack } = {}
+	for item, track in catalog.upgrades do
+		upgrades[tostring(item)] = track
+	end
+	local consumables: { [string]: Consumable } = {}
+	for item, consumable in catalog.consumables do
+		consumables[tostring(item)] = consumable
+	end
+	return HttpService:JSONEncode({
+		upgrades = upgrades,
+		consumables = consumables,
+	})
 end
 
 function StoreRules.decodeCatalog(encoded: any): Catalog?
@@ -157,6 +201,7 @@ function StoreRules.decodeCatalog(encoded: any): Catalog?
 			catalog.upgrades[item] = {
 				priceByLevel = track.priceByLevel,
 				requiredCampLevelByLevel = if typeof(track.requiredCampLevelByLevel) == "table" then track.requiredCampLevelByLevel else {},
+				startsUnowned = track.startsUnowned == true,
 			}
 		end
 	end

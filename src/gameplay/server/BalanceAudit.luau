@@ -109,6 +109,7 @@ function BalanceAudit:zoneSupplies(map: number, difficulty: number): { BalanceMo
 end
 
 function BalanceAudit:buildInput(map: number, difficulty: number, crew: number, nights: number): BalanceModel.Input?
+	local defaultPost = PostWeaponsData.BY_KIND[PostWeaponsData.DEFAULT_POST_WEAPON]
 	local zones = self:zoneSupplies(map, difficulty)
 	local waves = WavesRegistryData[map]
 	local settings = if waves then waves.GENERATOR[difficulty] else nil
@@ -176,6 +177,9 @@ function BalanceAudit:buildInput(map: number, difficulty: number, crew: number, 
 			requiredCampLevelByLevel = LevelData.POST_UPGRADE_REQUIRED_CAMP_LEVEL_BY_LEVEL,
 			damageBonusPerLevel = PostWeaponsData.BONUS_PER_LEVEL_BY_ATTRIBUTE[Enums.PostAttribute.DAMAGE],
 			fireRateBonusPerLevel = PostWeaponsData.BONUS_PER_LEVEL_BY_ATTRIBUTE[Enums.PostAttribute.FIRE_RATE],
+			cooldownBonusPerLevel = if defaultPost.HEAT then PostWeaponsData.BONUS_PER_LEVEL_BY_ATTRIBUTE[Enums.PostAttribute.COOLDOWN] else nil,
+			heatFullSec = if defaultPost.HEAT then defaultPost.HEAT.FULL_SEC else nil,
+			heatCoolSec = if defaultPost.HEAT then defaultPost.HEAT.COOL_SEC else nil,
 		},
 		towerKinds = towerKinds,
 		towerByKind = TowersData.BY_KIND,
@@ -207,7 +211,7 @@ function BalanceAudit:describe(map: number, difficulty: number, crew: number): {
 	end
 	local failures = BalanceModel.checkTargets(label(map, difficulty, crew), result, BalanceData.TARGET_NIGHTS[difficulty] or 0, nil, if crew == 1 then BalanceData.TARGET_NIGHT_TOLERANCE else BalanceData.CREW_TARGET_NIGHT_TOLERANCE)
 	if crew == 1 then
-		for _, failure in BalanceModel.checkWallPressure(label(map, difficulty, crew), result, BalanceData.BREACH_NIGHT[difficulty]) do
+		for _, failure in BalanceModel.checkWallPressure(label(map, difficulty, crew), result, BalanceData.BREACH_NIGHT[difficulty], BalanceData.MAX_WALL_DAMAGE_SHARE, BalanceData.TARGET_NIGHTS[difficulty]) do
 			table.insert(failures, failure)
 		end
 		for _, failure in BalanceModel.checkGold(label(map, difficulty, crew), result, BalanceData.GOLD_BY_NIGHT_1) do
@@ -248,7 +252,7 @@ function BalanceAudit:auditAll(): { string }
 					table.insert(failures, failure)
 				end
 				if crew == 1 then
-					for _, failure in BalanceModel.checkWallPressure(runLabel, result, BalanceData.BREACH_NIGHT[difficulty]) do
+					for _, failure in BalanceModel.checkWallPressure(runLabel, result, BalanceData.BREACH_NIGHT[difficulty], BalanceData.MAX_WALL_DAMAGE_SHARE, BalanceData.TARGET_NIGHTS[difficulty]) do
 						table.insert(failures, failure)
 					end
 					for _, failure in BalanceModel.checkGold(runLabel, result, BalanceData.GOLD_BY_NIGHT_1) do

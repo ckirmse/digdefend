@@ -205,12 +205,23 @@ function ClientWeaponManager:playFireEffects(weaponKind: number, from: Vector3, 
 end
 
 -- where this client's own world stops the ray: it has the mine's rocks,
--- which the server does not, so the tracer ends where the player sees it end
+-- which the server does not, so the tracer ends where the player sees it
+-- end. Like the server, a bullet flies through the fortifications and the
+-- mounted guns (Constants.BULLET_PASS_THROUGH_CAMP_CHILDREN)
 function ClientWeaponManager:findLocalEnd(origin: Vector3, unitDirection: Vector3, rangeStuds: number): (Vector3, Vector3?, Instance?)
 	local excluded: { Instance } = {}
 	for _, other in Players:GetPlayers() do
 		if other.Character then
 			table.insert(excluded, other.Character)
+		end
+	end
+	local camp = workspace:FindFirstChild(Constants.CAMP_FOLDER)
+	if camp then
+		for _, childName in Constants.BULLET_PASS_THROUGH_CAMP_CHILDREN do
+			local child = camp:FindFirstChild(childName)
+			if child then
+				table.insert(excluded, child)
+			end
 		end
 	end
 	local params = RaycastParams.new()

@@ -187,7 +187,8 @@ function ClientSoundManager:attachLoop(part: BasePart, name: string, fullVolumeS
 	return player
 end
 
--- one looping player that many emitters share (every uranium rock's hum):
+-- one looping player that many emitters share (built for the uranium hum,
+-- which the Geiger Counter replaced on 2026-09-30; kept for the next one):
 -- the sound is decoded once and each emitter is only a voice at a position,
 -- so the count of emitters is what costs, never the count of players.
 -- Returns nil when the sound is not authored yet; the caller keeps the

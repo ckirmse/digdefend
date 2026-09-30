@@ -314,6 +314,22 @@ describe(
 			end
 		)
 		it(
+			"adds the cooldown rung for a gun with heat and rates its firing share",
+			function()
+				local ladder = { priceByLevel = { 10, 20 }, requiredCampLevelByLevel = { 1, 1 }, damageBonusPerLevel = 0.25, fireRateBonusPerLevel = 0.2, cooldownBonusPerLevel = 1 / 6, heatFullSec = 4, heatCoolSec = 3 }
+				local damageLevel, rateLevel, spent, cooldownLevel = BalanceModel.affordablePostLevels(35, ladder, 1)
+				expect(damageLevel).toBe(1)
+				expect(rateLevel).toBe(1)
+				expect(cooldownLevel).toBe(1)
+				expect(spent).toBe(30)
+				-- no rung: no change; two rungs cut 3 s of cooling to 2 s
+				expect(BalanceModel.cooldownFactor(ladder, 0)).toBeCloseTo(1, 5)
+				expect(BalanceModel.cooldownFactor(ladder, 2)).toBeCloseTo((4 / 6) / (4 / 7), 5)
+				-- a post without heat is untouched
+				expect(BalanceModel.cooldownFactor({ priceByLevel = {}, requiredCampLevelByLevel = {}, damageBonusPerLevel = 0, fireRateBonusPerLevel = 0 }, 3)).toBe(1)
+			end
+		)
+		it(
 			"mans a post over the handheld once its upgrades make it better",
 			function()
 				local ladder = { priceByLevel = { 10 }, requiredCampLevelByLevel = { 1 }, damageBonusPerLevel = 1, fireRateBonusPerLevel = 1 }

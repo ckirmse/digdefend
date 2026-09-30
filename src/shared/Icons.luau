@@ -41,7 +41,6 @@ Icons.POST_WEAPON_RETICLE = {
 Icons.TOOL = {
 	[Enums.ToolKind.PICK_AXE] = "rbxassetid://80581106612931",
 	[Enums.ToolKind.HAMMER] = "rbxassetid://96069694494045",
-	[Enums.ToolKind.DEFENSES] = "rbxassetid://72202536661953",
 }
 
 -- the WEAPON slot's picture, by the Enums.WeaponKind carried
@@ -60,6 +59,8 @@ Icons.UI = {
 	CLOCK_DAY = "rbxassetid://98516537326926",
 	CLOCK_DUSK = "rbxassetid://91444734897924",
 	CLOCK_NIGHT = "rbxassetid://72038436524050",
+	-- the compass's Refinery marker (designer's art, 2026-09-30)
+	COMPASS_HOME = "rbxassetid://98277990053980",
 }
 
 function Icons.isPlaceholder(id: string?): boolean

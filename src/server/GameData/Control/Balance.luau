@@ -39,6 +39,12 @@ return {
 		[Enums.Difficulty.HARD] = 2,
 		[Enums.Difficulty.NIGHTMARE] = 2,
 	},
+	-- the most a night's leak may do to the most-hit wall, as a share of
+	-- its HP, on any night up to the target (2026-09-30): a breach is
+	-- meant to be rebuilt from, and the Refinery stands behind the walls,
+	-- so a night that would knock down several walls' worth is a loss the
+	-- clearable-in-time check never saw (the ninth playtest, night 4 at 365%)
+	MAX_WALL_DAMAGE_SHARE = 1.5,
 	-- Gold a player should hold by the end of night 1 (decided 2026-09-28):
 	-- enough for a first mining or post upgrade, and about one a day after
 	-- (20 since the upgrade ladders doubled in price and effect the same

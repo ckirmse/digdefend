@@ -579,7 +579,7 @@ function PostManager:fire(player: Player, origin: Vector3, direction: Vector3)
 		self:launchRocket(post, player, origin, unitDirection, stats, data.PROJECTILE)
 		return
 	end
-	local worldDistance = WeaponManager:getWorldDistance(origin, unitDirection, stats.rangeStuds)
+	local worldDistance = WeaponManager:getWorldDistance(origin, unitDirection, stats.rangeStuds, true)
 	local hitId, hitDistance = WeaponRules.findClosestHit(origin, unitDirection, worldDistance, DamageableManager:getHitBoxes())
 	local endDistance = hitDistance or worldDistance
 	if hitId then
@@ -649,7 +649,7 @@ function PostManager:stepRockets(deltaSec: number)
 	local survivors = {}
 	for _, rocket in self.rockets do
 		local step = math.min(rocket.speedStudsPerSec * deltaSec, rocket.rangeStuds - rocket.travelledStuds)
-		local worldDistance = WeaponManager:getWorldDistance(rocket.position, rocket.unitDirection, step)
+		local worldDistance = WeaponManager:getWorldDistance(rocket.position, rocket.unitDirection, step, false)
 		local _hitId, hitDistance = WeaponRules.findClosestHit(rocket.position, rocket.unitDirection, worldDistance, hitBoxes)
 		local endDistance = hitDistance or worldDistance
 		local isBurst = hitDistance ~= nil or worldDistance < step or rocket.travelledStuds + step >= rocket.rangeStuds

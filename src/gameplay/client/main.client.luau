@@ -7,9 +7,11 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientActionButtonManager = require(script.Parent.ClientActionButtonManager)
 local ClientAimManager = require(script.Parent.ClientAimManager)
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
+local ClientCompassManager = require(script.Parent.ClientCompassManager)
 local ClientDamageableManager = require(script.Parent.ClientDamageableManager)
-local ClientDefenseStoreManager = require(script.Parent.ClientDefenseStoreManager)
+local ClientDefenseTableManager = require(script.Parent.ClientDefenseTableManager)
 local ClientDynamiteManager = require(script.Parent.ClientDynamiteManager)
+local ClientGeigerCounterManager = require(script.Parent.ClientGeigerCounterManager)
 local ClientIconFlightManager = require(script.Parent.ClientIconFlightManager)
 local ClientImpactManager = require(script.Parent.ClientImpactManager)
 local ClientJetPackManager = require(script.Parent.ClientJetPackManager)
@@ -21,9 +23,9 @@ local ClientMiningStoreManager = require(script.Parent.ClientMiningStoreManager)
 local ClientMonsterDevTools = require(script.Parent.ClientMonsterDevTools)
 local ClientMonsterManager = require(script.Parent.ClientMonsterManager)
 local ClientOrePickupManager = require(script.Parent.ClientOrePickupManager)
+local ClientPlayerNameManager = require(script.Parent.ClientPlayerNameManager)
 local ClientPlacementDevTools = require(script.Parent.ClientPlacementDevTools)
 local ClientPlacementManager = require(script.Parent.ClientPlacementManager)
-local ClientPlacementToolManager = require(script.Parent.ClientPlacementToolManager)
 local ClientRescueManager = require(script.Parent.ClientRescueManager)
 local ClientRunCycleManager = require(script.Parent.ClientRunCycleManager)
 local ClientTowerBehaviorManager = require(script.Parent.ClientTowerBehaviorManager)
@@ -79,18 +81,25 @@ ClientPostUpgradeManager:init()
 -- after the targets and the posts: it registers with the first as the
 -- monsters' body provider and borrows the second's blast effect
 ClientMonsterManager:init()
--- placements (M26): the bodies and billboards first, then the build bar
--- and preview that read them, then the menu and the store stands
+-- placements (M26): the bodies and billboards first; the Tower Menu and
+-- the Defense Table that read them come further down
 ClientPlacementManager:init()
-ClientPlacementToolManager:init()
 -- after the placements and the targets, whose bodies the effects run between
 ClientTowerBehaviorManager:init()
 ClientTrapBehaviorManager:init()
 -- the day clock reads GameMetadata the server set before anyone was Ready
 ClientRunCycleManager:init()
+-- the locator bar that hangs under the day clock
+ClientCompassManager:init()
+-- the uranium dial beside the day clock; it asks the mine manager for distances
+ClientGeigerCounterManager:init()
+-- crewmates' overhead names, in their compass dot colours
+ClientPlayerNameManager:init()
 ClientRescueManager:init()
 ClientTowerMenuManager:init()
-ClientDefenseStoreManager:init()
+-- Build Mode's overhead view: after the placements it taps, the Tower Menu
+-- it opens, and the tool bar it hides
+ClientDefenseTableManager:init()
 -- after the tool managers it dispatches to
 ClientActionButtonManager:init()
 ClientJetPackManager:init()

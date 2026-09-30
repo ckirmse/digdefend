@@ -128,9 +128,6 @@ module = {
 		-- equipping it is Repair Mode (M23): structure HP shows and every
 		-- swing repairs what the reticle is on
 		HAMMER = 5,
-		-- Build Mode (M26): no held model; equipping it swaps the tool
-		-- bar for the Tower and Trap loadout
-		DEFENSES = 6,
 
 		PublicNames = {
 			PICK_AXE = "Pick Axe",
@@ -138,7 +135,6 @@ module = {
 			TORCH = "Torch",
 			DYNAMITE = "Dynamite",
 			HAMMER = "Hammer",
-			DEFENSES = "Defenses",
 		},
 	},
 	-- handheld weapons (GDD S12), M24. The WEAPON tool slot holds one of
@@ -387,6 +383,8 @@ module = {
 		JET_PACK = 4,
 		TORCH = 5,
 		DYNAMITE = 6,
+		COMPASS = 7,
+		GEIGER_COUNTER = 8,
 
 		PublicNames = {
 			PICK_AXE = "Pick Axe",
@@ -395,6 +393,8 @@ module = {
 			JET_PACK = "Jet Pack",
 			TORCH = "Torch",
 			DYNAMITE = "Dynamite",
+			COMPASS = "Compass",
+			GEIGER_COUNTER = "Geiger Counter",
 		},
 	},
 	-- what a stand offers a given player right now (StoreRules.getOffer)

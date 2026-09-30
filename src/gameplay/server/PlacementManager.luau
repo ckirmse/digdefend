@@ -12,19 +12,20 @@
 -- (PlacementRules.measureZone) both sides run from the part.
 --
 -- A build is a TryBuildPlacement request naming the kind, the zone, and
--- the anchor cell; the server checks Build Mode (the Defenses tool
--- is equipped), that the
--- loadout brought the Tower or the inventory holds the Trap, the Tower
--- limit, that every cell is inside and free, the distance from the player,
--- and the Iron, then spawns the shadow. Selling a Tower and upgrading it
--- are requests from the Tower Menu; selling a Trap is its ProximityPrompt,
--- heard here directly. The Tower's own prompt only opens the menu on the
--- owner's client. HP goes down through damagePlacement (walkers held up
+-- the anchor cell; the server checks Build Mode (the player is at the
+-- Defense Table, DefenseTableManager), that the loadout brought the Tower
+-- or the Camp Level allows the Trap, the Tower limit, that every cell is
+-- inside and free, and the Iron, then spawns the shadow. Towers and Traps
+-- alike are paid for in Iron when they are placed (decided 2026-09-30:
+-- the Trap stands and the carried-Trap inventory are gone). Selling either
+-- and upgrading a Tower are requests from the table's view and the Tower
+-- Menu; a placement carries no prompt. HP goes down through damagePlacement (walkers held up
 -- by a barrier, TrapBehaviorManager; enemies at M29; a dev tool) and a
 -- placement at zero is gone. A Tower is repaired with the Hammer exactly
 -- like a wall (TryRepairTower, decided 2026-09-22): anyone, one chunk of
--- HP for a few Iron per swing, the wall's reach and cooldown; a Trap is a
--- consumable and never repaired. What a Tower or Trap does once it
+-- HP for a few Iron per swing, the wall's reach and cooldown. So is a Trap
+-- whose data says IS_REPAIRABLE (the Wall, 2026-09-30); any other Trap is
+-- a consumable and never repaired. What a Tower or Trap does once it
 -- stands is TowerBehaviorManager and TrapBehaviorManager (M27), which
 -- read the placements here and never touch the grid.
 local CollectionService = game:GetService("CollectionService")
@@ -37,6 +38,7 @@ local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PlacementRules = require("@game/ReplicatedStorage/Shared/PlacementRules")
 local StructureRules = require("@game/ReplicatedStorage/Shared/StructureRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
+local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
 local StructuresData = require("@game/ServerScriptService/GameData/Camp/Structures")
 local PlacementData = require("@game/ServerScriptService/GameData/Defenses/Placement")
 local TowersData = require("@game/ServerScriptService/GameData/Defenses/Towers")
@@ -45,9 +47,11 @@ local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
+local DefenseTableManager = require(script.Parent.DefenseTableManager)
 local MapManager = require(script.Parent.MapManager)
 local RefineryManager = require(script.Parent.RefineryManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
+local StructureManager = require(script.Parent.StructureManager)
 local ToolManager = require(script.Parent.ToolManager)
 
 local PlacementManager = {}
@@ -70,7 +74,6 @@ export type Placement = {
 	cframe: CFrame,
 	targetPriority: number,
 	shadow: BasePart,
-	promptConnection: RBXScriptConnection?,
 }
 
 type Zone = {
@@ -81,7 +84,6 @@ type Zone = {
 }
 
 type PlayerState = {
-	trapCounts: { [number]: number },
 	-- a dev tool's stand-in for the lobby loadout until the store exists
 	loadoutOverride: { number }?,
 }
@@ -112,6 +114,12 @@ local TRY_BUILD_PLACEMENT_SHAPE = {
 local TRY_SELL_PLACEMENT_SHAPE = {
 	id = "string",
 }
+local TRY_MOVE_PLACEMENT_SHAPE = {
+	id = "string",
+	zoneIndex = "positiveInteger",
+	column = "integer",
+	row = "integer",
+}
 local TRY_UPGRADE_TOWER_SHAPE = {
 	id = "string",
 }
@@ -129,7 +137,6 @@ local DEFAULT_TARGET_PRIORITY = Enums.TargetPriority.CLOSEST
 
 local FEEDBACK_NOT_ENOUGH_IRON = "You don't have enough Iron Bars"
 local FEEDBACK_TOWER_LIMIT_FORMAT = "You can only have %d Towers at once"
-local FEEDBACK_NO_TRAP_FORMAT = "You have no %s left"
 local FEEDBACK_SPOT_TAKEN = "That spot is taken"
 local FEEDBACK_NOT_IN_LOADOUT = "That Tower is not in your loadout"
 
@@ -154,43 +161,11 @@ function PlacementManager:getPlayerState(player: Player): PlayerState
 	local state = self.stateByPlayer[player]
 	if not state then
 		state = {
-			trapCounts = {},
 			loadoutOverride = nil,
 		}
 		self.stateByPlayer[player] = state
 	end
 	return state
-end
-
-function PlacementManager:getTrapCount(player: Player, kind: number): number
-	return self:getPlayerState(player).trapCounts[kind] or 0
-end
-
-function PlacementManager:getTrapCounts(player: Player): { [number]: number }
-	return self:getPlayerState(player).trapCounts
-end
-
--- the Defense Store hands Traps over through here
-function PlacementManager:addTrap(player: Player, kind: number, amount: number)
-	local state = self:getPlayerState(player)
-	if amount <= 0 or not Enums.isValidValue(Enums.TrapKind, kind) then
-		return
-	end
-	state.trapCounts[kind] = (state.trapCounts[kind] or 0) + amount
-	self:replicatePlayer(player)
-end
-
--- false when none are held, so a build never goes through unpaid
-function PlacementManager:consumeTrap(player: Player, kind: number): boolean
-	local state = self:getPlayerState(player)
-	local count = state.trapCounts[kind] or 0
-	if count <= 0 then
-		return false
-	end
-	count -= 1
-	state.trapCounts[kind] = if count > 0 then count else nil
-	self:replicatePlayer(player)
-	return true
 end
 
 -- dev tools: stands in for the three Defense loadout slots
@@ -224,9 +199,7 @@ function PlacementManager:countActiveTowers(player: Player): number
 end
 
 function PlacementManager:replicatePlayer(player: Player)
-	local state = self:getPlayerState(player)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.TOWER_LOADOUT, PlacementRules.encodeTowerLoadout(self:resolveTowerLoadout(player)))
-	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.TRAP_COUNTS, PlacementRules.encodeTrapCounts(state.trapCounts))
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.ACTIVE_TOWER_COUNT, self:countActiveTowers(player))
 end
 
@@ -284,35 +257,6 @@ function PlacementManager:getShadowFolder(): Folder?
 	return created
 end
 
--- the Trap's Sell prompt is heard here; the Tower's Upgrade/Sell prompt is
--- only a signal the owner's client turns into the menu. Both are created
--- here and enabled per viewer by the clients, since a prompt cannot be
--- shown to one player from the server
-function PlacementManager:configurePrompt(placement: Placement)
-	local prompt = Instance.new("ProximityPrompt")
-	-- a clickable prompt frees the mouse when hovered, which sticks the cursor in first person (2026-09-29)
-	prompt.ClickablePrompt = false
-	prompt.ObjectText = PlacementRules.publicName(placement.placementKind, placement.typeKind)
-	prompt.RequiresLineOfSight = false
-	prompt.Enabled = true
-	if placement.placementKind == Enums.PlacementKind.TOWER then
-		prompt.ActionText = TowersData.MENU_PROMPT_ACTION_TEXT
-		prompt.HoldDuration = 0
-		prompt.MaxActivationDistance = TowersData.PROMPT_MAX_DISTANCE_STUDS
-	else
-		local value = PlacementRules.sellValueFor(self.catalog, placement.placementKind, placement.typeKind, placement.level)
-		prompt.ActionText = string.format(TrapsData.SELL_PROMPT_ACTION_FORMAT, value)
-		prompt.HoldDuration = TrapsData.SELL_PROMPT_HOLD_SEC
-		prompt.MaxActivationDistance = TrapsData.SELL_PROMPT_MAX_DISTANCE_STUDS
-		placement.promptConnection = prompt.Triggered:Connect(
-			function(player: Player)
-				self:sell(player, placement.id)
-			end
-		)
-	end
-	prompt.Parent = placement.shadow
-end
-
 function PlacementManager:setOccupied(placement: Placement, isOccupied: boolean)
 	local zone = self.zonesByIndex[placement.zoneIndex]
 	if not zone then
@@ -357,12 +301,10 @@ function PlacementManager:spawn(player: Player, placementKind: number, typeKind:
 		cframe = cframe,
 		targetPriority = DEFAULT_TARGET_PRIORITY,
 		shadow = shadow,
-		promptConnection = nil,
 	}
 	self.placementsById[id] = placement
 	self:setOccupied(placement, true)
 	self:replicatePlacement(placement)
-	self:configurePrompt(placement)
 	CollectionService:AddTag(shadow, Tags.PLACEMENT)
 	shadow.Parent = folder
 	self:firePlacementsChanged()
@@ -375,9 +317,6 @@ function PlacementManager:remove(placement: Placement)
 	end
 	self.placementsById[placement.id] = nil
 	self:setOccupied(placement, false)
-	if placement.promptConnection then
-		placement.promptConnection:Disconnect()
-	end
 	placement.shadow:Destroy()
 	local owner = placement.owner
 	if owner and owner.Parent == Players then
@@ -387,10 +326,10 @@ function PlacementManager:remove(placement: Placement)
 end
 
 -- one build. Silent refusals are the cases an honest client never sends
--- (wrong tool, unknown kinds, out of reach); the rest are told, because
--- two players can race for the same cells
+-- (not at the table, unknown kinds); the rest are told, because two
+-- players can race for the same cells
 function PlacementManager:build(player: Player, placementKind: number, typeKind: number, zoneIndex: number, cell: PlacementRules.Cell)
-	if not GameController:isPlayerReady(player) or ToolManager:getEquippedTool(player) ~= Enums.ToolKind.DEFENSES then
+	if not GameController:isPlayerReady(player) or not DefenseTableManager:isInBuildMode(player) then
 		return
 	end
 	if not Enums.isValidValue(PlacementRules.typeEnumFor(placementKind), typeKind) then
@@ -400,15 +339,6 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 	local footprint = PlacementRules.footprintFor(self.catalog, placementKind, typeKind)
 	local zone = self.zonesByIndex[zoneIndex]
 	if not footprint or not zone then
-		return
-	end
-	local character = player.Character
-	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
-	if not root or not root:IsA("BasePart") then
-		return
-	end
-	local pose = PlacementRules.footprintCFrame(zone.grid, cell, footprint)
-	if not PlacementRules.isWithinBuildReach(root.Position, pose.Position, PlacementData.BUILD_MAX_DISTANCE_STUDS) then
 		return
 	end
 	if not PlacementRules.canPlace(zone.grid, zone.occupancy, cell, footprint) then
@@ -425,16 +355,20 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 			PlayerFeedbackManager:give(player, string.format(FEEDBACK_TOWER_LIMIT_FORMAT, allowance))
 			return
 		end
-		local price = PlacementRules.buildPrice(self.catalog, placementKind, typeKind)
-		if not PlacementRules.canAfford(RefineryManager:getIronBars(player), price) or not RefineryManager:spendIronBars(player, price) then
-			PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_IRON)
-			return
-		end
 	else
-		if not self:consumeTrap(player, typeKind) then
-			PlayerFeedbackManager:give(player, string.format(FEEDBACK_NO_TRAP_FORMAT, PlacementRules.publicName(placementKind, typeKind)))
+		local trap = self.catalog.traps[typeKind]
+		if not trap then
 			return
 		end
+		if RefineryManager:getCampLevel() < trap.REQUIRED_CAMP_LEVEL then
+			PlayerFeedbackManager:give(player, string.format(StoreRules.LOCKED_FORMAT, trap.REQUIRED_CAMP_LEVEL))
+			return
+		end
+	end
+	local price = PlacementRules.buildPrice(self.catalog, placementKind, typeKind)
+	if not PlacementRules.canAfford(RefineryManager:getIronBars(player), price) or not RefineryManager:spendIronBars(player, price) then
+		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_IRON)
+		return
 	end
 	local placement = self:spawn(player, placementKind, typeKind, zone, cell, footprint)
 	if not placement then
@@ -445,6 +379,40 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 		id = placement.id,
 	})
 	print(`[PlacementManager] {player.Name} built {PlacementRules.publicName(placementKind, typeKind)} ({placement.id}) in zone {zoneIndex} at {cell.column},{cell.row}`)
+end
+
+-- the owner sets one of their placements down on other cells from the
+-- Defense Table: free, and it keeps its level, HP, and target priority.
+-- Its own cells do not block it, so it can shift over by one. Silent
+-- refusals are the cases an honest client never sends
+function PlacementManager:move(player: Player, id: string, zoneIndex: number, cell: PlacementRules.Cell)
+	local placement = self.placementsById[id]
+	if not placement or not GameController:isPlayerReady(player) or placement.owner ~= player or not DefenseTableManager:isInBuildMode(player) then
+		return
+	end
+	local zone = self.zonesByIndex[zoneIndex]
+	if not zone then
+		return
+	end
+	if placement.zoneIndex == zoneIndex and placement.cell.column == cell.column and placement.cell.row == cell.row then
+		return
+	end
+	if not PlacementRules.canPlace(zone.grid, zone.occupancy, cell, placement.footprint, if placement.zoneIndex == zoneIndex then placement.id else nil) then
+		PlayerFeedbackManager:give(player, FEEDBACK_SPOT_TAKEN)
+		return
+	end
+	self:setOccupied(placement, false)
+	placement.zoneIndex = zoneIndex
+	placement.cell = cell
+	placement.cframe = PlacementRules.footprintCFrame(zone.grid, cell, placement.footprint)
+	self:setOccupied(placement, true)
+	placement.shadow.CFrame = placement.cframe * CFrame.new(0, SHADOW_HEIGHT_STUDS / 2, 0)
+	self:replicatePlacement(placement)
+	self:firePlacementsChanged()
+	NetManager:notifyClient(player, NetEventNames.NOTIFY_PLACEMENT_BUILT, {
+		id = placement.id,
+	})
+	print(`[PlacementManager] {player.Name} moved {id} to zone {zoneIndex} at {cell.column},{cell.row}`)
 end
 
 -- selling returns the share to the owner's Iron; only the builder may
@@ -499,12 +467,15 @@ function PlacementManager:setTargetPriority(player: Player, id: string, priority
 	self:replicatePlacement(placement)
 end
 
--- one Hammer swing at a Tower: the wall's checks (StructureManager
--- handleRepair) against the Tower's shadow. Silent refusals are the cases
--- an honest client never sends
-function PlacementManager:repairTower(player: Player, id: string)
+-- one Hammer swing at a Tower or a repairable Trap (the Wall): the camp
+-- wall's checks (StructureManager handleRepair) against the placement's
+-- shadow. Silent refusals are the cases an honest client never sends
+function PlacementManager:repairPlacement(player: Player, id: string)
 	local placement = self.placementsById[id]
-	if not placement or placement.placementKind ~= Enums.PlacementKind.TOWER or ToolManager:getEquippedTool(player) ~= Enums.ToolKind.HAMMER then
+	if not placement or ToolManager:getEquippedTool(player) ~= Enums.ToolKind.HAMMER then
+		return
+	end
+	if not PlacementRules.isRepairable(self.catalog, placement.placementKind, placement.typeKind) then
 		return
 	end
 	local character = player.Character
@@ -519,7 +490,7 @@ function PlacementManager:repairTower(player: Player, id: string)
 	if not StructureRules.canSwing(self.lastSwingTimeByPlayer[player], now, StructuresData.HAMMER_HIT_COOLDOWN_SEC) then
 		return
 	end
-	-- a Tower repairs at the first tier's chunk whatever its level
+	-- a placement repairs at the first tier's chunk whatever its level
 	local chunkHp, chunkIron = StructureRules.repairChunkForTier(StructuresData.REPAIR_CHUNK_HP_BY_TIER, StructuresData.REPAIR_CHUNK_IRON_BY_TIER, 1)
 	local gained, cost = StructureRules.repairChunk(placement.maxHp, placement.hp, chunkHp, chunkIron)
 	if gained <= 0 then
@@ -581,6 +552,12 @@ function PlacementManager:getNetHandlers()
 				self:sell(player, payload.id)
 			end,
 		},
+		[NetEventNames.TRY_MOVE_PLACEMENT] = {
+			shape = TRY_MOVE_PLACEMENT_SHAPE,
+			handler = function(player: Player, payload: { [string]: any })
+				self:move(player, payload.id, payload.zoneIndex, { column = payload.column, row = payload.row })
+			end,
+		},
 		[NetEventNames.TRY_UPGRADE_TOWER] = {
 			shape = TRY_UPGRADE_TOWER_SHAPE,
 			handler = function(player: Player, payload: { [string]: any })
@@ -596,14 +573,16 @@ function PlacementManager:getNetHandlers()
 		[NetEventNames.TRY_REPAIR_TOWER] = {
 			shape = TRY_REPAIR_TOWER_SHAPE,
 			handler = function(player: Player, payload: { [string]: any })
-				self:repairTower(player, payload.id)
+				self:repairPlacement(player, payload.id)
 			end,
 		},
 	}
 end
 
 -- the map's zone parts, numbered in name order so the key a client sends
--- means the same part on both sides
+-- means the same part on both sides. The cells nearest a wall, a post, or
+-- the gate are reserved before anything is built and published on the
+-- part, so the client greys the same cells (2026-09-30)
 function PlacementManager:bindZones()
 	self.zonesByIndex = {}
 	local camp = MapManager:getCamp()
@@ -624,40 +603,42 @@ function PlacementManager:bindZones()
 			return a.Name < b.Name
 		end
 	)
+	local fortificationBoxes = StructureManager:getFortificationBoxes()
+	local clearanceStuds = PlacementData.FORTIFICATION_CLEARANCE_CELLS * self.catalog.cellSizeStuds
 	for index, part in parts do
+		local grid = PlacementRules.measureZone(part.CFrame, part.Size, self.catalog.cellSizeStuds)
+		local reserved = PlacementRules.reservedCells(grid, fortificationBoxes, clearanceStuds)
+		local occupancy = {}
+		PlacementRules.reserve(occupancy, reserved)
 		part:SetAttribute(Attributes.DEFENSIVE_ZONE_INDEX, index)
+		part:SetAttribute(Attributes.DEFENSIVE_ZONE_RESERVED_CELLS, PlacementRules.encodeCells(reserved))
 		CollectionService:AddTag(part, Tags.DEFENSIVE_ZONE)
 		self.zonesByIndex[index] = {
 			index = index,
 			part = part,
-			grid = PlacementRules.measureZone(part.CFrame, part.Size, self.catalog.cellSizeStuds),
-			occupancy = {},
+			grid = grid,
+			occupancy = occupancy,
 		}
 	end
 end
 
--- a run (or a dev-tool restart) starts with an empty grid on the fresh
--- map; Trap inventories are run state that survives a restart like the balances
+-- a run (or a dev-tool restart) starts with an empty grid on the fresh map
 function PlacementManager:onRunStarted()
 	self:clearPlacements()
 	self.shadowFolder = nil
 	self:bindZones()
 end
 
--- ready-sequence entry; not replayed on a dev-tool reset, so run state
--- survives. Everyone carries the Defenses tool from the start
+-- ready-sequence entry; not replayed on a dev-tool reset, so run state survives
 function PlacementManager:onPlayerReady(player: Player)
 	self:getPlayerState(player)
-	ToolManager:grantTool(player, Enums.ToolKind.DEFENSES)
 	self:replicatePlayer(player)
 end
 
 function PlacementManager:init()
 	self.catalog = {
 		cellSizeStuds = PlacementData.CELL_SIZE_STUDS,
-		previewDistanceStuds = PlacementData.PREVIEW_DISTANCE_STUDS,
 		maxActiveTowersCamp = TowersData.MAX_ACTIVE_TOWERS_CAMP,
-		maxTrapKindsCarried = TrapsData.MAX_TRAP_KINDS_CARRIED,
 		towerSellShare = TowersData.SELL_SHARE,
 		trapSellShare = TrapsData.SELL_SHARE,
 		towers = TowersData.BY_KIND,
@@ -683,9 +664,7 @@ function PlacementManager.new(): PlacementManager
 	local self = setmetatable({}, PlacementManager) :: PlacementManager
 	self.catalog = {
 		cellSizeStuds = PlacementData.CELL_SIZE_STUDS,
-		previewDistanceStuds = PlacementData.PREVIEW_DISTANCE_STUDS,
 		maxActiveTowersCamp = 0,
-		maxTrapKindsCarried = 0,
 		towerSellShare = 0,
 		trapSellShare = 0,
 		towers = {},

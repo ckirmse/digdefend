@@ -20,7 +20,6 @@ local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientDynamiteManager = require(script.Parent.ClientDynamiteManager)
 local ClientMiningManager = require(script.Parent.ClientMiningManager)
-local ClientPlacementToolManager = require(script.Parent.ClientPlacementToolManager)
 local ClientStructureManager = require(script.Parent.ClientStructureManager)
 local ClientTorchManager = require(script.Parent.ClientTorchManager)
 local ClientWeaponManager = require(script.Parent.ClientWeaponManager)
@@ -45,7 +44,6 @@ local ACTIONABLE_TOOLS = {
 	[Enums.ToolKind.TORCH] = true,
 	[Enums.ToolKind.HAMMER] = true,
 	[Enums.ToolKind.WEAPON] = true,
-	[Enums.ToolKind.DEFENSES] = true,
 }
 
 function ClientActionButtonManager:onPressed()
@@ -60,8 +58,6 @@ function ClientActionButtonManager:onPressed()
 		ClientStructureManager:beginHold()
 	elseif tool == Enums.ToolKind.WEAPON then
 		ClientWeaponManager:beginHold()
-	elseif tool == Enums.ToolKind.DEFENSES then
-		ClientPlacementToolManager:build()
 	end
 end
 
