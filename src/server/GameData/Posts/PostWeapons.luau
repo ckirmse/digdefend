@@ -78,7 +78,9 @@ return {
 			TURN_SPEED_DEGREES_PER_SEC = 22,
 			RANGE_STUDS = 350,
 			FIELD_OF_VIEW = 30,
-			PITCH_MIN_DEGREES = -40,
+			-- the gun sits a dozen studs over the ground, so a monster at the foot
+			-- of the tower needs a steep look down (-70 since 2026-09-30, was -40)
+			PITCH_MIN_DEGREES = -70,
 			PITCH_MAX_DEGREES = 45,
 			-- overheat (decided 2026-09-18): holding the trigger for FULL_SEC
 			-- fills the heat; it then refuses to fire until fully cooled, which
@@ -106,7 +108,8 @@ return {
 			TURN_SPEED_DEGREES_PER_SEC = 12,
 			RANGE_STUDS = 500,
 			FIELD_OF_VIEW = 40,
-			PITCH_MIN_DEGREES = -35,
+			-- as the Machine Gun: a monster at the foot of the tower (was -35)
+			PITCH_MIN_DEGREES = -70,
 			PITCH_MAX_DEGREES = 60,
 			-- the reload bar's length, shortened by Fire Rate like the interval
 			RELOAD_SEC = 6,

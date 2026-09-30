@@ -211,6 +211,11 @@ export type ClientMonsterManager = typeof(setmetatable(
 		bodyMetricsByKey: { [string]: BodyMetrics },
 		hpBillboard: BillboardGui?,
 		aimParameters: RaycastParams,
+		-- whether the aim filter was last built for a mounted post
+		isAimFilterMounted: boolean,
+		-- the one outline on the monster under a mounted post's reticle
+		aimHighlight: Highlight?,
+		aimHighlightAdornee: Instance?,
 		aimedMonster: ClientMonster?,
 		hpBarUntil: number,
 		lastAimTime: number,
@@ -264,6 +269,13 @@ local AIM_INTERVAL_SEC = 0.05
 local AIM_RAY_LENGTH_STUDS = 10000
 local HP_BAR_LINGER_SEC = 0.5
 local HP_BAR_LIFT_STUDS = 1.5
+-- from a post the reticle reads through the walls (decided 2026-09-30):
+-- the aimed monster, at any HP, gets its bar and one outline drawn on
+-- top of everything, so a target behind the wall line can still be
+-- found and led. One Highlight instance is moved between monsters
+local AIM_HIGHLIGHT_NAME = "AimHighlight"
+local AIM_HIGHLIGHT_FILL_TRANSPARENCY = 0.6
+local AIM_HIGHLIGHT_OUTLINE_TRANSPARENCY = 0
 local DEFAULT_BODY: BodyMetrics = {
 	boxSize = Vector3.new(4, 5, 1),
 	boxOffsetY = -0.5,
@@ -934,19 +946,61 @@ function ClientMonsterManager:getStats(): Stats
 end
 
 -- the world the aim ray stops at: every monster body and this character
--- are see-through
+-- are see-through, and from a post so are the fortifications, the same
+-- ones a bullet flies through
 function ClientMonsterManager:refreshAimFilter()
 	local excluded: { Instance } = { self:getFolder() }
 	local character = Players.LocalPlayer.Character
 	if character then
 		table.insert(excluded, character)
 	end
+	local isMounted = ClientPostManager:getIsMounted()
+	local camp = workspace:FindFirstChild(Constants.CAMP_FOLDER)
+	if isMounted and camp then
+		for _, childName in Constants.BULLET_PASS_THROUGH_CAMP_CHILDREN do
+			local child = camp:FindFirstChild(childName)
+			if child then
+				table.insert(excluded, child)
+			end
+		end
+	end
+	self.isAimFilterMounted = isMounted
 	self.aimParameters.FilterDescendantsInstances = excluded
 end
 
--- the damaged monster under the screen centre, nearest first; the world
+function ClientMonsterManager:getAimHighlight(): Highlight
+	local highlight = self.aimHighlight
+	if highlight and highlight.Parent then
+		return highlight
+	end
+	local created = Instance.new("Highlight")
+	created.Name = AIM_HIGHLIGHT_NAME
+	created.FillColor = UiStyle.TEXT_COLOR
+	created.OutlineColor = UiStyle.TEXT_COLOR
+	created.FillTransparency = AIM_HIGHLIGHT_FILL_TRANSPARENCY
+	created.OutlineTransparency = AIM_HIGHLIGHT_OUTLINE_TRANSPARENCY
+	created.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	created.Enabled = false
+	created.Parent = self:getFolder()
+	self.aimHighlight = created
+	return created
+end
+
+-- the outline follows whichever body the aimed monster is drawn with;
+-- nothing is written unless the target changes
+function ClientMonsterManager:setAimHighlight(target: Instance?)
+	if self.aimHighlightAdornee == target then
+		return
+	end
+	self.aimHighlightAdornee = target
+	local highlight = self:getAimHighlight()
+	highlight.Adornee = target
+	highlight.Enabled = target ~= nil
+end
+
+-- the damaged monster (from a post, any monster) under the screen centre, nearest first; the world
 -- is cast first so a monster behind a wall is never picked
-function ClientMonsterManager:findAimedMonster(camera: Camera): ClientMonster?
+function ClientMonsterManager:findAimedMonster(camera: Camera, isAnyHp: boolean): ClientMonster?
 	local origin = camera.CFrame.Position
 	local direction = camera.CFrame.LookVector
 	local worldHit = workspace:Raycast(origin, direction * AIM_RAY_LENGTH_STUDS, self.aimParameters)
@@ -955,7 +1009,7 @@ function ClientMonsterManager:findAimedMonster(camera: Camera): ClientMonster?
 	local bestDistance = reach
 	for _, monster in self.monstersById do
 		local cframe = monster.renderCFrame
-		if not cframe or monster.hpShare >= 1 then
+		if not cframe or (monster.hpShare >= 1 and not isAnyHp) then
 			continue
 		end
 		local body = monster.body
@@ -1035,9 +1089,13 @@ end
 -- drawn with, and every write happens only when its value changes
 function ClientMonsterManager:updateHpBar(now: number)
 	local camera = workspace.CurrentCamera
+	local isMounted = ClientPostManager:getIsMounted()
 	if camera and now - self.lastAimTime >= AIM_INTERVAL_SEC then
 		self.lastAimTime = now
-		local aimed = self:findAimedMonster(camera)
+		if isMounted ~= self.isAimFilterMounted then
+			self:refreshAimFilter()
+		end
+		local aimed = self:findAimedMonster(camera, isMounted)
 		if aimed then
 			self.aimedMonster = aimed
 			self.hpBarUntil = now + HP_BAR_LINGER_SEC
@@ -1055,7 +1113,8 @@ function ClientMonsterManager:updateHpBar(now: number)
 		return
 	end
 	local adornee = if monster then self:adorneeOf(monster) else nil
-	if not monster or not adornee or monster.hpShare >= 1 then
+	if not monster or not adornee or (monster.hpShare >= 1 and not isMounted) then
+		self:setAimHighlight(nil)
 		if self.shownAdornee ~= nil then
 			billboard.Enabled = false
 			billboard.Adornee = nil
@@ -1064,9 +1123,12 @@ function ClientMonsterManager:updateHpBar(now: number)
 		end
 		return
 	end
+	-- from a post the outline and the bar read through the wall
+	self:setAimHighlight(if isMounted then (if monster.rig then (monster.rig :: Rig).model else adornee) else nil)
 	if self.shownAdornee ~= adornee then
 		self.shownAdornee = adornee
 		billboard.Adornee = adornee
+		billboard.AlwaysOnTop = isMounted
 		-- the one-part bodies are centred on the box, the rig's root sits at its middle
 		local topOffset = if monster.rig then monster.body.boxOffsetY + monster.body.boxSize.Y / 2 else monster.body.boxSize.Y / 2
 		billboard.StudsOffsetWorldSpace = Vector3.new(0, topOffset + HP_BAR_LIFT_STUDS, 0)
@@ -1427,6 +1489,9 @@ function ClientMonsterManager.new(): ClientMonsterManager
 	local aimParameters = RaycastParams.new()
 	aimParameters.FilterType = Enum.RaycastFilterType.Exclude
 	self.aimParameters = aimParameters
+	self.isAimFilterMounted = false
+	self.aimHighlight = nil
+	self.aimHighlightAdornee = nil
 	self.aimedMonster = nil
 	self.hpBarUntil = 0
 	self.lastAimTime = 0

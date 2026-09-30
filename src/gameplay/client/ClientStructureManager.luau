@@ -284,6 +284,16 @@ function ClientStructureManager:isNight(): boolean
 	return ClientDataManager:getGameMetadata(Attributes.IS_NIGHT) == true
 end
 
+-- a wall's or the gate's bar always draws on top (2026-09-30): it hangs
+-- at chest height inside the thick wall, and only the Refinery's bar
+-- could lead a miner out of the mine, so that one keeps the night rule
+function ClientStructureManager:isBarOnTop(shadow: BasePart): boolean
+	if isPlacementShadow(shadow) or isRefineryShadow(shadow) then
+		return self:isNight()
+	end
+	return true
+end
+
 -- shows or hides a shadow's HP bar by isBarShown; a Tower's everyday info
 -- billboard steps aside for the bar so the two never stack
 function ClientStructureManager:applyBarVisibility(shadow: BasePart, tracked: Tracked)
@@ -314,14 +324,14 @@ function ClientStructureManager:applyBarVisibility(shadow: BasePart, tracked: Tr
 		if not isPlacement then
 			billboard.MaxDistance = STRUCTURE_BILLBOARD_MAX_DISTANCE_STUDS
 		end
-		billboard.AlwaysOnTop = self:isNight()
+		billboard.AlwaysOnTop = self:isBarOnTop(shadow)
 		billboard.Adornee = shadow
 		billboard.Parent = shadow
 		tracked.billboard = billboard
 		self:refreshBillboard(shadow, billboard, true)
 		return
 	end
-	billboard.AlwaysOnTop = self:isNight()
+	billboard.AlwaysOnTop = self:isBarOnTop(shadow)
 	self:refreshBillboard(shadow, billboard, false)
 end
 
