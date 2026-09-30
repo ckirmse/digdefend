@@ -33,6 +33,9 @@ export type HeatData = {
 export type KindData = {
 	PROJECTILE: ProjectileData?,
 	HEAT: HeatData?,
+	-- the Enums.PostAttribute values this kind offers, in menu order
+	-- (decided 2026-09-29: the Machine Gun trades Range for Cooldown)
+	UPGRADE_ATTRIBUTES: { number },
 	-- a gun that reloads after every shot
 	RELOAD_SEC: number?,
 	DAMAGE: number,
@@ -68,6 +71,8 @@ export type Stats = {
 	reloadSec: number?,
 	turnSpeedDegreesPerSec: number,
 	rangeStuds: number,
+	-- nil for a kind that does not overheat; shortened by Cooldown
+	coolSec: number?,
 }
 
 export type Offer = {
@@ -102,12 +107,15 @@ PostRules.UPGRADE_ATTRIBUTE_BY_POST_ATTRIBUTE = {
 	[Enums.PostAttribute.FIRE_RATE] = Attributes.POST_UPGRADE_FIRE_RATE,
 	[Enums.PostAttribute.TURN_SPEED] = Attributes.POST_UPGRADE_TURN_SPEED,
 	[Enums.PostAttribute.RANGE] = Attributes.POST_UPGRADE_RANGE,
+	[Enums.PostAttribute.COOLDOWN] = Attributes.POST_UPGRADE_COOLDOWN,
 }
 
 PostRules.NO_POST = 0
 PostRules.NOBODY = 0
 PostRules.LOCKED_FORMAT = "Camp Level %d required"
 
+-- a cool time never shrinks below this share of its base, whatever the levels
+local MIN_COOL_SHARE = 0.05
 local FULL_TURN_DEGREES = 360
 local HALF_TURN_DEGREES = 180
 
@@ -143,7 +151,29 @@ function PostRules.statsFor(catalog: Catalog, kind: number, upgrades: Upgrades):
 		reloadSec = if data.RELOAD_SEC then data.RELOAD_SEC / fireRateMultiplier else nil,
 		turnSpeedDegreesPerSec = data.TURN_SPEED_DEGREES_PER_SEC * multiplierFor(Enums.PostAttribute.TURN_SPEED),
 		rangeStuds = data.RANGE_STUDS * multiplierFor(Enums.PostAttribute.RANGE),
+		-- Cooldown takes the same share off every level (3 / 2.5 / 2 /
+		-- 1.5 / 1 s), where a divide like Fire Rate's would give ever
+		-- smaller steps for ever dearer rungs (decided 2026-09-29)
+		coolSec = if data.HEAT then data.HEAT.COOL_SEC * math.max(1 - (bonuses[Enums.PostAttribute.COOLDOWN] or 0) * PostRules.upgradeLevel(upgrades, Enums.PostAttribute.COOLDOWN), MIN_COOL_SHARE) else nil,
 	}
+end
+
+-- where an attribute sits in a kind's upgrade menu, nil when the kind
+-- does not offer it; a kind that lists nothing offers every attribute
+function PostRules.attributeOrder(catalog: Catalog, kind: number, attribute: number): number?
+	local data = catalog.kinds[kind]
+	if not data then
+		return nil
+	end
+	local attributes = data.UPGRADE_ATTRIBUTES
+	if attributes == nil or #attributes == 0 then
+		return attribute
+	end
+	return table.find(attributes, attribute)
+end
+
+function PostRules.kindHasAttribute(catalog: Catalog, kind: number, attribute: number): boolean
+	return PostRules.attributeOrder(catalog, kind, attribute) ~= nil
 end
 
 -- what the next upgrade of one attribute would be for a player, given the
@@ -213,8 +243,9 @@ function PostRules.heatPerShot(heat: HeatData, fireIntervalSec: number): number
 	return fireIntervalSec / heat.FULL_SEC
 end
 
--- the heat now, cooled for the time the trigger has rested since the last shot
-function PostRules.cooledHeat(heatAtLastShot: number, lastShotTime: number?, now: number, fireIntervalSec: number, heat: HeatData): number
+-- the heat now, cooled for the time the trigger has rested since the last
+-- shot; coolSec is the upgraded time from full to cool (Stats.coolSec)
+function PostRules.cooledHeat(heatAtLastShot: number, lastShotTime: number?, now: number, fireIntervalSec: number, coolSec: number): number
 	if lastShotTime == nil then
 		return 0
 	end
@@ -222,7 +253,7 @@ function PostRules.cooledHeat(heatAtLastShot: number, lastShotTime: number?, now
 	if restingSec <= 0 then
 		return heatAtLastShot
 	end
-	return math.max(0, heatAtLastShot - restingSec / heat.COOL_SEC)
+	return math.max(0, heatAtLastShot - restingSec / math.max(coolSec, 1e-6))
 end
 
 -- what a shot does to the heat: the new heat, whether the gun just

@@ -77,6 +77,8 @@ function DefenseStoreManager:bindStand(store: Instance, kind: number)
 	local prompt = base:FindFirstChildWhichIsA("ProximityPrompt")
 	if not prompt then
 		prompt = Instance.new("ProximityPrompt")
+		-- a clickable prompt frees the mouse when hovered, which sticks the cursor in first person (2026-09-29)
+		prompt.ClickablePrompt = false
 		prompt.Parent = base
 	end
 	local livePrompt = prompt :: ProximityPrompt

@@ -19,6 +19,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
+local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
@@ -222,8 +223,15 @@ function ClientWeaponManager:findLocalEnd(origin: Vector3, unitDirection: Vector
 	return origin + unitDirection * rangeStuds, nil, nil
 end
 
+-- the post gun has the hands while a post is manned; the server refuses
+-- the rifle then too, this only spares the client its own effects
+function ClientWeaponManager:isManningPost(): boolean
+	local mannedIndex = ClientDataManager:getCurrentPlayerAttribute(Attributes.MANNED_POST_INDEX)
+	return typeof(mannedIndex) == "number" and mannedIndex ~= PostRules.NO_POST
+end
+
 function ClientWeaponManager:requestReload()
-	if not self.isWeaponMode or self:getIsReloading() or self.predictedAmmo >= self.magazineSize then
+	if not self.isWeaponMode or self:getIsReloading() or self.predictedAmmo >= self.magazineSize or self:isManningPost() then
 		return
 	end
 	ClientNetManager:fireServer(NetEventNames.TRY_RELOAD_WEAPON, {})
@@ -233,7 +241,7 @@ end
 -- hold free to try again the moment the magazine is back
 function ClientWeaponManager:fire(isFreshPress: boolean): boolean
 	local camera = workspace.CurrentCamera
-	if not camera or self:getIsReloading() then
+	if not camera or self:getIsReloading() or self:isManningPost() then
 		return false
 	end
 	if self.predictedAmmo <= 0 then

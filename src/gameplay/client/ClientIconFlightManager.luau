@@ -1,12 +1,15 @@
 --!strict
 
--- Flies a 2D resource icon across the screen: ore into the backpack button,
--- ore into the Refinery, refined bars into their balance row. Every flight
--- crosses the GameplayHud FlyLayer so it renders above the HUD, and every
--- landing reports back so the caller can play the pop and bump its target.
--- One place owns the look (image from Icons, disc fallback, size bounds) so
--- every flight in the game reads the same.
+-- Flies a resource icon: on the screen (ore into the backpack button,
+-- across the GameplayHud FlyLayer so it renders above the HUD) or through
+-- the world (ore into the Refinery's hopper and bars back out to the player,
+-- on a throwaway part with the FlightIcon billboard, since a screen flight
+-- aimed at a world point was stranded the moment the camera moved;
+-- decided 2026-09-29). Every landing reports back so the caller can play
+-- the pop and bump its target. One place owns the look (image from Icons,
+-- disc fallback, size bounds) so every flight in the game reads the same.
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -20,11 +23,15 @@ export type ClientIconFlightManager = typeof(setmetatable(
 	{} :: {
 		flyLayer: Frame?,
 		iconTemplate: ImageLabel?,
+		worldTemplate: BillboardGui?,
+		worldFolder: Folder?,
 	},
 	ClientIconFlightManager
 ))
 
 local FLIGHT_SEC = 0.55
+-- a world flight arcs this many studs above the straight line at its middle
+local WORLD_ARC_STUDS = 3
 local BUMP_SCALE_NAME = "Bump"
 
 function ClientIconFlightManager:getLayer(): Frame?
@@ -138,6 +145,87 @@ function ClientIconFlightManager:fly(imageId: string?, color: Color3, from: Vect
 	)
 end
 
+-- the folder the world flights ride in, made on first use
+function ClientIconFlightManager:getWorldFolder(): Folder
+	local folder = self.worldFolder
+	if folder and folder.Parent then
+		return folder
+	end
+	local created = Instance.new("Folder")
+	created.Name = Constants.FLIGHT_ICON_FOLDER
+	created.Parent = workspace
+	self.worldFolder = created
+	return created
+end
+
+-- a flight through the world from one position to another: the FlightIcon
+-- billboard on an anchored, invisible part, tweened along a shallow arc so
+-- ore lifts into the hopper rather than sliding. onLanded always fires, at
+-- once when there is no template to fly
+function ClientIconFlightManager:flyWorld(imageId: string?, color: Color3, from: Vector3, to: Vector3, delaySec: number, onLanded: (() -> ())?)
+	local template = self.worldTemplate
+	if not template then
+		if onLanded then
+			onLanded()
+		end
+		return
+	end
+	local isImage = not Icons.isPlaceholder(imageId)
+	-- the carrier appears only when its flight starts, so a staggered icon
+	-- does not hang in front of the camera waiting its turn
+	task.delay(
+		delaySec,
+		function()
+			local carrier = Instance.new("Part")
+			carrier.Name = "FlightIcon"
+			carrier.Anchored = true
+			carrier.CanCollide = false
+			carrier.CanQuery = false
+			carrier.CanTouch = false
+			carrier.CastShadow = false
+			carrier.Transparency = 1
+			carrier.Size = Vector3.one
+			carrier.CFrame = CFrame.new(from)
+			local billboard = template:Clone()
+			local icon = billboard:FindFirstChild(Constants.FLIGHT_ICON_IMAGE)
+			if icon and icon:IsA("ImageLabel") then
+				icon.Image = if isImage then imageId :: string else ""
+				icon.BackgroundColor3 = color
+				icon.BackgroundTransparency = if isImage then 1 else 0
+				local stroke = icon:FindFirstChildOfClass("UIStroke")
+				if stroke then
+					stroke.Enabled = not isImage
+				end
+			end
+			billboard.Adornee = carrier
+			billboard.Parent = carrier
+			carrier.Parent = self:getWorldFolder()
+			-- two tweens make the arc: up to the midpoint, then down to the
+			-- landing, each half the flight
+			local middle = (from + to) / 2 + Vector3.new(0, WORLD_ARC_STUDS, 0)
+			local halfSec = FLIGHT_SEC / 2
+			local rise = TweenService:Create(carrier, TweenInfo.new(halfSec, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.new(middle) })
+			local fall = TweenService:Create(carrier, TweenInfo.new(halfSec, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = CFrame.new(to) })
+			rise.Completed:Connect(
+				function()
+					if carrier.Parent then
+						fall:Play()
+					end
+				end
+			)
+			fall.Completed:Connect(
+				function()
+					carrier:Destroy()
+					if onLanded then
+						onLanded()
+					end
+				end
+			)
+			rise:Play()
+		end
+	)
+end
+
 -- a quick swell that settles back, so a landing reads as an impact. Scale,
 -- not position, because rows inside a UIListLayout ignore Position
 function ClientIconFlightManager:bump(frame: GuiObject)
@@ -176,12 +264,22 @@ function ClientIconFlightManager:init()
 	else
 		warn("ClientIconFlightManager: GameplayHud has no FlyLayer.FlyIconTemplate; icons will not fly. Run scripts/studio/build_gameplay_hud_gui.luau")
 	end
+	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
+	local guiFolder = if gameAssets then gameAssets:FindFirstChild(Constants.GUI_TEMPLATES_FOLDER) else nil
+	local worldTemplate = if guiFolder then guiFolder:FindFirstChild(Constants.FLIGHT_ICON_BILLBOARD) else nil
+	if worldTemplate and worldTemplate:IsA("BillboardGui") then
+		self.worldTemplate = worldTemplate
+	else
+		warn("ClientIconFlightManager: no FlightIcon BillboardGui under GameAssets.Gui; Refinery flights will skip. Run scripts/studio/build_flight_icon_billboard.luau")
+	end
 end
 
 function ClientIconFlightManager.new(): ClientIconFlightManager
 	local self = setmetatable({}, ClientIconFlightManager) :: ClientIconFlightManager
 	self.flyLayer = nil
 	self.iconTemplate = nil
+	self.worldTemplate = nil
+	self.worldFolder = nil
 	return self
 end
 

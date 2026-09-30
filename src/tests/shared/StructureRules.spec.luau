@@ -97,6 +97,45 @@ describe(
 )
 
 describe(
+	"StructureRules.repairChunkForTier",
+	function()
+		local HP_BY_TIER = { 10, 20, 40 }
+		local IRON_BY_TIER = { 2, 4, 8 }
+		it(
+			"doubles the chunk and its price a tier, and clamps past the table",
+			function()
+				local hp1, iron1 = StructureRules.repairChunkForTier(HP_BY_TIER, IRON_BY_TIER, 1)
+				local hp3, iron3 = StructureRules.repairChunkForTier(HP_BY_TIER, IRON_BY_TIER, 3)
+				local hp4, iron4 = StructureRules.repairChunkForTier(HP_BY_TIER, IRON_BY_TIER, 4)
+				local hp0, iron0 = StructureRules.repairChunkForTier(HP_BY_TIER, IRON_BY_TIER, 0)
+				expect({ hp1, iron1 }).toEqual({ 10, 2 })
+				expect({ hp3, iron3 }).toEqual({ 40, 8 })
+				expect({ hp4, iron4 }).toEqual({ 40, 8 })
+				expect({ hp0, iron0 }).toEqual({ 10, 2 })
+			end
+		)
+	end
+)
+
+describe(
+	"StructureRules.scaledUpgradeCost",
+	function()
+		it(
+			"multiplies the solo price by the crew and rounds up to whole donations",
+			function()
+				expect(StructureRules.scaledUpgradeCost(150, 1, 10)).toBe(150)
+				-- four players at 2.4x: 360
+				expect(StructureRules.scaledUpgradeCost(150, 2.4, 10)).toBe(360)
+				-- six at 2.8x: 1120 exactly; a fraction rounds up to the next 10
+				expect(StructureRules.scaledUpgradeCost(400, 2.8, 10)).toBe(1120)
+				expect(StructureRules.scaledUpgradeCost(150, 2.1, 10)).toBe(320)
+				expect(StructureRules.scaledUpgradeCost(nil, 2.8, 10)).toBeNil()
+			end
+		)
+	end
+)
+
+describe(
 	"StructureRules.isWithinReach",
 	function()
 		local bounds = CFrame.new(100, 5, 0)

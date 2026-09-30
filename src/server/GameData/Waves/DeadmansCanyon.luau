@@ -19,10 +19,19 @@
 -- wall on night 2 and three structures on night 3); Hard and Nightmare
 -- bring Runners, Bombers, and Brutes on night 2 and break a wall that
 -- night, and are the same unlock order shifted two and four nights
--- earlier, each above the easier tier through its target night. A small start keeps Normal's first nights gentle and the
--- increment makes night 10 a real fight; every tier climbs mostly by
--- increment, so its last nights stay under a solo crew's ceiling once
--- backpack trips eat the late days. The balance sheet (BalanceAudit at
+-- earlier, each above the easier tier through its target night. A small
+-- start keeps Normal's first nights gentle and the increment makes night
+-- 10 a real fight; every tier climbs mostly by increment, so its last
+-- nights stay under a solo crew's ceiling once backpack trips eat the
+-- late days. Normal starts at 22 since 2026-09-29, when the machine gun
+-- lost a fifth of its damage and Bombers were priced for their blast,
+-- so night 3 still only nearly breaks a wall. The sixth playtest (2026-09-29) found the waves too soft
+-- while mining felt right, so the group minimum doubled (nights 2 to 5
+-- arrive as one group, which is what breaks a wall), and the run grew
+-- to 15 nights (Hard 18, Nightmare 21): a crew's power plateaus once
+-- the tower cap and the last pick are reached, so every tier now climbs
+-- by increment with only a few percent of compounding, or nights 12 and
+-- on outgrow the ceiling. The balance sheet (BalanceAudit at
 -- startup, the Monsters dev panel) checks it all.
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 
@@ -36,17 +45,21 @@ return {
 	-- trickle), and its groups spawn over this long after night fall (the
 	-- sky's NIGHT_SPAWN_SEC is separate). The crew's wave multiplier scales
 	-- this too (2026-09-25), so a crew gets the solo group count, bigger
-	MIN_GROUP_DIFFICULTY = 40,
-	WAVE_SPAWN_LENGTH_SEC = 60,
+	MIN_GROUP_DIFFICULTY = 80,
+	-- 90 and 30 since the eighth playtest (2026-09-29, lost on night 8):
+	-- two groups 10 s apart were one wave, and a wall fell before the
+	-- gunner could turn to the second; a two-group night is now 0 and
+	-- 30 s, a five-group night spreads over about 80 s
+	WAVE_SPAWN_LENGTH_SEC = 90,
 	-- and no two of its groups in a row are further apart than this, so a
 	-- night of two groups is not one group, a long lull, then the other
-	MAX_TIME_BETWEEN_GROUPS_SEC = 10,
+	MAX_TIME_BETWEEN_GROUPS_SEC = 30,
 	WAVES = {},
 	GENERATOR = {
 		[Enums.Difficulty.NORMAL] = {
-			STARTING_DIFFICULTY = 24,
-			DIFFICULTY_INCREASE_PER_WAVE = 12,
-			GROWTH_PER_WAVE = 0.10,
+			STARTING_DIFFICULTY = 22,
+			DIFFICULTY_INCREASE_PER_WAVE = 16,
+			GROWTH_PER_WAVE = 0.08,
 			WAVE_DIFFICULTY_RANGE = 4,
 			AVAILABLE_ENEMIES = {
 				{
@@ -126,8 +139,8 @@ return {
 		[Enums.Difficulty.HARD] = {
 			-- a steeper climb from a low start, every kind two nights earlier
 			STARTING_DIFFICULTY = 28,
-			DIFFICULTY_INCREASE_PER_WAVE = 26,
-			GROWTH_PER_WAVE = 0.06,
+			DIFFICULTY_INCREASE_PER_WAVE = 33,
+			GROWTH_PER_WAVE = 0.03,
 			WAVE_DIFFICULTY_RANGE = 4,
 			AVAILABLE_ENEMIES = {
 				{
@@ -206,9 +219,9 @@ return {
 		},
 		[Enums.Difficulty.NIGHTMARE] = {
 			-- the same climb from a higher start, every kind four nights earlier
-			STARTING_DIFFICULTY = 30,
-			DIFFICULTY_INCREASE_PER_WAVE = 26,
-			GROWTH_PER_WAVE = 0.06,
+			STARTING_DIFFICULTY = 34,
+			DIFFICULTY_INCREASE_PER_WAVE = 42,
+			GROWTH_PER_WAVE = 0.02,
 			WAVE_DIFFICULTY_RANGE = 5,
 			AVAILABLE_ENEMIES = {
 				{

@@ -24,7 +24,11 @@ return {
 	-- balance sheet has a crew stripping every zone it passes and hunting
 	-- humming uranium, so a crew of four holds four times solo's uranium
 	-- by day 10 and the target must match or the run ends early
-	URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 2.5, 4.5, 8.0, 10.0, 12.0 },
+	-- linear (2026-09-29, the 15-night run): a crew of four or more strips
+	-- every zone before the run is out, so its finish is set by the mine's
+	-- supply, not by this table; the table only has to keep the worst case
+	-- (six on Nightmare) inside what the deepest zone holds
+	URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT = { 1.0, 2.0, 3.0, 4.0, 4.5, 5.0 },
 	-- matched to the uranium table (2026-09-25) so a big crew meets nights
 	-- as much bigger as its target is; the map's MIN_GROUP_DIFFICULTY is
 	-- multiplied by the same number, so a crew gets the solo number of

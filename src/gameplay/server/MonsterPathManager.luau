@@ -21,6 +21,7 @@ local Players = game:GetService("Players")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local FlowField = require("@game/ReplicatedStorage/Shared/FlowField")
+local PathAreaRules = require("@game/ReplicatedStorage/Shared/PathAreaRules")
 local BehaviorData = require("@game/ServerScriptService/GameData/Monsters/Behavior")
 local PlacementData = require("@game/ServerScriptService/GameData/Defenses/Placement")
 local MapManager = require(script.Parent.MapManager)
@@ -72,6 +73,28 @@ local function areaParts(camp: Instance, folderName: string): { BasePart }
 		end
 	end
 	return parts
+end
+
+-- the Defensive Zones as flat boxes for PathAreaRules, and the camp's
+-- centre the approach axis is read against
+local function zoneBoxes(camp: Instance): ({ PathAreaRules.ZoneBox }, number, number)
+	local zones = {}
+	for _, part in areaParts(camp, Constants.CAMP_DEFENSIVE_ZONES_FOLDER) do
+		table.insert(zones, {
+			centerX = part.Position.X,
+			centerZ = part.Position.Z,
+			halfX = part.Size.X / 2,
+			halfZ = part.Size.Z / 2,
+		})
+	end
+	local campParts = areaParts(camp, Constants.CAMP_CAMP_AREA_FOLDER)
+	local campX = 0
+	local campZ = 0
+	for _, part in campParts do
+		campX += part.Position.X / #campParts
+		campZ += part.Position.Z / #campParts
+	end
+	return zones, campX, campZ
 end
 
 local function isInsidePart(part: BasePart, x: number, z: number): boolean
@@ -242,6 +265,24 @@ function MonsterPathManager:buildGrid(camp: Instance)
 		end
 	end
 	self:scanCells(grid, areas, excluded)
+	-- a Wave Area strip beside a Defensive Zone is closed, so walls built
+	-- to the zone's edge cannot be walked round where nothing can be built
+	-- (decided 2026-09-29; PathAreaRules)
+	local zones, campX, campZ = zoneBoxes(camp)
+	local closedCount = 0
+	if #zones > 0 then
+		for index = 1, columns * rows do
+			if not grid.inside[index] then
+				continue
+			end
+			local x, z = FlowField.centerOf(grid, index)
+			if PathAreaRules.isBesideAnyZone(zones, campX, campZ, x, z) then
+				grid.inside[index] = false
+				grid.walkable[index] = false
+				closedCount += 1
+			end
+		end
+	end
 	self.grid = grid
 
 	-- the Refinery's cells are the goals, open so the field reaches them
@@ -275,7 +316,7 @@ function MonsterPathManager:buildGrid(camp: Instance)
 			walkableCount += 1
 		end
 	end
-	print(`[MonsterPathManager] grid {columns} x {rows} cells of {cellSize} studs: {insideCount} inside the areas, {walkableCount} walkable, {#self.goals} goal cells`)
+	print(`[MonsterPathManager] grid {columns} x {rows} cells of {cellSize} studs: {insideCount} inside the areas, {walkableCount} walkable, {#self.goals} goal cells, {closedCount} closed beside the Defensive Zones`)
 end
 
 function MonsterPathManager:readSpawns(camp: Instance)

@@ -115,6 +115,12 @@ local TRY_SET_POST_AIM_SHAPE = {
 }
 -- a quarter of a default message, like TrySetAim: the stream must never starve firing
 local TRY_SET_POST_AIM_COST = 0.25
+-- the machine gun fires every 0.1 s and Fire Rate 4 nearly doubles that,
+-- which is more messages than the default bucket refills (10 a second):
+-- the seventh playtest (2026-09-29) had a fully upgraded post dropping a
+-- third of its shots to the rate limit from night 7 on. The server checks
+-- the cooldown and the heat per shot, so a flood of these buys nothing
+local TRY_FIRE_POST_WEAPON_COST = 0.25
 local TRY_FIRE_POST_WEAPON_SHAPE = {
 	origin = "vector3",
 	direction = "vector3",
@@ -141,6 +147,7 @@ local FEEDBACK_ALREADY_OWN_POST = "You already have a post"
 local FEEDBACK_POST_TAKEN = "That post is taken"
 local FEEDBACK_NOT_ENOUGH_GOLD = "Not enough Gold"
 local FEEDBACK_MAXED = "Already maxed out"
+local FEEDBACK_NO_SUCH_UPGRADE = "This weapon has no such upgrade"
 
 function PostManager:getCatalog(): PostRules.Catalog
 	return self.catalog
@@ -343,6 +350,7 @@ function PostManager:configurePrompt(prompt: ProximityPrompt, actionText: string
 	prompt.HoldDuration = holdSec
 	prompt.MaxActivationDistance = maxDistance
 	prompt.RequiresLineOfSight = false
+	prompt.ClickablePrompt = false
 	prompt.Enabled = true
 end
 
@@ -382,6 +390,8 @@ function PostManager:spawnWeapon(post: Post)
 		local prompt = characterSpawn:FindFirstChildWhichIsA("ProximityPrompt")
 		if not prompt then
 			prompt = Instance.new("ProximityPrompt")
+			-- a clickable prompt frees the mouse when hovered, which sticks the cursor in first person (2026-09-29)
+			prompt.ClickablePrompt = false
 			prompt.Parent = characterSpawn
 		end
 		local livePrompt = prompt :: ProximityPrompt
@@ -418,6 +428,8 @@ function PostManager:spawnWorkbench(post: Post)
 		local prompt = promptPart:FindFirstChildWhichIsA("ProximityPrompt")
 		if not prompt then
 			prompt = Instance.new("ProximityPrompt")
+			-- a clickable prompt frees the mouse when hovered, which sticks the cursor in first person (2026-09-29)
+			prompt.ClickablePrompt = false
 			prompt.Parent = promptPart
 		end
 		self:configurePrompt(prompt :: ProximityPrompt, PostWeaponsData.UPGRADE_PROMPT_ACTION_TEXT, 0, PostWeaponsData.PROMPT_MAX_DISTANCE_STUDS)
@@ -467,6 +479,7 @@ function PostManager:dismount(player: Player)
 	post.gunner = nil
 	post.lastAimTime = nil
 	self:destroyIkControls(post)
+	ToolManager:setToolsLocked(player, false)
 	self:replicatePost(post)
 	self:replicatePlayer(player)
 end
@@ -486,8 +499,10 @@ function PostManager:mount(player: Player, post: Post)
 	end
 	post.gunner = player
 	post.lastAimTime = nil
-	-- hands off the held tool: the gun on the post is what they use now
-	ToolManager:setEquippedTool(player, MiningRules.NO_TOOL)
+	-- hands off the held tool, and kept off until they step down: the gun
+	-- on the post is what they use now (a hotkey at the post once put the
+	-- rifle back in hand beside the post gun, 2026-09-29)
+	ToolManager:setToolsLocked(player, true)
 	character:PivotTo(PostRules.characterFrame(PostRules.baseFrame(weaponModel.PrimaryPart.CFrame, post.yawDegrees), rig))
 	self:createIkControls(post, player)
 	self:replicatePost(post)
@@ -541,7 +556,7 @@ function PostManager:fire(player: Player, origin: Vector3, direction: Vector3)
 		return
 	end
 	if data.HEAT then
-		local currentHeat = PostRules.cooledHeat(post.heat, post.lastFireTime, now, stats.fireIntervalSec, data.HEAT)
+		local currentHeat = PostRules.cooledHeat(post.heat, post.lastFireTime, now, stats.fireIntervalSec, stats.coolSec or data.HEAT.COOL_SEC)
 		local isFired, newHeat, isOverheated = PostRules.heatAfterShot(currentHeat, post.isOverheated, data.HEAT, stats.fireIntervalSec)
 		if not isFired then
 			return
@@ -655,6 +670,10 @@ function PostManager:upgrade(player: Player, attribute: number)
 		return
 	end
 	local state = self:getPlayerState(player)
+	if not PostRules.kindHasAttribute(self.catalog, post.weaponKind, attribute) then
+		PlayerFeedbackManager:give(player, FEEDBACK_NO_SUCH_UPGRADE)
+		return
+	end
 	local offer = PostRules.getUpgradeOffer(self.catalog, state.upgrades, attribute, RefineryManager:getCampLevel())
 	if offer.status == Enums.StoreOffer.MAXED then
 		PlayerFeedbackManager:give(player, FEEDBACK_MAXED)
@@ -779,6 +798,8 @@ function PostManager:bindClaimPrompt(post: Post)
 	local prompt = liveAttachment:FindFirstChildWhichIsA("ProximityPrompt")
 	if not prompt then
 		prompt = Instance.new("ProximityPrompt")
+		-- a clickable prompt frees the mouse when hovered, which sticks the cursor in first person (2026-09-29)
+		prompt.ClickablePrompt = false
 		prompt.Parent = liveAttachment
 	end
 	local livePrompt = prompt :: ProximityPrompt
@@ -862,6 +883,7 @@ function PostManager:getNetHandlers()
 		},
 		[NetEventNames.TRY_FIRE_POST_WEAPON] = {
 			shape = TRY_FIRE_POST_WEAPON_SHAPE,
+			cost = TRY_FIRE_POST_WEAPON_COST,
 			handler = function(player: Player, payload: { [string]: any })
 				self:fire(player, payload.origin, payload.direction)
 			end,

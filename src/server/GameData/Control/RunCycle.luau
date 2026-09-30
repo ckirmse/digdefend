@@ -16,12 +16,14 @@ return {
 	-- once everyone the lobby sent is Ready (or the arrival timeout has
 	-- passed), the run waits this long in the morning look before day 1
 	PRE_DAY_SEC = 10,
-	DAY_SEC = 300,
+	-- 320 since 2026-09-29: the extra 20 s are sunset, for setting up
+	-- defenses before the gate shuts
+	DAY_SEC = 320,
 	-- the last stretch of the day: the clock turns to its dusk picture and
 	-- every client starts Music.DuskSong1 from the top (the track is 52 s,
 	-- so it runs on into the night). Published as GameMetadata (the share of
 	-- the day and the seconds); the client plays the song once per day
-	DUSK_SEC = 40,
+	DUSK_SEC = 60,
 	NIGHT_SPAWN_SEC = 90,
 	NIGHT_PLACEHOLDER_SEC = 0,
 	-- the dev tool's "Dusk now" runs what is left of the day down over

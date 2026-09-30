@@ -290,6 +290,8 @@ end
 -- shown to one player from the server
 function PlacementManager:configurePrompt(placement: Placement)
 	local prompt = Instance.new("ProximityPrompt")
+	-- a clickable prompt frees the mouse when hovered, which sticks the cursor in first person (2026-09-29)
+	prompt.ClickablePrompt = false
 	prompt.ObjectText = PlacementRules.publicName(placement.placementKind, placement.typeKind)
 	prompt.RequiresLineOfSight = false
 	prompt.Enabled = true
@@ -517,7 +519,9 @@ function PlacementManager:repairTower(player: Player, id: string)
 	if not StructureRules.canSwing(self.lastSwingTimeByPlayer[player], now, StructuresData.HAMMER_HIT_COOLDOWN_SEC) then
 		return
 	end
-	local gained, cost = StructureRules.repairChunk(placement.maxHp, placement.hp, StructuresData.REPAIR_CHUNK_HP, StructuresData.REPAIR_CHUNK_IRON)
+	-- a Tower repairs at the first tier's chunk whatever its level
+	local chunkHp, chunkIron = StructureRules.repairChunkForTier(StructuresData.REPAIR_CHUNK_HP_BY_TIER, StructuresData.REPAIR_CHUNK_IRON_BY_TIER, 1)
+	local gained, cost = StructureRules.repairChunk(placement.maxHp, placement.hp, chunkHp, chunkIron)
 	if gained <= 0 then
 		return
 	end

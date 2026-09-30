@@ -242,8 +242,12 @@ return {
 		},
 		-- kamikaze carrying explosives: walks up to a placement and blows up
 		-- on its first attack, hurting everything in its radius
+		-- bombers are priced for their blast, not their HP (2026-09-29): a
+		-- tier 1 wall is 300 HP, so three Bomber I or one Bomber III break
+		-- one, and at HP-based points a night bought them for a few percent
+		-- of its budget
 		[Enums.MonsterKind.BOMBER_1] = {
-			DIFFICULTY_VALUE = 6,
+			DIFFICULTY_VALUE = 10,
 			MAX_HP = 100,
 			DAMAGE = 100,
 			SPEED_STUDS_PER_SEC = 15,
@@ -261,7 +265,7 @@ return {
 			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
 		},
 		[Enums.MonsterKind.BOMBER_2] = {
-			DIFFICULTY_VALUE = 12,
+			DIFFICULTY_VALUE = 20,
 			MAX_HP = 200,
 			DAMAGE = 200,
 			SPEED_STUDS_PER_SEC = 15,
@@ -279,7 +283,7 @@ return {
 			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
 		},
 		[Enums.MonsterKind.BOMBER_3] = {
-			DIFFICULTY_VALUE = 18,
+			DIFFICULTY_VALUE = 30,
 			MAX_HP = 300,
 			DAMAGE = 300,
 			SPEED_STUDS_PER_SEC = 15,

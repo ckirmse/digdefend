@@ -113,7 +113,8 @@ local TOWER_BILLBOARD_LIFT_STUDS = 1.5
 -- camp and out on the defenses, further than the template's distance
 local STRUCTURE_BILLBOARD_MAX_DISTANCE_STUDS = 300
 -- and stacks above the Camp Level sign that already floats over the Refinery
-local REFINERY_BILLBOARD_LIFT_STUDS = 8.5
+-- the Refinery's bar floats this far above the model's top, the spot the
+-- Camp Level billboard had until 2026-09-29
 local TOWER_LEVEL_FORMAT = "%s %d"
 
 local function isTowerShadow(shadow: BasePart): boolean
@@ -251,6 +252,19 @@ function ClientStructureManager:isBarShown(shadow: BasePart): boolean
 	return repairable ~= nil and repairable.hp < repairable.maxHp
 end
 
+-- how far above its shadow the Refinery's bar sits: over the model's top
+-- by the lift the Camp Level billboard used, so it reads from the whole
+-- camp; the shadow's own height when the model cannot be found
+function ClientStructureManager:refineryLift(shadow: BasePart): number
+	local camp = workspace:FindFirstChild(Constants.CAMP_FOLDER)
+	local refinery = if camp then camp:FindFirstChild(Constants.CAMP_REFINERY_MODEL) else nil
+	if not refinery or not refinery:IsA("Model") then
+		return shadow.Size.Y / 2 + Constants.REFINERY_HP_BILLBOARD_LIFT_STUDS
+	end
+	local boundsCFrame, boundsSize = refinery:GetBoundingBox()
+	return boundsCFrame.Position.Y + boundsSize.Y / 2 + Constants.REFINERY_HP_BILLBOARD_LIFT_STUDS - shadow.Position.Y
+end
+
 -- shows or hides a shadow's HP bar by isBarShown; a Tower's everyday info
 -- billboard steps aside for the bar so the two never stack
 function ClientStructureManager:applyBarVisibility(shadow: BasePart, tracked: Tracked)
@@ -273,7 +287,7 @@ function ClientStructureManager:applyBarVisibility(shadow: BasePart, tracked: Tr
 			return
 		end
 		billboard = template:Clone()
-		local lift = if isTower then ClientPlacementManager:getBodyHeight(shadow) + TOWER_BILLBOARD_LIFT_STUDS - shadow.Size.Y / 2 elseif isRefinery then REFINERY_BILLBOARD_LIFT_STUDS else BILLBOARD_LIFT_STUDS
+		local lift = if isTower then ClientPlacementManager:getBodyHeight(shadow) + TOWER_BILLBOARD_LIFT_STUDS - shadow.Size.Y / 2 elseif isRefinery then self:refineryLift(shadow) else BILLBOARD_LIFT_STUDS
 		if isTower then
 			ClientPlacementManager:setInfoVisible(shadow, false)
 		end

@@ -30,12 +30,13 @@ return {
 	pocketRadiusMax = 2,
 	-- uranium rocks needed to call the rescue helicopter, solo. The fifth
 	-- playtest (2026-09-28) found 40 by day 4 at 26 / 40 / 56: a player who
-	-- hunts the hum takes nearly everything in reach, so the first three
-	-- zones hold about this much between them (9 / 14 / 20) for a day-10
-	-- finish; zone 4 holds a big crew's supply, plentiful enough that its
-	-- rate of finding it is set by its rock, not by running out
-	-- (2026-09-25's 6 / 9 / 9 / 111 put 80% of a solo target in zones a
-	-- solo run never cleared)
+	-- hunts the hum takes nearly everything in reach. For the 15-night run
+	-- (2026-09-29) the counter should climb about three a day and never
+	-- jump (the designer's ask: constant progress toward the goal, not a
+	-- bunch at once), so each zone holds a little more than the last and
+	-- the sheet has a solo player at 40 on day 14; zone 5 holds a big
+	-- crew's supply, plentiful enough that its rate of finding it is set
+	-- by its rock, not by running out
 	uraniumTarget = 40,
 
 	defaultZoneHeight = 8,
@@ -51,18 +52,19 @@ return {
 			floorDrop = 2,
 			hardness = 1.0,
 			tierBias = 1.0,
-			-- gold ahead of iron (2026-09-28, third playtest: three towers by
-			-- night 1 and six Gold in four days; the designer wants ten Gold
-			-- by the end of night 1 and an upgrade a day, and Iron felt
-			-- abundant)
-			iron = 64,
+			-- iron tripled (2026-09-29, seventh playtest: Iron was hard to
+			-- find, three unupgraded Sentries in ten days, the Refinery fell
+			-- on night 10; the sheet refitted to that run wants about this
+			-- much for its nine towers by night 10). The day before, the
+			-- third playtest had cut iron under gold because three towers
+			-- went up by night 1; that was with seven-block veins
+			iron = 192,
 			gold = 136,
-			-- six clusters (about 84 Diamonds) so Camp Level 2 (20) needs a
-			-- quarter of the zone, not three quarters of it (2026-09-25; two
-			-- clusters left one seed with 28 and the level a lottery)
-			crystal = 36,
+			-- crystal removed from the spawns (2026-09-29) while the camp-level
+			-- gates are open for testing; was 36 / 36 / 72 / 108 / 108
+			crystal = 0,
 			-- thinner since the third playtest: it hums, so it is found fast
-			uranium = 9,
+			uranium = 7,
 			-- pockets doubled on 2026-09-28 (third playtest: more open
 			-- spaces to discover)
 			pockets = 4,
@@ -73,10 +75,10 @@ return {
 			floorDrop = 4,
 			hardness = 2.0,
 			tierBias = 2.0,
-			iron = 64,
+			iron = 192,
 			gold = 136,
-			crystal = 36,
-			uranium = 14,
+			crystal = 0,
+			uranium = 8,
 			pockets = 6,
 		},
 		{
@@ -86,28 +88,45 @@ return {
 			floorDrop = 6,
 			hardness = 3.0,
 			tierBias = 3.0,
-			iron = 64,
+			iron = 192,
 			gold = 136,
-			crystal = 72,
-			uranium = 20,
+			crystal = 0,
+			uranium = 9,
 			pockets = 8,
 		},
 		{
-			-- 4: cathedral, the deepest and richest rock
+			-- 4: cathedral, deep and rich; a modest uranium reserve so a solo
+			-- run keeps counting through days 11 to 14 without finishing
 			depth = 28,
 			height = 16,
 			floorDrop = 8,
 			hardness = 4.0,
 			tierBias = 4.0,
-			iron = 48,
+			iron = 144,
 			gold = 104,
-			crystal = 108,
-			-- the mine must hold the worst-case target or the generator refuses
-			-- it: 40 x 1.7 Nightmare x 12 six players = 816, against
-			-- (9 + 14 + 20 + 950) / 1.15 thinned at Nightmare = 863. A big crew lives in this zone from about day
-			-- 6 and finds a share of what is left each day, so the supply
-			-- stays well above the worst case or the tail drags
-			uranium = 950,
+			crystal = 0,
+			uranium = 14,
+			pockets = 10,
+		},
+		{
+			-- 5: the abyss (added 2026-09-29 for the 15-night run): the
+			-- hardest stone, the best ore, and the big crew's uranium supply.
+			-- The mine must hold the worst-case target or the generator
+			-- refuses it: 40 x 1.7 Nightmare x 5 six players = 340, against
+			-- (7 + 8 + 9 + 14 + 362) / 1.15 thinned at Nightmare = 348.
+			-- Uranium may sit at any height since 2026-09-29 (it was held to
+			-- the floor rows before, and 1,500 in 28 rows of that band hung
+			-- the generator). A big crew lives here from about day 10 and
+			-- finds a share of what is left each day
+			depth = 40,
+			height = 16,
+			floorDrop = 10,
+			hardness = 5.0,
+			tierBias = 4.0,
+			iron = 144,
+			gold = 104,
+			crystal = 0,
+			uranium = 362,
 			pockets = 10,
 		},
 	},

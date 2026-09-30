@@ -170,12 +170,16 @@ module = {
 		FIRE_RATE = 2,
 		TURN_SPEED = 3,
 		RANGE = 4,
+		-- how fast an overheated gun cools (2026-09-29); each kind lists
+		-- which four of these it offers in GameData/Posts/PostWeapons
+		COOLDOWN = 5,
 
 		PublicNames = {
 			DAMAGE = "Damage",
 			FIRE_RATE = "Fire Rate",
 			TURN_SPEED = "Turn Speed",
 			RANGE = "Range",
+			COOLDOWN = "Cooldown",
 		},
 	},
 	-- automated defense units (GDD "Defenses"), M26. The three DEFENSE

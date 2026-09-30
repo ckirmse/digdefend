@@ -34,7 +34,12 @@ return {
 	USE_PROMPT_ACTION_TEXT = "Use",
 	UPGRADE_PROMPT_ACTION_TEXT = "Upgrade",
 	PROMPT_MAX_DISTANCE_STUDS = 10,
-	UPGRADE_PRICE_BY_LEVEL = { 15, 30, 60, 120 },
+	-- a cheap first rung, then the pick axe's ladder (2026-09-29):
+	-- 15 / 30 / 60 / 120 maxed three attributes by day 7 in the seventh
+	-- playtest, before the run was half done; the first rung stays a
+	-- night-2 buy (the sheet's nights 2 and 3 hinge on it) and the rest
+	-- triple so the post is still climbing on the last night
+	UPGRADE_PRICE_BY_LEVEL = { 15, 90, 270, 800 },
 	BONUS_PER_LEVEL_BY_ATTRIBUTE = {
 		[Enums.PostAttribute.DAMAGE] = 0.25,
 		[Enums.PostAttribute.FIRE_RATE] = 0.2,
@@ -42,6 +47,11 @@ return {
 		-- level 2, three times at level 4 (decided 2026-09-18)
 		[Enums.PostAttribute.TURN_SPEED] = 0.5,
 		[Enums.PostAttribute.RANGE] = 0.2,
+		-- the Machine Gun's fourth attribute (2026-09-29, replacing Range,
+		-- which its 350 studs never needed): each level takes this share of
+		-- the base cool time off, the same half second every rung, so the
+		-- overheated gun cools from full in 3 / 2.5 / 2 / 1.5 / 1 s
+		[Enums.PostAttribute.COOLDOWN] = 1 / 6,
 	},
 	-- how far from the muzzle the server lets a shot start: the client's
 	-- base may be a fraction of a second ahead of the last aim it sent
@@ -50,11 +60,19 @@ return {
 	-- same reason
 	YAW_TOLERANCE_DEGREES = 15,
 	BY_KIND = {
-		-- about 85 DPS sustained through the overheat, against the rifle's
-		-- 55 (2026-09-28): a post is a stationary, exposed commitment and
-		-- must be worth leaving the rifle for
+		-- about 69 DPS sustained through the overheat, against the rifle's
+		-- 55: a post is a stationary, exposed commitment and must be worth
+		-- leaving the rifle for (2026-09-28), but 15 damage (85 sustained,
+		-- 150 while firing) made every enemy feel easy in the seventh
+		-- playtest, so 12 since 2026-09-29
 		[Enums.PostWeaponKind.MACHINE_GUN] = {
-			DAMAGE = 15,
+			UPGRADE_ATTRIBUTES = {
+				Enums.PostAttribute.DAMAGE,
+				Enums.PostAttribute.FIRE_RATE,
+				Enums.PostAttribute.TURN_SPEED,
+				Enums.PostAttribute.COOLDOWN,
+			},
+			DAMAGE = 12,
 			FIRE_INTERVAL_SEC = 0.1,
 			FIRE_COOLDOWN_SEC = 0.08,
 			TURN_SPEED_DEGREES_PER_SEC = 22,
@@ -73,6 +91,13 @@ return {
 		-- 33 DPS to one target, about a hundred into a group at the 12-stud
 		-- splash (2026-09-28)
 		[Enums.PostWeaponKind.ROCKET_LAUNCHER] = {
+			-- Range matters here: it is how far a rocket flies before bursting
+			UPGRADE_ATTRIBUTES = {
+				Enums.PostAttribute.DAMAGE,
+				Enums.PostAttribute.FIRE_RATE,
+				Enums.PostAttribute.TURN_SPEED,
+				Enums.PostAttribute.RANGE,
+			},
 			DAMAGE = 200,
 			-- the reload is the launcher's fire rate (decided 2026-09-18): one
 			-- rocket every RELOAD_SEC, and Fire Rate upgrades shorten it

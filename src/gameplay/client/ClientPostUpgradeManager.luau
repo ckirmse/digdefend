@@ -129,8 +129,16 @@ function ClientPostUpgradeManager:renderMenu()
 	local upgrades = self:getOwnUpgrades()
 	local gold = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_GOLD_BARS), 0)
 	local campLevel = readNumber(ClientDataManager:getGameMetadata(Attributes.CAMP_LEVEL), 1)
+	-- a row per attribute exists; the weapon kind picks which four show
+	-- and in what order (the Machine Gun has Cooldown, the Rocket
+	-- Launcher has Range)
 	for _, row in self.rows do
-		self:renderRow(row, catalog, upgrades, gold, campLevel)
+		local order = PostRules.attributeOrder(catalog, kind, row.attribute)
+		row.frame.Visible = order ~= nil
+		row.frame.LayoutOrder = order or 0
+		if order ~= nil then
+			self:renderRow(row, catalog, upgrades, gold, campLevel)
+		end
 	end
 end
 

@@ -541,23 +541,26 @@ describe(
 		)
 
 		it(
-			"places every uranium rock within pickaxe reach of the floor",
+			"places every authored uranium rock, at any height",
 			function()
 				local result = generateOrFail(makeMine())
 				local grid = result.grid
 				local found = 0
+				local highest = 0
 				for depth = 0, grid.depth - 1 do
 					for height = 0, grid.height - 1 do
 						for width = 0, grid.width - 1 do
 							if MineGenerator.getCell(grid, depth, height, width) == RockName.URANIUM then
 								found += 1
-								-- the floor sits on the 1-block bedrock floor
-								expect(height - 1).toBeLessThan(3)
+								highest = math.max(highest, height)
 							end
 						end
 					end
 				end
+				-- never on another uranium rock, so placed equals authored
 				expect(found).toBe(result.report.zones[4].uraniumSoFar)
+				-- no longer held within pick reach of the floor (2026-09-29)
+				expect(highest - 1).toBeGreaterThanOrEqual(3)
 			end
 		)
 	end

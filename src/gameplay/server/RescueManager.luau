@@ -125,6 +125,7 @@ function RescueManager:refreshRadio()
 	end
 	local state = RunCycleManager:getRunState()
 	local isRunOn = state == Enums.RunState.DAY or state == Enums.RunState.NIGHT
+	prompt.ClickablePrompt = false
 	prompt.Enabled = isRunOn and not self.isCalled and self:isTargetReached()
 end
 
@@ -165,6 +166,8 @@ function RescueManager:land()
 	-- the prompt sits on the pad's spawn part, which the helicopter stands
 	-- on, so it is where the helicopter is without depending on the model
 	local prompt = Instance.new("ProximityPrompt")
+	-- a clickable prompt frees the mouse when hovered, which sticks the cursor in first person (2026-09-29)
+	prompt.ClickablePrompt = false
 	prompt.ActionText = RescueData.BOARD_PROMPT_ACTION_TEXT
 	prompt.ObjectText = RescueData.BOARD_PROMPT_OBJECT_TEXT
 	prompt.MaxActivationDistance = RescueData.BOARD_PROMPT_MAX_DISTANCE_STUDS

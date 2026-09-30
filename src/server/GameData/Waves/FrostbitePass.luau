@@ -16,19 +16,19 @@ return {
 	-- can pay, none worth less (so a small night is one big group, not a
 	-- trickle), and its groups spawn over this long after night fall (the
 	-- sky's NIGHT_SPAWN_SEC is separate)
-	MIN_GROUP_DIFFICULTY = 40,
-	WAVE_SPAWN_LENGTH_SEC = 45,
+	MIN_GROUP_DIFFICULTY = 80,
+	WAVE_SPAWN_LENGTH_SEC = 90,
 	-- and no two of its groups in a row are further apart than this, so a
 	-- night of two groups is not one group, a long lull, then the other
-	MAX_TIME_BETWEEN_GROUPS_SEC = 20,
+	MAX_TIME_BETWEEN_GROUPS_SEC = 30,
 	WAVES = {},
 	-- Deadman's Canyon's curves, copied on 2026-09-28 so the balance audit
 	-- holds this map to the same targets until it is authored for real
 	GENERATOR = {
 		[Enums.Difficulty.NORMAL] = {
-			STARTING_DIFFICULTY = 24,
-			DIFFICULTY_INCREASE_PER_WAVE = 12,
-			GROWTH_PER_WAVE = 0.10,
+			STARTING_DIFFICULTY = 22,
+			DIFFICULTY_INCREASE_PER_WAVE = 16,
+			GROWTH_PER_WAVE = 0.08,
 			WAVE_DIFFICULTY_RANGE = 4,
 			AVAILABLE_ENEMIES = {
 				{
@@ -108,8 +108,8 @@ return {
 		[Enums.Difficulty.HARD] = {
 			-- a steeper climb from a low start, every kind two nights earlier
 			STARTING_DIFFICULTY = 28,
-			DIFFICULTY_INCREASE_PER_WAVE = 26,
-			GROWTH_PER_WAVE = 0.06,
+			DIFFICULTY_INCREASE_PER_WAVE = 33,
+			GROWTH_PER_WAVE = 0.03,
 			WAVE_DIFFICULTY_RANGE = 4,
 			AVAILABLE_ENEMIES = {
 				{
@@ -188,9 +188,9 @@ return {
 		},
 		[Enums.Difficulty.NIGHTMARE] = {
 			-- the same climb from a higher start, every kind four nights earlier
-			STARTING_DIFFICULTY = 30,
-			DIFFICULTY_INCREASE_PER_WAVE = 26,
-			GROWTH_PER_WAVE = 0.06,
+			STARTING_DIFFICULTY = 34,
+			DIFFICULTY_INCREASE_PER_WAVE = 42,
+			GROWTH_PER_WAVE = 0.02,
 			WAVE_DIFFICULTY_RANGE = 5,
 			AVAILABLE_ENEMIES = {
 				{

@@ -16,6 +16,7 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local MiningRules = require("@game/ReplicatedStorage/Shared/MiningRules")
+local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
@@ -224,6 +225,12 @@ end
 
 function ClientToolBarManager:onInputBegan(input: InputObject, isGameProcessed: boolean)
 	if isGameProcessed or self.isHidden or ClientOverlayManager:isOverlayActive() then
+		return
+	end
+	-- at a post the hands are on the post gun; the server refuses the
+	-- equip as well, this keeps the bar honest
+	local mannedIndex = ClientDataManager:getCurrentPlayerAttribute(Attributes.MANNED_POST_INDEX)
+	if typeof(mannedIndex) == "number" and mannedIndex ~= PostRules.NO_POST then
 		return
 	end
 	if input.UserInputType == Enum.UserInputType.Keyboard then

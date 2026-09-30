@@ -218,6 +218,9 @@ local INHERITED_FIELDS = {
 }
 
 local REQUIRED_FIRST_ZONE_FIELDS = { "depth" }
+-- random centre draws per vein before it is given up; a band under half
+-- full needs one or two
+local MAX_CENTER_TRIES = 200
 
 function MineGenerator.cellIndex(grid: MineGrid, depth: number, height: number, width: number): number
 	return (depth * grid.height + height) * grid.width + width + 1
@@ -675,13 +678,11 @@ local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: Gener
 			else
 				tierCounts = RockRules.resolveTierCounts(count, zone.tierBias, #tiers, config.spread)
 			end
-			-- uranium is the win condition, so it is always minable from a
-			-- standing start (centers stay within pickaxe reach of the floor)
-			-- and never lands on another uranium rock, so placed equals authored
+			-- uranium is the win condition, so it never lands on another
+			-- uranium rock and placed equals authored. It may sit at any
+			-- height (decided 2026-09-29; until then it was held within pick
+			-- reach of the floor, a rule from before the jet pack existed)
 			local maxCenterHeight = bounds.heightEnd
-			if entry.resource == Enums.RawResource.URANIUM_ORE then
-				maxCenterHeight = math.min(bounds.heightEnd, bounds.heightStart + config.pickaxeReachBlocks - 1)
-			end
 			for wantedTier, tierCount in tierCounts do
 				-- a tier the floors keep out of this zone entirely drops to the
 				-- deepest one allowed at the zone's last row
@@ -702,19 +703,36 @@ local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: Gener
 				if not hasFreeCellInRange then
 					minDepth, maxDepth = bounds.depthStart, bounds.depthEnd
 				end
+				local skipped = 0
 				for _ = 1, tierCount do
 					local radius = random:NextInteger(definitionOfRock.clusterRadiusMin :: number, definitionOfRock.clusterRadiusMax :: number)
 					-- rejection sampling keeps the distribution uniform over the
-					-- allowed volume; the free-cell check above guarantees it ends
-					local centerDepth, centerHeight, centerWidth
-					repeat
+					-- allowed volume; the free-cell check above guarantees a free
+					-- cell exists, and the try cap keeps a nearly full band (a
+					-- zone authored with more uranium than its floor rows can
+					-- hold once hung the server, 2026-09-29) from spinning
+					local centerDepth, centerHeight, centerWidth = 0, 0, 0
+					local isPlaced = false
+					for _ = 1, MAX_CENTER_TRIES do
 						centerDepth = random:NextInteger(minDepth, maxDepth)
 						centerHeight = random:NextInteger(bounds.heightStart, maxCenterHeight)
 						centerWidth = random:NextInteger(bounds.widthStart, bounds.widthEnd)
-					until not isInBox(exclude, centerDepth, centerHeight, centerWidth)
-						and MineGenerator.getCell(grid, centerDepth, centerHeight, centerWidth) ~= MineGenerator.AIR
-						and (entry.resource ~= Enums.RawResource.URANIUM_ORE or MineGenerator.getCell(grid, centerDepth, centerHeight, centerWidth) ~= rock)
+						if not isInBox(exclude, centerDepth, centerHeight, centerWidth)
+							and MineGenerator.getCell(grid, centerDepth, centerHeight, centerWidth) ~= MineGenerator.AIR
+							and (entry.resource ~= Enums.RawResource.URANIUM_ORE or MineGenerator.getCell(grid, centerDepth, centerHeight, centerWidth) ~= rock)
+						then
+							isPlaced = true
+							break
+						end
+					end
+					if not isPlaced then
+						skipped += 1
+						continue
+					end
 					stampCluster(grid, bounds, exclude, centerDepth, centerHeight, centerWidth, radius, rock, true)
+				end
+				if skipped > 0 then
+					table.insert(warnings, zoneLabel(zone.index) .. ": no room for " .. skipped .. " of " .. tierCount .. " " .. entry.field .. " tier " .. tier .. " veins after " .. MAX_CENTER_TRIES .. " tries each; author fewer or a deeper zone")
 				end
 			end
 		end

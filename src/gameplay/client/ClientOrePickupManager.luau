@@ -2,8 +2,9 @@
 
 -- Draws ore lying on the ground: every part tagged Tags.ORE_PICKUP is a
 -- server shadow carrying the resource and amount; this client gives it a
--- thin plate showing the ore's 2D icon (from Icons, both faces) that bobs
--- and spins like a coin. A resource with no icon yet falls back to a cube in
+-- thin plate showing the ore's 2D icon (from Icons, both faces, on the
+-- OrePickupFace SurfaceGui template so the mine's lighting cannot darken
+-- it; a Decal did, 2026-09-29) that bobs and spins like a coin. A resource with no icon yet falls back to a cube in
 -- its rock colour. A dropped tool (a torch off a broken block) shows as a
 -- small cube in the tool template's colour. One Heartbeat drives every
 -- caster and runs only while there is something to animate.
@@ -67,7 +68,29 @@ local function colorForResource(resource: number): (Color3, Enum.Material)
 	return FALLBACK_COLOR, Enum.Material.SmoothPlastic
 end
 
-local function addFaceDecal(part: BasePart, face: Enum.NormalId, imageId: string)
+local hasWarnedFaceTemplate = false
+
+-- the icon on one face: the lit SurfaceGui template when it exists, a
+-- Decal (lit by the world, so darker underground) when it does not
+local function addFace(part: BasePart, face: Enum.NormalId, imageId: string)
+	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
+	local guiFolder = if gameAssets then gameAssets:FindFirstChild(Constants.GUI_TEMPLATES_FOLDER) else nil
+	local template = if guiFolder then guiFolder:FindFirstChild(Constants.ORE_PICKUP_FACE_GUI) else nil
+	if template and template:IsA("SurfaceGui") then
+		local gui = template:Clone()
+		gui.Name = face.Name
+		gui.Face = face
+		local icon = gui:FindFirstChild(Constants.ORE_PICKUP_FACE_IMAGE)
+		if icon and icon:IsA("ImageLabel") then
+			icon.Image = imageId
+		end
+		gui.Parent = part
+		return
+	end
+	if not hasWarnedFaceTemplate then
+		hasWarnedFaceTemplate = true
+		warn("ClientOrePickupManager: no OrePickupFace SurfaceGui under GameAssets.Gui; pickups use a Decal. Run scripts/studio/build_ore_pickup_face_gui.luau")
+	end
 	local decal = Instance.new("Decal")
 	decal.Name = face.Name
 	decal.Face = face
@@ -124,8 +147,8 @@ local function makeCasterPart(resource: number): BasePart
 	end
 	part.Size = Vector3.new(PLATE_SIZE, PLATE_SIZE, PLATE_THICKNESS)
 	part.Transparency = 1
-	addFaceDecal(part, Enum.NormalId.Front, imageId :: string)
-	addFaceDecal(part, Enum.NormalId.Back, imageId :: string)
+	addFace(part, Enum.NormalId.Front, imageId :: string)
+	addFace(part, Enum.NormalId.Back, imageId :: string)
 	return part
 end
 

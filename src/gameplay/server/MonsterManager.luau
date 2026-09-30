@@ -171,6 +171,8 @@ local function separationKey(x: number, z: number, spacing: number): number
 end
 -- a lane that does not fit is halved this many times before giving up
 local LANE_SHRINK_TRIES = 3
+-- a slide along a blocked cell's edge shorter than this is not a step
+local SLIDE_MIN_STUDS = 0.05
 
 function MonsterManager:getAliveCount(): number
 	local count = 0
@@ -686,7 +688,26 @@ function MonsterManager:moveToward(monster: Monster, destination: Vector3, delta
 	-- and the route's barrier rule takes over (attack it, or go round)
 	local grid = MonsterPathManager:getGrid()
 	if not monster.isAir and grid and not self:isGroundClear(grid, flatNew.X, flatNew.Z) then
-		return
+		local blockedIndex = FlowField.indexAt(grid, flatNew.X, flatNew.Z)
+		if blockedIndex and grid.barriers[blockedIndex] then
+			return
+		end
+		-- unwalkable ground (a post's footprint, a rock): slide along its
+		-- edge on whichever axis is clear. The line check that picks a
+		-- waypoint samples every half cell, so a diagonal line can clip the
+		-- corner of an unwalkable cell between samples; without the slide
+		-- the step into that corner is refused for good and the monster
+		-- walks in place at the cell edge (seen in the eighth playtest,
+		-- 2026-09-29: a zombie beside post 3)
+		local slideX = Vector3.new(flatNew.X, 0, flatFrom.Z)
+		local slideZ = Vector3.new(flatFrom.X, 0, flatNew.Z)
+		if (slideX - flatFrom).Magnitude > SLIDE_MIN_STUDS and self:isGroundClear(grid, slideX.X, slideX.Z) then
+			flatNew = slideX
+		elseif (slideZ - flatFrom).Magnitude > SLIDE_MIN_STUDS and self:isGroundClear(grid, slideZ.X, slideZ.Z) then
+			flatNew = slideZ
+		else
+			return
+		end
 	end
 	local groundY = MonsterPathManager:getGroundHeight(flatNew.X, flatNew.Z) or monster.groundY
 	monster.groundY = groundY

@@ -286,6 +286,7 @@ function RefineryManager:bindPrompt()
 	prompt.ObjectText = RefineryData.PROMPT_OBJECT_TEXT
 	prompt.MaxActivationDistance = RefineryData.PROMPT_MAX_DISTANCE_STUDS
 	prompt.HoldDuration = 0
+	prompt.ClickablePrompt = false
 	prompt.RequiresLineOfSight = false
 	prompt.Enabled = not self.isBusy
 	self.prompt = prompt

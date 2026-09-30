@@ -39,6 +39,9 @@ type ToolState = {
 	weaponKind: number,
 	-- consumables only: how many of each are held
 	countByTool: { [number]: number },
+	-- true while the player mans a post: nothing can be equipped, so the
+	-- rifle cannot be fired beside the post gun (2026-09-29)
+	isLocked: boolean,
 }
 
 export type ToolManager = typeof(setmetatable(
@@ -275,6 +278,11 @@ function ToolManager:setEquippedTool(player: Player, tool: number)
 	if not state then
 		return
 	end
+	if tool ~= MiningRules.NO_TOOL and state.isLocked then
+		-- a hotkey pressed at a post; the client hides the bar, so this is
+		-- only ever a stray press, and it is refused quietly
+		return
+	end
 	if tool ~= MiningRules.NO_TOOL and not table.find(state.slots, tool) then
 		warn(`ToolManager: {player.Name} tried to equip tool {tool} they do not have`)
 		return
@@ -284,6 +292,19 @@ function ToolManager:setEquippedTool(player: Player, tool: number)
 	end
 	state.equipped = tool
 	self:replicate(player)
+end
+
+-- hands off and hands stay off while locked (a manned post); unlocking
+-- leaves the hands empty until the player picks a tool again
+function ToolManager:setToolsLocked(player: Player, isLocked: boolean)
+	local state = self.stateByPlayer[player]
+	if not state then
+		return
+	end
+	if isLocked then
+		self:setEquippedTool(player, MiningRules.NO_TOOL)
+	end
+	state.isLocked = isLocked
 end
 
 function ToolManager:getNetHandlers()
@@ -312,6 +333,7 @@ function ToolManager:onPlayerReady(player: Player)
 	self.stateByPlayer[player] = {
 		slots = {},
 		equipped = MiningRules.NO_TOOL,
+		isLocked = false,
 		pickAxeLevel = STARTING_PICK_AXE_LEVEL,
 		weaponKind = 0,
 		countByTool = {},

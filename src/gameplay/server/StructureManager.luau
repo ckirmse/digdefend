@@ -27,11 +27,13 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
+local RunCycleRules = require("@game/ReplicatedStorage/Shared/RunCycleRules")
 local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
 local StructureRules = require("@game/ReplicatedStorage/Shared/StructureRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local LevelData = require("@game/ServerScriptService/GameData/Camp/Level")
 local StructuresData = require("@game/ServerScriptService/GameData/Camp/Structures")
+local PartyScalingData = require("@game/ServerScriptService/GameData/Control/PartyScaling")
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -39,6 +41,7 @@ local SpatialSoundManager = require(script.Parent.Parent.Server.SpatialSoundMana
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 local MapManager = require(script.Parent.MapManager)
 local RefineryManager = require(script.Parent.RefineryManager)
+local RunCycleManager = require(script.Parent.RunCycleManager)
 local ToolManager = require(script.Parent.ToolManager)
 
 local StructureManager = {}
@@ -206,11 +209,10 @@ function StructureManager:getKindData(kind: number): StructureRules.KindData
 	return StructuresData.BY_KIND[kind]
 end
 
--- the Refinery's tier is the Camp Level; everything else shares the fortification tier
+-- every structure shares the fortification tier, the Refinery included
+-- (its tier was the Camp Level until 2026-09-29, when Camp Level left the
+-- game for now)
 function StructureManager:getTier(structure: Structure): number
-	if structure.kind == Enums.StructureKind.REFINERY then
-		return RefineryManager:getCampLevel()
-	end
 	return self.fortificationTier
 end
 
@@ -218,9 +220,17 @@ function StructureManager:getMaxHp(structure: Structure): number
 	return StructureRules.maxHp(self:getKindData(structure.kind), self:getTier(structure))
 end
 
--- Iron the next tier costs; nil at the top tier
+-- Iron the next tier costs the crew that is here (the dawn count, as the
+-- tower cap uses); nil at the top tier
 function StructureManager:getNextTierCost(): number?
-	return StructureRules.upgradeCost(StructuresData.FORTIFICATION_UPGRADE_IRON_TO_TIER, self.fortificationTier)
+	local soloCost = StructureRules.upgradeCost(StructuresData.FORTIFICATION_UPGRADE_IRON_TO_TIER, self.fortificationTier)
+	local multiplier = RunCycleRules.multiplierFor(PartyScalingData.WAVE_DIFFICULTY_MULTIPLIER_BY_PLAYER_COUNT, RunCycleManager:getScalingCount())
+	return StructureRules.scaledUpgradeCost(soloCost, multiplier, StructuresData.FORTIFICATION_DONATION_IRON)
+end
+
+-- what one swing adds and costs on this structure, by its tier
+function StructureManager:getRepairChunk(structure: Structure): (number, number)
+	return StructureRules.repairChunkForTier(StructuresData.REPAIR_CHUNK_HP_BY_TIER, StructuresData.REPAIR_CHUNK_IRON_BY_TIER, self:getTier(structure))
 end
 
 function StructureManager:findTemplate(templateName: string): Model?
@@ -370,9 +380,13 @@ function StructureManager:replicateStructure(structure: Structure)
 	shadow:SetAttribute(Attributes.STRUCTURE_MAX_HP, self:getMaxHp(structure))
 end
 
--- the Workbench sign: tier, pool, what the next tier costs and needs
+-- the Workbench sign: tier, pool, what the next tier costs and needs; and
+-- the swing chunk the walls take at this tier, for the repair HUD
 function StructureManager:replicateFortification()
 	local nextTierCost = self:getNextTierCost()
+	local chunkHp, chunkIron = StructureRules.repairChunkForTier(StructuresData.REPAIR_CHUNK_HP_BY_TIER, StructuresData.REPAIR_CHUNK_IRON_BY_TIER, self.fortificationTier)
+	SplendidReplicationManager:setGameMetadata(Attributes.REPAIR_CHUNK_HP, chunkHp)
+	SplendidReplicationManager:setGameMetadata(Attributes.REPAIR_CHUNK_IRON, chunkIron)
 	SplendidReplicationManager:setGameMetadata(Attributes.FORTIFICATION_TIER, self.fortificationTier)
 	SplendidReplicationManager:setGameMetadata(Attributes.FORTIFICATION_POOL, self.fortificationPool)
 	SplendidReplicationManager:setGameMetadata(Attributes.FORTIFICATION_POOL_REQUIRED, nextTierCost or 0)
@@ -476,7 +490,8 @@ function StructureManager:handleRepair(player: Player, id: string)
 	if not StructureRules.canSwing(self.lastSwingTimeByPlayer[player], now, StructuresData.HAMMER_HIT_COOLDOWN_SEC) then
 		return
 	end
-	local gained, cost = StructureRules.repairChunk(self:getMaxHp(structure), structure.hp, StructuresData.REPAIR_CHUNK_HP, StructuresData.REPAIR_CHUNK_IRON)
+	local chunkHp, chunkIron = self:getRepairChunk(structure)
+	local gained, cost = StructureRules.repairChunk(self:getMaxHp(structure), structure.hp, chunkHp, chunkIron)
 	if gained <= 0 then
 		return
 	end
@@ -552,11 +567,13 @@ function StructureManager:setFortificationTier(tier: number)
 	-- a donation pool belongs to the tier it was filling
 	self.fortificationPool = 0
 	for _, structure in self.structuresById do
-		if not structure.slot then
-			continue
-		end
+		-- the Refinery has no template slot but keeps its share of HP too
 		self:rescaleHp(structure)
-		self:syncModel(structure)
+		if structure.slot then
+			self:syncModel(structure)
+		else
+			self:replicateStructure(structure)
+		end
 	end
 	for _, slot in self.postSlots do
 		self:fillPostSlot(slot)
@@ -566,13 +583,9 @@ function StructureManager:setFortificationTier(tier: number)
 end
 
 -- the Camp Level moved: the Refinery keeps its share of HP at its new size
+-- the Refinery's HP no longer follows the Camp Level (2026-09-29); only
+-- the Workbench's lock line still reads it
 function StructureManager:onCampLevelChanged()
-	local refinery = self.structuresById[REFINERY_ID]
-	if not refinery then
-		return
-	end
-	self:rescaleHp(refinery)
-	self:replicateStructure(refinery)
 end
 
 -- binds the loaded camp's Workbench; the prompt is created here so a bench
@@ -588,6 +601,8 @@ function StructureManager:bindWorkbench(camp: Instance)
 	local prompt = promptPart:FindFirstChildWhichIsA("ProximityPrompt")
 	if not prompt then
 		prompt = Instance.new("ProximityPrompt")
+		-- a clickable prompt frees the mouse when hovered, which sticks the cursor in first person (2026-09-29)
+		prompt.ClickablePrompt = false
 		prompt.Parent = promptPart
 	end
 	local livePrompt = prompt :: ProximityPrompt
@@ -738,9 +753,15 @@ function StructureManager:init()
 	SplendidReplicationManager:setGameMetadata(Attributes.FORTIFICATION_TIER, STARTING_TIER)
 	SplendidReplicationManager:setGameMetadata(Attributes.IS_NIGHT, false)
 	SplendidReplicationManager:setGameMetadata(Attributes.REFINERY_UNDER_ATTACK, false)
-	SplendidReplicationManager:setGameMetadata(Attributes.REPAIR_CHUNK_HP, StructuresData.REPAIR_CHUNK_HP)
-	SplendidReplicationManager:setGameMetadata(Attributes.REPAIR_CHUNK_IRON, StructuresData.REPAIR_CHUNK_IRON)
+	SplendidReplicationManager:setGameMetadata(Attributes.REPAIR_CHUNK_HP, StructuresData.REPAIR_CHUNK_HP_BY_TIER[STARTING_TIER])
+	SplendidReplicationManager:setGameMetadata(Attributes.REPAIR_CHUNK_IRON, StructuresData.REPAIR_CHUNK_IRON_BY_TIER[STARTING_TIER])
 	SplendidReplicationManager:setGameMetadata(Attributes.HAMMER_HIT_INTERVAL_SEC, StructuresData.HAMMER_HIT_INTERVAL_SEC)
+	-- the crew is counted at dawn, and the next tier's price follows it
+	RunCycleManager:subscribeDayStarted(
+		function()
+			self:replicateFortification()
+		end
+	)
 	SplendidReplicationManager:setGameMetadata(Attributes.HAMMER_REACH_STUDS, StructuresData.HAMMER_REACH_STUDS)
 	GameController:registerPlaceManager(self)
 	Players.PlayerRemoving:Connect(

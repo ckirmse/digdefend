@@ -63,7 +63,9 @@ function ClientSoundManager:findPlayer(folder: Instance?, name: string): AudioPl
 	return nil
 end
 
-function ClientSoundManager:playSfx(name: string)
+-- playbackSpeed shifts the pitch for this play only (1 is as authored);
+-- a caller varies it so a repeated hit is not the identical sound each time
+function ClientSoundManager:playSfx(name: string, playbackSpeed: number?)
 	local player = self:findPlayer(self.sfxFolder, name)
 	if not player then
 		self:warnOnce(name, `no AudioPlayer {Constants.SFX_FOLDER}.{name}`)
@@ -73,13 +75,21 @@ function ClientSoundManager:playSfx(name: string)
 		self:warnOnce(name, `{Constants.SFX_FOLDER}.{name} has no asset yet`)
 		return
 	end
-	-- restart so rapid repeats (cash ticking up) each make a sound
+	-- restart so rapid repeats (cash ticking up, a pick axe swinging) each
+	-- make a sound: a Play on a player that has just finished is dropped
+	-- unless it is stopped first (seen in play, 2026-09-29: rock hits went
+	-- silent until the pick paused)
+	player:Stop()
 	player.TimePosition = 0
+	player.PlaybackSpeed = playbackSpeed or 1
 	player:Play()
 end
 
--- a 2D track from the Music folder, always from the top
-function ClientSoundManager:playMusic(name: string)
+-- a 2D track from the Music folder, always from the top; once through
+-- unless the caller asks for a loop, whatever the authored player says
+-- (the dusk song was authored looping and ran through the night and into
+-- the next day, 2026-09-29)
+function ClientSoundManager:playMusic(name: string, isLooping: boolean?)
 	local player = self:findPlayer(self.musicFolder, name)
 	if not player then
 		self:warnOnce(name, `no AudioPlayer {Constants.MUSIC_FOLDER}.{name}`)
@@ -89,6 +99,8 @@ function ClientSoundManager:playMusic(name: string)
 		self:warnOnce(name, `{Constants.MUSIC_FOLDER}.{name} has no asset yet`)
 		return
 	end
+	player:Stop()
+	player.Looping = isLooping == true
 	player.TimePosition = 0
 	player:Play()
 end

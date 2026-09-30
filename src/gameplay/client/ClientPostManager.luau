@@ -927,7 +927,7 @@ function ClientPostManager:getCurrentHeat(): (number, boolean)
 		heat, heatTime, isOverheated = self.predictedHeat, predictedTime, self.isPredictedOverheated
 	end
 	local now = workspace:GetServerTimeNow()
-	local cooled = PostRules.cooledHeat(heat, heatTime, now, stats.fireIntervalSec, heatData)
+	local cooled = PostRules.cooledHeat(heat, heatTime, now, stats.fireIntervalSec, stats.coolSec or heatData.COOL_SEC)
 	return cooled, isOverheated and cooled > 0
 end
 

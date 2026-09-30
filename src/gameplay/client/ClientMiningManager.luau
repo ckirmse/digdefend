@@ -60,6 +60,7 @@ export type ClientMiningManager = typeof(setmetatable(
 		-- set when the held target breaks; cleared once a new target has
 		-- rested under the reticle for a full interval
 		isPausedAfterBreak: boolean,
+		random: Random,
 		targetSinceTime: number,
 		-- the touch that may become a hold, from TouchStarted until it lifts,
 		-- moves too far too soon, or passes the dwell
@@ -106,6 +107,10 @@ local BREAK_PARTICLE_COUNT = 24
 local PARTICLE_LIFETIME_SEC = 0.6
 -- hits and breaks by other players are heard only nearby
 local SOUND_RANGE_STUDS = 60
+-- each hit and break plays a little sharper or flatter than the last, so a
+-- minute of swinging is not the identical clip on repeat (2026-09-29)
+local HIT_PITCH_MIN = 0.9
+local HIT_PITCH_MAX = 1.1
 
 function ClientMiningManager:setTarget(target: Target?)
 	local previous = self.target
@@ -339,7 +344,7 @@ function ClientMiningManager:onRockDamaged(payload: any)
 		-- ore rings like metal, filler thuds like rock (decided 2026-09-14)
 		local kind = ClientMineManager:getCellRockKind(payload.depth, payload.height, payload.width)
 		local soundName = if kind == Enums.RockKind.RESOURCE then SoundNames.Sfx.RESOURCE_HIT else SoundNames.Sfx.ROCK_HIT
-		ClientSoundManager:playSfx(soundName)
+		ClientSoundManager:playSfx(soundName, self.random:NextNumber(HIT_PITCH_MIN, HIT_PITCH_MAX))
 	end
 	local target = self.target
 	if target and target.depth == payload.depth and target.height == payload.height and target.width == payload.width then
@@ -378,7 +383,7 @@ function ClientMiningManager:onRockBroken(payload: any)
 				anchor:Destroy()
 			end
 		)
-		ClientSoundManager:playSfx(SoundNames.Sfx.ROCK_BREAK)
+		ClientSoundManager:playSfx(SoundNames.Sfx.ROCK_BREAK, self.random:NextNumber(HIT_PITCH_MIN, HIT_PITCH_MAX))
 	end
 	ClientMineManager:clearCell(payload.depth, payload.height, payload.width)
 	local target = self.target
@@ -534,6 +539,7 @@ end
 function ClientMiningManager.new(): ClientMiningManager
 	local self = setmetatable({}, ClientMiningManager) :: ClientMiningManager
 	self.isActive = false
+	self.random = Random.new()
 	self.reticleBorrowers = {}
 	self.gui = nil
 	self.reticle = nil

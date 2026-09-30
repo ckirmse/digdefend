@@ -31,6 +31,23 @@ function StructureRules.repairChunk(maxHp: number, hp: number, chunkHp: number, 
 	return gained, math.max(1, math.ceil(chunkIron * gained / chunkHp))
 end
 
+-- the swing chunk for a tier; a tier past the tables (the Refinery's
+-- Camp Level 4) repairs like the last listed one
+function StructureRules.repairChunkForTier(chunkHpByTier: { number }, chunkIronByTier: { number }, tier: number): (number, number)
+	local index = math.clamp(math.floor(tier), 1, math.max(#chunkHpByTier, 1))
+	return chunkHpByTier[index] or 0, chunkIronByTier[math.min(index, #chunkIronByTier)] or 0
+end
+
+-- a crew's price for the next tier: the solo price times the crew's
+-- multiplier, rounded up to whole donations so the pool fills exactly
+function StructureRules.scaledUpgradeCost(cost: number?, multiplier: number, donationIron: number): number?
+	if cost == nil then
+		return nil
+	end
+	local unit = math.max(donationIron, 1)
+	return math.ceil(cost * math.max(multiplier, 1) / unit) * unit
+end
+
 -- rubble stands back up once its HP reaches this share of the maximum
 function StructureRules.isRebuilt(hp: number, maxHp: number, standShare: number): boolean
 	return hp > 0 and hp >= maxHp * math.clamp(standShare, 0, 1)

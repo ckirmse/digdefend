@@ -8,8 +8,6 @@
 -- which bumps and updates as each one lands. Numbers come from the
 -- CurrentPlayer and GameMetadata attributes RefineryManager writes.
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -41,11 +39,6 @@ export type ClientRefineryManager = typeof(setmetatable(
 	{} :: {
 		gui: ScreenGui?,
 		rowByResource: { [number]: Row },
-		campBillboard: BillboardGui?,
-		campLevelFrame: Frame?,
-		campTitleLabel: TextLabel?,
-		campFill: Frame?,
-		campProgressLabel: TextLabel?,
 		-- the pool shown while diamonds are in flight, and the last pool
 		-- rendered, which is where a payout's icons start counting from
 		campHeldPool: number?,
@@ -98,9 +91,11 @@ local ROW_NAME_BY_REFINED: { [number]: string } = {
 -- icons per resource per refine, so a full backpack does not spawn fifty
 local MAX_ICONS_PER_RESOURCE = 6
 local ICON_STAGGER_SEC = 0.08
+-- world flights start and end this far above the character's root (0: at
+-- the waist, a stud lower than first tried, which in first person put the
+-- icon right in front of the camera, 2026-09-29)
+local HANDS_LIFT_STUDS = 0
 local URANIUM_FORMAT = "%d / %d"
-local PROGRESS_FORMAT = "%d / %d"
-local CAMP_LEVEL_FORMAT = "Camp Level %d"
 
 local function readNumber(value: any): number
 	return if typeof(value) == "number" then value else 0
@@ -129,24 +124,12 @@ function ClientRefineryManager:renderRow(resource: number)
 	end
 end
 
+-- the camp's Diamond pool has no display since 2026-09-29 (the Camp Level
+-- billboard above the Refinery was removed and its spot given to the
+-- Refinery's HP bar); the pool is still tracked so a payout counts right
 function ClientRefineryManager:renderCampLevel()
-	local level = readNumber(ClientDataManager:getGameMetadata(Attributes.CAMP_LEVEL))
 	local pool = self.campHeldPool or readNumber(ClientDataManager:getGameMetadata(Attributes.CAMP_DIAMONDS))
-	local required = readNumber(ClientDataManager:getGameMetadata(Attributes.CAMP_DIAMONDS_REQUIRED))
 	self.displayedCampPool = pool
-	local title = self.campTitleLabel
-	if title then
-		title.Text = UiStyle.formatTitle(string.format(CAMP_LEVEL_FORMAT, level))
-	end
-	local progressLabel = self.campProgressLabel
-	if progressLabel then
-		progressLabel.Text = if required > 0 then string.format(PROGRESS_FORMAT, pool, required) else "MAX"
-	end
-	local fill = self.campFill
-	if fill then
-		local fraction = if required > 0 then math.clamp(pool / required, 0, 1) else 1
-		TweenService:Create(fill, TweenInfo.new(UiStyle.HUD_TWEEN_SEC, Enum.EasingStyle.Quad), { Size = UDim2.fromScale(fraction, 1) }):Play()
-	end
 end
 
 function ClientRefineryManager:render(resource: number)
@@ -168,30 +151,14 @@ function ClientRefineryManager:onValueChanged(resource: number)
 end
 
 -- where a refined resource lands: its row, or the camp billboard for Diamonds
+-- nil for Diamonds, which have nowhere on screen to land since the Camp
+-- Level billboard went (2026-09-29); their payout skips the flight
 function ClientRefineryManager:landingTarget(resource: number): GuiObject?
 	if resource == Enums.RefinedResource.DIAMOND then
-		return self.campLevelFrame
+		return nil
 	end
 	local row = self.rowByResource[resource]
 	return if row then row.frame else nil
-end
-
--- the screen point a resource's icons aim at: a HUD row's centre, or the
--- billboard's world position for Diamonds (a BillboardGui's descendants
--- report positions in billboard space, not screen space)
-function ClientRefineryManager:landingScreenPoint(resource: number, target: GuiObject): Vector2
-	if resource == Enums.RefinedResource.DIAMOND then
-		local billboard = self.campBillboard
-		local adornee = if billboard then billboard.Adornee else nil
-		if adornee and adornee:IsA("BasePart") then
-			local point = ClientIconFlightManager:worldToScreen(adornee.Position + (billboard :: BillboardGui).StudsOffsetWorldSpace)
-			if point then
-				return point
-			end
-		end
-		return self:refineryScreenPoint()
-	end
-	return ClientIconFlightManager:screenCenterOf(target)
 end
 
 -- freezes a resource's shown value while iconCount icons are in flight
@@ -255,17 +222,27 @@ function ClientRefineryManager:valueBeforePayout(resource: number, amount: numbe
 	return self.displayedCampPool
 end
 
--- the Refinery's pivot on screen; off-screen refineries fall back to the
--- screen centre so the sequence still reads
-function ClientRefineryManager:refineryScreenPoint(): Vector2
-	local layer = ClientIconFlightManager:getLayer()
-	local fallback = if layer then ClientIconFlightManager:screenCenterOf(layer) else Vector2.zero
+-- the top of the Refinery, where ore is tipped in and bars come out; nil
+-- without a Refinery model (a flight then lands at once)
+function ClientRefineryManager:refineryHopperPosition(): Vector3?
 	local camp = workspace:FindFirstChild(Constants.CAMP_FOLDER)
 	local refinery = if camp then camp:FindFirstChild(Constants.CAMP_REFINERY_MODEL) else nil
 	if not refinery or not refinery:IsA("Model") then
-		return fallback
+		return nil
 	end
-	return ClientIconFlightManager:worldToScreen(refinery:GetPivot().Position) or fallback
+	local boundsCFrame, boundsSize = refinery:GetBoundingBox()
+	return boundsCFrame.Position + Vector3.new(0, boundsSize.Y / 2, 0)
+end
+
+-- where the player is, a little above the feet, for ore to leave from and
+-- bars to arrive at; nil without a character
+function ClientRefineryManager:characterPosition(): Vector3?
+	local character = Players.LocalPlayer.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not root or not root:IsA("BasePart") then
+		return nil
+	end
+	return root.Position + Vector3.new(0, HANDS_LIFT_STUDS, 0)
 end
 
 function ClientRefineryManager:onRefineStarted(payload: any)
@@ -275,13 +252,10 @@ function ClientRefineryManager:onRefineStarted(payload: any)
 		return
 	end
 	ClientSoundManager:playSfx(SoundNames.Sfx.REFINERY_GRIND)
-	local layer = ClientIconFlightManager:getLayer()
-	local from = ClientBackpackManager:getButtonScreenCenter()
-	if not from then
-		-- the button is hidden without the pick axe; start from its corner
-		from = if layer then layer.AbsolutePosition + layer.AbsoluteSize * Vector2.new(0.95, 0.95) else Vector2.zero
-	end
-	local to = self:refineryScreenPoint()
+	-- the ore leaves the player's hands and drops into the hopper, in the
+	-- world, so the camera can turn away without stranding it
+	local from = self:characterPosition()
+	local to = self:refineryHopperPosition()
 	-- the backpack attributes are already empty; keep showing what was in it
 	-- and count down as each icon leaves
 	local totalOre = 0
@@ -301,20 +275,25 @@ function ClientRefineryManager:onRefineStarted(payload: any)
 			task.delay(
 				delaySec,
 				function()
+					-- the backpack bounces as each ore leaves it, the way a
+					-- balance row does as a bar arrives
+					ClientBackpackManager:bumpButton()
 					ClientBackpackManager:stepHeldTotal(-shares[index])
 				end
 			)
-			ClientIconFlightManager:fly(
-				imageId,
-				color,
-				from :: Vector2,
-				to,
-				delaySec,
-				function()
-					-- each ore pops as it is sucked into the machine
-					ClientSoundManager:playSfx(SoundNames.Sfx.ORE_PICKUP)
-				end
-			)
+			if from and to then
+				ClientIconFlightManager:flyWorld(
+					imageId,
+					color,
+					from,
+					to,
+					delaySec,
+					function()
+						-- each ore pops as it is sucked into the machine
+						ClientSoundManager:playSfx(SoundNames.Sfx.ORE_PICKUP)
+					end
+				)
+			end
 			delaySec += ICON_STAGGER_SEC
 		end
 	end
@@ -327,7 +306,10 @@ function ClientRefineryManager:onRefineCompleted(payload: any)
 		return
 	end
 	ClientSoundManager:playSfx(SoundNames.Sfx.REFINERY_PAYOUT)
-	local from = self:refineryScreenPoint()
+	-- the bars come out of the hopper and reach the player in the world;
+	-- the HUD row bumps as each one arrives
+	local from = self:refineryHopperPosition()
+	local to = self:characterPosition()
 	local delaySec = 0
 	for _, entry in payload.refined do
 		local resource = entry.resource
@@ -341,22 +323,20 @@ function ClientRefineryManager:onRefineCompleted(payload: any)
 		local shares = ClientIconFlightManager.splitAmount(entry.amount, count)
 		self:holdValue(resource, self:valueBeforePayout(resource, entry.amount), count)
 		for index = 1, count do
-			ClientIconFlightManager:fly(
-				imageId,
-				color,
-				from,
-				self:landingScreenPoint(resource, target),
-				delaySec,
-				function()
-					-- every bar pops, bumps its target, and adds its share
-					ClientSoundManager:playSfx(SoundNames.Sfx.ORE_PICKUP)
-					local landedOn = self:landingTarget(resource)
-					if landedOn then
-						ClientIconFlightManager:bump(landedOn)
-					end
-					self:stepHeldValue(resource, shares[index])
+			local function onLanded()
+				-- every bar pops, bumps its target, and adds its share
+				ClientSoundManager:playSfx(SoundNames.Sfx.ORE_PICKUP)
+				local landedOn = self:landingTarget(resource)
+				if landedOn then
+					ClientIconFlightManager:bump(landedOn)
 				end
-			)
+				self:stepHeldValue(resource, shares[index])
+			end
+			if from and to then
+				ClientIconFlightManager:flyWorld(imageId, color, from, to, delaySec, onLanded)
+			else
+				task.delay(delaySec, onLanded)
+			end
 			delaySec += ICON_STAGGER_SEC
 		end
 	end
@@ -391,54 +371,6 @@ function ClientRefineryManager:findHud()
 	end
 end
 
--- clones the Camp Level billboard template above the Refinery. Local only:
--- the billboard lives in this player's PlayerGui and adorns a Refinery part,
--- so the server never holds a GUI. The camp is cloned at run start, before
--- any client starts, but a slow join still waits for it
-function ClientRefineryManager:attachCampBillboard()
-	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
-	local guiFolder = if gameAssets then gameAssets:FindFirstChild(Constants.GUI_TEMPLATES_FOLDER) else nil
-	local template = if guiFolder then guiFolder:FindFirstChild(Constants.CAMP_LEVEL_BILLBOARD) else nil
-	if not template or not template:IsA("BillboardGui") then
-		warn("ClientRefineryManager: no CampLevel BillboardGui under GameAssets.Gui; run scripts/studio/build_camp_level_billboard.luau")
-		return
-	end
-	local camp = workspace:WaitForChild(Constants.CAMP_FOLDER, 30)
-	local refinery = if camp then camp:WaitForChild(Constants.CAMP_REFINERY_MODEL, 30) else nil
-	if not refinery or not refinery:IsA("Model") then
-		warn("ClientRefineryManager: no Camp.Refinery model to hang the Camp Level billboard on")
-		return
-	end
-	-- with StreamingEnabled the Model can arrive before its parts on a real
-	-- device, so wait for the one part the map contract guarantees by name
-	local adornee = refinery:WaitForChild(Constants.REFINERY_PROMPT_PART, 30)
-	if not adornee or not adornee:IsA("BasePart") then
-		warn(`ClientRefineryManager: the Refinery model has no {Constants.REFINERY_PROMPT_PART} part`)
-		return
-	end
-	local boundsCFrame, boundsSize = refinery:GetBoundingBox()
-	local billboard = template:Clone()
-	billboard.Adornee = adornee
-	-- float above the model's top, whichever part is adorned
-	billboard.StudsOffsetWorldSpace = boundsCFrame.Position + Vector3.new(0, boundsSize.Y / 2 + Constants.CAMP_LEVEL_BILLBOARD_LIFT_STUDS, 0) - adornee.Position
-	billboard.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-	self.campBillboard = billboard
-	local root = billboard:FindFirstChild(Constants.CAMP_LEVEL_ROOT_FRAME)
-	if root and root:IsA("Frame") then
-		self.campLevelFrame = root
-		local title = root:FindFirstChild(Constants.CAMP_LEVEL_TITLE_LABEL)
-		self.campTitleLabel = if title and title:IsA("TextLabel") then title else nil
-		local bar = root:FindFirstChild(Constants.CAMP_LEVEL_BAR)
-		local fill = if bar then bar:FindFirstChild(Constants.CAMP_LEVEL_FILL) else nil
-		self.campFill = if fill and fill:IsA("Frame") then fill else nil
-		local progress = if bar then bar:FindFirstChild(Constants.CAMP_LEVEL_PROGRESS_LABEL) else nil
-		self.campProgressLabel = if progress and progress:IsA("TextLabel") then progress else nil
-	else
-		warn("ClientRefineryManager: the CampLevel billboard has no Root frame")
-	end
-	self:renderCampLevel()
-end
-
 -- the level-up beat (GDD "Camp Level", decided 2026-09-16): a notification
 -- and a sound, nothing to dismiss; the billboard rolls over on its own
 -- from the attributes
@@ -454,7 +386,6 @@ end
 
 function ClientRefineryManager:init()
 	self:findHud()
-	self:attachCampBillboard()
 
 	ClientDataManager:subscribeCurrentPlayerAttribute(
 		Attributes.BALANCE_IRON_BARS,
@@ -512,11 +443,6 @@ function ClientRefineryManager.new(): ClientRefineryManager
 	local self = setmetatable({}, ClientRefineryManager) :: ClientRefineryManager
 	self.gui = nil
 	self.rowByResource = {}
-	self.campBillboard = nil
-	self.campLevelFrame = nil
-	self.campTitleLabel = nil
-	self.campFill = nil
-	self.campProgressLabel = nil
 	self.campHeldPool = nil
 	self.campFlightsInProgress = 0
 	self.displayedCampPool = 0

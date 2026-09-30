@@ -12,6 +12,12 @@ local SoundNames = require(game:GetService("ReplicatedStorage").Shared.SoundName
 -- mirrors GameData/Posts/PostWeapons and GameData/Camp/Level; GameData
 -- cannot load under jest
 local MACHINE_GUN = {
+	UPGRADE_ATTRIBUTES = {
+		Enums.PostAttribute.DAMAGE,
+		Enums.PostAttribute.FIRE_RATE,
+		Enums.PostAttribute.TURN_SPEED,
+		Enums.PostAttribute.COOLDOWN,
+	},
 	DAMAGE = 12,
 	FIRE_INTERVAL_SEC = 0.1,
 	FIRE_COOLDOWN_SEC = 0.08,
@@ -20,6 +26,7 @@ local MACHINE_GUN = {
 	FIELD_OF_VIEW = 60,
 	PITCH_MIN_DEGREES = -40,
 	PITCH_MAX_DEGREES = 45,
+	HEAT = { FULL_SEC = 3, COOL_SEC = 3 },
 }
 
 local function makeCatalog()
@@ -32,6 +39,7 @@ local function makeCatalog()
 			[Enums.PostAttribute.FIRE_RATE] = 0.2,
 			[Enums.PostAttribute.TURN_SPEED] = 0.5,
 			[Enums.PostAttribute.RANGE] = 0.2,
+			[Enums.PostAttribute.COOLDOWN] = 1 / 6,
 		},
 		kinds = {
 			[Enums.PostWeaponKind.MACHINE_GUN] = MACHINE_GUN,
@@ -105,6 +113,55 @@ describe(
 				expect(PostRules.statsFor(catalog, 2, {}).reloadSec).toBe(6)
 				expect(PostRules.statsFor(catalog, 2, { [Enums.PostAttribute.FIRE_RATE] = 1 }).reloadSec).toBeCloseTo(5, 5)
 				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.MACHINE_GUN, {}).reloadSec).toBeNil()
+			end
+		)
+
+		it(
+			"shortens the cool time with Cooldown, and has none for a kind without heat",
+			function()
+				local catalog = makeCatalog()
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.MACHINE_GUN, {}).coolSec).toBe(3)
+				-- the same half second off every level: 3 s down to 1 s at level 4
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.MACHINE_GUN, { [Enums.PostAttribute.COOLDOWN] = 2 }).coolSec).toBeCloseTo(2, 5)
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.MACHINE_GUN, { [Enums.PostAttribute.COOLDOWN] = 4 }).coolSec).toBeCloseTo(1, 5)
+				catalog.kinds[2] = {
+					UPGRADE_ATTRIBUTES = { Enums.PostAttribute.DAMAGE, Enums.PostAttribute.RANGE },
+					DAMAGE = 150,
+					FIRE_INTERVAL_SEC = 6,
+					FIRE_COOLDOWN_SEC = 5.8,
+					TURN_SPEED_DEGREES_PER_SEC = 12,
+					RANGE_STUDS = 500,
+					FIELD_OF_VIEW = 40,
+					PITCH_MIN_DEGREES = -35,
+					PITCH_MAX_DEGREES = 60,
+				}
+				expect(PostRules.statsFor(catalog, 2, {}).coolSec).toBeNil()
+			end
+		)
+
+		it(
+			"offers each kind only its own attributes, in its own order",
+			function()
+				local catalog = makeCatalog()
+				catalog.kinds[2] = {
+					UPGRADE_ATTRIBUTES = { Enums.PostAttribute.DAMAGE, Enums.PostAttribute.RANGE },
+					DAMAGE = 150,
+					FIRE_INTERVAL_SEC = 6,
+					FIRE_COOLDOWN_SEC = 5.8,
+					TURN_SPEED_DEGREES_PER_SEC = 12,
+					RANGE_STUDS = 500,
+					FIELD_OF_VIEW = 40,
+					PITCH_MIN_DEGREES = -35,
+					PITCH_MAX_DEGREES = 60,
+				}
+				expect(PostRules.attributeOrder(catalog, Enums.PostWeaponKind.MACHINE_GUN, Enums.PostAttribute.COOLDOWN)).toBe(4)
+				expect(PostRules.kindHasAttribute(catalog, Enums.PostWeaponKind.MACHINE_GUN, Enums.PostAttribute.RANGE)).toBe(false)
+				expect(PostRules.attributeOrder(catalog, 2, Enums.PostAttribute.RANGE)).toBe(2)
+				expect(PostRules.kindHasAttribute(catalog, 2, Enums.PostAttribute.COOLDOWN)).toBe(false)
+				expect(PostRules.kindHasAttribute(catalog, 99, Enums.PostAttribute.DAMAGE)).toBe(false)
+				-- the catalogue survives the trip through GameMetadata
+				local decoded = PostRules.decodeCatalog(PostRules.encodeCatalog(catalog))
+				expect(PostRules.attributeOrder(decoded, 2, Enums.PostAttribute.RANGE)).toBe(2)
 			end
 		)
 
@@ -279,11 +336,13 @@ describe(
 			"holds heat while the trigger is held and cools once it rests",
 			function()
 				-- a shot every 0.1 s: the next shot comes before the rest slack, no cooling
-				expect(PostRules.cooledHeat(0.5, 100, 100.1, 0.1, HEAT)).toBe(0.5)
+				expect(PostRules.cooledHeat(0.5, 100, 100.1, 0.1, HEAT.COOL_SEC)).toBe(0.5)
 				-- resting 1.65 s: 1.5 s past the slack, half of COOL_SEC
-				expect(PostRules.cooledHeat(1, 100, 101.65, 0.1, HEAT)).toBeCloseTo(0.5, 5)
-				expect(PostRules.cooledHeat(1, 100, 110, 0.1, HEAT)).toBe(0)
-				expect(PostRules.cooledHeat(1, nil, 110, 0.1, HEAT)).toBe(0)
+				expect(PostRules.cooledHeat(1, 100, 101.65, 0.1, HEAT.COOL_SEC)).toBeCloseTo(0.5, 5)
+				expect(PostRules.cooledHeat(1, 100, 110, 0.1, HEAT.COOL_SEC)).toBe(0)
+				expect(PostRules.cooledHeat(1, nil, 110, 0.1, HEAT.COOL_SEC)).toBe(0)
+				-- an upgraded Cooldown: the same rest clears twice the heat
+				expect(PostRules.cooledHeat(1, 100, 101.65, 0.1, HEAT.COOL_SEC / 2)).toBeCloseTo(0, 5)
 			end
 		)
 

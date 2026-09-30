@@ -167,6 +167,15 @@ function ClientBackpackManager:getButtonScreenCenter(): Vector2?
 	return button.AbsolutePosition + button.AbsoluteSize / 2
 end
 
+-- the button's landing swell, also used when ore leaves for the Refinery
+-- so the bar reads as emptying (2026-09-29)
+function ClientBackpackManager:bumpButton()
+	local button = self.button
+	if button and button.Visible then
+		ClientIconFlightManager:bump(button)
+	end
+end
+
 function ClientBackpackManager:setHudVisible()
 	local button = self.button
 	if not button then
@@ -237,10 +246,7 @@ function ClientBackpackManager:onOreCollected(payload: any)
 			delaySec,
 			function()
 				ClientSoundManager:playSfx(SoundNames.Sfx.ORE_PICKUP)
-				local landedOn = self.button
-				if landedOn and landedOn.Visible then
-					ClientIconFlightManager:bump(landedOn)
-				end
+				self:bumpButton()
 				self:stepHeldTotal(shares[index])
 			end
 		)

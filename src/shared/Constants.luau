@@ -353,6 +353,9 @@ Constants.ROCK_TEMPLATES_FOLDER = "Rocks"
 Constants.MINE_BLOCKS_FOLDER = "MineBlocks"
 -- the GDD fixes every rock as a 4-stud cube; structural, not tuning
 Constants.MINE_BLOCK_SIZE_STUDS = 4
+-- the invisible collider ClearanceManager welds over every character's
+-- head, so a mine passage has to be two blocks tall
+Constants.CHARACTER_CLEARANCE_PART = "Clearance"
 -- the client-only folder of invisible parts carrying each nearby uranium rock's hum emitter
 Constants.URANIUM_HUM_FOLDER = "UraniumHum"
 Constants.URANIUM_HUM_PART = "Hum"
@@ -433,16 +436,8 @@ Constants.HUD_BALANCE_GOLD_ROW = "GoldRow"
 Constants.HUD_BALANCE_URANIUM_ROW = "UraniumRow"
 Constants.HUD_BALANCE_ICON = "Icon"
 Constants.HUD_BALANCE_VALUE_LABEL = "ValueLabel"
--- camp level (top centre): title, XP-style bar with fill and "pool / required"
--- the Camp Level BillboardGui template under GameAssets/Gui, cloned by each
--- client onto the Refinery (scripts/studio/build_camp_level_billboard.luau)
+-- BillboardGui and SurfaceGui templates under GameAssets, cloned by clients
 Constants.GUI_TEMPLATES_FOLDER = "Gui"
-Constants.CAMP_LEVEL_BILLBOARD = "CampLevel"
-Constants.CAMP_LEVEL_ROOT_FRAME = "Root"
-Constants.CAMP_LEVEL_TITLE_LABEL = "TitleLabel"
-Constants.CAMP_LEVEL_BAR = "Bar"
-Constants.CAMP_LEVEL_FILL = "Fill"
-Constants.CAMP_LEVEL_PROGRESS_LABEL = "ProgressLabel"
 Constants.CAMP_LEVEL_ICON = "Icon"
 -- how far above the Refinery's top the billboard floats, in studs
 -- the sign floated above the Workbench: tier title, the shared Iron pool as
@@ -471,7 +466,9 @@ Constants.STRUCTURE_HP_COST_ROW = "CostRow"
 Constants.STRUCTURE_HP_COST_AMOUNT_LABEL = "AmountLabel"
 Constants.STRUCTURE_HP_COST_ICON = "Icon"
 Constants.STRUCTURE_HP_COST_GAIN_LABEL = "GainLabel"
-Constants.CAMP_LEVEL_BILLBOARD_LIFT_STUDS = 5.5
+-- the Refinery's HP bar floats this far above the model's top (the spot
+-- the Camp Level billboard had until 2026-09-29)
+Constants.REFINERY_HP_BILLBOARD_LIFT_STUDS = 5.5
 -- the radio's sign (M31), GameAssets/Gui/RescueRadio
 Constants.RESCUE_RADIO_BILLBOARD = "RescueRadio"
 Constants.RESCUE_RADIO_ROOT_FRAME = "Root"
@@ -484,6 +481,19 @@ Constants.RESCUE_RADIO_STATUS_LABEL = "StatusLabel"
 -- hidden ImageLabel inside it that ClientIconFlightManager clones per icon
 Constants.HUD_FLY_LAYER = "FlyLayer"
 Constants.HUD_FLY_ICON_TEMPLATE = "FlyIconTemplate"
+-- the world-space flight icon (GameAssets/Gui/FlightIcon, built by
+-- scripts/studio/build_flight_icon_billboard.luau): ore into the Refinery
+-- and bars out of it fly through the world, so a moving camera cannot
+-- strand them (2026-09-29). The clones ride throwaway parts in a
+-- workspace folder of this name
+Constants.FLIGHT_ICON_BILLBOARD = "FlightIcon"
+Constants.FLIGHT_ICON_IMAGE = "Icon"
+Constants.FLIGHT_ICON_FOLDER = "FlightIcons"
+-- the ore icon on each face of a ground pickup's plate (GameAssets/Gui/
+-- OrePickupFace, built by scripts/studio/build_ore_pickup_face_gui.luau):
+-- a lit SurfaceGui, since a Decal read dark in the mine (2026-09-29)
+Constants.ORE_PICKUP_FACE_GUI = "OrePickupFace"
+Constants.ORE_PICKUP_FACE_IMAGE = "Icon"
 -- backpack contents menu (built by scripts/studio/build_backpack_menu_gui.luau)
 Constants.BACKPACK_MENU_GUI_NAME = "Backpack"
 Constants.BACKPACK_MENU_LIST = "List"

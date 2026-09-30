@@ -218,6 +218,7 @@ module = {
 	POST_UPGRADE_FIRE_RATE = "PostUpgradeFireRate",
 	POST_UPGRADE_TURN_SPEED = "PostUpgradeTurnSpeed",
 	POST_UPGRADE_RANGE = "PostUpgradeRange",
+	POST_UPGRADE_COOLDOWN = "PostUpgradeCooldown",
 	-- GameMetadata: the post catalogue as JSON (PostRules codec): claim
 	-- price, per-kind base stats, upgrade prices, and the Camp Level gates
 	POST_CATALOG = "PostCatalog",

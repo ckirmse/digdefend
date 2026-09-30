@@ -80,6 +80,8 @@ local NOTIFY_RUN_ENDED_SHAPE = {
 }
 
 local DAY_FORMAT = "Day %d"
+-- the same label reads SUNSET once the clock turns to dusk (2026-09-29)
+local SUNSET_FORMAT = "Sunset %d"
 -- two spaces: the font sets the word and the number too close otherwise
 local DAY_CARD_FORMAT = "Day  %d"
 local NIGHT_CARD_FORMAT = "Night  %d"
@@ -88,8 +90,8 @@ local CARD_SHOW_SEC = 3
 -- day 1 gets no card: the crew has just landed and the run is plainly starting
 local FIRST_DAY = 1
 -- dusk is the last 40 s of a 300 s day; the server publishes the real numbers
-local DEFAULT_DUSK_SHARE = 40 / 300
-local DEFAULT_DUSK_SONG_LEAD_SEC = 40
+local DEFAULT_DUSK_SHARE = 60 / 320
+local DEFAULT_DUSK_SONG_LEAD_SEC = 60
 local DEFAULT_DAWN_TRANSITION_SEC = 1
 local DEFAULT_DUSK_TRANSITION_SEC = 1
 local DEFAULT_NIGHT_SPAWN_SEC = 90
@@ -195,6 +197,7 @@ function ClientRunCycleManager:setPhase(phase: number)
 		return
 	end
 	self.shownPhase = phase
+	self:refreshDay()
 	local icon = self.phaseIcon
 	if not icon then
 		return
@@ -292,7 +295,8 @@ end
 function ClientRunCycleManager:refreshDay()
 	local dayLabel = self.dayLabel
 	if dayLabel then
-		dayLabel.Text = UiStyle.formatTitle(string.format(DAY_FORMAT, RunCycleRules.shownDay(readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_DAY), 1))))
+		local format = if self.shownPhase == Enums.ClockPhase.DUSK then SUNSET_FORMAT else DAY_FORMAT
+		dayLabel.Text = UiStyle.formatTitle(string.format(format, RunCycleRules.shownDay(readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_DAY), 1))))
 	end
 end
 

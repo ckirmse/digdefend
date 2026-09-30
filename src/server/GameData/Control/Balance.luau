@@ -11,13 +11,18 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 -- the model's guesses about how people play, to be corrected from the run
 -- reports, never from the data they are checked against.
 return {
-	-- the night the run should end on, solo (75, 90, and 110 minutes at
-	-- about 7.5 minutes a cycle); the uranium target and the curve are
-	-- tuned so a crew of any size gets there in the same number of nights
+	-- the night the run should end on, solo (about 7.5 minutes a cycle);
+	-- the uranium target and the curve are tuned so a crew of any size
+	-- gets there in the same number of nights. Ten nights felt too short
+	-- in the sixth playtest (2026-09-29), so Normal is 15 and the harder
+	-- tiers step above it; Nightmare is 20, not 21, because a solo crew's
+	-- power plateaus at the tower cap and the last pick, and no curve
+	-- that stays above Hard's is holdable on a day-21 final wave. Hard
+	-- and Nightmare are provisional until Normal feels right in play
 	TARGET_NIGHTS = {
-		[Enums.Difficulty.NORMAL] = 10,
-		[Enums.Difficulty.HARD] = 12,
-		[Enums.Difficulty.NIGHTMARE] = 14,
+		[Enums.Difficulty.NORMAL] = 15,
+		[Enums.Difficulty.HARD] = 18,
+		[Enums.Difficulty.NIGHTMARE] = 20,
 	},
 	-- the first night the leak should break a tier 1 wall segment, solo
 	-- (decided 2026-09-28): the night two before dents one, the night
@@ -62,15 +67,20 @@ return {
 		-- shopping, building, dusk (the walks themselves are modelled from
 		-- the backpack, the boots, and the tunnel's depth)
 		-- (40 since the fifth playtest, 2026-09-28: the log put pick 3 on
-		-- day 3 and 40 uranium on day 4, and the fit below reproduces it)
-		DAY_OVERHEAD_SEC = 40,
+		-- day 3 and 40 uranium on day 4, and the fit below reproduces it;
+		-- 60 since 2026-09-29, when the day grew from 300 to 320 s and the
+		-- extra 20 s of sunset are for setting up defenses, not mining)
+		DAY_OVERHEAD_SEC = 60,
 		-- studs from the refinery to the mine mouth on Deadman's Canyon
 		-- (measured 2026-09-28: 64); the walk grows by the tunnel's depth
 		REFINERY_TO_ENTRANCE_STUDS = 64,
 		-- players dig toward ore they can see rather than through filler at
 		-- random, so ore per HP mined is higher than the zone's average
-		-- (2.5 puts the third playtest's day-1 Iron where it was seen)
-		ORE_SELECTIVITY = 2.5,
+		-- (2.5 put the third playtest's day-1 Iron where it was seen, with
+		-- seven-block veins; 0.8 since the seventh playtest, 2026-09-29:
+		-- single-block iron in a gold-rich mine yielded about 190 Iron by
+		-- night 10 against the 480 the old value predicted)
+		ORE_SELECTIVITY = 0.8,
 		-- gold is dug for once it is worth digging for (2.0 fits the fifth
 		-- playtest: about 370 Gold by the end of day 3)
 		GOLD_SELECTIVITY = 2.0,

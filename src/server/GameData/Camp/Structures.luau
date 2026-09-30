@@ -3,7 +3,8 @@
 -- Camp structures with HP (GDD "Walls", "Gate", "Refinery", "Wall Repair"),
 -- M23. Per kind: max HP by tier (the list length fixes the top tier).
 -- Repair works like mining (decided 2026-09-17): in Repair Mode every Hammer
--- swing at a damaged structure adds REPAIR_CHUNK_HP for REPAIR_CHUNK_IRON, a
+-- swing at a damaged structure adds the structure's tier's chunk of HP for
+-- its chunk of Iron (REPAIR_CHUNK_HP_BY_TIER, REPAIR_CHUNK_IRON_BY_TIER), a
 -- short last chunk paying its share rounded up. A destroyed structure is
 -- rubble, and stays rubble while it is rebuilt swing by swing from zero,
 -- until its HP reaches REBUILD_STAND_SHARE of its maximum (1 = fully
@@ -29,12 +30,17 @@ return {
 		[Enums.StructureKind.GATE] = {
 			MAX_HP_BY_TIER = { 450, 900, 1800 },
 		},
-		-- never bought: the Refinery's tier is the Camp Level, so Diamonds
-		-- toughen it (one entry per camp level)
+		-- the Refinery shares the fortification tier with the walls and the
+		-- gate since 2026-09-29 (its tier was the Camp Level, which is out
+		-- of the game for now), and doubles a tier as they do
 		[Enums.StructureKind.REFINERY] = {
-			MAX_HP_BY_TIER = { 1000, 1500, 2200, 3000 },
+			MAX_HP_BY_TIER = { 1000, 2000, 4000 },
 		},
 	},
+	-- the solo price of each tier; a crew pays this times its wave
+	-- multiplier (PartyScaling), rounded up to whole donations, since the
+	-- pool is the one camp-wide Iron sink and a crew of six earns about
+	-- ten times solo's Iron for the same walls (decided 2026-09-29)
 	FORTIFICATION_UPGRADE_IRON_TO_TIER = { 0, 150, 400 },
 	FORTIFICATION_DONATION_IRON = 10,
 	WORKBENCH_PROMPT_ACTION_TEXT = "Donate Iron",
@@ -56,8 +62,15 @@ return {
 	REFINERY_ATTACK_POLL_SEC = 0.25,
 	WALL_COLLAPSE_FULL_VOLUME_STUDS = 30,
 	WALL_COLLAPSE_SILENT_STUDS = 250,
-	REPAIR_CHUNK_HP = 10,
-	REPAIR_CHUNK_IRON = 2,
+	-- what one Hammer swing adds and costs, by the structure's tier: both
+	-- double a tier with the wall's HP (decided 2026-09-29: at 10 HP a swing
+	-- a tier 3 wall took two minutes to rebuild), so a full repair takes the
+	-- same swings at every tier and the same Iron per HP. A Tower is
+	-- repaired at tier 1. One Iron per ten HP since the eighth playtest
+	-- (2026-09-29): at two, rebuilding the two walls that fall most nights
+	-- was 120 Iron, six Sentries, and no tower went up after day 3
+	REPAIR_CHUNK_HP_BY_TIER = { 10, 20, 40 },
+	REPAIR_CHUNK_IRON_BY_TIER = { 1, 2, 4 },
 	REBUILD_STAND_SHARE = 1,
 	-- the Hammer swings like the pick axe: how often a held input swings,
 	-- the faster rate the server refuses (latency jitter never drops a
