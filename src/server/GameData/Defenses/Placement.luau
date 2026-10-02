@@ -13,4 +13,9 @@ return {
 	-- shape the wall line takes: a cell whose centre is closer than this
 	-- many cells to a fortification cannot be built on (decided 2026-09-30)
 	FORTIFICATION_CLEARANCE_CELLS = 2,
+	-- the reserved cells are mirrored across the zone's centre line, so a
+	-- camp built symmetric about its gate gets a symmetric grid even where
+	-- the authored walls differ by a stud; the zone part must be centred
+	-- on the gate for this to line up (decided 2026-10-01)
+	IS_RESERVED_MIRRORED = true,
 }

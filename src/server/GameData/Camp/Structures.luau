@@ -43,9 +43,12 @@ return {
 	-- ten times solo's Iron for the same walls (decided 2026-09-29)
 	FORTIFICATION_UPGRADE_IRON_TO_TIER = { 0, 150, 400 },
 	FORTIFICATION_DONATION_IRON = 10,
-	WORKBENCH_PROMPT_ACTION_TEXT = "Donate Iron",
-	WORKBENCH_PROMPT_OBJECT_TEXT = "Workbench",
-	WORKBENCH_PROMPT_MAX_DISTANCE_STUDS = 10,
+	-- the Walls Table in the defense building (2026-10-01, replacing the
+	-- Workbench by the gate); the action text names the donation so players
+	-- know they pay in increments: "Contribute 10 Iron"
+	WALLS_TABLE_PROMPT_ACTION_FORMAT = "Contribute %d Iron",
+	WALLS_TABLE_PROMPT_OBJECT_TEXT = "Walls Table",
+	WALLS_TABLE_PROMPT_MAX_DISTANCE_STUDS = 10,
 	-- alerts (2026-09-25): a wall falling and the Refinery coming under attack
 	-- are announced to everyone in the red alert box, for ALERT_DISPLAY_SEC.
 	-- The Refinery is under attack while any live monster is within

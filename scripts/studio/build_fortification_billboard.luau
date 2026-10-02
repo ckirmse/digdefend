@@ -59,7 +59,8 @@ end
 -- gone at distance
 local billboard = Instance.new("BillboardGui")
 billboard.Name = Constants.FORTIFICATION_BILLBOARD
-billboard.Size = UDim2.fromScale(10, 3.4)
+-- halved 2026-10-01: it hangs over the small wall model on the Walls Table now
+billboard.Size = UDim2.fromScale(5, 1.7)
 billboard.MaxDistance = 100
 billboard.AlwaysOnTop = false
 billboard.LightInfluence = 0

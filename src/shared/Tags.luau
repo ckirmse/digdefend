@@ -30,9 +30,11 @@ module = {
 	-- a claimed post's spawned weapon model (PostManager): carries the
 	-- PostWeapon* attributes; clients turn and tilt it locally
 	POST_WEAPON = "PostWeapon",
-	-- a claimed post's upgrade bench (PostManager): carries PostModelIndex;
-	-- the owner's client opens the upgrade menu from its prompt
-	POST_WORKBENCH = "PostWorkbench",
+	-- the prompts on the Post Upgrade Table and the Weapons Table in the
+	-- defense building (decided 2026-10-01): the server creates them, and a
+	-- client that hears its own trigger opens the matching menu
+	POST_UPGRADE_PROMPT = "PostUpgradePrompt",
+	WEAPON_UPGRADE_PROMPT = "WeaponUpgradePrompt",
 	-- a placed Tower or Trap (PlacementManager, M26): an invisible server
 	-- part at the placement's pose carrying the Placement* attributes and
 	-- its prompt; clients clone the model onto it and hang the info billboard

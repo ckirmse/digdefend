@@ -30,11 +30,18 @@ export type MapWaves = {
 	LEASH_DISTANCE_STUDS: number,
 	WAVES: { Wave },
 	-- a generated night makes another group only once it can afford this
-	-- much for it; and how long after night fall its last group spawns
+	-- much for it, and the bar rises every night (2026-10-01: a fixed bar
+	-- meant a late night only added groups, never bigger ones); and how
+	-- long after night fall its last group spawns
 	MIN_GROUP_DIFFICULTY: number,
+	MIN_GROUP_DIFFICULTY_PER_NIGHT: number,
 	WAVE_SPAWN_LENGTH_SEC: number,
-	-- a generated night's groups are never further apart than this
+	-- a generated night's groups are never further apart than this, and
+	-- the limit tightens every night down to the floor, so late groups
+	-- land on each other instead of one at a time
 	MAX_TIME_BETWEEN_GROUPS_SEC: number,
+	GROUP_GAP_SHRINK_SEC_PER_NIGHT: number,
+	MIN_TIME_BETWEEN_GROUPS_SEC: number,
 	GENERATOR: { [number]: any },
 }
 
@@ -42,6 +49,20 @@ type IndexedGroup = {
 	index: number,
 	group: Group,
 }
+
+-- the group bar for a night: the map's minimum, up by the per-night step
+-- for every night after the first, times the crew's wave multiplier
+function WaveRules.minGroupDifficultyFor(mapWaves: MapWaves, night: number, multiplier: number): number
+	local nightsIn = math.max(math.floor(night) - 1, 0)
+	return (mapWaves.MIN_GROUP_DIFFICULTY + mapWaves.MIN_GROUP_DIFFICULTY_PER_NIGHT * nightsIn) * multiplier
+end
+
+-- the longest lull between a night's groups: the map's cap, shrunk by the
+-- per-night step for every night after the first, never under the floor
+function WaveRules.maxGapFor(mapWaves: MapWaves, night: number): number
+	local nightsIn = math.max(math.floor(night) - 1, 0)
+	return math.max(mapWaves.MIN_TIME_BETWEEN_GROUPS_SEC, mapWaves.MAX_TIME_BETWEEN_GROUPS_SEC - mapWaves.GROUP_GAP_SHRINK_SEC_PER_NIGHT * nightsIn)
+end
 
 -- the wave authored for the night, nil when there is none (M30: such a
 -- night is generated instead of replaying an earlier one)

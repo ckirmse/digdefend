@@ -11,11 +11,13 @@ return {
 		[Enums.RawResource.CRYSTAL] = 1,
 		[Enums.RawResource.URANIUM_ORE] = 1,
 	},
-	-- the prompt is disabled while the machine grinds; the client plays the
-	-- suck-in for this long before the payout flies out
+	-- the machine is busy while it grinds; the client plays the suck-in for
+	-- this long before the payout flies out
 	REFINE_DURATION_SEC = 2,
-	-- the proximity prompt's texts (GDD "Refining Ore")
-	PROMPT_ACTION_TEXT = "Refine Raw Resources",
-	PROMPT_OBJECT_TEXT = "Refinery",
-	PROMPT_MAX_DISTANCE_STUDS = 10,
+	-- refining is automatic (decided 2026-10-01, replacing the prompt): a
+	-- player who steps inside this radius of the Refinery with ore in the
+	-- backpack is refined on the spot. The server checks every POLL_SEC;
+	-- the client draws the ring on the ground
+	REFINE_RADIUS_STUDS = 14,
+	REFINE_POLL_SEC = 0.25,
 }

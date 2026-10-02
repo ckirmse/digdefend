@@ -183,6 +183,9 @@ closeButton.Position = UDim2.fromScale(1.02, -0.04)
 closeButton.Size = UDim2.fromScale(0.07, 0.11)
 addAspect(closeButton, 1)
 addTouchTarget(closeButton, Vector2.new(56, 56))
+-- above the Upgrade button, whose corner it overlaps; without this the
+-- later sibling drew on top and took the tap (found 2026-10-01)
+closeButton.ZIndex = 5
 closeButton.Parent = dialog
 
 -- left column: 46% wide

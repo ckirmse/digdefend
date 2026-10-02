@@ -159,8 +159,22 @@ module = {
 			ROCKET_LAUNCHER = "Rocket Launcher",
 		},
 	},
+	-- what a handheld weapon upgrade raises (GDD "Weapon Upgrades"): four
+	-- upgrades each, bought with Gold at the Weapons Table in the defense
+	-- building (decided 2026-10-01); definitions in GameData/Weapons/Upgrades
+	WeaponAttribute = {
+		DAMAGE = 1,
+		AMMO = 2,
+		RANGE = 3,
+
+		PublicNames = {
+			DAMAGE = "Damage",
+			AMMO = "Ammo",
+			RANGE = "Range",
+		},
+	},
 	-- what a post weapon upgrade raises (GDD "Post Weapon Upgrades"): four
-	-- upgrades each, bought with Gold at the post's workbench
+	-- upgrades each, bought with Gold at the Post Upgrade Table
 	PostAttribute = {
 		DAMAGE = 1,
 		FIRE_RATE = 2,

@@ -164,10 +164,6 @@ local GRID_LINE_COLOR = Color3.fromRGB(245, 200, 80)
 local GRID_LINE_THICKNESS_STUDS = 0.25
 local GRID_LINE_LIFT_STUDS = 0.06
 local GRID_LINE_TRANSPARENCY = 0.35
--- the reserved cells along the fortifications, shaded on the top face
-local RESERVED_CELL_LIFT_STUDS = 0.03
-local RESERVED_CELL_THICKNESS_STUDS = 0.1
-local RESERVED_CELL_TRANSPARENCY = 0.7
 -- the range ring around a Tower ghost (decided 2026-09-22): a circle of
 -- the Tower's reach drawn as flat segments on the ground
 local RANGE_RING_NAME = "RangeRing"
@@ -432,8 +428,10 @@ function ClientDefenseTableManager:renderAffordability()
 	self:renderPanel()
 end
 
--- the grid over one zone: thin bars along every column and row edge on the
--- top face; local, and only in Build Mode
+-- the grid over one zone: thin bars along the column and row edges of
+-- every cell that can be built on, so the grid stops at the walls and
+-- posts instead of shading the reserved cells (decided 2026-10-01); local,
+-- and only in Build Mode. Each line is one part per unbroken run of edges
 function ClientDefenseTableManager:drawZone(view: ZoneView)
 	local gridFolder = self.gridFolder
 	if view.lines or not gridFolder then
@@ -442,8 +440,14 @@ function ClientDefenseTableManager:drawZone(view: ZoneView)
 	local grid = view.grid
 	local folder = Instance.new("Folder")
 	folder.Name = view.part.Name
-	local width = grid.columns * grid.cellSizeStuds
-	local depth = grid.rows * grid.cellSizeStuds
+	local reservedKeys: { [string]: boolean } = {}
+	for _, cell in view.reserved do
+		reservedKeys[PlacementRules.occupancyKey(cell)] = true
+	end
+	local function isBuildable(column: number, row: number): boolean
+		local cell = { column = column, row = row }
+		return PlacementRules.isCellInside(grid, cell) and not reservedKeys[PlacementRules.occupancyKey(cell)]
+	end
 	local function addLine(name: string, size: Vector3, offset: Vector3)
 		local line = Instance.new("Part")
 		line.Name = name
@@ -459,46 +463,50 @@ function ClientDefenseTableManager:drawZone(view: ZoneView)
 		line.CFrame = grid.cframe * CFrame.new(offset + Vector3.new(0, GRID_LINE_LIFT_STUDS, 0))
 		line.Parent = folder
 	end
+	-- walks the cells 1..count along one edge and builds one part per run
+	-- of cells where the edge is wanted
+	local function addRuns(count: number, isEdgeWanted: (number) -> boolean, build: (runStart: number, runLength: number) -> ())
+		local runStart = nil
+		for index = 1, count + 1 do
+			local isWanted = index <= count and isEdgeWanted(index)
+			if isWanted and not runStart then
+				runStart = index
+			elseif not isWanted and runStart then
+				build(runStart, index - runStart)
+				runStart = nil
+			end
+		end
+	end
+	-- an edge is drawn wherever a buildable cell touches either side of it
 	for column = 0, grid.columns do
-		addLine(`Column{column}`, Vector3.new(GRID_LINE_THICKNESS_STUDS, GRID_LINE_THICKNESS_STUDS, depth), Vector3.new((column - grid.columns / 2) * grid.cellSizeStuds, 0, 0))
+		addRuns(
+			grid.rows,
+			function(row: number): boolean
+				return isBuildable(column, row) or isBuildable(column + 1, row)
+			end,
+			function(runStart: number, runLength: number)
+				addLine(
+					`Column{column}_{runStart}`,
+					Vector3.new(GRID_LINE_THICKNESS_STUDS, GRID_LINE_THICKNESS_STUDS, runLength * grid.cellSizeStuds),
+					Vector3.new((column - grid.columns / 2) * grid.cellSizeStuds, 0, (runStart - 1 + runLength / 2 - grid.rows / 2) * grid.cellSizeStuds)
+				)
+			end
+		)
 	end
 	for row = 0, grid.rows do
-		addLine(`Row{row}`, Vector3.new(width, GRID_LINE_THICKNESS_STUDS, GRID_LINE_THICKNESS_STUDS), Vector3.new(0, 0, (row - grid.rows / 2) * grid.cellSizeStuds))
-	end
-	-- the reserved cells, one flat part per run of them along a row
-	local reservedByRow: { [number]: { number } } = {}
-	for _, cell in view.reserved do
-		local columns = reservedByRow[cell.row] or {}
-		table.insert(columns, cell.column)
-		reservedByRow[cell.row] = columns
-	end
-	for row, columns in reservedByRow do
-		table.sort(columns)
-		local runStart = columns[1]
-		local previous = runStart
-		for index = 2, #columns + 1 do
-			local column = columns[index]
-			if column == previous + 1 then
-				previous = column
-				continue
+		addRuns(
+			grid.columns,
+			function(column: number): boolean
+				return isBuildable(column, row) or isBuildable(column, row + 1)
+			end,
+			function(runStart: number, runLength: number)
+				addLine(
+					`Row{row}_{runStart}`,
+					Vector3.new(runLength * grid.cellSizeStuds, GRID_LINE_THICKNESS_STUDS, GRID_LINE_THICKNESS_STUDS),
+					Vector3.new((runStart - 1 + runLength / 2 - grid.columns / 2) * grid.cellSizeStuds, 0, (row - grid.rows / 2) * grid.cellSizeStuds)
+				)
 			end
-			local runLength = previous - runStart + 1
-			local pad = Instance.new("Part")
-			pad.Name = `Reserved{runStart}_{row}`
-			pad.Size = Vector3.new(runLength * grid.cellSizeStuds, RESERVED_CELL_THICKNESS_STUDS, grid.cellSizeStuds)
-			pad.Anchored = true
-			pad.CanCollide = false
-			pad.CanQuery = false
-			pad.CanTouch = false
-			pad.CastShadow = false
-			pad.Material = Enum.Material.SmoothPlastic
-			pad.Color = CANNOT_PLACE_COLOR
-			pad.Transparency = RESERVED_CELL_TRANSPARENCY
-			pad.CFrame = grid.cframe * CFrame.new((runStart - 1 + runLength / 2 - grid.columns / 2) * grid.cellSizeStuds, RESERVED_CELL_LIFT_STUDS, (row - 0.5 - grid.rows / 2) * grid.cellSizeStuds)
-			pad.Parent = folder
-			runStart = column
-			previous = column
-		end
+		)
 	end
 	folder.Parent = gridFolder
 	view.lines = folder

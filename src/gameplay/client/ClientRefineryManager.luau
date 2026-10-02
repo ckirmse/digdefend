@@ -38,6 +38,8 @@ type Row = {
 export type ClientRefineryManager = typeof(setmetatable(
 	{} :: {
 		gui: ScreenGui?,
+		-- the refining ring drawn around the camp's Refinery, local only
+		ring: Model?,
 		rowByResource: { [number]: Row },
 		-- the pool shown while diamonds are in flight, and the last pool
 		-- rendered, which is where a payout's icons start counting from
@@ -82,6 +84,16 @@ local COLOR_BY_REFINED: { [number]: Color3 } = {
 	[Enums.RefinedResource.DIAMOND] = Color3.fromRGB(120, 200, 255),
 	[Enums.RefinedResource.URANIUM] = Color3.fromRGB(120, 240, 90),
 }
+-- the refining ring: flat Neon segments on the ground around the Refinery
+local RING_NAME = "RefineRing"
+local RING_SEGMENTS = 48
+local RING_THICKNESS_STUDS = 0.5
+local RING_HEIGHT_STUDS = 0.1
+local RING_LIFT_STUDS = 0.15
+local RING_COLOR = Color3.fromRGB(245, 200, 80)
+local RING_TRANSPARENCY = 0.3
+local WAIT_FOR_CAMP_SEC = 30
+
 local ROW_NAME_BY_REFINED: { [number]: string } = {
 	[Enums.RefinedResource.IRON_BAR] = Constants.HUD_BALANCE_IRON_ROW,
 	[Enums.RefinedResource.GOLD_BAR] = Constants.HUD_BALANCE_GOLD_ROW,
@@ -384,8 +396,86 @@ function ClientRefineryManager:onCampLevelUp(payload: any)
 	ClientSoundManager:playSfx(SoundNames.Sfx.CAMP_LEVEL_UP)
 end
 
+-- the refining ring on the ground around the Refinery (2026-10-01): a
+-- circle of flat segments at the radius the server published, drawn once
+-- the camp's Refinery streams in, redrawn for a new camp
+function ClientRefineryManager:drawRing()
+	if self.ring then
+		self.ring:Destroy()
+		self.ring = nil
+	end
+	local camp = workspace:FindFirstChild(Constants.CAMP_FOLDER)
+	local refinery = if camp then camp:FindFirstChild(Constants.CAMP_REFINERY_MODEL) else nil
+	if not refinery or not refinery:IsA("Model") then
+		return
+	end
+	local radius = readNumber(ClientDataManager:getGameMetadata(Attributes.REFINE_RADIUS_STUDS))
+	if radius <= 0 then
+		return
+	end
+	local boundsCFrame, boundsSize = refinery:GetBoundingBox()
+	local groundY = boundsCFrame.Position.Y - boundsSize.Y / 2
+	local centre = CFrame.new(boundsCFrame.Position.X, groundY + RING_LIFT_STUDS, boundsCFrame.Position.Z)
+	local ring = Instance.new("Model")
+	ring.Name = RING_NAME
+	local segmentLength = 2 * math.pi * radius / RING_SEGMENTS + RING_THICKNESS_STUDS
+	for index = 1, RING_SEGMENTS do
+		local angle = (index - 0.5) / RING_SEGMENTS * 2 * math.pi
+		local segment = Instance.new("Part")
+		segment.Name = "Segment"
+		segment.Anchored = true
+		segment.CanCollide = false
+		segment.CanQuery = false
+		segment.CanTouch = false
+		segment.CastShadow = false
+		segment.Material = Enum.Material.Neon
+		segment.Color = RING_COLOR
+		segment.Transparency = RING_TRANSPARENCY
+		segment.Size = Vector3.new(segmentLength, RING_HEIGHT_STUDS, RING_THICKNESS_STUDS)
+		-- each segment sits on the circle, turned to run along it
+		segment.CFrame = centre * CFrame.Angles(0, -angle, 0) * CFrame.new(0, 0, -radius)
+		segment.Parent = ring
+	end
+	ring.Parent = refinery
+	self.ring = ring
+end
+
+-- draws the ring for the camp in Workspace now and for every camp after it
+function ClientRefineryManager:watchRefinery()
+	local camp = workspace:WaitForChild(Constants.CAMP_FOLDER, WAIT_FOR_CAMP_SEC)
+	local refinery = if camp then camp:WaitForChild(Constants.CAMP_REFINERY_MODEL, WAIT_FOR_CAMP_SEC) else nil
+	if not refinery then
+		warn("ClientRefineryManager: no Camp.Refinery model to draw the refining ring around")
+		return
+	end
+	self:drawRing()
+	refinery.AncestryChanged:Connect(
+		function()
+			if not refinery:IsDescendantOf(workspace) then
+				self.ring = nil
+				task.spawn(
+					function()
+						self:watchRefinery()
+					end
+				)
+			end
+		end
+	)
+end
+
 function ClientRefineryManager:init()
 	self:findHud()
+	task.spawn(
+		function()
+			self:watchRefinery()
+		end
+	)
+	ClientDataManager:subscribeGameMetadataAttribute(
+		Attributes.REFINE_RADIUS_STUDS,
+		function()
+			self:drawRing()
+		end
+	)
 
 	ClientDataManager:subscribeCurrentPlayerAttribute(
 		Attributes.BALANCE_IRON_BARS,
@@ -442,6 +532,7 @@ end
 function ClientRefineryManager.new(): ClientRefineryManager
 	local self = setmetatable({}, ClientRefineryManager) :: ClientRefineryManager
 	self.gui = nil
+	self.ring = nil
 	self.rowByResource = {}
 	self.campHeldPool = nil
 	self.campFlightsInProgress = 0

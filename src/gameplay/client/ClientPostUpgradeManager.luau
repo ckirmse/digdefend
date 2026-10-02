@@ -1,17 +1,24 @@
 --!strict
 
 -- The post upgrade menu on this client (GDD "Upgrading a Post Weapon"),
--- M25. The owner's bench (Tags.POST_WORKBENCH) carries an Upgrade prompt
--- the server configures; this client enables it only for the post it owns
--- and, when it fires here, opens the PostUpgrade overlay: one row per
--- attribute with four pips (one filled per upgrade bought) and a button
--- showing the Gold price, greyed with a "Camp Level N required" line while
--- locked, gone when maxed. Everything is drawn from the catalogue in
--- GameMetadata, the upgrade counts on CurrentPlayer, the Gold balance, and
--- the Camp Level; a tap sends TryUpgradePost and the server decides.
+-- M25, opened at the Post Upgrade Table in the defense building (decided
+-- 2026-10-01). The table's prompt (Tags.POST_UPGRADE_PROMPT) is the
+-- server's; when it fires here, this opens the PostUpgrade overlay if this
+-- player owns a post, else says a post must be claimed first. The menu is
+-- one row per attribute with four pips (one filled per upgrade bought) and
+-- a button showing the Gold price, greyed with a "Camp Level N required"
+-- line while locked, gone when maxed. Everything is drawn from the
+-- catalogue in GameMetadata, the upgrade counts on CurrentPlayer, the Gold
+-- balance, and the Camp Level; a tap sends TryUpgradePost and the server
+-- decides.
+-- The table also carries a display: the designer's DisplayPost model sets
+-- the spot and size, and this client redraws it locally as the current
+-- fortification tier's post with its own loadout post weapon standing on
+-- it, no sign, no prompts, display only. Each player sees their own.
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -50,7 +57,13 @@ export type ClientPostUpgradeManager = typeof(setmetatable(
 		rows: { Row },
 		overlay: ClientOverlayManager.Overlay?,
 		isMenuOpen: boolean,
-		benchPromptsByModel: { [Model]: ProximityPrompt },
+		-- the display on the table: where the designer's post stood, how
+		-- much smaller than a real post it was, and what stands there now
+		displayParent: Instance?,
+		displayPivot: CFrame?,
+		displayScale: number,
+		displayPost: Model?,
+		displayWeapon: Model?,
 	},
 	ClientPostUpgradeManager
 ))
@@ -64,6 +77,10 @@ local NOTIFY_POST_UPGRADED_SHAPE = {
 local TITLE_FORMAT = "Upgrade %s"
 local MAXED_TEXT = "MAX"
 local FEEDBACK_NOT_ENOUGH_GOLD = "Not enough Gold"
+local FEEDBACK_NO_POST = "You must claim a Post before upgrading"
+local WAIT_FOR_CAMP_SEC = 30
+local DISPLAY_POST_NAME = "DisplayPost"
+local DISPLAY_WEAPON_NAME = "DisplayWeapon"
 
 local function readNumber(value: any, default: number): number
 	return if typeof(value) == "number" then value else default
@@ -168,6 +185,16 @@ function ClientPostUpgradeManager:openMenu()
 	ClientOverlayManager:notifyBeginOverlay(overlay)
 end
 
+-- the table's prompt: the menu for a post owner, the reason for anyone else
+function ClientPostUpgradeManager:onTablePrompt()
+	if self:getOwnPostIndex() == PostRules.NO_POST then
+		ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
+		ClientPlayerFeedbackManager:giveLocal(FEEDBACK_NO_POST)
+		return
+	end
+	self:openMenu()
+end
+
 -- a buy that cannot go through is refused here with the Fail sound and
 -- the reason (decided 2026-09-18); the server checks again regardless
 function ClientPostUpgradeManager:requestUpgrade(attribute: number)
@@ -191,38 +218,104 @@ function ClientPostUpgradeManager:requestUpgrade(attribute: number)
 	ClientNetManager:fireServer(NetEventNames.TRY_UPGRADE_POST, { attribute = attribute })
 end
 
--- the bench's prompt is only for the post's owner; the server would refuse
--- anyone else's upgrade anyway, but the prompt should not even show
-function ClientPostUpgradeManager:renderBenchPrompt(model: Model, prompt: ProximityPrompt)
-	prompt.Enabled = readNumber(model:GetAttribute(Attributes.POST_MODEL_INDEX), 0) == self:getOwnPostIndex()
+function ClientPostUpgradeManager:findTemplate(folderName: string, templateName: string): Model?
+	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
+	local folder = if gameAssets then gameAssets:FindFirstChild(folderName) else nil
+	local template = if folder then folder:FindFirstChild(templateName) else nil
+	return if template and template:IsA("Model") then template else nil
 end
 
-function ClientPostUpgradeManager:renderBenchPrompts()
-	for model, prompt in self.benchPromptsByModel do
-		self:renderBenchPrompt(model, prompt)
+-- the display as of now: the tier's post, shrunk to the designer's size
+-- and stood where their post stood, stripped of its sign, with the
+-- loadout post weapon on its Spawn the way a claimed post carries one
+function ClientPostUpgradeManager:renderDisplay()
+	local parent = self.displayParent
+	local pivot = self.displayPivot
+	if not parent or not pivot then
+		return
 	end
+	if self.displayPost then
+		self.displayPost:Destroy()
+		self.displayPost = nil
+	end
+	if self.displayWeapon then
+		self.displayWeapon:Destroy()
+		self.displayWeapon = nil
+	end
+	local tier = math.max(1, readNumber(ClientDataManager:getGameMetadata(Attributes.FORTIFICATION_TIER), 1))
+	local postTemplate = self:findTemplate(Constants.STRUCTURE_TEMPLATES_FOLDER, `{Constants.POST_TEMPLATE_PREFIX}_{tier}`)
+	if not postTemplate then
+		return
+	end
+	local post = postTemplate:Clone()
+	post.Name = DISPLAY_POST_NAME
+	local sign = post:FindFirstChild(Constants.POST_SIGN_MODEL)
+	if sign then
+		sign:Destroy()
+	end
+	-- ScaleTo is absolute, and a template may already carry a scale of its own
+	post:ScaleTo(post:GetScale() * self.displayScale)
+	post:PivotTo(pivot)
+	post.Parent = parent
+	self.displayPost = post
+
+	local kind = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.POST_LOADOUT_WEAPON_KIND), 0)
+	local weaponTemplate = self:findTemplate(Constants.POST_WEAPON_TEMPLATES_FOLDER, Enums.getName(Enums.PostWeaponKind, kind) or "")
+	local spawn = post:FindFirstChild(Constants.POST_SPAWN_PART)
+	if not weaponTemplate or not spawn or not spawn:IsA("BasePart") then
+		return
+	end
+	local weapon = weaponTemplate:Clone()
+	weapon.Name = DISPLAY_WEAPON_NAME
+	weapon:ScaleTo(weapon:GetScale() * self.displayScale)
+	weapon:PivotTo(spawn.CFrame)
+	spawn.Transparency = 1
+	weapon.Parent = parent
+	self.displayWeapon = weapon
 end
 
-function ClientPostUpgradeManager:bindBench(model: Instance)
-	if not model:IsA("Model") then
+-- reads the designer's DisplayPost on the table (its pivot, and its height
+-- against a real post's) then takes it over: from here the display is
+-- redrawn locally whenever the tier or this player's loadout changes
+function ClientPostUpgradeManager:attachDisplay()
+	local camp = workspace:WaitForChild(Constants.CAMP_FOLDER, WAIT_FOR_CAMP_SEC)
+	local store = if camp then camp:WaitForChild(Constants.CAMP_DEFENSE_STORE_MODEL, WAIT_FOR_CAMP_SEC) else nil
+	local tables = if store then store:WaitForChild(Constants.DEFENSE_TABLES_FOLDER, WAIT_FOR_CAMP_SEC) else nil
+	local tableModel = if tables then tables:WaitForChild(Constants.POST_UPGRADE_TABLE_MODEL, WAIT_FOR_CAMP_SEC) else nil
+	local authored = if tableModel then tableModel:WaitForChild(Constants.POST_UPGRADE_TABLE_DISPLAY_POST, WAIT_FOR_CAMP_SEC) else nil
+	if not tableModel or not authored or not authored:IsA("Model") then
+		warn(`ClientPostUpgradeManager: no {Constants.POST_UPGRADE_TABLE_MODEL}.{Constants.POST_UPGRADE_TABLE_DISPLAY_POST} model in the camp's {Constants.CAMP_DEFENSE_STORE_MODEL}; no display`)
 		return
 	end
-	local promptPart = model:WaitForChild(Constants.WORKBENCH_PROMPT_PART, 10)
-	if not promptPart then
+	local fullSize = self:findTemplate(Constants.STRUCTURE_TEMPLATES_FOLDER, `{Constants.POST_TEMPLATE_PREFIX}_1`)
+	if not fullSize then
+		warn("ClientPostUpgradeManager: no POST_1 template to size the display post against")
 		return
 	end
-	local function bindPrompt(prompt: Instance)
-		if prompt:IsA("ProximityPrompt") then
-			self.benchPromptsByModel[model] = prompt
-			self:renderBenchPrompt(model, prompt)
+	local _authoredCFrame, authoredSize = authored:GetBoundingBox()
+	local _fullCFrame, fullSizeBounds = fullSize:GetBoundingBox()
+	self.displayParent = tableModel
+	self.displayPivot = authored:GetPivot()
+	self.displayScale = if fullSizeBounds.Y > 0 then authoredSize.Y / fullSizeBounds.Y else 1
+	-- the authored copy was the reference; the live display replaces it here only
+	authored:Destroy()
+	self:renderDisplay()
+	-- a new run brings a new camp and a new table; follow it
+	tableModel.AncestryChanged:Connect(
+		function()
+			if not tableModel:IsDescendantOf(workspace) then
+				self.displayParent = nil
+				self.displayPivot = nil
+				self.displayPost = nil
+				self.displayWeapon = nil
+				task.spawn(
+					function()
+						self:attachDisplay()
+					end
+				)
+			end
 		end
-	end
-	local prompt = promptPart:FindFirstChildWhichIsA("ProximityPrompt")
-	if prompt then
-		bindPrompt(prompt)
-	else
-		promptPart.ChildAdded:Connect(bindPrompt)
-	end
+	)
 end
 
 function ClientPostUpgradeManager:findMenu()
@@ -234,12 +327,12 @@ function ClientPostUpgradeManager:findMenu()
 	end
 	menuGui.Enabled = false
 	self.menuGui = menuGui
-	local dialog = menuGui:FindFirstChild(Constants.POST_UPGRADE_DIALOG)
+	local dialog = menuGui:FindFirstChild(Constants.UPGRADE_MENU_DIALOG)
 	self.menuDialog = if dialog and dialog:IsA("GuiObject") then dialog else nil
-	local title = if dialog then dialog:FindFirstChild(Constants.POST_UPGRADE_TITLE_LABEL) else nil
+	local title = if dialog then dialog:FindFirstChild(Constants.UPGRADE_MENU_TITLE_LABEL) else nil
 	self.titleLabel = if title and title:IsA("TextLabel") then title else nil
-	local list = if dialog then dialog:FindFirstChild(Constants.POST_UPGRADE_LIST) else nil
-	local template = if list then list:FindFirstChild(Constants.POST_UPGRADE_ROW_TEMPLATE) else nil
+	local list = if dialog then dialog:FindFirstChild(Constants.UPGRADE_MENU_LIST) else nil
+	local template = if list then list:FindFirstChild(Constants.UPGRADE_MENU_ROW_TEMPLATE) else nil
 	if not template or not template:IsA("GuiObject") then
 		warn("ClientPostUpgradeManager: the PostUpgrade menu has no List.RowTemplate")
 		return
@@ -250,25 +343,25 @@ function ClientPostUpgradeManager:findMenu()
 		frame.LayoutOrder = order
 		frame.Visible = true
 		frame.Parent = list
-		local nameLabel = frame:FindFirstChild(Constants.POST_UPGRADE_ROW_NAME_LABEL)
+		local nameLabel = frame:FindFirstChild(Constants.UPGRADE_MENU_ROW_NAME_LABEL)
 		if nameLabel and nameLabel:IsA("TextLabel") then
 			nameLabel.Text = UiStyle.formatTitle(Enums.getPublicName(Enums.PostAttribute, attribute) or "?")
 		end
-		local pipsFrame = frame:FindFirstChild(Constants.POST_UPGRADE_ROW_PIPS)
+		local pipsFrame = frame:FindFirstChild(Constants.UPGRADE_MENU_ROW_PIPS)
 		local pips: { GuiObject } = {}
 		local pipIndex = 1
 		while pipsFrame do
-			local pip = pipsFrame:FindFirstChild(Constants.POST_UPGRADE_ROW_PIP_PREFIX .. pipIndex)
+			local pip = pipsFrame:FindFirstChild(Constants.UPGRADE_MENU_ROW_PIP_PREFIX .. pipIndex)
 			if not pip or not pip:IsA("GuiObject") then
 				break
 			end
 			table.insert(pips, pip)
 			pipIndex += 1
 		end
-		local button = frame:FindFirstChild(Constants.POST_UPGRADE_ROW_BUTTON)
-		local priceLabel = if button then button:FindFirstChild(Constants.POST_UPGRADE_ROW_PRICE_LABEL) else nil
-		local resourceIcon = if button then button:FindFirstChild(Constants.POST_UPGRADE_ROW_RESOURCE_ICON) else nil
-		local lockLabel = frame:FindFirstChild(Constants.POST_UPGRADE_ROW_LOCK_LABEL)
+		local button = frame:FindFirstChild(Constants.UPGRADE_MENU_ROW_BUTTON)
+		local priceLabel = if button then button:FindFirstChild(Constants.UPGRADE_MENU_ROW_PRICE_LABEL) else nil
+		local resourceIcon = if button then button:FindFirstChild(Constants.UPGRADE_MENU_ROW_RESOURCE_ICON) else nil
+		local lockLabel = frame:FindFirstChild(Constants.UPGRADE_MENU_ROW_LOCK_LABEL)
 		local row: Row = {
 			attribute = attribute,
 			frame = frame,
@@ -289,7 +382,7 @@ function ClientPostUpgradeManager:findMenu()
 		end
 		table.insert(self.rows, row)
 	end
-	local closeButton = if dialog then dialog:FindFirstChild(Constants.POST_UPGRADE_CLOSE_BUTTON) else nil
+	local closeButton = if dialog then dialog:FindFirstChild(Constants.UPGRADE_MENU_CLOSE_BUTTON) else nil
 	if closeButton and closeButton:IsA("GuiButton") then
 		closeButton.Activated:Connect(
 			function()
@@ -314,41 +407,18 @@ end
 
 function ClientPostUpgradeManager:init()
 	self:findMenu()
-	for _, model in CollectionService:GetTagged(Tags.POST_WORKBENCH) do
-		task.spawn(
-			function()
-				self:bindBench(model)
-			end
-		)
-	end
-	CollectionService:GetInstanceAddedSignal(Tags.POST_WORKBENCH):Connect(
-		function(model: Instance)
-			self:bindBench(model)
+	-- the camp can take a while to stream in; nothing else waits on the display
+	task.spawn(
+		function()
+			self:attachDisplay()
 		end
 	)
-	CollectionService:GetInstanceRemovedSignal(Tags.POST_WORKBENCH):Connect(
-		function(model: Instance)
-			self.benchPromptsByModel[model :: Model] = nil
-		end
-	)
-	-- the prompt fires here as well as on the server; only the bench's is ours
+	-- the prompt fires here as well as on the server; only the table's is ours
 	ProximityPromptService.PromptTriggered:Connect(
 		function(prompt: ProximityPrompt, player: Player)
-			if player ~= Players.LocalPlayer then
-				return
+			if player == Players.LocalPlayer and CollectionService:HasTag(prompt, Tags.POST_UPGRADE_PROMPT) then
+				self:onTablePrompt()
 			end
-			for _, benchPrompt in self.benchPromptsByModel do
-				if benchPrompt == prompt then
-					self:openMenu()
-					return
-				end
-			end
-		end
-	)
-	ClientDataManager:subscribeCurrentPlayerAttribute(
-		Attributes.POST_INDEX,
-		function()
-			self:renderBenchPrompts()
 		end
 	)
 	local watched = { Attributes.BALANCE_GOLD_BARS, Attributes.POST_WEAPON_KIND }
@@ -373,6 +443,18 @@ function ClientPostUpgradeManager:init()
 			end
 		end
 	)
+	ClientDataManager:subscribeGameMetadataAttribute(
+		Attributes.FORTIFICATION_TIER,
+		function()
+			self:renderDisplay()
+		end
+	)
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.POST_LOADOUT_WEAPON_KIND,
+		function()
+			self:renderDisplay()
+		end
+	)
 	ClientNetManager:registerHandler(
 		NetEventNames.NOTIFY_POST_UPGRADED,
 		function(payload: any)
@@ -393,7 +475,11 @@ function ClientPostUpgradeManager.new(): ClientPostUpgradeManager
 	self.rows = {}
 	self.overlay = nil
 	self.isMenuOpen = false
-	self.benchPromptsByModel = {}
+	self.displayParent = nil
+	self.displayPivot = nil
+	self.displayScale = 1
+	self.displayPost = nil
+	self.displayWeapon = nil
 	return self
 end
 

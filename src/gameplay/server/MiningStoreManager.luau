@@ -169,12 +169,13 @@ function MiningStoreManager:bindStands()
 	self.promptConnections = {}
 	local camp = MapManager:getCamp()
 	local store = if camp then camp:FindFirstChild(Constants.CAMP_MINING_STORE_MODEL) else nil
-	if not store then
-		warn("MiningStoreManager: the loaded camp has no MiningStore; nothing can be bought")
+	local stands = if store then store:FindFirstChild(Constants.MINING_STORE_STANDS_FOLDER) else nil
+	if not stands then
+		warn(`MiningStoreManager: the loaded camp has no {Constants.CAMP_MINING_STORE_MODEL}.{Constants.MINING_STORE_STANDS_FOLDER}; nothing can be bought`)
 		return
 	end
 	for _, item in Enums.getAllValues(Enums.StoreItem) do
-		self:bindStand(store, item)
+		self:bindStand(stands, item)
 	end
 end
 

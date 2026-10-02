@@ -46,6 +46,12 @@ return {
 	-- sky's NIGHT_SPAWN_SEC is separate). The crew's wave multiplier scales
 	-- this too (2026-09-25), so a crew gets the solo group count, bigger
 	MIN_GROUP_DIFFICULTY = 80,
+	-- the bar climbs 5 a night (2026-10-01): in the ninth playtest every
+	-- group from night 7 to 13 was 80 to 130 points and died in under ten
+	-- seconds while the next was still 25 s out, so a late night was only
+	-- more of the same; night 13 now makes three groups of 140+ and the
+	-- gap floor below lets them land on each other
+	MIN_GROUP_DIFFICULTY_PER_NIGHT = 5,
 	-- 90 and 30 since the eighth playtest (2026-09-29, lost on night 8):
 	-- two groups 10 s apart were one wave, and a wall fell before the
 	-- gunner could turn to the second; a two-group night is now 0 and
@@ -54,6 +60,10 @@ return {
 	-- and no two of its groups in a row are further apart than this, so a
 	-- night of two groups is not one group, a long lull, then the other
 	MAX_TIME_BETWEEN_GROUPS_SEC = 30,
+	-- and that limit tightens 2 s a night to a floor of 8 s (2026-10-01),
+	-- so by night 12 the groups overlap instead of queueing
+	GROUP_GAP_SHRINK_SEC_PER_NIGHT = 2,
+	MIN_TIME_BETWEEN_GROUPS_SEC = 8,
 	WAVES = {},
 	GENERATOR = {
 		[Enums.Difficulty.NORMAL] = {
@@ -124,7 +134,7 @@ return {
 				},
 				{
 					KIND = MonsterKind.TITAN_1,
-					WAVE_UNLOCKED = 14,
+					WAVE_UNLOCKED = 11,
 				},
 				{
 					KIND = MonsterKind.FLYER_3,
@@ -205,7 +215,7 @@ return {
 				},
 				{
 					KIND = MonsterKind.TITAN_1,
-					WAVE_UNLOCKED = 12,
+					WAVE_UNLOCKED = 9,
 				},
 				{
 					KIND = MonsterKind.FLYER_3,
@@ -286,7 +296,7 @@ return {
 				},
 				{
 					KIND = MonsterKind.TITAN_1,
-					WAVE_UNLOCKED = 10,
+					WAVE_UNLOCKED = 7,
 				},
 				{
 					KIND = MonsterKind.FLYER_3,

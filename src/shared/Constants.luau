@@ -114,16 +114,17 @@ Constants.CAMP_SPAWNS_FOLDER = "Spawns"
 -- whose look direction (snapped to an axis) is the mine facing
 Constants.CAMP_MINE_FOLDER = "Mine"
 Constants.MINE_ENTRANCE_PART = "Entrance"
--- Camp.Refinery: a Model whose Prompt part carries the refine ProximityPrompt
--- (RefineryManager configures and listens to it); its pivot is where the
+-- Camp.Refinery: a Model; refining is automatic within a radius of its
+-- bounding box (RefineryManager, 2026-10-01), and its top is where the
 -- client's ore icons fly to
 Constants.CAMP_REFINERY_MODEL = "Refinery"
-Constants.REFINERY_PROMPT_PART = "Prompt"
--- Camp.MiningStore: one "<Item>Stand" Model per Enums.StoreItem (the name
--- comes from StoreRules.standNameForItem), each with a Base part carrying
--- the SurfaceGui the client fills in and the ProximityPrompt the server
--- listens to, and an ItemSpawn part where the client spins the display model
+-- Camp.MiningStore.Stands: one "<Item>Stand" Model per Enums.StoreItem
+-- (the name comes from StoreRules.standNameForItem), each with a Base part
+-- carrying the SurfaceGui the client fills in and the ProximityPrompt the
+-- server listens to, and an ItemSpawn part where the client spins the
+-- display model; the folder keeps them apart from the building (2026-10-01)
 Constants.CAMP_MINING_STORE_MODEL = "MiningStore"
+Constants.MINING_STORE_STANDS_FOLDER = "Stands"
 Constants.STAND_BASE_PART = "Base"
 Constants.STAND_ITEM_SPAWN_PART = "ItemSpawn"
 Constants.STAND_GUI = "SurfaceGui"
@@ -136,13 +137,30 @@ Constants.STAND_CAMP_LEVEL_LABEL = "CampLevel"
 -- display models for the store stands under GameAssets: "<KEY>_<level>" for
 -- upgrade tracks and "<KEY>" for consumables (scripts/studio/build_store_displays.luau)
 Constants.STORE_DISPLAY_TEMPLATES_FOLDER = "StoreDisplays"
--- Camp.DefenseStore: the building that holds the Defense Table (decided
--- 2026-09-30, replacing the Trap stands): a Model whose anchored Prompt
--- part carries the prompt into Build Mode
--- (scripts/studio/build_defense_table.luau)
+-- Camp.DefenseStore: the defense building, which holds every defense menu
+-- (decided 2026-10-01): a Tables folder with one designer-authored Model
+-- per table, each with an anchored Prompt part the owning server manager
+-- puts the ProximityPrompt on. TowerTable enters Build Mode
+-- (DefenseTableManager), PostUpgradeTable opens the post upgrade menu
+-- (PostManager, ClientPostUpgradeManager), WeaponUpgradeTable the weapon
+-- upgrade menu (WeaponManager, ClientWeaponUpgradeManager), and WallsTable
+-- takes Iron toward the fortification tier (StructureManager)
 Constants.CAMP_DEFENSE_STORE_MODEL = "DefenseStore"
-Constants.DEFENSE_TABLE_MODEL = "DefenseTable"
+Constants.DEFENSE_TABLES_FOLDER = "Tables"
+Constants.TOWER_TABLE_MODEL = "TowerTable"
+Constants.POST_UPGRADE_TABLE_MODEL = "PostUpgradeTable"
+Constants.WEAPON_UPGRADE_TABLE_MODEL = "WeaponUpgradeTable"
+Constants.WALLS_TABLE_MODEL = "WallsTable"
 Constants.DEFENSE_TABLE_PROMPT_PART = "Prompt"
+-- inside WallsTable: the Gui part the Fortifications sign is centred on,
+-- placed by the designer (its position is the sign's), and the small
+-- model of the camp's wall line
+Constants.DEFENSE_TABLE_GUI_PART = "Gui"
+Constants.WALLS_TABLE_WALL_MODEL = "WallModel"
+-- inside PostUpgradeTable: the small post model the designer placed, which
+-- sets the display's spot and size; each client redraws it locally as the
+-- current tier's post with its own loadout post weapon on top, display only
+Constants.POST_UPGRADE_TABLE_DISPLAY_POST = "DisplayPost"
 -- Camp.DefensiveZones (M26): one anchored BasePart per Defensive Zone; its
 -- top face is the build surface and its size and rotation define the grid
 -- (PlacementRules.measureZone). PlacementManager numbers them by name
@@ -260,11 +278,6 @@ Constants.CAMP_POSTS_FOLDER = "Posts"
 Constants.CAMP_GATE_MODEL = "Gate"
 Constants.WALL_NAME_PREFIX = "Wall"
 Constants.POST_NAME_PREFIX = "Post"
--- Camp.Workbench: a Model whose anchored Prompt part carries the donate
--- ProximityPrompt (StructureManager configures and listens to it); the
--- client floats the Fortifications sign above it
-Constants.CAMP_WORKBENCH_MODEL = "Workbench"
-Constants.WORKBENCH_PROMPT_PART = "Prompt"
 -- inside every post template: Sign (Model) > Sign (Part) > SurfaceGui >
 -- DefensePostNumber, which the server fills in with the post's number
 Constants.POST_SIGN_MODEL = "Sign"
@@ -279,13 +292,8 @@ Constants.POST_SIGN_THUMBNAIL = "PlayerThumbnail"
 Constants.POST_SIGN_DISPLAY_NAME_LABEL = "DisplayName"
 Constants.POST_SIGN_POST_TYPE_LABEL = "PostType"
 -- inside every post template: the Spawn cylinder the claimed weapon stands
--- on (its X axis is up, its +Z faces out of the camp) and the WorkbenchSpawn
--- marker where the owner's upgrade bench goes
+-- on (its X axis is up, its +Z faces out of the camp)
 Constants.POST_SPAWN_PART = "Spawn"
-Constants.POST_WORKBENCH_SPAWN_PART = "WorkbenchSpawn"
--- the upgrade bench template under GameAssets/Structures, with a Prompt
--- part like the camp Workbench (scripts/studio/build_post_workbench_template.luau)
-Constants.POST_WORKBENCH_TEMPLATE = "POST_WORKBENCH"
 -- post weapon models under GameAssets, one per Enums.PostWeaponKind key.
 -- Each is a Model whose PrimaryPart is its own Spawn cylinder (matched to
 -- the post's), with CharacterSpawn (the gunner's feet, carrying the Use
@@ -337,20 +345,24 @@ Constants.POST_HUD_STATUS_BAR = "StatusBar"
 Constants.POST_HUD_STATUS_FILL = "Fill"
 -- above the bar: "OVERHEATED" or "RELOADING" while that is so, else hidden
 Constants.POST_HUD_STATUS_LABEL = "StatusLabel"
--- the PostUpgrade menu ScreenGui (scripts/studio/build_post_upgrade_menu_gui.luau)
+-- the upgrade menu ScreenGuis: PostUpgrade
+-- (scripts/studio/build_post_upgrade_menu_gui.luau) and WeaponUpgrade, a
+-- copy of it (scripts/studio/build_weapon_upgrade_menu_gui.luau); both
+-- share the child names below
 Constants.POST_UPGRADE_GUI_NAME = "PostUpgrade"
-Constants.POST_UPGRADE_DIALOG = "Dialog"
-Constants.POST_UPGRADE_TITLE_LABEL = "Title"
-Constants.POST_UPGRADE_LIST = "List"
-Constants.POST_UPGRADE_ROW_TEMPLATE = "RowTemplate"
-Constants.POST_UPGRADE_ROW_NAME_LABEL = "Name"
-Constants.POST_UPGRADE_ROW_PIPS = "Pips"
-Constants.POST_UPGRADE_ROW_PIP_PREFIX = "Pip"
-Constants.POST_UPGRADE_ROW_BUTTON = "UpgradeButton"
-Constants.POST_UPGRADE_ROW_PRICE_LABEL = "Price"
-Constants.POST_UPGRADE_ROW_RESOURCE_ICON = "ResourceIcon"
-Constants.POST_UPGRADE_ROW_LOCK_LABEL = "Lock"
-Constants.POST_UPGRADE_CLOSE_BUTTON = "CloseButton"
+Constants.WEAPON_UPGRADE_GUI_NAME = "WeaponUpgrade"
+Constants.UPGRADE_MENU_DIALOG = "Dialog"
+Constants.UPGRADE_MENU_TITLE_LABEL = "Title"
+Constants.UPGRADE_MENU_LIST = "List"
+Constants.UPGRADE_MENU_ROW_TEMPLATE = "RowTemplate"
+Constants.UPGRADE_MENU_ROW_NAME_LABEL = "Name"
+Constants.UPGRADE_MENU_ROW_PIPS = "Pips"
+Constants.UPGRADE_MENU_ROW_PIP_PREFIX = "Pip"
+Constants.UPGRADE_MENU_ROW_BUTTON = "UpgradeButton"
+Constants.UPGRADE_MENU_ROW_PRICE_LABEL = "Price"
+Constants.UPGRADE_MENU_ROW_RESOURCE_ICON = "ResourceIcon"
+Constants.UPGRADE_MENU_ROW_LOCK_LABEL = "Lock"
+Constants.UPGRADE_MENU_CLOSE_BUTTON = "CloseButton"
 -- inside every gate template: the two leaves, authored shut, and a marker
 -- part per leaf ("DoorLeftOpen") whose CFrame is its open pose; a Closed
 -- marker is optional and overrides the leaf's own pose
@@ -365,6 +377,9 @@ Constants.GATE_DOOR_CLOSED_SUFFIX = "Closed"
 Constants.STRUCTURE_TEMPLATES_FOLDER = "Structures"
 Constants.STRUCTURE_RUBBLE_SUFFIX = "RUBBLE"
 Constants.POST_TEMPLATE_PREFIX = "POST"
+-- "WALL_<tier>" and "GATE_<tier>" beside them
+Constants.WALL_TEMPLATE_PREFIX = "WALL"
+Constants.GATE_TEMPLATE_PREFIX = "GATE"
 -- optional per-map terrain: the part bounding the terrain to snapshot and
 -- the TerrainRegion the snapshot is stored in (scripts/studio/map_tools.luau)
 Constants.MAP_TERRAIN_BOUNDS_PART = "TerrainBounds"
@@ -487,7 +502,7 @@ Constants.HUD_BALANCE_VALUE_LABEL = "ValueLabel"
 Constants.GUI_TEMPLATES_FOLDER = "Gui"
 Constants.CAMP_LEVEL_ICON = "Icon"
 -- how far above the Refinery's top the billboard floats, in studs
--- the sign floated above the Workbench: tier title, the shared Iron pool as
+-- the sign floated above the Walls Table: tier title, the shared Iron pool as
 -- a bar reading "pool / required", and the Camp Level lock line
 -- (scripts/studio/build_fortification_billboard.luau)
 Constants.FORTIFICATION_BILLBOARD = "Fortification"
@@ -498,7 +513,6 @@ Constants.FORTIFICATION_FILL = "Fill"
 Constants.FORTIFICATION_PROGRESS_LABEL = "ProgressLabel"
 Constants.FORTIFICATION_ICON = "Icon"
 Constants.FORTIFICATION_LOCK_LABEL = "LockLabel"
-Constants.FORTIFICATION_BILLBOARD_LIFT_STUDS = 4
 -- the Repair Mode HP bar cloned onto every structure shadow while the Hammer
 -- is equipped (scripts/studio/build_structure_hp_billboard.luau)
 Constants.STRUCTURE_HP_BILLBOARD = "StructureHp"

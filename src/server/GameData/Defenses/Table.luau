@@ -7,7 +7,7 @@
 -- Placeholders until tuned in play.
 return {
 	PROMPT_ACTION_TEXT = "Build Defenses",
-	PROMPT_OBJECT_TEXT = "Defense Table",
+	PROMPT_OBJECT_TEXT = "Tower Table",
 	-- a tap, not a hold: nothing is spent by opening the table
 	PROMPT_HOLD_SEC = 0,
 	PROMPT_MAX_DISTANCE_STUDS = 10,

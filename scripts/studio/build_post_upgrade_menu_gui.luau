@@ -1,12 +1,14 @@
 -- Rebuilds the "PostUpgrade" ScreenGui under StarterGui: the menu the
--- owner of a post opens at their bench (GDD "Upgrading a Post Weapon"). A
+-- owner of a post opens at the Post Upgrade Table in the defense building
+-- (GDD "Upgrading a Post Weapon"; build_weapon_upgrade_menu_gui.luau
+-- copies it for the Weapons Table, so rebuild that one after this). A
 -- dialog with a title ("UPGRADE MACHINE GUN"), one row per attribute cloned
 -- from RowTemplate by ClientPostUpgradeManager (the name, four pips filled
 -- one per upgrade bought, an Upgrade button with the Gold Bar icon and the
 -- price, and a red "Camp Level N required" line while locked), and a close
 -- button. Run from the Studio command bar (or the MCP execute_luau tool) in
 -- the gameplay place; it replaces any existing copy. Names must match
--- Constants.POST_UPGRADE_*. Layout follows the GUI standard in CLAUDE.md;
+-- Constants.UPGRADE_MENU_*. Layout follows the GUI standard in CLAUDE.md;
 -- fonts and colours come from Shared/UiStyle.
 local StarterGui = game:GetService("StarterGui")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")

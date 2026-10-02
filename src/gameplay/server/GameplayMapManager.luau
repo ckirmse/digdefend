@@ -109,16 +109,8 @@ function GameplayMapManager:checkRefinery(camp: Folder)
 	if refinery:IsA("Model") and refinery.ModelStreamingMode ~= Enum.ModelStreamingMode.Atomic then
 		self:report(`{refinery:GetFullName()} must use Atomic ModelStreamingMode`)
 	end
-	local promptPart = self:requireChild(refinery, Constants.REFINERY_PROMPT_PART, "BasePart")
-	if not promptPart then
-		return
-	end
-	if promptPart:IsA("BasePart") and not promptPart.Anchored then
-		self:report(`{promptPart:GetFullName()} must be anchored`)
-	end
-	if not promptPart:FindFirstChildWhichIsA("ProximityPrompt") then
-		self:report(`{promptPart:GetFullName()} needs a ProximityPrompt child`)
-	end
+	-- refining is automatic inside a radius of the model (2026-10-01), so
+	-- no prompt part is required any more
 end
 
 -- one "<Key>Stand" per stand name, each with the Base the prompt and
@@ -126,11 +118,12 @@ end
 function GameplayMapManager:checkStore(camp: Folder, storeName: string, standNames: { string })
 	-- a Model or a Folder both serve; the stands inside are what matter
 	local store = self:requireChild(camp, storeName)
-	if not store then
+	local stands = if store then self:requireChild(store, Constants.MINING_STORE_STANDS_FOLDER, "Folder") else nil
+	if not stands then
 		return
 	end
 	for _, standName in standNames do
-		local stand = self:requireChild(store, standName, "Model")
+		local stand = self:requireChild(stands, standName, "Model")
 		if not stand then
 			continue
 		end
@@ -158,21 +151,33 @@ function GameplayMapManager:checkMiningStore(camp: Folder)
 	self:checkStore(camp, Constants.CAMP_MINING_STORE_MODEL, standNames)
 end
 
--- the Defense Store holds the Defense Table (2026-09-30): a Model whose
--- anchored Prompt part carries the Build Mode prompt
+-- the defense building holds the four tables (2026-10-01): each a Model
+-- under Tables with an anchored Prompt part its manager puts the prompt
+-- on; the Post Upgrade Table also carries the display post
 function GameplayMapManager:checkDefenseStore(camp: Folder)
-	-- a Model or a Folder both serve; the table inside is what matters
+	-- a Model or a Folder both serve; the tables inside are what matter
 	local store = self:requireChild(camp, Constants.CAMP_DEFENSE_STORE_MODEL)
 	if not store then
 		return
 	end
-	local tableModel = self:requireChild(store, Constants.DEFENSE_TABLE_MODEL, "Model")
-	if not tableModel then
+	local tables = self:requireChild(store, Constants.DEFENSE_TABLES_FOLDER, "Folder")
+	if not tables then
 		return
 	end
-	local promptPart = self:requireChild(tableModel, Constants.DEFENSE_TABLE_PROMPT_PART, "BasePart")
-	if promptPart and promptPart:IsA("BasePart") and not promptPart.Anchored then
-		self:report(`{promptPart:GetFullName()} must be anchored`)
+	for _, tableName in { Constants.TOWER_TABLE_MODEL, Constants.POST_UPGRADE_TABLE_MODEL, Constants.WEAPON_UPGRADE_TABLE_MODEL, Constants.WALLS_TABLE_MODEL } do
+		local tableModel = self:requireChild(tables, tableName, "Model")
+		if not tableModel then
+			continue
+		end
+		local promptPart = self:requireChild(tableModel, Constants.DEFENSE_TABLE_PROMPT_PART, "BasePart")
+		if promptPart and promptPart:IsA("BasePart") and not promptPart.Anchored then
+			self:report(`{promptPart:GetFullName()} must be anchored`)
+		end
+		if tableName == Constants.POST_UPGRADE_TABLE_MODEL then
+			self:requireChild(tableModel, Constants.POST_UPGRADE_TABLE_DISPLAY_POST, "Model")
+		elseif tableName == Constants.WALLS_TABLE_MODEL then
+			self:requireChild(tableModel, Constants.DEFENSE_TABLE_GUI_PART, "BasePart")
+		end
 	end
 end
 
@@ -202,6 +207,33 @@ end
 -- the fortification markers StructureManager swaps for templates: numbered
 -- wall and post models and the gate, each a Model so it has a pivot. Any
 -- number of walls may be "Wall0", the decorative ones (2026-09-30)
+-- the monster areas (M29): at least one anchored part in each of
+-- WaveAreas, CampArea, and MonsterSpawns, since an empty WaveAreas leaves
+-- the spawns outside the path grid and every monster standing still
+-- (found 2026-10-01)
+function GameplayMapManager:checkMonsterAreas(camp: Folder)
+	for _, folderName in { Constants.CAMP_WAVE_AREAS_FOLDER, Constants.CAMP_CAMP_AREA_FOLDER, Constants.CAMP_MONSTER_SPAWNS_FOLDER } do
+		local folder = self:requireChild(camp, folderName, "Folder")
+		if not folder then
+			continue
+		end
+		local count = 0
+		for _, child in folder:GetChildren() do
+			if not child:IsA("BasePart") then
+				self:report(`{child:GetFullName()} should be a BasePart, is a {child.ClassName}`)
+				continue
+			end
+			if not child.Anchored then
+				self:report(`{child:GetFullName()} must be anchored`)
+			end
+			count += 1
+		end
+		if count == 0 then
+			self:report(`{folder:GetFullName()} has no parts`)
+		end
+	end
+end
+
 function GameplayMapManager:checkFortifications(camp: Folder)
 	local prefixByFolder = {
 		[Constants.CAMP_WALLS_FOLDER] = Constants.WALL_NAME_PREFIX,
@@ -232,22 +264,6 @@ function GameplayMapManager:checkFortifications(camp: Folder)
 		end
 	end
 	self:requireChild(camp, Constants.CAMP_GATE_MODEL, "Model")
-end
-
--- the Workbench the crew donates Iron at; clients hang the Fortifications
--- sign on its Prompt part as soon as the Model appears
-function GameplayMapManager:checkWorkbench(camp: Folder)
-	local workbench = self:requireChild(camp, Constants.CAMP_WORKBENCH_MODEL, "Model")
-	if not workbench then
-		return
-	end
-	if workbench:IsA("Model") and workbench.ModelStreamingMode ~= Enum.ModelStreamingMode.Atomic then
-		self:report(`{workbench:GetFullName()} must use Atomic ModelStreamingMode`)
-	end
-	local promptPart = self:requireChild(workbench, Constants.WORKBENCH_PROMPT_PART, "BasePart")
-	if promptPart and promptPart:IsA("BasePart") and not promptPart.Anchored then
-		self:report(`{promptPart:GetFullName()} must be anchored`)
-	end
 end
 
 -- one template part per rock, so a client can clone every rock the generator
@@ -282,7 +298,7 @@ function GameplayMapManager:checkCamp(camp: Folder, mapName: string)
 	self:checkDefenseStore(camp)
 	self:checkDefensiveZones(camp)
 	self:checkFortifications(camp)
-	self:checkWorkbench(camp)
+	self:checkMonsterAreas(camp)
 	local found = #self.problems - before
 	if found == 0 then
 		print(`[GameplayMapManager] map {mapName} check passed`)

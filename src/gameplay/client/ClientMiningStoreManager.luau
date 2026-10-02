@@ -280,12 +280,13 @@ function ClientMiningStoreManager:bindCamp(camp: Instance)
 	end
 	self.stands = {}
 	local store = camp:FindFirstChild(Constants.CAMP_MINING_STORE_MODEL)
-	if not store then
-		warn("ClientMiningStoreManager: the camp has no MiningStore")
+	local stands = if store then store:FindFirstChild(Constants.MINING_STORE_STANDS_FOLDER) else nil
+	if not stands then
+		warn(`ClientMiningStoreManager: the camp has no {Constants.CAMP_MINING_STORE_MODEL}.{Constants.MINING_STORE_STANDS_FOLDER}`)
 		return
 	end
 	for _, item in Enums.getAllValues(Enums.StoreItem) do
-		self:bindStand(store, item)
+		self:bindStand(stands, item)
 	end
 	if not self.heartbeat then
 		self.heartbeat = RunService.Heartbeat:Connect(

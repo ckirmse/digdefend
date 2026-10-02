@@ -144,8 +144,10 @@ export type Input = {
 	airTraversal: number,
 	spawnWindowSec: number,
 	-- the map's group rule times the crew's multiplier: a night makes one
-	-- group for every this much of its budget
+	-- group for every this much of its budget, and the bar rises by the
+	-- per-night step after night 1 (absent means it stays put)
 	minGroupDifficulty: number,
+	minGroupDifficultyPerNight: number?,
 	-- a tier 1 wall segment's HP, the thing a night's leak beats on
 	wallHp: number,
 	-- sustained DPS of the handheld, and of a manned post before upgrades
@@ -610,7 +612,7 @@ function BalanceModel.simulate(input: Input): Result
 			firstTowerNight = night
 		end
 		local wallDpsPerHp, landShare = BalanceModel.wallPressure(unlocked, input.monsterByKind, input.airTraversal)
-		local groupCount = WaveGenerator.groupCount(budget, input.minGroupDifficulty)
+		local groupCount = WaveGenerator.groupCount(budget, input.minGroupDifficulty + (input.minGroupDifficultyPerNight or 0) * (night - 1))
 		local wallDamage = BalanceModel.wallHpSeconds(waveHp, groupCount, availableDps, assumptions.WALL_WALK_SEC) * landShare * wallDpsPerHp
 		-- the leak spreads over a few segments and the gate; the breach is
 		-- the one that takes its share

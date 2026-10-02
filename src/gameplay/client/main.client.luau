@@ -44,6 +44,7 @@ local ClientWorkbenchManager = require(script.Parent.ClientWorkbenchManager)
 local ClientTouchLayoutManager = require(script.Parent.ClientTouchLayoutManager)
 local ClientWeaponDevTools = require(script.Parent.ClientWeaponDevTools)
 local ClientWeaponManager = require(script.Parent.ClientWeaponManager)
+local ClientWeaponUpgradeManager = require(script.Parent.ClientWeaponUpgradeManager)
 
 ClientDataManager:awaitReady()
 
@@ -78,6 +79,7 @@ ClientAimManager:init()
 -- after the weapon manager, whose tracer and muzzle effects it borrows
 ClientPostManager:init()
 ClientPostUpgradeManager:init()
+ClientWeaponUpgradeManager:init()
 -- after the targets and the posts: it registers with the first as the
 -- monsters' body provider and borrows the second's blast effect
 ClientMonsterManager:init()

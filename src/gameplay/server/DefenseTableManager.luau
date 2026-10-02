@@ -166,11 +166,9 @@ function DefenseTableManager:bindTable()
 	end
 	local camp = MapManager:getCamp()
 	self.focusPart = if camp then self:findFocusPart(camp) else nil
-	local store = if camp then camp:FindFirstChild(Constants.CAMP_DEFENSE_STORE_MODEL) else nil
-	local tableModel = if store then store:FindFirstChild(Constants.DEFENSE_TABLE_MODEL) else nil
-	local promptPart = if tableModel then tableModel:FindFirstChild(Constants.DEFENSE_TABLE_PROMPT_PART) else nil
-	if not promptPart or not promptPart:IsA("BasePart") then
-		warn(`DefenseTableManager: the loaded camp has no {Constants.CAMP_DEFENSE_STORE_MODEL}.{Constants.DEFENSE_TABLE_MODEL}.{Constants.DEFENSE_TABLE_PROMPT_PART}; nothing can be built`)
+	local promptPart = MapManager:findDefenseTablePart(Constants.TOWER_TABLE_MODEL, Constants.DEFENSE_TABLE_PROMPT_PART)
+	if not promptPart then
+		warn(`DefenseTableManager: the loaded camp has no {Constants.TOWER_TABLE_MODEL}.{Constants.DEFENSE_TABLE_PROMPT_PART} in its {Constants.CAMP_DEFENSE_STORE_MODEL}; nothing can be built`)
 		return
 	end
 	-- the prompt is created here so a table authored in Studio needs only its Prompt part

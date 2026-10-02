@@ -110,7 +110,10 @@ local NOTIFY_STRUCTURE_REPAIRED_SHAPE = {
 -- a Tower's bar floats this far above its body
 local TOWER_BILLBOARD_LIFT_STUDS = 1.5
 -- a structure's bar shown outside Repair Mode reads from anywhere in the
--- camp and out on the defenses, further than the template's distance
+-- camp and out on the defenses, further than the template's distance, but
+-- never from past the mine entrance (2026-10-01): a damaged wall's bar
+-- was a compass out of the mine. Each bar's reach is the distance from
+-- its structure to Camp.Mine.Entrance, capped here
 local STRUCTURE_BILLBOARD_MAX_DISTANCE_STUDS = 300
 -- and stacks above the Camp Level sign that already floats over the Refinery
 -- the Refinery's bar floats this far above the model's top, the spot the
@@ -264,6 +267,18 @@ function ClientStructureManager:isBarShown(shadow: BasePart): boolean
 	return repairable ~= nil and repairable.hp < repairable.maxHp
 end
 
+-- how far away a structure's bar still reads: up to the mine entrance,
+-- so a player inside the mine never sees it, and never past the cap
+function ClientStructureManager:billboardMaxDistance(shadow: BasePart): number
+	local camp = workspace:FindFirstChild(Constants.CAMP_FOLDER)
+	local mine = if camp then camp:FindFirstChild(Constants.CAMP_MINE_FOLDER) else nil
+	local entrance = if mine then mine:FindFirstChild(Constants.MINE_ENTRANCE_PART) else nil
+	if not entrance or not entrance:IsA("BasePart") then
+		return STRUCTURE_BILLBOARD_MAX_DISTANCE_STUDS
+	end
+	return math.min(STRUCTURE_BILLBOARD_MAX_DISTANCE_STUDS, (shadow.Position - entrance.Position).Magnitude)
+end
+
 -- how far above its shadow the Refinery's bar sits: over the model's top
 -- by the lift the Camp Level billboard used, so it reads from the whole
 -- camp; the shadow's own height when the model cannot be found
@@ -322,7 +337,7 @@ function ClientStructureManager:applyBarVisibility(shadow: BasePart, tracked: Tr
 		end
 		billboard.StudsOffsetWorldSpace = Vector3.new(0, lift, 0)
 		if not isPlacement then
-			billboard.MaxDistance = STRUCTURE_BILLBOARD_MAX_DISTANCE_STUDS
+			billboard.MaxDistance = self:billboardMaxDistance(shadow)
 		end
 		billboard.AlwaysOnTop = self:isBarOnTop(shadow)
 		billboard.Adornee = shadow

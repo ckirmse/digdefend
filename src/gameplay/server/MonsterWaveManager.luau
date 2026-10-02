@@ -143,11 +143,12 @@ function MonsterWaveManager:buildWave(night: number, scale: number?): (WaveGener
 		difficultyMultiplier = waveMultiplier,
 		difficultyValueByKind = self.difficultyValueByKind,
 		spawnNumbers = MonsterPathManager:getSpawnNumbers(),
-		-- groups grow with the crew instead of multiplying (2026-09-25); the
-		-- final wave's extra scale still adds groups
-		minGroupDifficulty = mapWaves.MIN_GROUP_DIFFICULTY * crewMultiplier,
+		-- groups grow with the crew instead of multiplying (2026-09-25) and
+		-- with the night (2026-10-01); the final wave's extra scale still
+		-- adds groups. Late nights also bunch their groups closer
+		minGroupDifficulty = WaveRules.minGroupDifficultyFor(mapWaves, night, crewMultiplier),
 		spawnWindowSec = mapWaves.WAVE_SPAWN_LENGTH_SEC,
-		maxGapSec = mapWaves.MAX_TIME_BETWEEN_GROUPS_SEC,
+		maxGapSec = WaveRules.maxGapFor(mapWaves, night),
 		random = self.random,
 	}), nil
 end
@@ -163,16 +164,16 @@ function MonsterWaveManager:describeCurve(nights: number): { string }
 	end
 	local crew = RunCycleManager:getScalingCount()
 	local waveMultiplier = RunCycleRules.multiplierFor(PartyScalingData.WAVE_DIFFICULTY_MULTIPLIER_BY_PLAYER_COUNT, crew)
-	local minGroupDifficulty = mapWaves.MIN_GROUP_DIFFICULTY * waveMultiplier
 	local lines = {
-		string.format("%s, crew of %d (waves %.2fx): start %d, +%d a night, growth %d%%, a group per %d", Enums.getPublicName(Enums.Difficulty, difficulty) or "?", crew, waveMultiplier, settings.STARTING_DIFFICULTY, settings.DIFFICULTY_INCREASE_PER_WAVE, math.round(settings.GROWTH_PER_WAVE * 100), math.round(minGroupDifficulty)),
+		string.format("%s, crew of %d (waves %.2fx): start %d, +%d a night, growth %d%%, a group per %d (+%d a night), groups at most %d s apart (-%d s a night, floor %d s)", Enums.getPublicName(Enums.Difficulty, difficulty) or "?", crew, waveMultiplier, settings.STARTING_DIFFICULTY, settings.DIFFICULTY_INCREASE_PER_WAVE, math.round(settings.GROWTH_PER_WAVE * 100), math.round(mapWaves.MIN_GROUP_DIFFICULTY * waveMultiplier), math.round(mapWaves.MIN_GROUP_DIFFICULTY_PER_NIGHT * waveMultiplier), mapWaves.MAX_TIME_BETWEEN_GROUPS_SEC, mapWaves.GROUP_GAP_SHRINK_SEC_PER_NIGHT, mapWaves.MIN_TIME_BETWEEN_GROUPS_SEC),
 	}
 	for night = 1, nights do
 		local target = WaveGenerator.targetDifficulty(settings, night, waveMultiplier)
 		local unlocked = WaveGenerator.unlockedKinds(settings, night, self.difficultyValueByKind)
 		local newest = unlocked[#unlocked]
+		local minGroupDifficulty = WaveRules.minGroupDifficultyFor(mapWaves, night, waveMultiplier)
 		local groups = WaveGenerator.groupCount(target, minGroupDifficulty)
-		table.insert(lines, string.format("  night %2d: target %4d, %d group(s), %d kind(s) unlocked, strongest %s", night, math.round(target), groups, #unlocked, if newest then Enums.getPublicName(Enums.MonsterKind, newest) or "?" else "none"))
+		table.insert(lines, string.format("  night %2d: target %4d, %d group(s) of %d+, at most %d s apart, %d kind(s) unlocked, strongest %s", night, math.round(target), groups, math.round(minGroupDifficulty), math.round(WaveRules.maxGapFor(mapWaves, night)), #unlocked, if newest then Enums.getPublicName(Enums.MonsterKind, newest) or "?" else "none"))
 	end
 	return lines
 end

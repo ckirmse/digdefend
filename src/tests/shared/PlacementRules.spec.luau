@@ -387,6 +387,98 @@ describe(
 )
 
 describe(
+	"PlacementRules.cellsInsideCamp",
+	function()
+		local grid = PlacementRules.measureZone(ZONE_CFRAME, ZONE_SIZE, CELL)
+		-- a wall across the whole grid at its centre, the camp on the low-X side
+		local wall = {
+			cframe = CFrame.new(0, 5, 0),
+			size = Vector3.new(2, 11, 200),
+		}
+		local insidePoint = Vector3.new(-100, 0, 0)
+		local function keysOf(cells: { PlacementRules.Cell }): { [string]: boolean }
+			local keys = {}
+			for _, cell in cells do
+				keys[PlacementRules.occupancyKey(cell)] = true
+			end
+			return keys
+		end
+		it(
+			"reserves every cell the ground reaches from the inside point",
+			function()
+				local keys = keysOf(PlacementRules.cellsInsideCamp(grid, { wall }, insidePoint))
+				local halfColumns = grid.columns / 2
+				-- the column touching the wall is under its half-cell seal
+				expect(keys["1,1"]).toBe(true)
+				expect(keys[`{halfColumns - 1},3`]).toBe(true)
+				expect(keys[`{halfColumns},3`]).toBeNil()
+				expect(keys[`{halfColumns + 1},3`]).toBeNil()
+				expect(keys[`{grid.columns},{grid.rows}`]).toBeNil()
+			end
+		)
+		it(
+			"flows through a gap in the line, so an open wall protects nothing",
+			function()
+				local shortWall = {
+					cframe = CFrame.new(0, 5, -8) * CFrame.Angles(0, math.rad(10), 0),
+					size = Vector3.new(2, 11, 16),
+				}
+				local cells = PlacementRules.cellsInsideCamp(grid, { shortWall }, insidePoint)
+				local keys = keysOf(cells)
+				expect(keys["1,1"]).toBe(true)
+				expect(keys[`{grid.columns},1`]).toBe(true)
+				expect(keys[`{grid.columns},{grid.rows}`]).toBe(true)
+			end
+		)
+		it(
+			"keeps a pocket the inside point cannot see straight into",
+			function()
+				-- a post standing inside the camp against the wall hides the
+				-- cell beside it from the inside point; it is still inside
+				local post = {
+					cframe = CFrame.new(-14, 5, 0),
+					size = Vector3.new(8, 11, 6),
+				}
+				local halfColumns = grid.columns / 2
+				local keys = keysOf(PlacementRules.cellsInsideCamp(grid, { wall, post }, insidePoint))
+				expect(keys[`{halfColumns - 1},3`]).toBe(true)
+				expect(keys[`{halfColumns + 1},3`]).toBeNil()
+			end
+		)
+		it(
+			"mirrors cells across the centre line along the rows",
+			function()
+				local keys = keysOf(PlacementRules.mirrorCells(grid, { { column = 1, row = 2 }, { column = 3, row = 5 } }))
+				expect(keys["1,2"]).toBe(true)
+				expect(keys[`{grid.columns},2`]).toBe(true)
+				expect(keys[`{grid.columns - 2},5`]).toBe(true)
+				local count = 0
+				for _ in keys do
+					count += 1
+				end
+				expect(count).toBe(4)
+			end
+		)
+		it(
+			"merges with the clearance cells without duplicates",
+			function()
+				local merged = PlacementRules.mergeCells(PlacementRules.reservedCells(grid, { wall }, CELL), PlacementRules.cellsInsideCamp(grid, { wall }, insidePoint))
+				local keys = keysOf(merged)
+				local count = 0
+				for _ in keys do
+					count += 1
+				end
+				expect(#merged).toBe(count)
+				-- the inside, then the one column beside the wall, nothing further out
+				local halfColumns = grid.columns / 2
+				expect(keys[`{halfColumns + 1},2`]).toBe(true)
+				expect(keys[`{halfColumns + 2},2`]).toBeNil()
+			end
+		)
+	end
+)
+
+describe(
 	"PlacementRules.reservedCells",
 	function()
 		local grid = PlacementRules.measureZone(ZONE_CFRAME, ZONE_SIZE, CELL)
@@ -429,6 +521,22 @@ describe(
 				expect(keys["6,4"]).toBe(true)
 				expect(keys["1,6"]).toBeNil()
 				expect(keys["10,1"]).toBeNil()
+			end
+		)
+		it(
+			"treats a box lying on its side like the upright one",
+			function()
+				-- the same wall with its pivot rolled a quarter turn, so its
+				-- height now runs along the grid; a post's bounding box does this
+				local rolled = {
+					cframe = CFrame.new(-18, 5, 0) * CFrame.Angles(0, 0, math.rad(90)),
+					size = Vector3.new(11, 4, 24),
+				}
+				local upright = PlacementRules.encodeCells(PlacementRules.reservedCells(grid, { wall }, 2 * CELL))
+				expect(PlacementRules.encodeCells(PlacementRules.reservedCells(grid, { rolled }, 2 * CELL))).toBe(upright)
+				local insidePoint = Vector3.new(-100, 0, 0)
+				local uprightInside = PlacementRules.encodeCells(PlacementRules.cellsInsideCamp(grid, { wall }, insidePoint))
+				expect(PlacementRules.encodeCells(PlacementRules.cellsInsideCamp(grid, { rolled }, insidePoint))).toBe(uprightInside)
 			end
 		)
 		it(

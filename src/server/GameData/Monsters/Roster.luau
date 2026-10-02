@@ -218,10 +218,12 @@ return {
 			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
 		},
 		-- stops at a distance and spits projectiles from its mouth; its range
-		-- is past every Tower's reach and inside a Rifle's
+		-- is past every Tower's reach and inside a Rifle's. 2500 HP since
+		-- 2026-10-01 (was 1200): a siege piece that dies in a few seconds
+		-- of post fire never gets to shell anything; priced up with it
 		[Enums.MonsterKind.LAUNCHER_1] = {
-			DIFFICULTY_VALUE = 36,
-			MAX_HP = 1200,
+			DIFFICULTY_VALUE = 60,
+			MAX_HP = 2500,
 			DAMAGE = 200,
 			SPEED_STUDS_PER_SEC = 10,
 			TARGET_PRIORITIES = { WALLS },

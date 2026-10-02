@@ -216,6 +216,42 @@ export type Box = {
 PlacementRules.RESERVED_OCCUPANT = "Reserved"
 local CELL_SEPARATOR = ";"
 
+-- the same box stood upright: a model's bounding box follows its pivot,
+-- and a post's pivot lies on its side, so "height" there runs along the
+-- ground. Whichever axis points most nearly up becomes the height, the
+-- other two the footprint (found 2026-10-01)
+local function flattenBox(box: Box): Box
+	local cframe = box.cframe
+	local axes = {
+		{ direction = cframe.RightVector, extent = box.size.X },
+		{ direction = cframe.UpVector, extent = box.size.Y },
+		{ direction = -cframe.LookVector, extent = box.size.Z },
+	}
+	table.sort(
+		axes,
+		function(a, b): boolean
+			return math.abs(a.direction.Y) > math.abs(b.direction.Y)
+		end
+	)
+	local flatRight = Vector3.new(axes[2].direction.X, 0, axes[2].direction.Z)
+	if flatRight.Magnitude < 1e-6 then
+		return box
+	end
+	flatRight = flatRight.Unit
+	return {
+		cframe = CFrame.fromMatrix(cframe.Position, flatRight, Vector3.yAxis),
+		size = Vector3.new(axes[2].extent, axes[1].extent, axes[3].extent),
+	}
+end
+
+local function flattenBoxes(boxes: { Box }): { Box }
+	local flattened = {}
+	for _, box in boxes do
+		table.insert(flattened, flattenBox(box))
+	end
+	return flattened
+end
+
 -- how far a point is, across the ground, from the nearest side of an
 -- upright box; 0 under it. Height is left out so a low cell beside a tall
 -- wall still counts as beside it
@@ -232,11 +268,12 @@ end
 -- along the wall whatever shape the wall line takes (decided 2026-09-30)
 function PlacementRules.reservedCells(grid: Grid, boxes: { Box }, clearanceStuds: number): { Cell }
 	local cells = {}
+	local uprightBoxes = flattenBoxes(boxes)
 	for column = 1, grid.columns do
 		for row = 1, grid.rows do
 			local cell = { column = column, row = row }
 			local center = PlacementRules.cellCenter(grid, cell)
-			for _, box in boxes do
+			for _, box in uprightBoxes do
 				if groundDistanceToBox(center, box) < clearanceStuds then
 					table.insert(cells, cell)
 					break
@@ -245,6 +282,103 @@ function PlacementRules.reservedCells(grid: Grid, boxes: { Box }, clearanceStuds
 		end
 	end
 	return cells
+end
+
+-- whether a point on the ground is under the box grown by `marginStuds`
+-- on every side
+local function isUnderBox(position: Vector3, box: Box, marginStuds: number): boolean
+	local localPosition = box.cframe:PointToObjectSpace(position)
+	local half = box.size / 2
+	return math.abs(localPosition.X) <= half.X + marginStuds and math.abs(localPosition.Z) <= half.Z + marginStuds
+end
+
+-- the cells on the camp's side of the fortification line: everything the
+-- ground reaches from `insidePoint` (the Refinery) without stepping under
+-- a wall, a post, or the gate. A flood fill rather than a line of sight,
+-- so a pocket behind a wall that a post hides from the Refinery still
+-- counts as inside (decided 2026-10-01). The fill runs on the zone's own
+-- cells extended as far as the inside point; each box is grown by half a
+-- cell so the line it forms is sealed at cell size
+function PlacementRules.cellsInsideCamp(grid: Grid, boxes: { Box }, insidePoint: Vector3): { Cell }
+	local uprightBoxes = flattenBoxes(boxes)
+	local startCell = PlacementRules.cellFromPosition(grid, insidePoint)
+	local columnMin = math.min(1, startCell.column)
+	local columnMax = math.max(grid.columns, startCell.column)
+	local rowMin = math.min(1, startCell.row)
+	local rowMax = math.max(grid.rows, startCell.row)
+	local margin = grid.cellSizeStuds / 2
+	local function isOpen(cell: Cell): boolean
+		if cell.column < columnMin or cell.column > columnMax or cell.row < rowMin or cell.row > rowMax then
+			return false
+		end
+		local center = PlacementRules.cellCenter(grid, cell)
+		for _, box in uprightBoxes do
+			if isUnderBox(center, box, margin) then
+				return false
+			end
+		end
+		return true
+	end
+	local visited: { [string]: boolean } = {}
+	local queue: { Cell } = {}
+	if isOpen(startCell) then
+		visited[PlacementRules.occupancyKey(startCell)] = true
+		table.insert(queue, startCell)
+	end
+	local cells = {}
+	local head = 1
+	while head <= #queue do
+		local cell = queue[head]
+		head += 1
+		if PlacementRules.isCellInside(grid, cell) then
+			table.insert(cells, cell)
+		end
+		for _, step in { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } } do
+			local neighbour = { column = cell.column + step[1], row = cell.row + step[2] }
+			local key = PlacementRules.occupancyKey(neighbour)
+			if visited[key] or not isOpen(neighbour) then
+				continue
+			end
+			visited[key] = true
+			table.insert(queue, neighbour)
+		end
+	end
+	return cells
+end
+
+-- the cells plus their mirror images across the grid's centre line along
+-- the rows, so the two halves of a symmetric camp read the same even
+-- where the authored walls sit a stud or two apart (decided 2026-10-01)
+function PlacementRules.mirrorCells(grid: Grid, cells: { Cell }): { Cell }
+	local mirrored = {}
+	for _, cell in cells do
+		table.insert(mirrored, { column = grid.columns + 1 - cell.column, row = cell.row })
+	end
+	return PlacementRules.mergeCells(cells, mirrored)
+end
+
+-- the reserved cells merged without duplicates, in grid order
+function PlacementRules.mergeCells(...: { Cell }): { Cell }
+	local seen: { [string]: Cell } = {}
+	for _, list in { ... } do
+		for _, cell in list do
+			seen[PlacementRules.occupancyKey(cell)] = cell
+		end
+	end
+	local merged = {}
+	for _, cell in seen do
+		table.insert(merged, cell)
+	end
+	table.sort(
+		merged,
+		function(a: Cell, b: Cell): boolean
+			if a.column ~= b.column then
+				return a.column < b.column
+			end
+			return a.row < b.row
+		end
+	)
+	return merged
 end
 
 function PlacementRules.reserve(occupancy: Occupancy, cells: { Cell })

@@ -1,14 +1,16 @@
 --!strict
 
--- The Refinery (GDD "Refining Ore", "Resources"): the camp's proximity prompt
--- that turns a player's whole backpack into Iron Bars and Gold Bars (private
+-- The Refinery (GDD "Refining Ore", "Resources"): the camp machine that
+-- turns a player's whole backpack into Iron Bars and Gold Bars (private
 -- balances), Diamonds (the shared Camp Level pool), and Uranium (the shared
 -- rescue count). Run state lives in Lua here; the private balances are
 -- CurrentPlayer attributes and the shared progress is GameMetadata, so every
--- client reads the same numbers. Refining is a ProximityPrompt trigger the
--- server hears directly, never a client message, so there is nothing to
--- validate beyond the player's lifecycle.
+-- client reads the same numbers. Refining is automatic (decided 2026-10-01,
+-- replacing the proximity prompt): every REFINE_POLL_SEC the server looks
+-- for a Ready player standing within REFINE_RADIUS_STUDS of the Refinery
+-- with ore in the backpack, so there is no client message to validate.
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -46,8 +48,9 @@ export type RefineryManager = typeof(setmetatable(
 		isBusy: boolean,
 		campLevelChangedHandlers: { (level: number) -> () },
 		uraniumChangedHandlers: { () -> () },
-		prompt: ProximityPrompt?,
-		promptConnection: RBXScriptConnection?,
+		-- the loaded camp's Refinery, flat, for the radius check; nil until a run
+		refineryPosition: Vector3?,
+		pollAccumulatorSec: number,
 	},
 	RefineryManager
 ))
@@ -222,13 +225,6 @@ function RefineryManager:credit(player: Player, refined: { [number]: number })
 	end
 end
 
-function RefineryManager:setPromptEnabled(isEnabled: boolean)
-	local prompt = self.prompt
-	if prompt then
-		prompt.Enabled = isEnabled
-	end
-end
-
 function RefineryManager:refine(player: Player)
 	if not GameController:isPlayerReady(player) then
 		return
@@ -245,7 +241,6 @@ function RefineryManager:refine(player: Player)
 	local ore = BackpackManager:takeAll(player)
 	local refined = RefineryRules.convert(ore, RefineryData.RATE_BY_RAW)
 	self.isBusy = true
-	self:setPromptEnabled(false)
 	NetManager:notifyClient(player, NetEventNames.NOTIFY_REFINE_STARTED, {
 		ore = toEntries(ore),
 		durationSec = RefineryData.REFINE_DURATION_SEC,
@@ -254,7 +249,6 @@ function RefineryManager:refine(player: Player)
 		RefineryData.REFINE_DURATION_SEC,
 		function()
 			self.isBusy = false
-			self:setPromptEnabled(true)
 			self:credit(player, refined)
 			if player.Parent == Players then
 				NetManager:notifyClient(player, NetEventNames.NOTIFY_REFINE_COMPLETED, {
@@ -265,36 +259,49 @@ function RefineryManager:refine(player: Player)
 	)
 end
 
--- binds the loaded camp's prompt; the previous camp's connection dies with
--- its instance but is dropped here so a restart never hears two prompts
-function RefineryManager:bindPrompt()
-	local previous = self.promptConnection
-	if previous then
-		previous:Disconnect()
-		self.promptConnection = nil
+-- whether a player stands inside the refining ring, across the ground
+function RefineryManager:isPlayerAtRefinery(player: Player): boolean
+	local position = self.refineryPosition
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not position or not root or not root:IsA("BasePart") then
+		return false
 	end
-	self.prompt = nil
-	local camp = MapManager:getCamp()
-	local refinery = if camp then camp:FindFirstChild(Constants.CAMP_REFINERY_MODEL) else nil
-	local promptPart = if refinery then refinery:FindFirstChild(Constants.REFINERY_PROMPT_PART) else nil
-	local prompt = if promptPart then promptPart:FindFirstChildWhichIsA("ProximityPrompt") else nil
-	if not prompt then
-		warn("RefineryManager: the loaded camp has no Refinery prompt; refining is unavailable")
+	local offset = root.Position - position
+	return Vector2.new(offset.X, offset.Z).Magnitude <= RefineryData.REFINE_RADIUS_STUDS
+end
+
+-- the automatic refine: the first Ready player found inside the ring with
+-- ore in the backpack is refined; the machine is busy for the grind, and
+-- anyone else inside waits for the next poll
+function RefineryManager:pollRefinery()
+	if self.isBusy or not self.refineryPosition then
 		return
 	end
-	prompt.ActionText = RefineryData.PROMPT_ACTION_TEXT
-	prompt.ObjectText = RefineryData.PROMPT_OBJECT_TEXT
-	prompt.MaxActivationDistance = RefineryData.PROMPT_MAX_DISTANCE_STUDS
-	prompt.HoldDuration = 0
-	prompt.ClickablePrompt = false
-	prompt.RequiresLineOfSight = false
-	prompt.Enabled = not self.isBusy
-	self.prompt = prompt
-	self.promptConnection = prompt.Triggered:Connect(
-		function(player: Player)
-			self:refine(player)
+	for _, player in Players:GetPlayers() do
+		if not GameController:isPlayerReady(player) or not self:isPlayerAtRefinery(player) then
+			continue
 		end
-	)
+		local contents = BackpackManager:getContents(player)
+		if contents and next(contents) ~= nil then
+			self:refine(player)
+			return
+		end
+	end
+end
+
+-- reads where the loaded camp's Refinery stands; the ring is centred on
+-- its bounding box, so the authored Prompt part is no longer needed
+function RefineryManager:bindRefinery()
+	self.refineryPosition = nil
+	local camp = MapManager:getCamp()
+	local refinery = if camp then camp:FindFirstChild(Constants.CAMP_REFINERY_MODEL) else nil
+	if not refinery or not refinery:IsA("Model") then
+		warn("RefineryManager: the loaded camp has no Refinery model; refining is unavailable")
+		return
+	end
+	local boundsCFrame = refinery:GetBoundingBox()
+	self.refineryPosition = boundsCFrame.Position
 end
 
 -- a run (or a dev-tool restart) starts the shared progress over
@@ -302,7 +309,7 @@ function RefineryManager:onRunStarted()
 	self.campLevel = DEFAULT_CAMP_LEVEL
 	self.diamondPool = 0
 	self.uraniumTotal = 0
-	self:bindPrompt()
+	self:bindRefinery()
 	self:replicateShared()
 end
 
@@ -341,7 +348,18 @@ end
 
 function RefineryManager:init()
 	SplendidReplicationManager:setGameMetadata(Attributes.REFINE_DURATION_SEC, RefineryData.REFINE_DURATION_SEC)
+	SplendidReplicationManager:setGameMetadata(Attributes.REFINE_RADIUS_STUDS, RefineryData.REFINE_RADIUS_STUDS)
 	GameController:registerPlaceManager(self)
+	RunService.Heartbeat:Connect(
+		function(deltaSec: number)
+			self.pollAccumulatorSec += deltaSec
+			if self.pollAccumulatorSec < RefineryData.REFINE_POLL_SEC then
+				return
+			end
+			self.pollAccumulatorSec = 0
+			self:pollRefinery()
+		end
+	)
 	-- a smaller crew means a smaller target: republish it and let the rescue
 	-- re-check the radio, since the total may already meet the new target
 	RunCycleManager:subscribeScalingCountChanged(
@@ -361,8 +379,8 @@ function RefineryManager.new(): RefineryManager
 	self.isBusy = false
 	self.campLevelChangedHandlers = {}
 	self.uraniumChangedHandlers = {}
-	self.prompt = nil
-	self.promptConnection = nil
+	self.refineryPosition = nil
+	self.pollAccumulatorSec = 0
 	return self
 end
 

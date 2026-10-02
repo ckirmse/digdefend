@@ -122,8 +122,8 @@ local SHADOW_SIZE = Vector3.new(1, 1, 1)
 -- the HP bar hangs at chest height, whatever the model's height
 local SHADOW_HEIGHT_ABOVE_FLOOR_STUDS = 4
 local STARTING_TIER = 1
-local WALL_TEMPLATE_KEY = "WALL"
-local GATE_TEMPLATE_KEY = "GATE"
+local WALL_TEMPLATE_KEY = Constants.WALL_TEMPLATE_PREFIX
+local GATE_TEMPLATE_KEY = Constants.GATE_TEMPLATE_PREFIX
 local GATE_ID = Constants.CAMP_GATE_MODEL
 local REFINERY_ID = Constants.CAMP_REFINERY_MODEL
 
@@ -622,14 +622,14 @@ end
 function StructureManager:onCampLevelChanged()
 end
 
--- binds the loaded camp's Workbench; the prompt is created here so a bench
--- authored in Studio needs only its Prompt part
-function StructureManager:bindWorkbench(camp: Instance)
+-- binds the loaded camp's Walls Table in the defense building (2026-10-01,
+-- where the Workbench by the gate used to be); the prompt is created here
+-- so a table authored in Studio needs only its Prompt part
+function StructureManager:bindWallsTable()
 	self.workbenchPrompt = nil
-	local workbench = camp:FindFirstChild(Constants.CAMP_WORKBENCH_MODEL)
-	local promptPart = if workbench then workbench:FindFirstChild(Constants.WORKBENCH_PROMPT_PART) else nil
-	if not promptPart or not promptPart:IsA("BasePart") then
-		warn("StructureManager: the loaded camp has no Workbench prompt part; the fortifications cannot be upgraded")
+	local promptPart = MapManager:findDefenseTablePart(Constants.WALLS_TABLE_MODEL, Constants.DEFENSE_TABLE_PROMPT_PART)
+	if not promptPart then
+		warn(`StructureManager: the loaded camp has no {Constants.WALLS_TABLE_MODEL}.{Constants.DEFENSE_TABLE_PROMPT_PART} in its {Constants.CAMP_DEFENSE_STORE_MODEL}; the fortifications cannot be upgraded`)
 		return
 	end
 	local prompt = promptPart:FindFirstChildWhichIsA("ProximityPrompt")
@@ -640,9 +640,9 @@ function StructureManager:bindWorkbench(camp: Instance)
 		prompt.Parent = promptPart
 	end
 	local livePrompt = prompt :: ProximityPrompt
-	livePrompt.ActionText = StructuresData.WORKBENCH_PROMPT_ACTION_TEXT
-	livePrompt.ObjectText = StructuresData.WORKBENCH_PROMPT_OBJECT_TEXT
-	livePrompt.MaxActivationDistance = StructuresData.WORKBENCH_PROMPT_MAX_DISTANCE_STUDS
+	livePrompt.ActionText = string.format(StructuresData.WALLS_TABLE_PROMPT_ACTION_FORMAT, StructuresData.FORTIFICATION_DONATION_IRON)
+	livePrompt.ObjectText = StructuresData.WALLS_TABLE_PROMPT_OBJECT_TEXT
+	livePrompt.MaxActivationDistance = StructuresData.WALLS_TABLE_PROMPT_MAX_DISTANCE_STUDS
 	livePrompt.HoldDuration = 0
 	livePrompt.RequiresLineOfSight = false
 	self.workbenchPrompt = livePrompt
@@ -776,7 +776,7 @@ function StructureManager:onRunStarted()
 		self:addStructure(REFINERY_ID, Enums.StructureKind.REFINERY, refinery, shadowFolder, nil)
 	end
 
-	self:bindWorkbench(camp)
+	self:bindWallsTable()
 
 	SplendidReplicationManager:setGameMetadata(Attributes.IS_NIGHT, false)
 	self:replicateAll()

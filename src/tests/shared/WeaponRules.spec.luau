@@ -170,3 +170,74 @@ describe(
 		)
 	end
 )
+
+describe(
+	"WeaponRules upgrades",
+	function()
+		local catalog: WeaponRules.Catalog = {
+			upgradePriceByLevel = { 15, 90, 270, 800 },
+			bonusPerLevelByAttribute = {
+				[Enums.WeaponAttribute.DAMAGE] = 0.25,
+				[Enums.WeaponAttribute.AMMO] = 0.2,
+				[Enums.WeaponAttribute.RANGE] = 0.2,
+			},
+			kinds = {
+				[Enums.WeaponKind.RIFLE] = {
+					DAMAGE = 60,
+					FIRE_INTERVAL_SEC = 0.6,
+					FIRE_COOLDOWN_SEC = 0.5,
+					RANGE_STUDS = 300,
+					MAGAZINE_SIZE = 5,
+					RELOAD_SEC = 2.5,
+				},
+			},
+		}
+
+		it(
+			"starts at the base stats and scales each one by its own levels",
+			function()
+				local base = WeaponRules.statsFor(catalog, Enums.WeaponKind.RIFLE, {})
+				expect(base).toEqual({ damage = 60, magazineSize = 5, rangeStuds = 300 })
+				local upgraded = WeaponRules.statsFor(catalog, Enums.WeaponKind.RIFLE, {
+					[Enums.WeaponAttribute.DAMAGE] = 2,
+					[Enums.WeaponAttribute.AMMO] = 3,
+					[Enums.WeaponAttribute.RANGE] = 1,
+				})
+				expect(upgraded).toEqual({ damage = 90, magazineSize = 8, rangeStuds = 360 })
+				expect(WeaponRules.statsFor(catalog, 99, {})).toBeNil()
+			end
+		)
+
+		it(
+			"offers the next level at its price and maxes at the cap, never locked",
+			function()
+				local first = WeaponRules.getUpgradeOffer(catalog, {}, Enums.WeaponAttribute.DAMAGE)
+				expect(first.status).toBe(Enums.StoreOffer.AVAILABLE)
+				expect(first.level).toBe(1)
+				expect(first.price).toBe(15)
+				local last = WeaponRules.getUpgradeOffer(catalog, { [Enums.WeaponAttribute.DAMAGE] = 3 }, Enums.WeaponAttribute.DAMAGE)
+				expect(last.price).toBe(800)
+				local maxed = WeaponRules.getUpgradeOffer(catalog, { [Enums.WeaponAttribute.DAMAGE] = 4 }, Enums.WeaponAttribute.DAMAGE)
+				expect(maxed.status).toBe(Enums.StoreOffer.MAXED)
+				expect(maxed.price).toBeNil()
+				expect(WeaponRules.canAfford(15, 15)).toBe(true)
+				expect(WeaponRules.canAfford(14, 15)).toBe(false)
+			end
+		)
+
+		it(
+			"round-trips the catalogue through JSON with numeric keys intact",
+			function()
+				local decoded = WeaponRules.decodeCatalog(WeaponRules.encodeCatalog(catalog))
+				expect(decoded).never.toBeNil()
+				if decoded then
+					expect(decoded.upgradePriceByLevel).toEqual(catalog.upgradePriceByLevel)
+					expect(decoded.bonusPerLevelByAttribute[Enums.WeaponAttribute.AMMO]).toBe(0.2)
+					expect(decoded.kinds[Enums.WeaponKind.RIFLE].MAGAZINE_SIZE).toBe(5)
+				end
+				expect(WeaponRules.decodeCatalog("nope")).toBeNil()
+				expect(WeaponRules.decodeCatalog(nil)).toBeNil()
+			end
+		)
+	end
+)

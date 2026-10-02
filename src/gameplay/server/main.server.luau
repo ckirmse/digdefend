@@ -71,6 +71,12 @@ ToolManager:init()
 -- right after the tools, so the weapon is the second slot (GDD "Mining
 -- Tools": bought tools come after Pick Axe and Weapon)
 WeaponManager:init()
+-- it binds the fresh camp's Weapons Table and starts the run's upgrades over
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		WeaponManager:onRunStarted()
+	end
+)
 AimManager:init()
 BackpackManager:init()
 BootsManager:init()

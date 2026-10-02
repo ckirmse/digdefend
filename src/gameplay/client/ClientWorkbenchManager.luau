@@ -1,12 +1,13 @@
 --!strict
 
--- The Workbench on this client (GDD "Wall Repair"): the Fortifications sign
--- floated above it, as the Camp Level sign floats above the Refinery. It
--- shows the shared tier, the crew's Iron pool as a bar reading "pool /
--- required", and a red "Camp Level N required" line while the next tier is
--- locked, all read from GameMetadata. Donating is the Workbench's
--- ProximityPrompt, which the server hears directly; this client only plays
--- the donor's sound and, when the pool fills, the announcement everyone gets.
+-- The Walls Table on this client (GDD "Wall Repair"; in the defense
+-- building since 2026-10-01): the Fortifications sign floated above it, as
+-- the Camp Level sign floats above the Refinery. It shows the shared tier,
+-- the crew's Iron pool as a bar reading "pool / required", and a red "Camp
+-- Level N required" line while the next tier is locked, all read from
+-- GameMetadata. Contributing is the table's ProximityPrompt, which the
+-- server hears directly; this client only plays the donor's sound and,
+-- when the pool fills, the announcement everyone gets.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -26,8 +27,20 @@ local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManage
 local ClientWorkbenchManager = {}
 ClientWorkbenchManager.__index = ClientWorkbenchManager
 
+-- one piece of the small wall model on the table: which template family
+-- it is, where the designer put it, and how much smaller than the real one
+type WallPiece = {
+	name: string,
+	templatePrefix: string,
+	pivot: CFrame,
+	scale: number,
+	model: Model?,
+}
+
 export type ClientWorkbenchManager = typeof(setmetatable(
 	{} :: {
+		wallModel: Model?,
+		wallPieces: { WallPiece },
 		billboard: BillboardGui?,
 		titleLabel: TextLabel?,
 		fill: Frame?,
@@ -50,6 +63,7 @@ local MAXED_TEXT = "MAX"
 local UPGRADED_FORMAT = "Fortifications upgraded to level %d"
 local FILL_TWEEN_SEC = 0.25
 local WAIT_FOR_CAMP_SEC = 30
+local STARTING_TIER = 1
 
 local function readNumber(value: any): number
 	return if typeof(value) == "number" then value else 0
@@ -79,9 +93,93 @@ function ClientWorkbenchManager:render()
 	end
 end
 
--- clones the sign above the Workbench. Local only: it lives in this player's
--- PlayerGui and adorns the Workbench's Prompt part, so the server never
--- holds a GUI
+local function findTemplate(templateName: string): Model?
+	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
+	local folder = if gameAssets then gameAssets:FindFirstChild(Constants.STRUCTURE_TEMPLATES_FOLDER) else nil
+	local template = if folder then folder:FindFirstChild(templateName) else nil
+	return if template and template:IsA("Model") then template else nil
+end
+
+-- which template family a piece of the small wall model belongs to, from
+-- its name: Wall0..n, Post1..n, or the Gate; nil for anything else
+local function templatePrefixFor(name: string): string?
+	if name == Constants.CAMP_GATE_MODEL then
+		return Constants.GATE_TEMPLATE_PREFIX
+	elseif string.sub(name, 1, #Constants.POST_NAME_PREFIX) == Constants.POST_NAME_PREFIX then
+		return Constants.POST_TEMPLATE_PREFIX
+	elseif string.sub(name, 1, #Constants.WALL_NAME_PREFIX) == Constants.WALL_NAME_PREFIX then
+		return Constants.WALL_TEMPLATE_PREFIX
+	end
+	return nil
+end
+
+-- the small wall model as of the current fortification tier: every piece
+-- is the tier's own template, shrunk to the designer's size and stood
+-- where their piece stood, signs stripped; display only (2026-10-01)
+function ClientWorkbenchManager:renderWallModel()
+	local wallModel = self.wallModel
+	if not wallModel then
+		return
+	end
+	local tier = math.max(STARTING_TIER, readNumber(ClientDataManager:getGameMetadata(Attributes.FORTIFICATION_TIER)))
+	for _, piece in self.wallPieces do
+		local template = findTemplate(`{piece.templatePrefix}_{tier}`)
+		if not template then
+			continue
+		end
+		if piece.model then
+			piece.model:Destroy()
+			piece.model = nil
+		end
+		local model = template:Clone()
+		model.Name = piece.name
+		local sign = model:FindFirstChild(Constants.POST_SIGN_MODEL)
+		if sign then
+			sign:Destroy()
+		end
+		-- ScaleTo is absolute, and a template may already carry a scale of its own
+		model:ScaleTo(model:GetScale() * piece.scale)
+		model:PivotTo(piece.pivot)
+		model.Parent = wallModel
+		piece.model = model
+	end
+end
+
+-- reads the designer's pieces of the small wall model (their spots, and
+-- their heights against the tier-1 templates) then takes them over: from
+-- here the model is redrawn locally whenever the tier changes
+function ClientWorkbenchManager:attachWallModel(workbench: Model)
+	local wallModel = workbench:FindFirstChild(Constants.WALLS_TABLE_WALL_MODEL)
+	if not wallModel or not wallModel:IsA("Model") then
+		return
+	end
+	self.wallModel = wallModel
+	self.wallPieces = {}
+	for _, child in wallModel:GetChildren() do
+		if not child:IsA("Model") then
+			continue
+		end
+		local templatePrefix = templatePrefixFor(child.Name)
+		local template = if templatePrefix then findTemplate(`{templatePrefix}_{STARTING_TIER}`) else nil
+		if not templatePrefix or not template then
+			continue
+		end
+		local _childCFrame, childSize = child:GetBoundingBox()
+		local _templateCFrame, templateSize = template:GetBoundingBox()
+		table.insert(self.wallPieces, {
+			name = child.Name,
+			templatePrefix = templatePrefix,
+			pivot = child:GetPivot(),
+			scale = if templateSize.Y > 0 then childSize.Y / templateSize.Y else 1,
+			model = child,
+		})
+	end
+	self:renderWallModel()
+end
+
+-- clones the sign above the Walls Table. Local only: it lives in this
+-- player's PlayerGui and adorns the table's Prompt part, so the server
+-- never holds a GUI
 function ClientWorkbenchManager:attachBillboard()
 	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
 	local guiFolder = if gameAssets then gameAssets:FindFirstChild(Constants.GUI_TEMPLATES_FOLDER) else nil
@@ -91,23 +189,26 @@ function ClientWorkbenchManager:attachBillboard()
 		return
 	end
 	local camp = workspace:WaitForChild(Constants.CAMP_FOLDER, WAIT_FOR_CAMP_SEC)
-	local workbench = if camp then camp:WaitForChild(Constants.CAMP_WORKBENCH_MODEL, WAIT_FOR_CAMP_SEC) else nil
+	local store = if camp then camp:WaitForChild(Constants.CAMP_DEFENSE_STORE_MODEL, WAIT_FOR_CAMP_SEC) else nil
+	local tables = if store then store:WaitForChild(Constants.DEFENSE_TABLES_FOLDER, WAIT_FOR_CAMP_SEC) else nil
+	local workbench = if tables then tables:WaitForChild(Constants.WALLS_TABLE_MODEL, WAIT_FOR_CAMP_SEC) else nil
 	if not workbench or not workbench:IsA("Model") then
-		warn("ClientWorkbenchManager: no Camp.Workbench model to hang the Fortifications sign on")
+		warn(`ClientWorkbenchManager: no {Constants.WALLS_TABLE_MODEL} model in the camp's {Constants.CAMP_DEFENSE_STORE_MODEL} to hang the Fortifications sign on`)
 		return
 	end
-	-- with StreamingEnabled the Model can arrive before its parts on a real
-	-- device, so wait for the one part the map contract guarantees by name
-	local adornee = workbench:WaitForChild(Constants.WORKBENCH_PROMPT_PART, WAIT_FOR_CAMP_SEC)
+	-- the designer's Gui part on the table is the sign's spot: the
+	-- billboard is centred on it with no offset, so moving the part in the
+	-- Explorer moves the sign (decided 2026-10-01). With StreamingEnabled
+	-- the Model can arrive before its parts, so wait for it by name
+	local adornee = workbench:WaitForChild(Constants.DEFENSE_TABLE_GUI_PART, WAIT_FOR_CAMP_SEC)
 	if not adornee or not adornee:IsA("BasePart") then
-		warn(`ClientWorkbenchManager: the Workbench model has no {Constants.WORKBENCH_PROMPT_PART} part`)
+		warn(`ClientWorkbenchManager: the {Constants.WALLS_TABLE_MODEL} model has no {Constants.DEFENSE_TABLE_GUI_PART} part to hang the Fortifications sign on`)
 		return
 	end
-	local boundsCFrame, boundsSize = workbench:GetBoundingBox()
+	self:attachWallModel(workbench)
 	local billboard = template:Clone()
 	billboard.Adornee = adornee
-	-- float above the model's top, whichever part is adorned
-	billboard.StudsOffsetWorldSpace = boundsCFrame.Position + Vector3.new(0, boundsSize.Y / 2 + Constants.FORTIFICATION_BILLBOARD_LIFT_STUDS, 0) - adornee.Position
+	billboard.StudsOffsetWorldSpace = Vector3.zero
 	billboard.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	self.billboard = billboard
 	local root = billboard:FindFirstChild(Constants.FORTIFICATION_ROOT_FRAME)
@@ -142,6 +243,12 @@ function ClientWorkbenchManager:init()
 			end
 		)
 	end
+	ClientDataManager:subscribeGameMetadataAttribute(
+		Attributes.FORTIFICATION_TIER,
+		function()
+			self:renderWallModel()
+		end
+	)
 	ClientNetManager:registerHandler(
 		NetEventNames.NOTIFY_FORTIFICATION_DONATED,
 		function(payload: any)
@@ -168,6 +275,8 @@ end
 
 function ClientWorkbenchManager.new(): ClientWorkbenchManager
 	local self = setmetatable({}, ClientWorkbenchManager) :: ClientWorkbenchManager
+	self.wallModel = nil
+	self.wallPieces = {}
 	self.billboard = nil
 	self.titleLabel = nil
 	self.fill = nil

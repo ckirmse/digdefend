@@ -76,6 +76,9 @@ module = {
 	TRY_FIRE_WEAPON = "TryFireWeapon",
 	TRY_RELOAD_WEAPON = "TryReloadWeapon",
 	NOTIFY_WEAPON_FIRED = "NotifyWeaponFired",
+	-- { attribute } at the Weapons Table; answered by { attribute, level, price }
+	TRY_UPGRADE_WEAPON = "TryUpgradeWeapon",
+	NOTIFY_WEAPON_UPGRADED = "NotifyWeaponUpgraded",
 	-- where the player is looking, up or down, a few times a second while
 	-- it changes; comes back to everyone as the public AimPitchDegrees
 	TRY_SET_AIM = "TrySetAim",

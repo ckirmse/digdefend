@@ -22,8 +22,10 @@ return {
 	-- the last stretch of the day: the clock turns to its dusk picture and
 	-- every client starts Music.DuskSong1 from the top (the track is 52 s,
 	-- so it runs on into the night). Published as GameMetadata (the share of
-	-- the day and the seconds); the client plays the song once per day
-	DUSK_SEC = 60,
+	-- the day and the seconds); the client plays the song once per day.
+	-- 80 since 2026-10-01 (was 60), out of the same day, after the ninth
+	-- playtest's designer was caught deep in the mine at night fall
+	DUSK_SEC = 80,
 	NIGHT_SPAWN_SEC = 90,
 	NIGHT_PLACEHOLDER_SEC = 0,
 	-- the dev tool's "Dusk now" runs what is left of the day down over

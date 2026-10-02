@@ -54,7 +54,6 @@ type Post = {
 	owner: Player?,
 	weaponKind: number,
 	weaponModel: Model?,
-	workbench: Model?,
 	rig: PostRules.Rig?,
 	yawDegrees: number,
 	pitchDegrees: number,
@@ -133,7 +132,6 @@ local NO_HIT_ID = ""
 local ROCKET_ID_FORMAT = "Rocket%d"
 local MIN_DIRECTION_MAGNITUDE = 0.001
 local WEAPON_MODEL_FORMAT = "PostWeapon%d"
-local WORKBENCH_MODEL_FORMAT = "PostWorkbench%d"
 local UNCLAIMED_TEXT = "Unclaimed"
 local CLAIM_PROMPT_ATTACHMENT = "ClaimPromptAttachment"
 local HEADSHOT_FORMAT = "rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150"
@@ -231,6 +229,7 @@ function PostManager:replicatePlayer(player: Player)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.POST_INDEX, state.postIndex)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.POST_WEAPON_KIND, if ownedPost then ownedPost.weaponKind else 0)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.MANNED_POST_INDEX, if mannedPost then mannedPost.index else PostRules.NO_POST)
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.POST_LOADOUT_WEAPON_KIND, self:resolveWeaponKind(player))
 	for attribute, attributeName in PostRules.UPGRADE_ATTRIBUTE_BY_POST_ATTRIBUTE do
 		SplendidReplicationManager:setCurrentPlayerAttribute(player, attributeName, PostRules.upgradeLevel(state.upgrades, attribute))
 	end
@@ -407,35 +406,24 @@ function PostManager:spawnWeapon(post: Post)
 	end
 end
 
--- the bench stands at the post's WorkbenchSpawn marker; its Upgrade prompt
--- is only ever acted on by the owner's own client (it opens the menu)
-function PostManager:spawnWorkbench(post: Post)
-	local slotModel = self:findSlotModel(post.index)
-	local marker = if slotModel then slotModel:FindFirstChild(Constants.POST_WORKBENCH_SPAWN_PART) else nil
-	local folder = self:getSpawnedFolder()
-	local template = self:findTemplate(Constants.STRUCTURE_TEMPLATES_FOLDER, Constants.POST_WORKBENCH_TEMPLATE)
-	if not marker or not marker:IsA("BasePart") or not folder or not template then
-		warn(`PostManager: post {post.index} has no {Constants.POST_WORKBENCH_SPAWN_PART} part or the bench template is missing; no bench spawned`)
+-- the Post Upgrade Table in the defense building (2026-10-01): its prompt
+-- is created and tagged here, and acted on only by the triggering player's
+-- own client, which opens the menu or says a post must be claimed first
+function PostManager:bindUpgradeTable()
+	local promptPart = MapManager:findDefenseTablePart(Constants.POST_UPGRADE_TABLE_MODEL, Constants.DEFENSE_TABLE_PROMPT_PART)
+	if not promptPart then
+		warn(`PostManager: the loaded camp has no {Constants.POST_UPGRADE_TABLE_MODEL}.{Constants.DEFENSE_TABLE_PROMPT_PART} in its {Constants.CAMP_DEFENSE_STORE_MODEL}; posts cannot be upgraded`)
 		return
 	end
-	local model = template:Clone()
-	model.Name = string.format(WORKBENCH_MODEL_FORMAT, post.index)
-	model:PivotTo(marker.CFrame)
-	model:SetAttribute(Attributes.POST_MODEL_INDEX, post.index)
-	CollectionService:AddTag(model, Tags.POST_WORKBENCH)
-	local promptPart = model:FindFirstChild(Constants.WORKBENCH_PROMPT_PART)
-	if promptPart then
-		local prompt = promptPart:FindFirstChildWhichIsA("ProximityPrompt")
-		if not prompt then
-			prompt = Instance.new("ProximityPrompt")
-			-- a clickable prompt frees the mouse when hovered, which sticks the cursor in first person (2026-09-29)
-			prompt.ClickablePrompt = false
-			prompt.Parent = promptPart
-		end
-		self:configurePrompt(prompt :: ProximityPrompt, PostWeaponsData.UPGRADE_PROMPT_ACTION_TEXT, 0, PostWeaponsData.PROMPT_MAX_DISTANCE_STUDS)
+	local prompt = promptPart:FindFirstChildWhichIsA("ProximityPrompt")
+	if not prompt then
+		prompt = Instance.new("ProximityPrompt")
+		prompt.Parent = promptPart
 	end
-	model.Parent = folder
-	post.workbench = model
+	local livePrompt = prompt :: ProximityPrompt
+	self:configurePrompt(livePrompt, PostWeaponsData.TABLE_PROMPT_ACTION_TEXT, 0, PostWeaponsData.TABLE_PROMPT_MAX_DISTANCE_STUDS)
+	livePrompt.ObjectText = PostWeaponsData.TABLE_PROMPT_OBJECT_TEXT
+	CollectionService:AddTag(livePrompt, Tags.POST_UPGRADE_PROMPT)
 end
 
 function PostManager:destroyIkControls(post: Post)
@@ -725,7 +713,6 @@ function PostManager:claim(player: Player, post: Post)
 	post.weaponKind = self:resolveWeaponKind(player)
 	self:getPlayerState(player).postIndex = post.index
 	self:spawnWeapon(post)
-	self:spawnWorkbench(post)
 	self:renderSign(post)
 	self:replicatePost(post)
 	self:replicatePlayer(player)
@@ -738,7 +725,7 @@ function PostManager:claim(player: Player, post: Post)
 end
 
 -- a claim ends only with the player (disconnect, or a dev-tool reset):
--- the weapon and bench go, the sign reads Unclaimed again
+-- the weapon goes, the sign reads Unclaimed again
 function PostManager:release(player: Player)
 	self:dismount(player)
 	local post = self:getOwnedPost(player)
@@ -765,10 +752,6 @@ function PostManager:release(player: Player)
 	local spawn = if slotModel then slotModel:FindFirstChild(Constants.POST_SPAWN_PART) else nil
 	if spawn and spawn:IsA("BasePart") then
 		spawn.Transparency = 0
-	end
-	if post.workbench then
-		post.workbench:Destroy()
-		post.workbench = nil
 	end
 	self:renderSign(post)
 	self:replicatePost(post)
@@ -832,7 +815,6 @@ function PostManager:bindPostModels()
 				owner = nil,
 				weaponKind = PostWeaponsData.DEFAULT_POST_WEAPON,
 				weaponModel = nil,
-				workbench = nil,
 				rig = nil,
 				yawDegrees = 0,
 				pitchDegrees = 0,
@@ -857,10 +839,6 @@ function PostManager:bindPostModels()
 		if post.weaponModel and spawn and spawn:IsA("BasePart") then
 			post.weaponModel:PivotTo(spawn.CFrame)
 			spawn.Transparency = 1
-		end
-		local marker = if slot.model then slot.model:FindFirstChild(Constants.POST_WORKBENCH_SPAWN_PART) else nil
-		if post.workbench and marker and marker:IsA("BasePart") then
-			post.workbench:PivotTo(marker.CFrame)
 		end
 		self:replicatePost(post)
 	end
@@ -921,6 +899,7 @@ function PostManager:onRunStarted()
 		end
 	end
 	self:bindPostModels()
+	self:bindUpgradeTable()
 end
 
 function PostManager:onPlayerReady(player: Player)

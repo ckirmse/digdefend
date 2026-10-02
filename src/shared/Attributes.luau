@@ -106,6 +106,8 @@ module = {
 	URANIUM_TOTAL = "UraniumTotal",
 	URANIUM_TARGET = "UraniumTarget",
 	REFINE_DURATION_SEC = "RefineDurationSec",
+	-- GameMetadata: the radius a player refines inside of; the client draws it
+	REFINE_RADIUS_STUDS = "RefineRadiusStuds",
 	-- on each ore pickup shadow part (Tags.ORE_PICKUP): what lies there
 	PICKUP_RESOURCE = "PickupResource",
 	PICKUP_AMOUNT = "PickupAmount",
@@ -206,6 +208,14 @@ module = {
 	WEAPON_MAGAZINE_SIZE = "WeaponMagazineSize",
 	WEAPON_FIRE_INTERVAL_SEC = "WeaponFireIntervalSec",
 	WEAPON_RANGE_STUDS = "WeaponRangeStuds",
+	-- CurrentPlayer (private): how many upgrades each weapon attribute has,
+	-- 0 to 4 (WeaponManager, bought at the Weapons Table, 2026-10-01)
+	WEAPON_UPGRADE_DAMAGE = "WeaponUpgradeDamage",
+	WEAPON_UPGRADE_AMMO = "WeaponUpgradeAmmo",
+	WEAPON_UPGRADE_RANGE = "WeaponUpgradeRange",
+	-- GameMetadata: the weapon catalogue as JSON (WeaponRules codec): per-kind
+	-- base stats, upgrade prices, and the bonus each level adds
+	WEAPON_CATALOG = "WeaponCatalog",
 	-- public: how far up (+) or down (-) the player looks, whole degrees
 	-- (AimManager); other clients lean the body and the held weapon by it
 	AIM_PITCH_DEGREES = "AimPitchDegrees",
@@ -241,6 +251,9 @@ module = {
 	POST_INDEX = "PostIndex",
 	POST_WEAPON_KIND = "PostWeaponKind",
 	MANNED_POST_INDEX = "MannedPostIndex",
+	-- CurrentPlayer (private): the Enums.PostWeaponKind the loadout brought,
+	-- whether or not a post is claimed yet; the Post Upgrade Table shows it
+	POST_LOADOUT_WEAPON_KIND = "PostLoadoutWeaponKind",
 	-- CurrentPlayer (private): how many upgrades each attribute has, 0 to 4
 	POST_UPGRADE_DAMAGE = "PostUpgradeDamage",
 	POST_UPGRADE_FIRE_RATE = "PostUpgradeFireRate",

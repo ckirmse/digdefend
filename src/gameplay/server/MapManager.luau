@@ -32,6 +32,18 @@ function MapManager:getMap(): number?
 	return self.map
 end
 
+-- a part on one of the defense building's tables
+-- (Camp.DefenseStore.Tables.<tableName>.<partName>), nil when the loaded
+-- camp lacks it; each table's manager binds its own prompt through this
+function MapManager:findDefenseTablePart(tableName: string, partName: string): BasePart?
+	local camp = self.camp
+	local store = if camp then camp:FindFirstChild(Constants.CAMP_DEFENSE_STORE_MODEL) else nil
+	local tables = if store then store:FindFirstChild(Constants.DEFENSE_TABLES_FOLDER) else nil
+	local tableModel = if tables then tables:FindFirstChild(tableName) else nil
+	local part = if tableModel then tableModel:FindFirstChild(partName) else nil
+	return if part and part:IsA("BasePart") then part else nil
+end
+
 -- the mine's origin and facing, read from the entrance part the designer placed
 function MapManager:getMineEntrance(): (Vector3?, number?)
 	local camp = self.camp

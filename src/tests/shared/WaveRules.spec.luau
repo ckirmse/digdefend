@@ -107,3 +107,41 @@ describe(
 		)
 	end
 )
+
+describe(
+	"WaveRules group bar and gap by night",
+	function()
+		local mapWaves = {
+			SPAWN_RADIUS_STUDS = 15,
+			LEASH_DISTANCE_STUDS = 1000,
+			WAVES = {},
+			MIN_GROUP_DIFFICULTY = 80,
+			MIN_GROUP_DIFFICULTY_PER_NIGHT = 5,
+			WAVE_SPAWN_LENGTH_SEC = 90,
+			MAX_TIME_BETWEEN_GROUPS_SEC = 30,
+			GROUP_GAP_SHRINK_SEC_PER_NIGHT = 2,
+			MIN_TIME_BETWEEN_GROUPS_SEC = 8,
+			GENERATOR = {},
+		}
+
+		it(
+			"raises the group bar every night after the first and scales it with the crew",
+			function()
+				expect(WaveRules.minGroupDifficultyFor(mapWaves, 1, 1)).toBe(80)
+				expect(WaveRules.minGroupDifficultyFor(mapWaves, 13, 1)).toBe(140)
+				expect(WaveRules.minGroupDifficultyFor(mapWaves, 3, 2)).toBe(180)
+				expect(WaveRules.minGroupDifficultyFor(mapWaves, 0, 1)).toBe(80)
+			end
+		)
+
+		it(
+			"tightens the gap every night down to the floor",
+			function()
+				expect(WaveRules.maxGapFor(mapWaves, 1)).toBe(30)
+				expect(WaveRules.maxGapFor(mapWaves, 6)).toBe(20)
+				expect(WaveRules.maxGapFor(mapWaves, 12)).toBe(8)
+				expect(WaveRules.maxGapFor(mapWaves, 20)).toBe(8)
+			end
+		)
+	end
+)

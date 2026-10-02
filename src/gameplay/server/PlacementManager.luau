@@ -581,8 +581,9 @@ end
 
 -- the map's zone parts, numbered in name order so the key a client sends
 -- means the same part on both sides. The cells nearest a wall, a post, or
--- the gate are reserved before anything is built and published on the
--- part, so the client greys the same cells (2026-09-30)
+-- the gate, and every cell on the camp's side of them, are reserved before
+-- anything is built and published on the part, so the client leaves the
+-- same cells out of its grid (2026-09-30, camp side 2026-10-01)
 function PlacementManager:bindZones()
 	self.zonesByIndex = {}
 	local camp = MapManager:getCamp()
@@ -605,9 +606,19 @@ function PlacementManager:bindZones()
 	)
 	local fortificationBoxes = StructureManager:getFortificationBoxes()
 	local clearanceStuds = PlacementData.FORTIFICATION_CLEARANCE_CELLS * self.catalog.cellSizeStuds
+	-- the Refinery marks the camp's side of the wall line; a zone part may
+	-- overlap the camp so its grid hugs the walls, and those cells stay empty
+	local refinery = StructureManager:getStructure(Constants.CAMP_REFINERY_MODEL)
+	local insidePoint = if refinery then refinery.boundsCFrame.Position else nil
 	for index, part in parts do
 		local grid = PlacementRules.measureZone(part.CFrame, part.Size, self.catalog.cellSizeStuds)
 		local reserved = PlacementRules.reservedCells(grid, fortificationBoxes, clearanceStuds)
+		if insidePoint then
+			reserved = PlacementRules.mergeCells(reserved, PlacementRules.cellsInsideCamp(grid, fortificationBoxes, insidePoint))
+		end
+		if PlacementData.IS_RESERVED_MIRRORED then
+			reserved = PlacementRules.mirrorCells(grid, reserved)
+		end
 		local occupancy = {}
 		PlacementRules.reserve(occupancy, reserved)
 		part:SetAttribute(Attributes.DEFENSIVE_ZONE_INDEX, index)

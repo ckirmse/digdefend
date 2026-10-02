@@ -81,11 +81,15 @@ end
 local function zoneBoxes(camp: Instance): ({ PathAreaRules.ZoneBox }, number, number)
 	local zones = {}
 	for _, part in areaParts(camp, Constants.CAMP_DEFENSIVE_ZONES_FOLDER) do
+		-- a zone part may be turned a quarter turn, so its extents are
+		-- read along the world axes rather than its own (2026-10-01)
+		local right = part.CFrame.RightVector
+		local look = part.CFrame.LookVector
 		table.insert(zones, {
 			centerX = part.Position.X,
 			centerZ = part.Position.Z,
-			halfX = part.Size.X / 2,
-			halfZ = part.Size.Z / 2,
+			halfX = (math.abs(right.X) * part.Size.X + math.abs(look.X) * part.Size.Z) / 2,
+			halfZ = (math.abs(right.Z) * part.Size.X + math.abs(look.Z) * part.Size.Z) / 2,
 		})
 	end
 	local campParts = areaParts(camp, Constants.CAMP_CAMP_AREA_FOLDER)
