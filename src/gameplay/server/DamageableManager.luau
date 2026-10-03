@@ -24,6 +24,7 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local StatusRules = require("@game/ReplicatedStorage/Shared/StatusRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
+local RunPauseManager = require(script.Parent.RunPauseManager)
 
 local DamageableManager = {}
 DamageableManager.__index = DamageableManager
@@ -409,6 +410,9 @@ end
 -- one Heartbeat: burns tick, slows expire, walkers walk; the frame's
 -- target list is rebuilt on its first read after this
 function DamageableManager:step(deltaSec: number)
+	if RunPauseManager:isPaused() then
+		return
+	end
 	self.targetsCache = nil
 	local now = workspace:GetServerTimeNow()
 	for id, damageable in self.damageableById do

@@ -227,3 +227,92 @@ describe(
 		)
 	end
 )
+
+describe(
+	"FlowField.markPinched",
+	function()
+		it(
+			"closes a one-cell gap between walls so the way goes through a wall instead",
+			function()
+				local grid, goals = gridFromRows({
+					".....",
+					"BB.BB",
+					".....",
+					"..G..",
+				})
+				FlowField.markPinched(grid, 2)
+				local gap = FlowField.indexOf(grid, 3, 2)
+				expect(grid.pinched[gap]).toBe(true)
+				expect(FlowField.isEnterable(grid, gap, false)).toBe(false)
+				-- the air never minds a gap
+				expect(FlowField.isEnterable(grid, gap, true)).toBe(true)
+				local field = FlowField.compute(grid, goals, GROUND)
+				local path = walk(grid, field, 3, 1)
+				expect(table.find(path, "3,2")).toBe(nil)
+				-- the only way down is through a wall, at the barrier's price
+				expect(field.costs[FlowField.indexOf(grid, 3, 1)]).toBeGreaterThan(GROUND.barrierCost)
+			end
+		)
+		it(
+			"leaves a two-cell gap open",
+			function()
+				local grid, goals = gridFromRows({
+					"......",
+					"BB..BB",
+					"......",
+					"..G...",
+				})
+				FlowField.markPinched(grid, 2)
+				expect(grid.pinched[FlowField.indexOf(grid, 3, 2)]).toBe(nil)
+				expect(grid.pinched[FlowField.indexOf(grid, 4, 2)]).toBe(nil)
+				local field = FlowField.compute(grid, goals, GROUND)
+				expect(field.costs[FlowField.indexOf(grid, 3, 1)]).toBeLessThan(GROUND.barrierCost)
+			end
+		)
+		it(
+			"closes a one-cell gap between a wall and the edge or blocked ground",
+			function()
+				local grid = gridFromRows({
+					".....",
+					".....",
+					".BBB#",
+					".....",
+				})
+				FlowField.markPinched(grid, 2)
+				-- between the wall's end and the grid's edge
+				expect(grid.pinched[FlowField.indexOf(grid, 1, 3)]).toBe(true)
+				-- a cell in front of the wall has two open cells along the approach
+				expect(grid.pinched[FlowField.indexOf(grid, 2, 2)]).toBe(nil)
+				-- a cell squeezed between the wall and the edge along the approach
+				-- is a one-cell corridor along the wall, and closed too
+				expect(grid.pinched[FlowField.indexOf(grid, 2, 4)]).toBe(true)
+			end
+		)
+		it(
+			"never closes a narrow place made by the map alone",
+			function()
+				local grid = gridFromRows({
+					"#.#",
+					"#.#",
+					"#.#",
+				})
+				FlowField.markPinched(grid, 2)
+				expect(grid.pinched[FlowField.indexOf(grid, 2, 2)]).toBe(nil)
+			end
+		)
+		it(
+			"measures the gap against the minimum asked for",
+			function()
+				local grid = gridFromRows({
+					"B..B",
+					"....",
+				})
+				FlowField.markPinched(grid, 3)
+				expect(grid.pinched[FlowField.indexOf(grid, 2, 1)]).toBe(true)
+				expect(grid.pinched[FlowField.indexOf(grid, 3, 1)]).toBe(true)
+				FlowField.markPinched(grid, 1)
+				expect(next(grid.pinched)).toBe(nil)
+			end
+		)
+	end
+)

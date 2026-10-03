@@ -44,6 +44,7 @@ end
 
 function CompassManager:setLevel(player: Player, level: number)
 	if not self.levelByPlayer[player] then
+		warn(`CompassManager: {player.Name} has no compass state to set level {level} on; was their ready step skipped?`)
 		return
 	end
 	self.levelByPlayer[player] = level

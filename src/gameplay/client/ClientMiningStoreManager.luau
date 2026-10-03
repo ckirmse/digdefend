@@ -62,6 +62,8 @@ local NOTIFY_STORE_PURCHASE_SHAPE = {
 -- degrees per second the display model turns
 local DISPLAY_TURN_DEGREES_PER_SEC = 45
 local DISPLAY_LIFT_STUDS = 0.5
+-- how long a stand's parts may take to replicate before it is given up on
+local STAND_WAIT_SEC = 60
 local PROMPT_ACTION_BUY = "Buy"
 
 local function readNumber(value: any, default: number): number
@@ -229,13 +231,20 @@ function ClientMiningStoreManager:step(deltaSec: number)
 	end
 end
 
+-- a stand's parts are waited for, not looked up once: on a live server
+-- with streaming the store is far from the helicopter pad, so the Camp
+-- folder arrives long before the stand's Base does, and a lookup at that
+-- moment found nothing and left every stand showing its authored
+-- placeholder text (seen live 2026-10-02). The camp's models are also
+-- marked persistent by MapManager, so the wait is short
 function ClientMiningStoreManager:bindStand(store: Instance, item: number)
-	local stand = store:FindFirstChild(StoreRules.standNameForItem(item) :: string)
-	local base = if stand then stand:FindFirstChild(Constants.STAND_BASE_PART) else nil
-	if not base or not base:IsA("BasePart") then
+	local stand = store:WaitForChild(StoreRules.standNameForItem(item) :: string, STAND_WAIT_SEC)
+	local base = if stand then stand:WaitForChild(Constants.STAND_BASE_PART, STAND_WAIT_SEC) else nil
+	if not stand or not base or not base:IsA("BasePart") then
+		warn(`ClientMiningStoreManager: no {StoreRules.standNameForItem(item)}.{Constants.STAND_BASE_PART} arrived within {STAND_WAIT_SEC} s; that stand stays blank`)
 		return
 	end
-	local gui = base:FindFirstChild(Constants.STAND_GUI)
+	local gui = base:WaitForChild(Constants.STAND_GUI, STAND_WAIT_SEC)
 	local priceBox = if gui then gui:FindFirstChild(Constants.STAND_PRICE_BOX) else nil
 	local nameLabel = if gui then gui:FindFirstChild(Constants.STAND_NAME_LABEL) else nil
 	local priceLabel = if priceBox then priceBox:FindFirstChild(Constants.STAND_PRICE_LABEL) else nil
@@ -279,14 +288,18 @@ function ClientMiningStoreManager:bindCamp(camp: Instance)
 		end
 	end
 	self.stands = {}
-	local store = camp:FindFirstChild(Constants.CAMP_MINING_STORE_MODEL)
-	local stands = if store then store:FindFirstChild(Constants.MINING_STORE_STANDS_FOLDER) else nil
+	local store = camp:WaitForChild(Constants.CAMP_MINING_STORE_MODEL, STAND_WAIT_SEC)
+	local stands = if store then store:WaitForChild(Constants.MINING_STORE_STANDS_FOLDER, STAND_WAIT_SEC) else nil
 	if not stands then
 		warn(`ClientMiningStoreManager: the camp has no {Constants.CAMP_MINING_STORE_MODEL}.{Constants.MINING_STORE_STANDS_FOLDER}`)
 		return
 	end
 	for _, item in Enums.getAllValues(Enums.StoreItem) do
-		self:bindStand(stands, item)
+		task.spawn(
+			function()
+				self:bindStand(stands, item)
+			end
+		)
 	end
 	if not self.heartbeat then
 		self.heartbeat = RunService.Heartbeat:Connect(

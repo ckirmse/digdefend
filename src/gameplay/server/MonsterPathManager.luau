@@ -190,11 +190,25 @@ function MonsterPathManager:scanCells(grid: FlowField.Grid, areas: { BasePart },
 	rayParameters.FilterType = Enum.RaycastFilterType.Exclude
 	rayParameters.FilterDescendantsInstances = excluded
 	rayParameters.RespectCanCollide = true
+	-- the obstacle test is GetPartsInPart against a probe part, which reads
+	-- each part's real collision shape. GetPartBoundsInBox reads bounding
+	-- boxes, and a tilted environment mesh's box swept over spawn 3 while
+	-- its rock stood far away, so a whole wave froze on ground the scan had
+	-- called blocked (2026-10-02)
+	local probe = Instance.new("Part")
+	probe.Anchored = true
+	probe.CanCollide = false
+	probe.CanQuery = false
+	probe.CanTouch = false
+	probe.Transparency = 1
+	probe.Size = Vector3.new(grid.cellSizeStuds * OBSTACLE_CELL_SHARE, OBSTACLE_HEIGHT_STUDS, grid.cellSizeStuds * OBSTACLE_CELL_SHARE)
+	probe.Parent = workspace
 	local overlapParameters = OverlapParams.new()
 	overlapParameters.FilterType = Enum.RaycastFilterType.Exclude
-	overlapParameters.FilterDescendantsInstances = excluded
+	local excludedWithProbe = table.clone(excluded)
+	table.insert(excludedWithProbe, probe)
+	overlapParameters.FilterDescendantsInstances = excludedWithProbe
 	overlapParameters.RespectCanCollide = true
-	local boxSize = Vector3.new(grid.cellSizeStuds * OBSTACLE_CELL_SHARE, OBSTACLE_HEIGHT_STUDS, grid.cellSizeStuds * OBSTACLE_CELL_SHARE)
 	for index = 1, grid.columns * grid.rows do
 		local x, z = FlowField.centerOf(grid, index)
 		local containing: BasePart? = nil
@@ -212,9 +226,10 @@ function MonsterPathManager:scanCells(grid: FlowField.Grid, areas: { BasePart },
 		local hit = workspace:Raycast(Vector3.new(x, topY + GROUND_RAY_START_ABOVE_STUDS, z), Vector3.new(0, -GROUND_RAY_LENGTH_STUDS, 0), rayParameters)
 		local groundY = if hit then hit.Position.Y else topY
 		grid.heights[index] = groundY
-		local boxCenter = CFrame.new(x, groundY + OBSTACLE_CLEARANCE_STUDS + OBSTACLE_HEIGHT_STUDS / 2, z)
-		grid.walkable[index] = #workspace:GetPartBoundsInBox(boxCenter, boxSize, overlapParameters) == 0
+		probe.CFrame = CFrame.new(x, groundY + OBSTACLE_CLEARANCE_STUDS + OBSTACLE_HEIGHT_STUDS / 2, z)
+		grid.walkable[index] = #workspace:GetPartsInPart(probe, overlapParameters) == 0
 	end
+	probe:Destroy()
 end
 
 function MonsterPathManager:buildGrid(camp: Instance)
@@ -343,6 +358,27 @@ function MonsterPathManager:readSpawns(camp: Instance)
 	end
 end
 
+-- a spawn on blocked ground, or one the field does not reach, would stand
+-- its whole group still, so each is checked once the field exists and
+-- named in the Output while the map is being edited
+function MonsterPathManager:checkSpawns()
+	local grid = self.grid
+	local field = self.groundField
+	if not grid or not field then
+		return
+	end
+	for spawnNumber, position in self.spawnPositions do
+		local index = FlowField.indexAt(grid, position.X, position.Z)
+		if not index or not grid.inside[index] then
+			warn(`MonsterPathManager: spawn {spawnNumber} is outside the {Constants.CAMP_WAVE_AREAS_FOLDER}; its monsters cannot find the camp`)
+		elseif not grid.walkable[index] then
+			warn(`MonsterPathManager: spawn {spawnNumber} stands on blocked ground; move it or the part blocking it`)
+		elseif field.costs[index] == math.huge then
+			warn(`MonsterPathManager: spawn {spawnNumber} has no way to the Refinery; its monsters will stand still`)
+		end
+	end
+end
+
 -- the barriers now standing: the walls and a shut gate, every Tower, and
 -- every Trap that blocks
 function MonsterPathManager:refreshBarriers()
@@ -385,6 +421,7 @@ function MonsterPathManager:recompute(now: number)
 		return
 	end
 	self:refreshBarriers()
+	FlowField.markPinched(grid, BehaviorData.MIN_PASSABLE_GAP_CELLS)
 	self.groundField = FlowField.compute(grid, self.goals, {
 		isAir = false,
 		barrierCost = BehaviorData.BARRIER_COST_CELLS,
@@ -403,8 +440,9 @@ function MonsterPathManager:recomputeIfNeeded(now: number)
 	end
 end
 
--- the dev tool's view: red where nothing may walk, orange barriers, and an
--- arrow every few cells pointing along the ground field
+-- the dev tool's view: red where nothing may walk, orange barriers,
+-- yellow gaps too narrow to pass, and an arrow every few cells pointing
+-- along the ground field
 function MonsterPathManager:drawDebug()
 	local previous = self.debugFolder
 	if previous then
@@ -432,6 +470,8 @@ function MonsterPathManager:drawDebug()
 			color = Color3.fromRGB(220, 50, 50)
 		elseif grid.barriers[index] then
 			color = Color3.fromRGB(240, 150, 40)
+		elseif grid.pinched[index] then
+			color = Color3.fromRGB(240, 220, 60)
 		elseif field.costs[index] == math.huge then
 			color = Color3.fromRGB(90, 90, 90)
 		end
@@ -501,6 +541,7 @@ function MonsterPathManager:onRunStarted()
 	self:buildGrid(camp)
 	self:readSpawns(camp)
 	self:recompute(workspace:GetServerTimeNow())
+	self:checkSpawns()
 end
 
 function MonsterPathManager:init()

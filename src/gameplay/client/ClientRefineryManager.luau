@@ -17,6 +17,8 @@ local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
+local TweenService = game:GetService("TweenService")
+
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
@@ -90,6 +92,16 @@ local RING_SEGMENTS = 48
 local RING_THICKNESS_STUDS = 0.5
 local RING_HEIGHT_STUDS = 0.1
 local RING_LIFT_STUDS = 0.15
+-- the ring shows only while the player carries ore to refine (decided
+-- 2026-10-02): it fades in as the first ore lands in the backpack and
+-- fades out once the Refinery has pulled the last of it
+local RING_FADE_SEC = 0.6
+local BACKPACK_ORE_ATTRIBUTES = {
+	Attributes.BACKPACK_IRON_ORE,
+	Attributes.BACKPACK_GOLD_ORE,
+	Attributes.BACKPACK_CRYSTAL,
+	Attributes.BACKPACK_URANIUM_ORE,
+}
 local RING_COLOR = Color3.fromRGB(245, 200, 80)
 local RING_TRANSPARENCY = 0.3
 local WAIT_FOR_CAMP_SEC = 30
@@ -430,7 +442,7 @@ function ClientRefineryManager:drawRing()
 		segment.CastShadow = false
 		segment.Material = Enum.Material.Neon
 		segment.Color = RING_COLOR
-		segment.Transparency = RING_TRANSPARENCY
+		segment.Transparency = 1
 		segment.Size = Vector3.new(segmentLength, RING_HEIGHT_STUDS, RING_THICKNESS_STUDS)
 		-- each segment sits on the circle, turned to run along it
 		segment.CFrame = centre * CFrame.Angles(0, -angle, 0) * CFrame.new(0, 0, -radius)
@@ -438,6 +450,36 @@ function ClientRefineryManager:drawRing()
 	end
 	ring.Parent = refinery
 	self.ring = ring
+	self:refreshRingVisible(true)
+end
+
+function ClientRefineryManager:isCarryingOre(): boolean
+	for _, attribute in BACKPACK_ORE_ATTRIBUTES do
+		if readNumber(ClientDataManager:getCurrentPlayerAttribute(attribute)) > 0 then
+			return true
+		end
+	end
+	return false
+end
+
+-- the ring fades to its colour while ore is carried and away when none
+-- is; a fresh ring takes its state at once
+function ClientRefineryManager:refreshRingVisible(isInstant: boolean)
+	local ring = self.ring
+	if not ring then
+		return
+	end
+	local transparency = if self:isCarryingOre() then RING_TRANSPARENCY else 1
+	for _, segment in ring:GetChildren() do
+		if not segment:IsA("BasePart") then
+			continue
+		end
+		if isInstant then
+			segment.Transparency = transparency
+		else
+			TweenService:Create(segment, TweenInfo.new(RING_FADE_SEC), { Transparency = transparency }):Play()
+		end
+	end
 end
 
 -- draws the ring for the camp in Workspace now and for every camp after it
@@ -476,6 +518,14 @@ function ClientRefineryManager:init()
 			self:drawRing()
 		end
 	)
+	for _, attribute in BACKPACK_ORE_ATTRIBUTES do
+		ClientDataManager:subscribeCurrentPlayerAttribute(
+			attribute,
+			function()
+				self:refreshRingVisible(false)
+			end
+		)
+	end
 
 	ClientDataManager:subscribeCurrentPlayerAttribute(
 		Attributes.BALANCE_IRON_BARS,

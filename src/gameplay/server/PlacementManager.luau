@@ -70,7 +70,11 @@ export type Placement = {
 	maxHp: number,
 	zoneIndex: number,
 	cell: PlacementRules.Cell,
+	-- the footprint as it lies on the grid, already turned by `rotation`
 	footprint: { number },
+	-- quarter turns (PlacementRules.ROTATION_COUNT); the grid-aligned
+	-- cframe and shadow never turn, the client turns the model (2026-10-02)
+	rotation: number,
 	cframe: CFrame,
 	targetPriority: number,
 	shadow: BasePart,
@@ -110,6 +114,8 @@ local TRY_BUILD_PLACEMENT_SHAPE = {
 	zoneIndex = "positiveInteger",
 	column = "integer",
 	row = "integer",
+	-- quarter turns, 0 to 3; checked against PlacementRules.isValidRotation
+	rotation = "nonnegativeInteger",
 }
 local TRY_SELL_PLACEMENT_SHAPE = {
 	id = "string",
@@ -119,6 +125,7 @@ local TRY_MOVE_PLACEMENT_SHAPE = {
 	zoneIndex = "positiveInteger",
 	column = "integer",
 	row = "integer",
+	rotation = "nonnegativeInteger",
 }
 local TRY_UPGRADE_TOWER_SHAPE = {
 	id = "string",
@@ -216,6 +223,7 @@ function PlacementManager:replicatePlacement(placement: Placement)
 	shadow:SetAttribute(Attributes.DEFENSIVE_ZONE_INDEX, placement.zoneIndex)
 	shadow:SetAttribute(Attributes.PLACEMENT_COLUMN, placement.cell.column)
 	shadow:SetAttribute(Attributes.PLACEMENT_ROW, placement.cell.row)
+	shadow:SetAttribute(Attributes.PLACEMENT_ROTATION, placement.rotation)
 	if placement.placementKind == Enums.PlacementKind.TRAP then
 		local trap = self.catalog.traps[placement.typeKind]
 		shadow:SetAttribute(Attributes.PLACEMENT_DRAWS_ATTACKS, trap ~= nil and trap.DRAWS_ATTACKS == true)
@@ -267,17 +275,20 @@ function PlacementManager:setOccupied(placement: Placement, isOccupied: boolean)
 	end
 end
 
-function PlacementManager:spawn(player: Player, placementKind: number, typeKind: number, zone: Zone, cell: PlacementRules.Cell, footprint: { number }): Placement?
+-- `footprint` is the catalogue's, turned here by `rotation` into the
+-- cells it covers on the grid
+function PlacementManager:spawn(player: Player, placementKind: number, typeKind: number, zone: Zone, cell: PlacementRules.Cell, footprint: { number }, rotation: number): Placement?
 	local folder = self:getShadowFolder()
 	if not folder then
 		return nil
 	end
 	local id = string.format(PlacementRules.ID_FORMAT, self.nextId)
 	self.nextId += 1
-	local cframe = PlacementRules.footprintCFrame(zone.grid, cell, footprint)
+	local turned = PlacementRules.rotatedFootprint(footprint, rotation)
+	local cframe = PlacementRules.footprintCFrame(zone.grid, cell, turned)
 	local shadow = Instance.new("Part")
 	shadow.Name = id
-	shadow.Size = Vector3.new(footprint[1] * zone.grid.cellSizeStuds, SHADOW_HEIGHT_STUDS, footprint[2] * zone.grid.cellSizeStuds)
+	shadow.Size = Vector3.new(turned[1] * zone.grid.cellSizeStuds, SHADOW_HEIGHT_STUDS, turned[2] * zone.grid.cellSizeStuds)
 	shadow.Transparency = 1
 	shadow.Anchored = true
 	shadow.CanCollide = false
@@ -297,7 +308,8 @@ function PlacementManager:spawn(player: Player, placementKind: number, typeKind:
 		maxHp = maxHp,
 		zoneIndex = zone.index,
 		cell = cell,
-		footprint = footprint,
+		footprint = turned,
+		rotation = PlacementRules.normalizeRotation(rotation),
 		cframe = cframe,
 		targetPriority = DEFAULT_TARGET_PRIORITY,
 		shadow = shadow,
@@ -328,8 +340,8 @@ end
 -- one build. Silent refusals are the cases an honest client never sends
 -- (not at the table, unknown kinds); the rest are told, because two
 -- players can race for the same cells
-function PlacementManager:build(player: Player, placementKind: number, typeKind: number, zoneIndex: number, cell: PlacementRules.Cell)
-	if not GameController:isPlayerReady(player) or not DefenseTableManager:isInBuildMode(player) then
+function PlacementManager:build(player: Player, placementKind: number, typeKind: number, zoneIndex: number, cell: PlacementRules.Cell, rotation: number)
+	if not GameController:isPlayerReady(player) or not DefenseTableManager:isInBuildMode(player) or not PlacementRules.isValidRotation(rotation) then
 		return
 	end
 	if not Enums.isValidValue(PlacementRules.typeEnumFor(placementKind), typeKind) then
@@ -341,7 +353,7 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 	if not footprint or not zone then
 		return
 	end
-	if not PlacementRules.canPlace(zone.grid, zone.occupancy, cell, footprint) then
+	if not PlacementRules.canPlace(zone.grid, zone.occupancy, cell, PlacementRules.rotatedFootprint(footprint, rotation)) then
 		PlayerFeedbackManager:give(player, FEEDBACK_SPOT_TAKEN)
 		return
 	end
@@ -370,7 +382,7 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_IRON)
 		return
 	end
-	local placement = self:spawn(player, placementKind, typeKind, zone, cell, footprint)
+	local placement = self:spawn(player, placementKind, typeKind, zone, cell, footprint, rotation)
 	if not placement then
 		return
 	end
@@ -381,38 +393,43 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 	print(`[PlacementManager] {player.Name} built {PlacementRules.publicName(placementKind, typeKind)} ({placement.id}) in zone {zoneIndex} at {cell.column},{cell.row}`)
 end
 
--- the owner sets one of their placements down on other cells from the
--- Defense Table: free, and it keeps its level, HP, and target priority.
--- Its own cells do not block it, so it can shift over by one. Silent
--- refusals are the cases an honest client never sends
-function PlacementManager:move(player: Player, id: string, zoneIndex: number, cell: PlacementRules.Cell)
+-- the owner sets one of their placements down on other cells, or turned,
+-- from the Defense Table: free, and it keeps its level, HP, and target
+-- priority. Its own cells do not block it, so it can shift over by one.
+-- Silent refusals are the cases an honest client never sends
+function PlacementManager:move(player: Player, id: string, zoneIndex: number, cell: PlacementRules.Cell, rotation: number)
 	local placement = self.placementsById[id]
-	if not placement or not GameController:isPlayerReady(player) or placement.owner ~= player or not DefenseTableManager:isInBuildMode(player) then
+	if not placement or not GameController:isPlayerReady(player) or placement.owner ~= player or not DefenseTableManager:isInBuildMode(player) or not PlacementRules.isValidRotation(rotation) then
 		return
 	end
 	local zone = self.zonesByIndex[zoneIndex]
-	if not zone then
+	local baseFootprint = PlacementRules.footprintFor(self.catalog, placement.placementKind, placement.typeKind)
+	if not zone or not baseFootprint then
 		return
 	end
-	if placement.zoneIndex == zoneIndex and placement.cell.column == cell.column and placement.cell.row == cell.row then
+	if placement.zoneIndex == zoneIndex and placement.cell.column == cell.column and placement.cell.row == cell.row and placement.rotation == rotation then
 		return
 	end
-	if not PlacementRules.canPlace(zone.grid, zone.occupancy, cell, placement.footprint, if placement.zoneIndex == zoneIndex then placement.id else nil) then
+	local turned = PlacementRules.rotatedFootprint(baseFootprint, rotation)
+	if not PlacementRules.canPlace(zone.grid, zone.occupancy, cell, turned, if placement.zoneIndex == zoneIndex then placement.id else nil) then
 		PlayerFeedbackManager:give(player, FEEDBACK_SPOT_TAKEN)
 		return
 	end
 	self:setOccupied(placement, false)
 	placement.zoneIndex = zoneIndex
 	placement.cell = cell
-	placement.cframe = PlacementRules.footprintCFrame(zone.grid, cell, placement.footprint)
+	placement.footprint = turned
+	placement.rotation = PlacementRules.normalizeRotation(rotation)
+	placement.cframe = PlacementRules.footprintCFrame(zone.grid, cell, turned)
 	self:setOccupied(placement, true)
+	placement.shadow.Size = Vector3.new(turned[1] * zone.grid.cellSizeStuds, SHADOW_HEIGHT_STUDS, turned[2] * zone.grid.cellSizeStuds)
 	placement.shadow.CFrame = placement.cframe * CFrame.new(0, SHADOW_HEIGHT_STUDS / 2, 0)
 	self:replicatePlacement(placement)
 	self:firePlacementsChanged()
 	NetManager:notifyClient(player, NetEventNames.NOTIFY_PLACEMENT_BUILT, {
 		id = placement.id,
 	})
-	print(`[PlacementManager] {player.Name} moved {id} to zone {zoneIndex} at {cell.column},{cell.row}`)
+	print(`[PlacementManager] {player.Name} moved {id} to zone {zoneIndex} at {cell.column},{cell.row} turned {placement.rotation}`)
 end
 
 -- selling returns the share to the owner's Iron; only the builder may
@@ -543,7 +560,7 @@ function PlacementManager:getNetHandlers()
 		[NetEventNames.TRY_BUILD_PLACEMENT] = {
 			shape = TRY_BUILD_PLACEMENT_SHAPE,
 			handler = function(player: Player, payload: { [string]: any })
-				self:build(player, payload.placementKind, payload.typeKind, payload.zoneIndex, { column = payload.column, row = payload.row })
+				self:build(player, payload.placementKind, payload.typeKind, payload.zoneIndex, { column = payload.column, row = payload.row }, payload.rotation)
 			end,
 		},
 		[NetEventNames.TRY_SELL_PLACEMENT] = {
@@ -555,7 +572,7 @@ function PlacementManager:getNetHandlers()
 		[NetEventNames.TRY_MOVE_PLACEMENT] = {
 			shape = TRY_MOVE_PLACEMENT_SHAPE,
 			handler = function(player: Player, payload: { [string]: any })
-				self:move(player, payload.id, payload.zoneIndex, { column = payload.column, row = payload.row })
+				self:move(player, payload.id, payload.zoneIndex, { column = payload.column, row = payload.row }, payload.rotation)
 			end,
 		},
 		[NetEventNames.TRY_UPGRADE_TOWER] = {
@@ -656,6 +673,18 @@ function PlacementManager:init()
 		traps = TrapsData.BY_KIND,
 	}
 	SplendidReplicationManager:setGameMetadata(Attributes.DEFENSE_CATALOG, PlacementRules.encodeCatalog(self.catalog))
+	-- every footprint is whole units so the grid tiles (decided 2026-10-02);
+	-- an odd one is a data mistake named at startup
+	for kind, tower in self.catalog.towers do
+		if not PlacementRules.isFootprintWhole(tower.FOOTPRINT_CELLS) then
+			warn(`PlacementManager: Tower {Enums.getName(Enums.TowerKind, kind)} has a footprint of {tower.FOOTPRINT_CELLS[1]} x {tower.FOOTPRINT_CELLS[2]} cells; both must be multiples of {PlacementRules.FOOTPRINT_UNIT_CELLS}`)
+		end
+	end
+	for kind, trap in self.catalog.traps do
+		if not PlacementRules.isFootprintWhole(trap.FOOTPRINT_CELLS) then
+			warn(`PlacementManager: Trap {Enums.getName(Enums.TrapKind, kind)} has a footprint of {trap.FOOTPRINT_CELLS[1]} x {trap.FOOTPRINT_CELLS[2]} cells; both must be multiples of {PlacementRules.FOOTPRINT_UNIT_CELLS}`)
+		end
+	end
 	GameController:registerPlaceManager(self)
 	Players.PlayerRemoving:Connect(
 		function(player: Player)

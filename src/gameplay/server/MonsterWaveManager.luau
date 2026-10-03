@@ -28,6 +28,7 @@ local MonsterManager = require(script.Parent.MonsterManager)
 local MonsterPathManager = require(script.Parent.MonsterPathManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
 local RunManager = require(script.Parent.RunManager)
+local RunPauseManager = require(script.Parent.RunPauseManager)
 
 local MonsterWaveManager = {}
 MonsterWaveManager.__index = MonsterWaveManager
@@ -233,7 +234,7 @@ function MonsterWaveManager:stop()
 end
 
 function MonsterWaveManager:step()
-	if not self.isActive then
+	if not self.isActive or RunPauseManager:isPaused() then
 		return
 	end
 	local now = workspace:GetServerTimeNow()
@@ -276,6 +277,12 @@ function MonsterWaveManager:init()
 	RunCycleManager:subscribeRunEnded(
 		function(_isWon: boolean)
 			self:stop()
+		end
+	)
+	-- a pause moves the night's spawn schedule on by its length
+	RunPauseManager:subscribeResumed(
+		function(pausedSec: number)
+			self.nightStartTime += pausedSec
 		end
 	)
 	RunService.Heartbeat:Connect(

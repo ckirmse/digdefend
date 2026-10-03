@@ -39,6 +39,7 @@ end
 
 function GeigerCounterManager:setLevel(player: Player, level: number)
 	if not self.levelByPlayer[player] then
+		warn(`GeigerCounterManager: {player.Name} has no Geiger Counter state to set level {level} on; was their ready step skipped?`)
 		return
 	end
 	self.levelByPlayer[player] = level

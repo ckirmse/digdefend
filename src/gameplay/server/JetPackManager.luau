@@ -77,6 +77,7 @@ end
 function JetPackManager:setLevel(player: Player, level: number)
 	local state = self.stateByPlayer[player]
 	if not state then
+		warn(`JetPackManager: {player.Name} has no jet pack state to set level {level} on; was their ready step skipped?`)
 		return
 	end
 	state.level = level

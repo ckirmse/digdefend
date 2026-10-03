@@ -11,8 +11,11 @@
 --     be paid for; a tap (or its number key) brings out that item's ghost
 --     on the grid, and a second tap puts it away
 --   a tap or a drag on the grid moves the ghost, snapped to the cells,
---     red where it cannot stand; the PlacePanel floats under it with
---     Place (and the price) and Cancel
+--     red where it cannot stand; the PlacePanel floats beside it with
+--     Place (green when it can go down, red when not, with the price),
+--     Rotate (a quarter turn each tap, or R), and Cancel
+--   every standing Tower shows its range ring while the mode is on, so
+--     the gaps in the coverage are plain (2026-10-02)
 --   after a build the ghost steps to the nearest free spot beside the one
 --     it just filled, so the next can go down at once
 --   with no ghost out, a tap on one of the player's own Towers opens the
@@ -25,12 +28,16 @@
 -- full-screen Modal button under the HUD (Modal frees the mouse that first
 -- person locks). Place, Sell, and Exit are requests; the server decides.
 -- The grid, the snapping, and the red tint run the same PlacementRules
--- maths the server checks with, and the camera is BuildCameraRules.
+-- maths the server checks with, and the camera is BuildCameraRules. The
+-- camera rises from the player's view to the overhead one over
+-- CAMERA_TRANSITION_SEC and comes back down the same way on exit
+-- (2026-10-02), the character staying put until it lands.
 local CollectionService = game:GetService("CollectionService")
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
@@ -75,7 +82,11 @@ type ZoneView = {
 type Selection = {
 	placementKind: number,
 	typeKind: number,
+	-- the catalogue's footprint, and the same turned by `rotation`: the
+	-- cells the ghost covers on the grid
+	baseFootprint: { number },
 	footprint: { number },
+	rotation: number,
 	preview: Model,
 	-- every part's own colour, put back when the ghost is placeable; the
 	-- parts themselves go red when it is not (a Highlight did not read
@@ -105,6 +116,7 @@ export type ClientDefenseTableManager = typeof(setmetatable(
 		placePanel: GuiObject?,
 		placeButton: GuiButton?,
 		placePriceLabel: TextLabel?,
+		rotateButton: GuiButton?,
 		sellPanel: GuiObject?,
 		sellPriceLabel: TextLabel?,
 		hintLabel: TextLabel?,
@@ -114,6 +126,8 @@ export type ClientDefenseTableManager = typeof(setmetatable(
 		entries: { Entry },
 		zonesByPart: { [BasePart]: ZoneView },
 		gridFolder: Folder?,
+		-- the range rings of every standing Tower, drawn while the mode is on
+		rangeFolder: Folder?,
 		selection: Selection?,
 		-- where the ghost stands right now
 		targetZone: ZoneView?,
@@ -137,6 +151,12 @@ export type ClientDefenseTableManager = typeof(setmetatable(
 		savedCameraType: Enum.CameraType?,
 		-- where the player was looking at the table, so leaving hands their view back
 		savedCameraCFrame: CFrame?,
+		-- the rise into the overhead view: where the camera started and when,
+		-- nil once it has arrived
+		transitionFromCFrame: CFrame?,
+		transitionStartTime: number?,
+		-- the fall back to the player's view on exit, while it runs
+		exitTween: Tween?,
 		anchoredRootPart: BasePart?,
 		stepConnection: RBXScriptConnection?,
 		pointer: Pointer?,
@@ -173,14 +193,20 @@ local RANGE_RING_HEIGHT_STUDS = 0.1
 local RANGE_RING_LIFT_STUDS = 0.15
 local RANGE_RING_COLOR = Color3.fromRGB(120, 200, 255)
 local RANGE_RING_TRANSPARENCY = 0.25
+-- a standing Tower's ring is fainter than the ghost's, so the ghost's reads first
+local STANDING_RING_TRANSPARENCY = 0.6
+local RANGE_FOLDER_NAME = "TowerRanges"
+local ROTATE_KEY = Enum.KeyCode.R
 local GREYED_TRANSPARENCY = 0.55
 -- a press that moves less than this is a tap
 local DRAG_THRESHOLD_PX = 8
 -- each wheel click closes or opens the view by this share
 local ZOOM_STEP_SHARE = 0.1
--- the floating panels sit this far under what they act on, as a share of
--- the screen's height, and never closer than this to its edges
-local PANEL_DROP_SHARE = 0.05
+-- the floating panels sit this far beside what they act on (to its right,
+-- or its left when the right would run off the screen), as a share of the
+-- screen's width, level with its middle, and never closer than this to
+-- the screen's edges or lower than this
+local PANEL_GAP_SHARE = 0.015
 local PANEL_EDGE_SHARE = 0.12
 local PANEL_BOTTOM_SHARE = 0.66
 -- the server publishes the real numbers (GameData/Defenses/Table)
@@ -189,6 +215,7 @@ local DEFAULT_CAMERA_MIN_DISTANCE_STUDS = 50
 local DEFAULT_CAMERA_MAX_DISTANCE_STUDS = 300
 local DEFAULT_CAMERA_PITCH_DEGREES = 65
 local DEFAULT_CAMERA_PAN_SCREENS_PER_SEC = 0.9
+local DEFAULT_CAMERA_TRANSITION_SEC = 1
 local NUMBER_KEYS = {
 	Enum.KeyCode.One,
 	Enum.KeyCode.Two,
@@ -234,6 +261,10 @@ end
 
 function ClientDefenseTableManager:getPitchDegrees(): number
 	return readNumber(ClientDataManager:getGameMetadata(Attributes.BUILD_CAMERA_PITCH_DEGREES), DEFAULT_CAMERA_PITCH_DEGREES)
+end
+
+function ClientDefenseTableManager:getTransitionSec(): number
+	return readNumber(ClientDataManager:getGameMetadata(Attributes.BUILD_CAMERA_TRANSITION_SEC), DEFAULT_CAMERA_TRANSITION_SEC)
 end
 
 -- a Trap the Camp Level has not opened yet; Towers are gated by the loadout
@@ -403,9 +434,14 @@ function ClientDefenseTableManager:renderPanel()
 	if not selection or not catalog then
 		return
 	end
-	-- a move costs nothing, so its button carries the word alone
+	-- a move costs nothing, so its button carries the word alone. The button
+	-- is green while the ghost can go down and be paid for, red otherwise
 	local isMoving = self.moveShadow ~= nil
+	local isAffordable = isMoving or self:canAffordEntry(selection.placementKind, selection.typeKind)
 	local placeButton = self.placeButton
+	if placeButton then
+		placeButton.BackgroundColor3 = if self.canPlaceHere and isAffordable then UiStyle.POSITIVE_COLOR else UiStyle.NEGATIVE_COLOR
+	end
 	local placeText = if placeButton then placeButton:FindFirstChild(Constants.BUILD_BAR_BUILD_TEXT_LABEL) else nil
 	if placeText and placeText:IsA("TextLabel") then
 		placeText.Text = UiStyle.formatTitle(if isMoving then MOVE_TEXT else PLACE_TEXT)
@@ -417,7 +453,6 @@ function ClientDefenseTableManager:renderPanel()
 	local priceLabel = self.placePriceLabel
 	if priceLabel then
 		priceLabel.Text = tostring(PlacementRules.buildPrice(catalog, selection.placementKind, selection.typeKind))
-		priceLabel.TextColor3 = if self:canAffordEntry(selection.placementKind, selection.typeKind) then UiStyle.ACCENT_STROKE_COLOR else UiStyle.NEGATIVE_COLOR
 	end
 end
 
@@ -593,9 +628,7 @@ function ClientDefenseTableManager:occupancyFor(view: ZoneView): PlacementRules.
 		if readNumber(shadow:GetAttribute(Attributes.DEFENSIVE_ZONE_INDEX), 0) ~= view.index then
 			continue
 		end
-		local placementKind = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_KIND), 0)
-		local typeKind = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_TYPE_KIND), 0)
-		local footprint = PlacementRules.footprintFor(catalog, placementKind, typeKind) or { 1, 1 }
+		local footprint = ClientPlacementManager:footprintOf(shadow, catalog)
 		local anchor = {
 			column = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_COLUMN), 0),
 			row = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_ROW), 0),
@@ -672,7 +705,7 @@ function ClientDefenseTableManager:refreshGhost()
 		local nextCell = PlacementRules.nextFreeAnchor(view.grid, occupancy, cell, selection.footprint)
 		if nextCell then
 			self.targetCell = nextCell
-			selection.preview:PivotTo(PlacementRules.footprintCFrame(view.grid, nextCell, selection.footprint))
+			self:poseGhost(selection, view, nextCell)
 			self.canPlaceHere = true
 		end
 	end
@@ -680,6 +713,16 @@ function ClientDefenseTableManager:refreshGhost()
 	if wasPlaceable ~= self.canPlaceHere then
 		self:renderPanel()
 	end
+end
+
+-- the ghost's grid-aligned pose on its cells; the model inside is turned
+-- by the selection's quarter turns
+function ClientDefenseTableManager:ghostCFrame(selection: Selection, view: ZoneView, cell: PlacementRules.Cell): CFrame
+	return PlacementRules.footprintCFrame(view.grid, cell, selection.footprint)
+end
+
+function ClientDefenseTableManager:poseGhost(selection: Selection, view: ZoneView, cell: PlacementRules.Cell)
+	selection.preview:PivotTo(self:ghostCFrame(selection, view, cell) * PlacementRules.rotationCFrame(selection.rotation))
 end
 
 -- the ghost snapped to the cells nearest a point on the ground
@@ -700,7 +743,31 @@ function ClientDefenseTableManager:moveGhost(position: Vector3)
 	self.targetCell = anchor
 	-- the player chose a spot themselves; nothing is left to step aside from
 	self.isAdvancePending = false
-	selection.preview:PivotTo(PlacementRules.footprintCFrame(view.grid, anchor, selection.footprint))
+	self:poseGhost(selection, view, anchor)
+	self:refreshGhost()
+end
+
+-- the ghost a quarter turn on, kept centred where it stands (the Rotate
+-- button, or R); a turned footprint that no longer fits is pulled back
+-- inside the grid
+function ClientDefenseTableManager:rotate()
+	local selection = self.selection
+	if not selection then
+		return
+	end
+	local view = self.targetZone
+	local cell = self.targetCell
+	local center = if view and cell then self:ghostCFrame(selection, view, cell).Position else selection.preview:GetPivot().Position
+	selection.rotation = PlacementRules.normalizeRotation(selection.rotation + 1)
+	selection.footprint = PlacementRules.rotatedFootprint(selection.baseFootprint, selection.rotation)
+	self.isAdvancePending = false
+	if view then
+		local anchor = PlacementRules.clampAnchor(view.grid, PlacementRules.anchorFromPosition(view.grid, center, selection.footprint), selection.footprint)
+		if anchor then
+			self.targetCell = anchor
+			self:poseGhost(selection, view, anchor)
+		end
+	end
 	self:refreshGhost()
 end
 
@@ -731,23 +798,11 @@ function ClientDefenseTableManager:cancel()
 	self:renderAffordability()
 end
 
--- a Tower ghost carries a ring of its reach (TowerRules.reachStuds) so the
--- player sees what the spot covers before building; it moves with the
--- ghost because it is part of the model, and never tints red
-function ClientDefenseTableManager:addRangeRing(preview: Model, placementKind: number, typeKind: number, footprint: { number })
-	local catalog = self.catalog
-	if not catalog or placementKind ~= Enums.PlacementKind.TOWER then
-		return
-	end
-	local tower = catalog.towers[typeKind]
-	if not tower then
-		return
-	end
-	local stats = PlacementRules.towerStats(tower, PlacementRules.STARTING_LEVEL)
-	local radius = TowerRules.reachStuds(stats.RANGE_STUDS, footprint, catalog.cellSizeStuds)
+-- a ring of a Tower's reach drawn as flat segments on the ground about a
+-- pose (decided 2026-09-22)
+function ClientDefenseTableManager:buildRangeRing(pivot: CFrame, radius: number, transparency: number): Model
 	local ring = Instance.new("Model")
 	ring.Name = RANGE_RING_NAME
-	local pivot = preview:GetPivot()
 	local segmentLength = 2 * math.pi * radius / RANGE_RING_SEGMENTS + RANGE_RING_THICKNESS_STUDS
 	for index = 1, RANGE_RING_SEGMENTS do
 		local angle = (index - 0.5) / RANGE_RING_SEGMENTS * 2 * math.pi
@@ -760,28 +815,83 @@ function ClientDefenseTableManager:addRangeRing(preview: Model, placementKind: n
 		segment.CastShadow = false
 		segment.Material = Enum.Material.Neon
 		segment.Color = RANGE_RING_COLOR
-		segment.Transparency = RANGE_RING_TRANSPARENCY
+		segment.Transparency = transparency
 		segment.Size = Vector3.new(segmentLength, RANGE_RING_HEIGHT_STUDS, RANGE_RING_THICKNESS_STUDS)
 		-- each segment sits on the circle, turned to run along it
 		segment.CFrame = pivot * CFrame.Angles(0, -angle, 0) * CFrame.new(0, RANGE_RING_LIFT_STUDS, -radius)
 		segment.Parent = ring
 	end
+	return ring
+end
+
+-- how far a Tower kind reaches at a level, past the edge of its footprint
+function ClientDefenseTableManager:reachFor(tower: PlacementRules.TowerData, level: number): number
+	local catalog = self.catalog
+	local stats = PlacementRules.towerStats(tower, level)
+	return TowerRules.reachStuds(stats.RANGE_STUDS, tower.FOOTPRINT_CELLS, if catalog then catalog.cellSizeStuds else 4)
+end
+
+-- a Tower ghost carries a ring of its reach so the player sees what the
+-- spot covers before building; it moves with the ghost because it is part
+-- of the model, and never tints red
+function ClientDefenseTableManager:addRangeRing(preview: Model, placementKind: number, typeKind: number)
+	local catalog = self.catalog
+	if not catalog or placementKind ~= Enums.PlacementKind.TOWER then
+		return
+	end
+	local tower = catalog.towers[typeKind]
+	if not tower then
+		return
+	end
+	local ring = self:buildRangeRing(preview:GetPivot(), self:reachFor(tower, PlacementRules.STARTING_LEVEL), RANGE_RING_TRANSPARENCY)
 	ring.Parent = preview
 end
 
--- brings out an item's ghost at a point on the ground; false when it cannot
-function ClientDefenseTableManager:beginGhost(placementKind: number, typeKind: number, position: Vector3): boolean
+-- every standing Tower's ring, at its level, redrawn whenever a placement
+-- changes while the mode is on, so the gaps in the camp's coverage show
+-- (decided 2026-10-02)
+function ClientDefenseTableManager:drawTowerRanges()
+	local previous = self.rangeFolder
+	if previous then
+		previous:Destroy()
+		self.rangeFolder = nil
+	end
+	local catalog = self.catalog
+	local gridFolder = self.gridFolder
+	if not self.isBuildMode or not catalog or not gridFolder then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = RANGE_FOLDER_NAME
+	for _, shadow in ClientPlacementManager:getTrackedShadows() do
+		local tower = ClientPlacementManager:getTowerData(shadow)
+		if not tower then
+			continue
+		end
+		local level = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_LEVEL), PlacementRules.STARTING_LEVEL)
+		local ring = self:buildRangeRing(ClientPlacementManager:basePose(shadow), self:reachFor(tower, level), STANDING_RING_TRANSPARENCY)
+		ring.Name = shadow.Name
+		ring.Parent = folder
+	end
+	folder.Parent = gridFolder
+	self.rangeFolder = folder
+end
+
+-- brings out an item's ghost at a point on the ground, turned `rotation`
+-- quarter turns; false when it cannot
+function ClientDefenseTableManager:beginGhost(placementKind: number, typeKind: number, position: Vector3, rotation: number): boolean
 	local catalog = self.catalog
 	if not catalog or not self.isBuildMode or not self.cameraZone then
 		return false
 	end
 	self:cancel()
 	self:closeSellPanel()
-	local footprint = PlacementRules.footprintFor(catalog, placementKind, typeKind)
-	if not footprint then
+	local baseFootprint = PlacementRules.footprintFor(catalog, placementKind, typeKind)
+	if not baseFootprint then
 		return false
 	end
-	local shadowSize = Vector3.new(footprint[1] * catalog.cellSizeStuds, 1, footprint[2] * catalog.cellSizeStuds)
+	local footprint = PlacementRules.rotatedFootprint(baseFootprint, rotation)
+	local shadowSize = Vector3.new(baseFootprint[1] * catalog.cellSizeStuds, 1, baseFootprint[2] * catalog.cellSizeStuds)
 	local preview = ClientPlacementManager:buildModel(placementKind, typeKind, shadowSize)
 	preview.Name = "PlacementPreview"
 	local colorByPart: { [BasePart]: Color3 } = {}
@@ -792,12 +902,14 @@ function ClientDefenseTableManager:beginGhost(placementKind: number, typeKind: n
 			colorByPart[descendant] = descendant.Color
 		end
 	end
-	self:addRangeRing(preview, placementKind, typeKind, footprint)
+	self:addRangeRing(preview, placementKind, typeKind)
 	preview.Parent = ClientPlacementManager:getBodiesFolder()
 	self.selection = {
 		placementKind = placementKind,
 		typeKind = typeKind,
+		baseFootprint = baseFootprint,
 		footprint = footprint,
+		rotation = PlacementRules.normalizeRotation(rotation),
 		preview = preview,
 		colorByPart = colorByPart,
 		isTintedRed = false,
@@ -809,15 +921,16 @@ end
 
 -- an item from the bar: its ghost comes out in the middle of the view
 function ClientDefenseTableManager:select(placementKind: number, typeKind: number)
-	self:beginGhost(placementKind, typeKind, self.focus)
+	self:beginGhost(placementKind, typeKind, self.focus, 0)
 end
 
 -- one of the player's own placements picked up: its ghost comes out where
--- it stands, and Place becomes Move
+-- it stands, turned as it stands, and Place becomes Move
 function ClientDefenseTableManager:startMove(shadow: BasePart)
 	local placementKind = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_KIND), 0)
 	local typeKind = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_TYPE_KIND), 0)
-	if not self:beginGhost(placementKind, typeKind, shadow.Position) then
+	local rotation = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_ROTATION), 0)
+	if not self:beginGhost(placementKind, typeKind, shadow.Position, rotation) then
 		return
 	end
 	self.moveShadow = shadow
@@ -869,6 +982,7 @@ function ClientDefenseTableManager:place()
 				zoneIndex = view.index,
 				column = cell.column,
 				row = cell.row,
+				rotation = selection.rotation,
 			})
 		end
 		self:cancel()
@@ -885,6 +999,7 @@ function ClientDefenseTableManager:place()
 		zoneIndex = view.index,
 		column = cell.column,
 		row = cell.row,
+		rotation = selection.rotation,
 	})
 	self.isAdvancePending = true
 end
@@ -1088,6 +1203,10 @@ function ClientDefenseTableManager:onInputBegan(input: InputObject, isGameProces
 		return
 	end
 	if input.UserInputType == Enum.UserInputType.Keyboard then
+		if input.KeyCode == ROTATE_KEY then
+			self:rotate()
+			return
+		end
 		local index = table.find(NUMBER_KEYS, input.KeyCode)
 		local entry = if index then self.entries[index] else nil
 		if entry then
@@ -1096,20 +1215,35 @@ function ClientDefenseTableManager:onInputBegan(input: InputObject, isGameProces
 	end
 end
 
--- a panel floated under a point in the world, kept on screen and above the bar
-function ClientDefenseTableManager:floatPanel(panel: GuiObject, position: Vector3)
+-- a panel floated beside a flat box in the world (its grid-aligned pose
+-- and half extents across the ground): to the right of the box's
+-- widest point on screen, level with its middle, or to its left when the
+-- right would run off the screen, so it never covers what it acts on
+-- (decided 2026-10-02). Kept on screen and above the bar
+function ClientDefenseTableManager:floatPanel(panel: GuiObject, cframe: CFrame, halfX: number, halfZ: number)
 	local camera = workspace.CurrentCamera
 	local gui = self.gui
 	if not camera or not gui then
 		return
 	end
-	local screenPoint = camera:WorldToScreenPoint(position)
 	local size = gui.AbsoluteSize
 	if size.X <= 0 or size.Y <= 0 then
 		return
 	end
-	local x = math.clamp(screenPoint.X / size.X, PANEL_EDGE_SHARE, 1 - PANEL_EDGE_SHARE)
-	local y = math.clamp(screenPoint.Y / size.Y + PANEL_DROP_SHARE, PANEL_EDGE_SHARE, PANEL_BOTTOM_SHARE)
+	local leftShare = math.huge
+	local rightShare = -math.huge
+	local middleShare = 0
+	for _, corner in { Vector3.new(-halfX, 0, -halfZ), Vector3.new(halfX, 0, -halfZ), Vector3.new(-halfX, 0, halfZ), Vector3.new(halfX, 0, halfZ) } do
+		local screenPoint = camera:WorldToScreenPoint(cframe:PointToWorldSpace(corner))
+		leftShare = math.min(leftShare, screenPoint.X / size.X)
+		rightShare = math.max(rightShare, screenPoint.X / size.X)
+		middleShare += screenPoint.Y / size.Y / 4
+	end
+	local panelWidthShare = panel.AbsoluteSize.X / size.X
+	local isRight = rightShare + PANEL_GAP_SHARE + panelWidthShare <= 1 - PANEL_EDGE_SHARE / 2
+	panel.AnchorPoint = if isRight then Vector2.new(0, 0.5) else Vector2.new(1, 0.5)
+	local x = if isRight then rightShare + PANEL_GAP_SHARE else math.max(leftShare - PANEL_GAP_SHARE, panelWidthShare)
+	local y = math.clamp(middleShare, PANEL_EDGE_SHARE, PANEL_BOTTOM_SHARE)
 	panel.Position = UDim2.fromScale(x, y)
 end
 
@@ -1157,16 +1291,34 @@ function ClientDefenseTableManager:step(deltaSec: number)
 		end
 	end
 	self.focus = BuildCameraRules.clampFocus(zone.grid, self.focus)
-	camera.CFrame = BuildCameraRules.cameraCFrame(self.focus, self.forwardX, self.forwardZ, self:getPitchDegrees(), self.distanceStuds)
+	local overhead = BuildCameraRules.cameraCFrame(self.focus, self.forwardX, self.forwardZ, self:getPitchDegrees(), self.distanceStuds)
+	-- the rise from the player's view eases into the overhead one, which
+	-- keeps moving under it as the player pans and zooms
+	local fromCFrame = self.transitionFromCFrame
+	if fromCFrame then
+		local now = workspace:GetServerTimeNow()
+		local startTime = self.transitionStartTime or now
+		self.transitionStartTime = startTime
+		local share = math.clamp((now - startTime) / math.max(self:getTransitionSec(), 0.01), 0, 1)
+		overhead = fromCFrame:Lerp(overhead, TweenService:GetValue(share, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut))
+		if share >= 1 then
+			self.transitionFromCFrame = nil
+			self.transitionStartTime = nil
+		end
+	end
+	camera.CFrame = overhead
 	camera.Focus = CFrame.new(self.focus)
 
 	local selection = self.selection
-	if selection and self.placePanel then
-		self:floatPanel(self.placePanel, selection.preview:GetPivot().Position)
+	local targetZone = self.targetZone
+	local targetCell = self.targetCell
+	if selection and self.placePanel and targetZone and targetCell then
+		local cellSize = targetZone.grid.cellSizeStuds
+		self:floatPanel(self.placePanel, self:ghostCFrame(selection, targetZone, targetCell), selection.footprint[1] * cellSize / 2, selection.footprint[2] * cellSize / 2)
 	end
 	local sellShadow = self.sellShadow
 	if sellShadow and self.sellPanel then
-		self:floatPanel(self.sellPanel, sellShadow.Position)
+		self:floatPanel(self.sellPanel, sellShadow.CFrame, sellShadow.Size.X / 2, sellShadow.Size.Z / 2)
 	end
 end
 
@@ -1184,6 +1336,41 @@ function ClientDefenseTableManager:setCharacterFrozen(isFrozen: boolean)
 	end
 end
 
+-- the camera comes back down to the view saved on the way in over the
+-- transition time, the character staying frozen until it lands; first
+-- person then takes its facing from the camera it is handed
+function ClientDefenseTableManager:beginExitTween(camera: Camera?)
+	local savedCFrame = self.savedCameraCFrame
+	local savedType = self.savedCameraType or Enum.CameraType.Custom
+	local function land()
+		self.exitTween = nil
+		if camera then
+			if savedCFrame then
+				camera.CFrame = savedCFrame
+			end
+			camera.CameraType = savedType
+		end
+		self.savedCameraType = nil
+		self.savedCameraCFrame = nil
+		self:setCharacterFrozen(false)
+	end
+	if not camera or not savedCFrame then
+		land()
+		return
+	end
+	local tween = TweenService:Create(camera, TweenInfo.new(self:getTransitionSec(), Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), { CFrame = savedCFrame })
+	self.exitTween = tween
+	tween.Completed:Connect(
+		function(state: Enum.PlaybackState)
+			-- a cancelled fall means Build Mode began again; that entry owns the camera now
+			if state == Enum.PlaybackState.Completed and self.exitTween == tween then
+				land()
+			end
+		end
+	)
+	tween:Play()
+end
+
 function ClientDefenseTableManager:setBuildMode(isBuildMode: boolean)
 	if self.isBuildMode == isBuildMode then
 		return
@@ -1193,9 +1380,20 @@ function ClientDefenseTableManager:setBuildMode(isBuildMode: boolean)
 	if isBuildMode then
 		self.cameraZone = nil
 		self.distanceStuds = readNumber(ClientDataManager:getGameMetadata(Attributes.BUILD_CAMERA_DISTANCE_STUDS), DEFAULT_CAMERA_DISTANCE_STUDS)
+		-- back in before the camera finished coming down: it rises again from
+		-- where it is, and the view saved on the way in is kept for the way out
+		local exitTween = self.exitTween
+		if exitTween then
+			exitTween:Cancel()
+			self.exitTween = nil
+		end
 		if camera then
-			self.savedCameraType = camera.CameraType
-			self.savedCameraCFrame = camera.CFrame
+			if not exitTween then
+				self.savedCameraType = camera.CameraType
+				self.savedCameraCFrame = camera.CFrame
+			end
+			self.transitionFromCFrame = camera.CFrame
+			self.transitionStartTime = nil
 			camera.CameraType = Enum.CameraType.Scriptable
 		end
 		self.stepConnection = RunService.RenderStepped:Connect(
@@ -1215,18 +1413,14 @@ function ClientDefenseTableManager:setBuildMode(isBuildMode: boolean)
 			self.stepConnection:Disconnect()
 			self.stepConnection = nil
 		end
-		if camera then
-			-- first person takes its facing from the camera it is handed
-			if self.savedCameraCFrame then
-				camera.CFrame = self.savedCameraCFrame
-			end
-			camera.CameraType = self.savedCameraType or Enum.CameraType.Custom
-		end
-		self.savedCameraType = nil
-		self.savedCameraCFrame = nil
+		self.transitionFromCFrame = nil
+		self.transitionStartTime = nil
+		self:beginExitTween(camera)
 		self.cameraZone = nil
 	end
-	self:setCharacterFrozen(isBuildMode)
+	if isBuildMode then
+		self:setCharacterFrozen(true)
+	end
 	-- nothing in the world is in reach from up here, and the character
 	-- does not move, so its prompts and touch controls step aside
 	ProximityPromptService.Enabled = not isBuildMode
@@ -1239,6 +1433,7 @@ function ClientDefenseTableManager:setBuildMode(isBuildMode: boolean)
 	end
 	ClientToolBarManager:setHidden(isBuildMode)
 	self:applyModeToZones()
+	self:drawTowerRanges()
 	if isBuildMode then
 		self:renderEntries()
 		self:renderTowerCount()
@@ -1385,6 +1580,15 @@ function ClientDefenseTableManager:findGui()
 			self:cancel()
 		end
 	)
+	local rotateButton = if placePanel then placePanel:FindFirstChild(Constants.BUILD_BAR_ROTATE_BUTTON) else nil
+	self.rotateButton = if rotateButton and rotateButton:IsA("GuiButton") then rotateButton else nil
+	self:bindDismissButton(
+		placePanel,
+		Constants.BUILD_BAR_ROTATE_BUTTON,
+		function()
+			self:rotate()
+		end
+	)
 	local sellPanel = gui:FindFirstChild(Constants.BUILD_BAR_SELL_PANEL)
 	self.sellPanel = if sellPanel and sellPanel:IsA("GuiObject") then sellPanel else nil
 	self.sellPriceLabel = self:bindActionButton(
@@ -1474,10 +1678,12 @@ function ClientDefenseTableManager:init()
 			self:renderAffordability()
 		end
 	)
-	-- a placement appearing or going can free or take the ghost's cells
+	-- a placement appearing or going can free or take the ghost's cells,
+	-- and changes the rings of reach on show
 	ClientPlacementManager:subscribeChanged(
 		function()
 			self:refreshGhost()
+			self:drawTowerRanges()
 		end
 	)
 	UserInputService.InputBegan:Connect(
@@ -1525,6 +1731,7 @@ function ClientDefenseTableManager.new(): ClientDefenseTableManager
 	self.placePanel = nil
 	self.placeButton = nil
 	self.placePriceLabel = nil
+	self.rotateButton = nil
 	self.sellPanel = nil
 	self.sellPriceLabel = nil
 	self.hintLabel = nil
@@ -1534,6 +1741,7 @@ function ClientDefenseTableManager.new(): ClientDefenseTableManager
 	self.entries = {}
 	self.zonesByPart = {}
 	self.gridFolder = nil
+	self.rangeFolder = nil
 	self.selection = nil
 	self.targetZone = nil
 	self.targetCell = nil
@@ -1549,6 +1757,9 @@ function ClientDefenseTableManager.new(): ClientDefenseTableManager
 	self.forwardZ = -1
 	self.savedCameraType = nil
 	self.savedCameraCFrame = nil
+	self.transitionFromCFrame = nil
+	self.transitionStartTime = nil
+	self.exitTween = nil
 	self.anchoredRootPart = nil
 	self.stepConnection = nil
 	self.pointer = nil

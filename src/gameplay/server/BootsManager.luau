@@ -53,6 +53,7 @@ end
 
 function BootsManager:setLevel(player: Player, level: number)
 	if not self.levelByPlayer[player] then
+		warn(`BootsManager: {player.Name} has no boots state to set level {level} on; was their ready step skipped?`)
 		return
 	end
 	self.levelByPlayer[player] = level

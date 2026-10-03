@@ -5,7 +5,11 @@
 -- pivot is the centre of its underside, where PlacementManager stands it
 -- on the grid; the Defense Store spins the same model over its stand. The
 -- designer reshapes them afterwards, so an existing model is never
--- replaced: delete one by hand to have it rebuilt. Run in the gameplay place.
+-- replaced: delete one by hand to have it rebuilt, or name it in
+-- REPLACE_KINDS below for one run, which rebuilds it and carries its
+-- attributes (the icon) over. Run in the gameplay place.
+-- Every slab, and the Wall's block, fills its footprint exactly (no
+-- margin since 2026-10-02), so a row of Walls joins up with no gap.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
@@ -16,8 +20,10 @@ local PlacementData = require(ServerScriptService.GameData.Defenses.Placement)
 local TrapsData = require(ServerScriptService.GameData.Defenses.Traps)
 
 local SLAB_HEIGHT_STUDS = 0.3
-local SLAB_MARGIN_STUDS = 0.4
+local SLAB_MARGIN_STUDS = 0
 local SLAB_COLOR = Color3.fromRGB(95, 85, 75)
+-- kinds to rebuild this run even though a model exists (emptied after)
+local REPLACE_KINDS = {}
 
 ChangeHistoryService:SetWaypoint("Before trap templates")
 
@@ -85,8 +91,14 @@ local FEATURE_BY_KIND = {
 local built = 0
 for _, kind in Enums.getAllValues(Enums.TrapKind) do
 	local key = Enums.getName(Enums.TrapKind, kind)
-	if folder:FindFirstChild(key) then
-		continue
+	local existing = folder:FindFirstChild(key)
+	local carriedAttributes = {}
+	if existing then
+		if not table.find(REPLACE_KINDS, kind) then
+			continue
+		end
+		carriedAttributes = existing:GetAttributes()
+		existing:Destroy()
 	end
 	local data = TrapsData.BY_KIND[kind]
 	local footprint = data and data.FOOTPRINT_CELLS or { 1, 1 }
@@ -101,6 +113,9 @@ for _, kind in Enums.getAllValues(Enums.TrapKind) do
 	end
 	model.PrimaryPart = slab
 	model.WorldPivot = CFrame.new(0, 0, 0)
+	for name, value in carriedAttributes do
+		model:SetAttribute(name, value)
+	end
 	model.Parent = folder
 	built += 1
 end

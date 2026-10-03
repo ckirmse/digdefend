@@ -94,6 +94,7 @@ end
 function ToolManager:setPickAxeLevel(player: Player, level: number)
 	local state = self.stateByPlayer[player]
 	if not state then
+		warn(`ToolManager: {player.Name} has no tool state to set pick axe level {level} on; was their ready step skipped?`)
 		return
 	end
 	state.pickAxeLevel = level

@@ -35,6 +35,7 @@ local RescueManager = require(script.Parent.RescueManager)
 local RunCycleDevTools = require(script.Parent.RunCycleDevTools)
 local RunCycleManager = require(script.Parent.RunCycleManager)
 local RunDevTools = require(script.Parent.RunDevTools)
+local RunPauseManager = require(script.Parent.RunPauseManager)
 local RunManager = require(script.Parent.RunManager)
 local StructureDevTools = require(script.Parent.StructureDevTools)
 local StructureManager = require(script.Parent.StructureManager)
@@ -194,6 +195,14 @@ RunManager:subscribeRunStarted(
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
 		RunCycleManager:onRunStarted()
+	end
+)
+-- the dev tool's pause (2026-10-02): a holder every loop reads, so it goes
+-- first, before the loops it stops subscribe to it
+RunPauseManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		RunPauseManager:onRunStarted()
 	end
 )
 -- the rescue (M31): after the refinery it listens to, the run cycle it

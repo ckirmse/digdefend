@@ -131,6 +131,22 @@ describe(
 )
 
 describe(
+	"RunCycleRules.duskSecForDay",
+	function()
+		it(
+			"grows a step a day from the start and stops at the cap",
+			function()
+				expect(RunCycleRules.duskSecForDay(1, 60, 5, 90)).toBe(60)
+				expect(RunCycleRules.duskSecForDay(2, 60, 5, 90)).toBe(65)
+				expect(RunCycleRules.duskSecForDay(7, 60, 5, 90)).toBe(90)
+				expect(RunCycleRules.duskSecForDay(20, 60, 5, 90)).toBe(90)
+				expect(RunCycleRules.duskSecForDay(0, 60, 5, 90)).toBe(60)
+			end
+		)
+	end
+)
+
+describe(
 	"RunCycleRules night",
 	function()
 		it(

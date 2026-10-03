@@ -39,6 +39,7 @@ local MonsterWaveManager = require(script.Parent.MonsterWaveManager)
 local RefineryManager = require(script.Parent.RefineryManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
 local RunManager = require(script.Parent.RunManager)
+local RunPauseManager = require(script.Parent.RunPauseManager)
 
 local RescueManager = {}
 RescueManager.__index = RescueManager
@@ -293,6 +294,9 @@ function RescueManager:depart()
 end
 
 function RescueManager:step()
+	if RunPauseManager:isPaused() then
+		return
+	end
 	if not self.isCalled or self.hasDeparted then
 		return
 	end

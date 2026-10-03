@@ -112,8 +112,8 @@ local postWeaponSfxByKindName: { [string]: PostWeaponSfx } = {
 
 -- 2D music under SoundService.Music
 local music = {
-	-- plays from the top as dusk begins, DUSK_SEC before every night
-	-- (2026-09-25); the track is 52 s, so it runs on into the night
+	-- plays from the top as dusk begins, the day's dusk before every night
+	-- (2026-09-25), and fades out across night fall (2026-10-02)
 	DUSK_SONG_1 = "DuskSong1",
 }
 

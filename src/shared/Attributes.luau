@@ -178,6 +178,9 @@ module = {
 	RUN_PHASE_START_TIME = "RunPhaseStartTime",
 	RUN_PHASE_END_TIME = "RunPhaseEndTime",
 	RUN_SCALING_COUNT = "RunScalingCount",
+	-- the server time the dev tool paused the run, 0 while it runs: a
+	-- client clock holds at that moment (2026-10-02)
+	RUN_PAUSE_START_TIME = "RunPauseStartTime",
 	-- the rescue (M31): the helicopter down on the pad, and who is aboard of
 	-- how many standing; its countdowns are the run's phase end
 	RESCUE_IS_LANDED = "RescueIsLanded",
@@ -185,6 +188,10 @@ module = {
 	RESCUE_CREW_COUNT = "RescueCrewCount",
 	RUN_DUSK_SHARE = "RunDuskShare",
 	RUN_DUSK_SONG_LEAD_SEC = "RunDuskSongLeadSec",
+	-- the dusk song's fade: how long it takes and how long before night
+	-- falls it begins (2026-10-02)
+	RUN_DUSK_SONG_FADE_SEC = "RunDuskSongFadeSec",
+	RUN_DUSK_SONG_FADE_LEAD_SEC = "RunDuskSongFadeLeadSec",
 	-- and the sky's blend lengths (shared LightingPresets): the dusk
 	-- seconds at the top of a night, the spawn window night start blends
 	-- into night end over, and the dawn stretch night end blends back to
@@ -300,6 +307,9 @@ module = {
 	BUILD_CAMERA_MAX_DISTANCE_STUDS = "BuildCameraMaxDistanceStuds",
 	BUILD_CAMERA_PITCH_DEGREES = "BuildCameraPitchDegrees",
 	BUILD_CAMERA_PAN_SCREENS_PER_SEC = "BuildCameraPanScreensPerSec",
+	-- how long the camera takes to rise to the overhead view and to come
+	-- back down (2026-10-02)
+	BUILD_CAMERA_TRANSITION_SEC = "BuildCameraTransitionSec",
 	-- on every Defensive Zone part (Tags.DEFENSIVE_ZONE): its number, the
 	-- key the build request names
 	DEFENSIVE_ZONE_INDEX = "DefensiveZoneIndex",
@@ -321,6 +331,10 @@ module = {
 	-- cell), so a client can mark them taken when it snaps a preview
 	PLACEMENT_COLUMN = "PlacementColumn",
 	PLACEMENT_ROW = "PlacementRow",
+	-- and the quarter turns it was placed at (0 to 3, PlacementRules;
+	-- 2026-10-02): the client turns the model, and the footprint it covers
+	-- is the catalogue's turned the same way
+	PLACEMENT_ROTATION = "PlacementRotation",
 	-- behaviour (M27): a Tower's turret yaw in degrees about its base (0
 	-- faces the model's -Z, the barrel's rest direction; TowerRules) and
 	-- whether a cone Tower is breathing right now; a Spike Trap's

@@ -84,6 +84,27 @@ function MapManager:pasteTerrain(source: Instance)
 	terrain:PasteRegion(region, corner, true)
 end
 
+-- every Model in the camp outside its scenery is sent to every client
+-- whatever their distance and never streamed out (decided 2026-10-02):
+-- the stores, the Refinery, the Radio, the pad, the walls, the gate, and
+-- the posts are what the clients dress and bind on arrival, and with
+-- streaming on a player landing at the pad was reaching the store before
+-- its stands had replicated, so every stand kept its placeholder text.
+-- The Environment folder keeps streaming: the big meshes are the cost
+-- streaming is there to save
+function MapManager:persistCampModels(camp: Instance)
+	local environment = camp:FindFirstChild(Constants.CAMP_ENVIRONMENT_FOLDER)
+	local count = 0
+	for _, descendant in camp:GetDescendants() do
+		if not descendant:IsA("Model") or (environment and descendant:IsDescendantOf(environment)) then
+			continue
+		end
+		descendant.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+		count += 1
+	end
+	print(`[MapManager] {count} camp model(s) set to persistent streaming`)
+end
+
 function MapManager:loadMap(map: number): boolean
 	local mapName = Enums.getName(Enums.Map, map) or tostring(map)
 	local source, isUnsaved = self:findSource(mapName)
@@ -115,6 +136,7 @@ function MapManager:loadMap(map: number): boolean
 		end
 		self:pasteTerrain(source)
 	end
+	self:persistCampModels(camp)
 	camp.Name = Constants.CAMP_FOLDER
 	camp.Parent = workspace
 

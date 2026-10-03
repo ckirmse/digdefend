@@ -30,6 +30,7 @@ local NetManager = require(script.Parent.Parent.Server.NetManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 local ArrivalManager = require(script.Parent.ArrivalManager)
 local RunManager = require(script.Parent.RunManager)
+local RunPauseManager = require(script.Parent.RunPauseManager)
 
 local RunCycleManager = {}
 RunCycleManager.__index = RunCycleManager
@@ -158,6 +159,14 @@ end
 
 -- a day after a night starts after the dawn fade, so the morning look is
 -- in before the clock runs; day 1 follows the landing wait and starts at once
+-- the day's dusk, which grows with the run: the clock's share and the
+-- song's lead are the same moment
+function RunCycleManager:replicateDusk(day: number)
+	local duskSec = RunCycleRules.duskSecForDay(day, RunCycleData.DUSK_START_SEC, RunCycleData.DUSK_STEP_SEC, RunCycleData.DUSK_MAX_SEC)
+	SplendidReplicationManager:setGameMetadata(Attributes.RUN_DUSK_SHARE, duskSec / RunCycleData.DAY_SEC)
+	SplendidReplicationManager:setGameMetadata(Attributes.RUN_DUSK_SONG_LEAD_SEC, duskSec)
+end
+
 function RunCycleManager:startDay()
 	local now = workspace:GetServerTimeNow()
 	local wasNight = self.runState == Enums.RunState.NIGHT
@@ -166,6 +175,7 @@ function RunCycleManager:startDay()
 	self.phaseStartTime = if wasNight then now + RunCycleData.LIGHTING_DAWN_TRANSITION_SEC else now
 	self.phaseEndTime = self.phaseStartTime + RunCycleData.DAY_SEC
 	self:sampleScalingCount()
+	self:replicateDusk(self.day)
 	self:replicate()
 	local count = self:getScalingCount()
 	local message = RunCycleRules.dayStartMessage(
@@ -316,7 +326,7 @@ function RunCycleManager:isEveryoneDown(): boolean
 end
 
 function RunCycleManager:step()
-	if RunCycleRules.isRunOver(self.runState) then
+	if RunCycleRules.isRunOver(self.runState) or RunPauseManager:isPaused() then
 		return
 	end
 	local now = workspace:GetServerTimeNow()
@@ -362,9 +372,30 @@ function RunCycleManager:onCrewLanded()
 	print(`[RunCycleManager] crew landed; day 1 in {RunCycleData.PRE_DAY_SEC} s`)
 end
 
+-- the dev tool's pause lifted: every deadline moves on by the pause, so
+-- the day ends as far off as it was and the clients' clocks pick up
+-- where they held
+function RunCycleManager:onResumed(pausedSec: number)
+	self.phaseStartTime += pausedSec
+	if self.phaseEndTime > 0 then
+		self.phaseEndTime += pausedSec
+	end
+	if self.firstDayTime then
+		self.firstDayTime += pausedSec
+	end
+	self.lastDeathCheckTime += pausedSec
+	self:replicate()
+end
+
 function RunCycleManager:init()
-	SplendidReplicationManager:setGameMetadata(Attributes.RUN_DUSK_SHARE, RunCycleData.DUSK_SEC / RunCycleData.DAY_SEC)
-	SplendidReplicationManager:setGameMetadata(Attributes.RUN_DUSK_SONG_LEAD_SEC, RunCycleData.DUSK_SEC)
+	RunPauseManager:subscribeResumed(
+		function(pausedSec: number)
+			self:onResumed(pausedSec)
+		end
+	)
+	self:replicateDusk(1)
+	SplendidReplicationManager:setGameMetadata(Attributes.RUN_DUSK_SONG_FADE_SEC, RunCycleData.DUSK_SONG_FADE_SEC)
+	SplendidReplicationManager:setGameMetadata(Attributes.RUN_DUSK_SONG_FADE_LEAD_SEC, RunCycleData.DUSK_SONG_FADE_LEAD_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.RUN_NIGHT_SPAWN_SEC, RunCycleData.NIGHT_SPAWN_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.RUN_LIGHTING_DUSK_TRANSITION_SEC, RunCycleData.LIGHTING_DUSK_TRANSITION_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.RUN_LIGHTING_DAWN_TRANSITION_SEC, RunCycleData.LIGHTING_DAWN_TRANSITION_SEC)

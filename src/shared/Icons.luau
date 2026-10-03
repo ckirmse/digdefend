@@ -55,6 +55,8 @@ Icons.UI = {
 	-- the Build Mode Tower counter and the kind badge on a build bar slot
 	TOWER = "rbxassetid://72202536661953",
 	TRAP = "rbxassetid://71088256703142",
+	-- the Rotate button beside Place in Build Mode (designer's art, 2026-10-02)
+	ROTATE = "rbxassetid://108992733643165",
 	-- the day clock's circle (M28): placeholders until the art lands
 	CLOCK_DAY = "rbxassetid://98516537326926",
 	CLOCK_DUSK = "rbxassetid://91444734897924",

@@ -63,6 +63,62 @@ describe(
 				expect(grid.rows).toBe(6)
 			end
 		)
+		it(
+			"brings an odd count down to even so the smallest footprint tiles it",
+			function()
+				local grid = PlacementRules.measureZone(ZONE_CFRAME, Vector3.new(44, 1, 28), CELL)
+				expect(grid.columns).toBe(10)
+				expect(grid.rows).toBe(6)
+				local tiny = PlacementRules.measureZone(ZONE_CFRAME, Vector3.new(4, 1, 4), CELL)
+				expect(tiny.columns).toBe(0)
+				expect(tiny.rows).toBe(0)
+			end
+		)
+	end
+)
+
+describe(
+	"PlacementRules rotation",
+	function()
+		it(
+			"swaps a footprint on odd quarter turns and wraps the count",
+			function()
+				expect(PlacementRules.rotatedFootprint({ 4, 2 }, 0)).toEqual({ 4, 2 })
+				expect(PlacementRules.rotatedFootprint({ 4, 2 }, 1)).toEqual({ 2, 4 })
+				expect(PlacementRules.rotatedFootprint({ 4, 2 }, 2)).toEqual({ 4, 2 })
+				expect(PlacementRules.rotatedFootprint({ 4, 2 }, 3)).toEqual({ 2, 4 })
+				expect(PlacementRules.normalizeRotation(4)).toBe(0)
+				expect(PlacementRules.normalizeRotation(-1)).toBe(3)
+			end
+		)
+		it(
+			"accepts only whole quarter turns from 0 to 3",
+			function()
+				expect(PlacementRules.isValidRotation(0)).toBe(true)
+				expect(PlacementRules.isValidRotation(3)).toBe(true)
+				expect(PlacementRules.isValidRotation(4)).toBe(false)
+				expect(PlacementRules.isValidRotation(1.5)).toBe(false)
+				expect(PlacementRules.isValidRotation("1")).toBe(false)
+			end
+		)
+		it(
+			"turns the model a right angle per quarter turn",
+			function()
+				local look = PlacementRules.rotationCFrame(1).LookVector
+				expect(look.X).toBeCloseTo(-1, 5)
+				expect(look.Z).toBeCloseTo(0, 5)
+				expect(PlacementRules.rotationCFrame(2).LookVector.Z).toBeCloseTo(1, 5)
+			end
+		)
+		it(
+			"knows which footprints are whole units",
+			function()
+				expect(PlacementRules.isFootprintWhole({ 4, 2 })).toBe(true)
+				expect(PlacementRules.isFootprintWhole({ 2, 2 })).toBe(true)
+				expect(PlacementRules.isFootprintWhole({ 4, 1 })).toBe(false)
+				expect(PlacementRules.isFootprintWhole({ 5, 2 })).toBe(false)
+			end
+		)
 	end
 )
 

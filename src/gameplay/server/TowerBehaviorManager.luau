@@ -25,6 +25,7 @@ local TowersData = require("@game/ServerScriptService/GameData/Defenses/Towers")
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local DamageableManager = require(script.Parent.DamageableManager)
 local PlacementManager = require(script.Parent.PlacementManager)
+local RunPauseManager = require(script.Parent.RunPauseManager)
 
 local TowerBehaviorManager = {}
 TowerBehaviorManager.__index = TowerBehaviorManager
@@ -170,6 +171,9 @@ function TowerBehaviorManager:stepChain(placement: PlacementManager.Placement, s
 end
 
 function TowerBehaviorManager:step()
+	if RunPauseManager:isPaused() then
+		return
+	end
 	local now = workspace:GetServerTimeNow()
 	local catalog = PlacementManager:getCatalog()
 	local targets: { DamageableManager.Target }? = nil

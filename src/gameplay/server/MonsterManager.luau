@@ -41,6 +41,7 @@ local DamageableManager = require(script.Parent.DamageableManager)
 local MonsterPathManager = require(script.Parent.MonsterPathManager)
 local PlacementManager = require(script.Parent.PlacementManager)
 local StructureManager = require(script.Parent.StructureManager)
+local RunPauseManager = require(script.Parent.RunPauseManager)
 
 local MonsterManager = {}
 MonsterManager.__index = MonsterManager
@@ -672,10 +673,11 @@ end
 -- a flat step toward a point at the monster's speed (a slow and a stun
 -- come from DamageableManager), landing on the ground under the new spot
 -- whether a ground monster may stand at a flat point: on the grid, on
--- walkable ground, and not in a barrier's cell
+-- ground it may enter (walkable and not a pinched gap), and not in a
+-- barrier's cell
 function MonsterManager:isGroundClear(grid: FlowField.Grid, x: number, z: number): boolean
 	local index = FlowField.indexAt(grid, x, z)
-	return index ~= nil and grid.walkable[index] == true and not grid.barriers[index]
+	return index ~= nil and FlowField.isEnterable(grid, index, false) and not grid.barriers[index]
 end
 
 function MonsterManager:moveToward(monster: Monster, destination: Vector3, deltaSec: number)
@@ -696,26 +698,38 @@ function MonsterManager:moveToward(monster: Monster, destination: Vector3, delta
 		if blockedIndex and grid.barriers[blockedIndex] then
 			return
 		end
-		-- unwalkable ground (a post's footprint, a rock): slide along its
-		-- edge on whichever axis is clear. The line check that picks a
-		-- waypoint samples every half cell, so a diagonal line can clip the
-		-- corner of an unwalkable cell between samples; without the slide
-		-- the step into that corner is refused for good and the monster
-		-- walks in place at the cell edge (seen in the eighth playtest,
-		-- 2026-09-29: a zombie beside post 3)
-		local slideX = Vector3.new(flatNew.X, 0, flatFrom.Z)
-		local slideZ = Vector3.new(flatFrom.X, 0, flatNew.Z)
-		if (slideX - flatFrom).Magnitude > SLIDE_MIN_STUDS and self:isGroundClear(grid, slideX.X, slideX.Z) then
-			flatNew = slideX
-		elseif (slideZ - flatFrom).Magnitude > SLIDE_MIN_STUDS and self:isGroundClear(grid, slideZ.X, slideZ.Z) then
-			flatNew = slideZ
-		else
-			return
+		-- one already standing off the walkable ground (a spawn the scan
+		-- called blocked) walks on toward the route rather than stand there
+		-- for the whole night; one on it slides along the edge or stops
+		if self:isGroundClear(grid, flatFrom.X, flatFrom.Z) then
+			local slid = self:slideAlongEdge(grid, flatFrom, flatNew)
+			if not slid then
+				return
+			end
+			flatNew = slid
 		end
 	end
 	local groundY = MonsterPathManager:getGroundHeight(flatNew.X, flatNew.Z) or monster.groundY
 	monster.groundY = groundY
 	monster.position = Vector3.new(flatNew.X, self:rootY(monster, groundY), flatNew.Z)
+end
+
+-- a step into unwalkable ground (a post's footprint, a rock) slides along its
+-- edge on whichever axis is clear, or nil when neither is. The line check
+-- that picks a waypoint samples every half cell, so a diagonal line can
+-- clip the corner of an unwalkable cell between samples; without the slide
+-- the step into that corner is refused for good and the monster walks in
+-- place at the cell edge (seen in the eighth playtest, 2026-09-29: a
+-- zombie beside post 3)
+function MonsterManager:slideAlongEdge(grid: FlowField.Grid, flatFrom: Vector3, flatNew: Vector3): Vector3?
+	local slideX = Vector3.new(flatNew.X, 0, flatFrom.Z)
+	local slideZ = Vector3.new(flatFrom.X, 0, flatNew.Z)
+	if (slideX - flatFrom).Magnitude > SLIDE_MIN_STUDS and self:isGroundClear(grid, slideX.X, slideX.Z) then
+		return slideX
+	elseif (slideZ - flatFrom).Magnitude > SLIDE_MIN_STUDS and self:isGroundClear(grid, slideZ.X, slideZ.Z) then
+		return slideZ
+	end
+	return nil
 end
 
 -- whether a monster can walk straight to a point: the grid between them
@@ -1129,6 +1143,11 @@ function MonsterManager:init()
 	local tickSec = 1 / BehaviorData.TICK_RATE_HZ
 	RunService.Heartbeat:Connect(
 		function(deltaSec: number)
+			-- the dev tool's pause holds every monster where it stands
+			if RunPauseManager:isPaused() then
+				self.tickAccumulatorSec = 0
+				return
+			end
 			self.tickAccumulatorSec += deltaSec
 			if self.tickAccumulatorSec < tickSec then
 				return

@@ -213,6 +213,7 @@ function DefenseTableManager:init()
 	SplendidReplicationManager:setGameMetadata(Attributes.BUILD_CAMERA_MAX_DISTANCE_STUDS, TableData.CAMERA_MAX_DISTANCE_STUDS)
 	SplendidReplicationManager:setGameMetadata(Attributes.BUILD_CAMERA_PITCH_DEGREES, TableData.CAMERA_PITCH_DEGREES)
 	SplendidReplicationManager:setGameMetadata(Attributes.BUILD_CAMERA_PAN_SCREENS_PER_SEC, TableData.CAMERA_PAN_SCREENS_PER_SEC)
+	SplendidReplicationManager:setGameMetadata(Attributes.BUILD_CAMERA_TRANSITION_SEC, TableData.CAMERA_TRANSITION_SEC)
 	Players.PlayerRemoving:Connect(
 		function(player: Player)
 			self:exit(player)

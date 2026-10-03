@@ -62,6 +62,11 @@ return {
 	JAMMED_TARGET_IGNORE_SEC = 3,
 	-- the most the path grid is recomputed, however often defenses change
 	PATH_RECOMPUTE_MIN_SEC = 0.5,
+	-- a gap between walls (or a wall and the zone's edge) narrower than
+	-- this many cells is closed to ground monsters, who break a wall
+	-- instead, so a crew cannot funnel a whole night through a one-cell
+	-- slot (decided 2026-10-02; FlowField.markPinched)
+	MIN_PASSABLE_GAP_CELLS = 2,
 	-- until Revives (M32) a monster can bring a player down to this, not below
 	PLAYER_MIN_HEALTH = 1,
 	-- the most monsters alive at once; a spawn past it waits

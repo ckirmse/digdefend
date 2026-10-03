@@ -20,12 +20,20 @@ return {
 	-- defenses before the gate shuts
 	DAY_SEC = 320,
 	-- the last stretch of the day: the clock turns to its dusk picture and
-	-- every client starts Music.DuskSong1 from the top (the track is 52 s,
-	-- so it runs on into the night). Published as GameMetadata (the share of
-	-- the day and the seconds); the client plays the song once per day.
-	-- 80 since 2026-10-01 (was 60), out of the same day, after the ninth
-	-- playtest's designer was caught deep in the mine at night fall
-	DUSK_SEC = 80,
+	-- every client starts Music.DuskSong1 from the top. Published as
+	-- GameMetadata each day (the share of the day and the seconds); the
+	-- client plays the song once per day. Since 2026-10-02 dusk grows with
+	-- the run (RunCycleRules.duskSecForDay): DUSK_START_SEC on day 1, plus
+	-- DUSK_STEP_SEC a day, never past DUSK_MAX_SEC, so the warning lengthens
+	-- as the nights get harder (a fixed 80 since 2026-10-01, 60 before)
+	DUSK_START_SEC = 60,
+	DUSK_STEP_SEC = 5,
+	DUSK_MAX_SEC = 90,
+	-- the dusk song fades out over DUSK_SONG_FADE_SEC, starting
+	-- DUSK_SONG_FADE_LEAD_SEC before night falls, so it is silent that long
+	-- again after (decided 2026-10-02; it used to run on into the night)
+	DUSK_SONG_FADE_SEC = 10,
+	DUSK_SONG_FADE_LEAD_SEC = 5,
 	NIGHT_SPAWN_SEC = 90,
 	NIGHT_PLACEHOLDER_SEC = 0,
 	-- the dev tool's "Dusk now" runs what is left of the day down over

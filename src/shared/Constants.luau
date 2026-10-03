@@ -93,6 +93,8 @@ Constants.DEPARTED_HELICOPTER_NAME = "DepartedHelicopter"
 -- Enums.Map key; MapManager clones the run's map into Workspace as Camp.
 Constants.MAPS_FOLDER = "Maps"
 Constants.CAMP_FOLDER = "Camp"
+-- the map's scenery, the one part of the camp left to stream by distance
+Constants.CAMP_ENVIRONMENT_FOLDER = "Environment"
 Constants.CAMP_HELICOPTER_PAD_MODEL = "HelicopterPad"
 -- the designer's radio table that calls the rescue (M31): Camp.Radio, with
 -- the billboard on GuiPart, the authored prompt on PromptPart, and the
@@ -218,6 +220,7 @@ Constants.BUILD_BAR_EXIT_BUTTON = "ExitButton"
 Constants.BUILD_BAR_PLACE_PANEL = "PlacePanel"
 Constants.BUILD_BAR_PLACE_BUTTON = "PlaceButton"
 Constants.BUILD_BAR_CANCEL_BUTTON = "CancelButton"
+Constants.BUILD_BAR_ROTATE_BUTTON = "RotateButton"
 -- floats under one of the player's own Traps once tapped: Sell with the
 -- Iron it returns, and Close
 Constants.BUILD_BAR_SELL_PANEL = "SellPanel"

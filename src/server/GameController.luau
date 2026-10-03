@@ -78,20 +78,34 @@ local function addPlaceReadyEntry(manager: any)
 	table.insert(PLAYER_READY_SEQUENCE, { manager = manager, onReset = false })
 end
 
+-- one entry failing must not strip the player of every system after it in
+-- the chain (a per-player state never created makes every later upgrade
+-- a silent no-op; seen live on 2026-10-02), so each is run on its own
+-- and a failure is named in the Output with the manager it came from
+local function runReadyEntry(player: Player, entry: SequenceEntry, isReset: boolean)
+	local isSuccess, err = pcall(
+		function()
+			if isReset and entry.onReset == "reset" then
+				entry.manager:onPlayerReset(player)
+			elseif entry.step then
+				entry.step(player)
+			else
+				entry.manager:onPlayerReady(player)
+			end
+		end
+	)
+	if not isSuccess then
+		-- the error text names the module and line it came from
+		warn(`GameController: a ready step failed for {player.Name}; every later step still ran. {err}`)
+	end
+end
+
 local function runReadySequence(player: Player, isReset: boolean)
 	for _, entry in PLAYER_READY_SEQUENCE do
 		if isReset and entry.onReset == false then
 			continue
 		end
-		if isReset and entry.onReset == "reset" then
-			entry.manager:onPlayerReset(player)
-			continue
-		end
-		if entry.step then
-			entry.step(player)
-		else
-			entry.manager:onPlayerReady(player)
-		end
+		runReadyEntry(player, entry, isReset)
 	end
 end
 

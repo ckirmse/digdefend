@@ -49,6 +49,7 @@ end
 function BackpackManager:setLevel(player: Player, level: number)
 	local state = self.stateByPlayer[player]
 	if not state then
+		warn(`BackpackManager: {player.Name} has no backpack state to set level {level} on; was their ready step skipped?`)
 		return
 	end
 	state.level = level

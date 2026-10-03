@@ -17,10 +17,16 @@ return {
 	-- the overhead camera: how far it sits from the point it looks at (the
 	-- zoom, with its limits), and how steeply it looks down (90 is straight
 	-- down; a little less shows the fronts of the Towers)
-	CAMERA_DISTANCE_STUDS = 150,
+	-- 75 and 210 since 2026-10-02 (150 and 300 before): the view opened
+	-- too far out to use on a phone, so it opens half as far and zooms out
+	-- 30% less
+	CAMERA_DISTANCE_STUDS = 75,
 	CAMERA_MIN_DISTANCE_STUDS = 50,
-	CAMERA_MAX_DISTANCE_STUDS = 300,
+	CAMERA_MAX_DISTANCE_STUDS = 210,
 	CAMERA_PITCH_DEGREES = 65,
+	-- the camera rises from the player to the overhead view, and comes back
+	-- down on exit, over this long (2026-10-02; 1 s, cut from 2 in play)
+	CAMERA_TRANSITION_SEC = 1,
 	-- panning with the keyboard or a thumbstick, in screen heights per second
 	-- so it feels the same at every zoom
 	CAMERA_PAN_SCREENS_PER_SEC = 0.9,

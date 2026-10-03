@@ -109,14 +109,56 @@ export type UpgradeOffer = {
 PlacementRules.STARTING_LEVEL = 1
 PlacementRules.NOBODY = 0
 PlacementRules.ID_FORMAT = "Placement%d"
+-- a placement turns in quarter turns: 0 to 3, the count a footprint's
+-- columns are turned toward its rows (2026-10-02)
+PlacementRules.ROTATION_COUNT = 4
+-- every footprint and every grid is a whole number of these, so a grid
+-- can always be tiled by the smallest placement (decided 2026-10-02)
+PlacementRules.FOOTPRINT_UNIT_CELLS = 2
 
+-- a count of cells brought down to a whole number of footprint units
+local function wholeUnits(count: number): number
+	return count - count % PlacementRules.FOOTPRINT_UNIT_CELLS
+end
+
+-- the zone is cut from its centre out, and the counts are brought down
+-- to even numbers so the smallest footprint can fill the whole grid
 function PlacementRules.measureZone(zoneCFrame: CFrame, zoneSize: Vector3, cellSizeStuds: number): Grid
 	return {
 		cframe = zoneCFrame * CFrame.new(0, zoneSize.Y / 2, 0),
-		columns = math.max(0, math.floor(zoneSize.X / cellSizeStuds + 1e-6)),
-		rows = math.max(0, math.floor(zoneSize.Z / cellSizeStuds + 1e-6)),
+		columns = wholeUnits(math.max(0, math.floor(zoneSize.X / cellSizeStuds + 1e-6))),
+		rows = wholeUnits(math.max(0, math.floor(zoneSize.Z / cellSizeStuds + 1e-6))),
 		cellSizeStuds = cellSizeStuds,
 	}
+end
+
+-- whether both sides of a footprint are whole units, so it tiles the grid
+function PlacementRules.isFootprintWhole(footprint: { number }): boolean
+	return footprint[1] % PlacementRules.FOOTPRINT_UNIT_CELLS == 0 and footprint[2] % PlacementRules.FOOTPRINT_UNIT_CELLS == 0
+end
+
+-- any number of quarter turns brought into 0 to 3
+function PlacementRules.normalizeRotation(rotation: number): number
+	return math.floor(rotation) % PlacementRules.ROTATION_COUNT
+end
+
+function PlacementRules.isValidRotation(rotation: any): boolean
+	return typeof(rotation) == "number" and rotation == math.floor(rotation) and rotation >= 0 and rotation < PlacementRules.ROTATION_COUNT
+end
+
+-- the footprint as it lies on the grid once turned: an odd number of
+-- quarter turns swaps columns and rows
+function PlacementRules.rotatedFootprint(footprint: { number }, rotation: number): { number }
+	if PlacementRules.normalizeRotation(rotation) % 2 == 1 then
+		return { footprint[2], footprint[1] }
+	end
+	return { footprint[1], footprint[2] }
+end
+
+-- the yaw a model turned `rotation` quarter turns is drawn at, about the
+-- grid-aligned pose of its turned footprint
+function PlacementRules.rotationCFrame(rotation: number): CFrame
+	return CFrame.Angles(0, math.rad(90 * PlacementRules.normalizeRotation(rotation)), 0)
 end
 
 function PlacementRules.isCellInside(grid: Grid, cell: Cell): boolean

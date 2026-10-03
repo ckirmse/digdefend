@@ -7,6 +7,7 @@ local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local RunCycleData = require("@game/ServerScriptService/GameData/Control/RunCycle")
 local DevTools = require(script.Parent.Parent.Server.DevTools)
 local RunCycleManager = require(script.Parent.RunCycleManager)
+local RunPauseManager = require(script.Parent.RunPauseManager)
 
 local RunCycleDevTools = {}
 RunCycleDevTools.__index = RunCycleDevTools
@@ -17,12 +18,16 @@ RunCycleDevTools.FORCE_NIGHT_COMMAND = "forceNight"
 RunCycleDevTools.CLEAR_NIGHT_COMMAND = "clearNight"
 RunCycleDevTools.LOSE_RUN_COMMAND = "loseRun"
 RunCycleDevTools.SET_DAY_COMMAND = "setDay"
+RunCycleDevTools.SET_PAUSED_COMMAND = "setPaused"
 
 local FORCE_NIGHT_ARGS_SHAPE = {
 	isNight = "boolean",
 }
 local SET_DAY_ARGS_SHAPE = {
 	day = "positiveInteger",
+}
+local SET_PAUSED_ARGS_SHAPE = {
+	isPaused = "boolean",
 }
 local NO_ARGS_SHAPE = {}
 
@@ -71,6 +76,18 @@ function RunCycleDevTools:init()
 				return
 			end
 			RunCycleManager:setDay(args.day)
+		end
+	)
+	-- hold the whole run where it is, for a tester called away mid-run (2026-10-02)
+	DevTools:registerPlaceCommand(
+		RunCycleDevTools.SET_PAUSED_COMMAND,
+		function(_player: Player, args: { [string]: any })
+			local isValid, err = Validate.isTableShape(args, SET_PAUSED_ARGS_SHAPE)
+			if not isValid then
+				warn("RunCycleDevTools: setPaused with invalid args:", err)
+				return
+			end
+			RunPauseManager:setPaused(args.isPaused)
 		end
 	)
 end

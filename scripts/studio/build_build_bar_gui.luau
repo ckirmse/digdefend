@@ -8,9 +8,13 @@
 --     bottom (the name above a square slot with the item's picture and a
 --     Tower or Trap badge, the Iron price under it), the Exit button, the
 --     Tower counter, a hint line, and two panels the client floats beside
---     what they act on: PlacePanel under the ghost (Place with the price,
---     Cancel) and SellPanel under one of the player's Traps (Move, Sell
---     with the Iron returned, Close).
+--     what they act on: PlacePanel beside the ghost (Place with the price,
+--     green while the ghost can stand there and red while it cannot;
+--     Rotate, a picture button; Cancel, red) and SellPanel beside one of
+--     the player's Traps (Move, Sell with the Iron returned, Close). The
+--     client sets each panel's Position and AnchorPoint so it sits to the
+--     right of what it acts on, or to the left near the screen's edge
+--     (2026-10-02).
 -- Run from the Studio command bar (or the MCP execute_luau tool) in the
 -- gameplay place; it replaces any existing copies. Names must match
 -- Constants.BUILD_SURFACE_* and Constants.BUILD_BAR_*. Layout follows the
@@ -18,6 +22,7 @@
 local StarterGui = game:GetService("StarterGui")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
+local Icons = require(game.ReplicatedStorage.Shared.Icons)
 local UiStyle = require(game.ReplicatedStorage.Shared.UiStyle)
 
 ChangeHistoryService:SetWaypoint("Before BuildBar gui")
@@ -312,13 +317,30 @@ towerCountLabel.TextXAlignment = Enum.TextXAlignment.Right
 towerCountLabel.Parent = towerCount
 towerCount.Parent = gui
 
--- a panel the client floats under what it acts on: a wide action button
--- (a word, then the Iron icon and a number) and a square dismiss button.
--- The client sets only its Position
+-- a square button in a panel's row: the dismiss X, or a picture
+local function makeSquareButton(name, layoutOrder, widthShare, color)
+	local button = Instance.new("TextButton")
+	button.Name = name
+	button.LayoutOrder = layoutOrder
+	button.Size = UDim2.fromScale(widthShare, 1)
+	addAspect(button, 1, Enum.DominantAxis.Height)
+	addTouchTarget(button, Vector2.new(72, 72))
+	button.BackgroundColor3 = color
+	button.BorderSizePixel = 0
+	button.Text = ""
+	button.AutoButtonColor = true
+	addCorner(button)
+	addStroke(button, UiStyle.ACCENT_STROKE_COLOR)
+	return button
+end
+
+-- a panel the client floats beside what it acts on: a wide action button
+-- (a word, then the Iron icon and a number) and a square dismiss button,
+-- red like Exit. The client sets its Position and AnchorPoint
 local function makeActionPanel(panelName, actionName, actionText, actionColor, textColor, dismissName)
 	local panel = Instance.new("Frame")
 	panel.Name = panelName
-	panel.AnchorPoint = Vector2.new(0.5, 0)
+	panel.AnchorPoint = Vector2.new(0, 0.5)
 	panel.Position = UDim2.fromScale(0.5, 0.5)
 	panel.Size = UDim2.fromScale(0.22, 0.075)
 	addMaxSize(panel, Vector2.new(330, 72))
@@ -364,22 +386,12 @@ local function makeActionPanel(panelName, actionName, actionText, actionColor, t
 	priceLabel:FindFirstChildOfClass("UIStroke"):Destroy()
 	price.Parent = action
 
-	local dismiss = Instance.new("TextButton")
-	dismiss.Name = dismissName
-	dismiss.LayoutOrder = 2
-	dismiss.Size = UDim2.fromScale(0.2, 1)
-	addAspect(dismiss, 1, Enum.DominantAxis.Height)
-	addTouchTarget(dismiss, Vector2.new(72, 72))
-	dismiss.BackgroundColor3 = UiStyle.EMPTY_SLOT_COLOR
-	dismiss.BorderSizePixel = 0
+	local dismiss = makeSquareButton(dismissName, 3, 0.2, UiStyle.NEGATIVE_COLOR)
 	dismiss.Text = "X"
 	dismiss.TextColor3 = UiStyle.TEXT_COLOR
 	dismiss.TextScaled = true
 	dismiss.FontFace = UiStyle.TITLE_FONT
-	dismiss.AutoButtonColor = true
 	addTextSizeBounds(dismiss, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.BODY_TEXT_MAX_PX)
-	addCorner(dismiss)
-	addStroke(dismiss, UiStyle.ACCENT_STROKE_COLOR)
 	local dismissPadding = Instance.new("UIPadding")
 	dismissPadding.PaddingTop = UDim.new(0.2, 0)
 	dismissPadding.PaddingBottom = UDim.new(0.2, 0)
@@ -390,7 +402,27 @@ local function makeActionPanel(panelName, actionName, actionText, actionColor, t
 	return panel
 end
 
-makeActionPanel("PlacePanel", "PlaceButton", "Place", UiStyle.ACCENT_COLOR, UiStyle.ACCENT_STROKE_COLOR, "CancelButton")
+-- the Place panel: Place (the client colours it green or red by whether
+-- the ghost can stand), Rotate (a picture button between Place and
+-- Cancel), Cancel. The panel is wider for the third button
+local placePanel = makeActionPanel("PlacePanel", "PlaceButton", "Place", UiStyle.POSITIVE_COLOR, UiStyle.TEXT_COLOR, "CancelButton")
+placePanel.Size = UDim2.fromScale(0.28, 0.075)
+placePanel:FindFirstChildOfClass("UISizeConstraint").MaxSize = Vector2.new(420, 72)
+placePanel.PlaceButton.Size = UDim2.fromScale(0.58, 1)
+placePanel.CancelButton.Size = UDim2.fromScale(0.16, 1)
+local rotateButton = makeSquareButton("RotateButton", 2, 0.16, UiStyle.PANEL_COLOR)
+local rotateIcon = Instance.new("ImageLabel")
+rotateIcon.Name = "Icon"
+rotateIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+rotateIcon.Position = UDim2.fromScale(0.5, 0.5)
+rotateIcon.Size = UDim2.fromScale(0.7, 0.7)
+rotateIcon.BackgroundTransparency = 1
+rotateIcon.Image = Icons.UI.ROTATE
+rotateIcon.ImageColor3 = UiStyle.TEXT_COLOR
+rotateIcon.ScaleType = Enum.ScaleType.Fit
+rotateIcon.Parent = rotateButton
+rotateButton.Parent = placePanel
+
 local sellPanel = makeActionPanel("SellPanel", "SellButton", "Sell", UiStyle.NEGATIVE_COLOR, UiStyle.TEXT_COLOR, "CloseButton")
 
 -- the Sell panel also offers Move, first in the row: the panel is wider

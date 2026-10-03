@@ -9,6 +9,7 @@
 -- from where they are.
 local Debris = game:GetService("Debris")
 local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
 
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
@@ -103,6 +104,33 @@ function ClientSoundManager:playMusic(name: string, isLooping: boolean?)
 	player.Looping = isLooping == true
 	player.TimePosition = 0
 	player:Play()
+end
+
+-- a playing track eased to silence over fadeSec and then stopped, its
+-- authored volume put back for the next play (the dusk song, 2026-10-02)
+function ClientSoundManager:fadeOutMusic(name: string, fadeSec: number)
+	local player = self:findPlayer(self.musicFolder, name)
+	if not player then
+		return
+	end
+	if not player.IsPlaying then
+		return
+	end
+	local authoredVolume = self.authoredVolumeByName[name]
+	if authoredVolume == nil then
+		authoredVolume = player.Volume
+		self.authoredVolumeByName[name] = authoredVolume
+	end
+	local tween = TweenService:Create(player, TweenInfo.new(math.max(fadeSec, 0.01), Enum.EasingStyle.Linear), { Volume = 0 })
+	tween.Completed:Connect(
+		function(state: Enum.PlaybackState)
+			if state == Enum.PlaybackState.Completed then
+				player:Stop()
+				player.Volume = authoredVolume :: number
+			end
+		end
+	)
+	tween:Play()
 end
 
 -- a 3D one-shot heard from a world position by this client only (gunfire:

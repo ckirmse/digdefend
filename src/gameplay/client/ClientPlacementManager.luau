@@ -194,9 +194,25 @@ function ClientPlacementManager:buildModel(placementKind: number, typeKind: numb
 	return model
 end
 
--- the shadow's centre is half its height above the top face it stands on
+-- the shadow's centre is half its height above the top face it stands on;
+-- the pose is grid-aligned, whatever way the placement was turned
 function ClientPlacementManager:basePose(shadow: BasePart): CFrame
 	return shadow.CFrame * CFrame.new(0, -shadow.Size.Y / 2, 0)
+end
+
+-- the pose the model is drawn at: the base pose turned the placement's
+-- quarter turns (2026-10-02)
+function ClientPlacementManager:modelPose(shadow: BasePart): CFrame
+	return self:basePose(shadow) * PlacementRules.rotationCFrame(readNumber(shadow:GetAttribute(Attributes.PLACEMENT_ROTATION), 0))
+end
+
+-- the cells a tracked placement covers, as the catalogue's footprint
+-- turned the way it was placed
+function ClientPlacementManager:footprintOf(shadow: BasePart, catalog: PlacementRules.Catalog): { number }
+	local placementKind = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_KIND), 0)
+	local typeKind = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_TYPE_KIND), 0)
+	local footprint = PlacementRules.footprintFor(catalog, placementKind, typeKind) or { 1, 1 }
+	return PlacementRules.rotatedFootprint(footprint, readNumber(shadow:GetAttribute(Attributes.PLACEMENT_ROTATION), 0))
 end
 
 function ClientPlacementManager:findBillboardTemplate(): BillboardGui?
@@ -356,7 +372,10 @@ end
 
 -- the turret: every part but the base, remembered at rest so any yaw is
 -- one transform from the base; a cone kind also gets its flame, a part
--- along the barrel as long as the kind's range, hidden until it breathes
+-- along the barrel as long as the kind's range, hidden until it breathes.
+-- The server's yaw is about the grid-aligned pose, so the rest offsets
+-- are taken against the turned pose the body was drawn at: yaw 0 then
+-- faces the grid whatever way the base was turned
 function ClientPlacementManager:bindTurret(tracked: Tracked, body: Model)
 	tracked.turretParts = {}
 	local tower = self:getTowerData(tracked.shadow)
@@ -365,11 +384,12 @@ function ClientPlacementManager:bindTurret(tracked: Tracked, body: Model)
 		return
 	end
 	local pose = self:basePose(tracked.shadow)
+	local drawnPose = self:modelPose(tracked.shadow)
 	for _, descendant in body:GetDescendants() do
 		if descendant:IsA("BasePart") and descendant.Name ~= TURRET_BASE_PART then
 			table.insert(tracked.turretParts, {
 				part = descendant,
-				restOffset = pose:ToObjectSpace(descendant.CFrame),
+				restOffset = drawnPose:ToObjectSpace(descendant.CFrame),
 			})
 		end
 	end
@@ -440,7 +460,7 @@ function ClientPlacementManager:dress(tracked: Tracked)
 	end
 	local body = self:buildModel(placementKind, typeKind, shadow.Size)
 	body.Name = shadow.Name
-	body:PivotTo(self:basePose(shadow))
+	body:PivotTo(self:modelPose(shadow))
 	body.Parent = self:getBodiesFolder()
 	tracked.body = body
 	tracked.flame = nil
@@ -491,12 +511,14 @@ function ClientPlacementManager:track(shadow: Instance)
 			)
 		)
 	end
-	-- an upgrade can lengthen a cone's range, so the body is dressed again
+	-- an upgrade can lengthen a cone's range, so the body is dressed again,
+	-- and the range rings Build Mode draws follow it
 	table.insert(
 		tracked.connections,
 		shadow:GetAttributeChangedSignal(Attributes.PLACEMENT_LEVEL):Connect(
 			function()
 				self:dress(tracked)
+				self:fireChanged()
 			end
 		)
 	)
@@ -539,7 +561,7 @@ function ClientPlacementManager:track(shadow: Instance)
 			end
 		)
 	)
-	for _, attribute in { Attributes.PLACEMENT_COLUMN, Attributes.PLACEMENT_ROW, Attributes.DEFENSIVE_ZONE_INDEX } do
+	for _, attribute in { Attributes.PLACEMENT_COLUMN, Attributes.PLACEMENT_ROW, Attributes.PLACEMENT_ROTATION, Attributes.DEFENSIVE_ZONE_INDEX } do
 		table.insert(
 			tracked.connections,
 			shadow:GetAttributeChangedSignal(attribute):Connect(

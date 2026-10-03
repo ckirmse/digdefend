@@ -57,8 +57,11 @@ export type ClientRunCycleManager = typeof(setmetatable(
 		fill: Frame?,
 		dayLabel: TextLabel?,
 		shownPhase: number?,
-		-- the day whose dusk song has already started, so it plays once a day
+		-- the day whose dusk song has already started, so it plays once a day,
+		-- the night fall it is heading for, and whether its fade has begun
 		duskSongDay: number?,
+		duskSongEndTime: number?,
+		isDuskSongFading: boolean,
 		-- which preset the sky was last sent toward (Enums.RunState DAY or NIGHT)
 		warnedChildren: { [string]: boolean },
 	},
@@ -92,6 +95,8 @@ local FIRST_DAY = 1
 -- dusk is the last 40 s of a 300 s day; the server publishes the real numbers
 local DEFAULT_DUSK_SHARE = 60 / 320
 local DEFAULT_DUSK_SONG_LEAD_SEC = 60
+local DEFAULT_DUSK_SONG_FADE_SEC = 10
+local DEFAULT_DUSK_SONG_FADE_LEAD_SEC = 5
 local DEFAULT_DAWN_TRANSITION_SEC = 1
 local DEFAULT_DUSK_TRANSITION_SEC = 1
 local DEFAULT_NIGHT_SPAWN_SEC = 90
@@ -256,10 +261,25 @@ function ClientRunCycleManager:stepSky(runState: number, startTime: number, endT
 end
 
 -- every frame: the bar from the published phase times against server time
--- the dusk song starts from the top a fixed lead before the night falls
+-- the dusk song starts from the top the day's dusk before the night falls
 -- (the day's published end time), once per day; a day cut short by the
--- dev tool starts it as soon as the lead is reached
+-- dev tool starts it as soon as the lead is reached. It fades out over
+-- the published fade, beginning the fade lead before night falls, so it
+-- is silent that long again into the night (2026-10-02)
 function ClientRunCycleManager:stepDuskSong(runState: number, endTime: number, now: number)
+	local songEndTime = self.duskSongEndTime
+	if songEndTime and not self.isDuskSongFading then
+		local fadeLeadSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_DUSK_SONG_FADE_LEAD_SEC), DEFAULT_DUSK_SONG_FADE_LEAD_SEC)
+		-- a day cut short by the dev tool brings the fall, and the fade, forward
+		if runState == Enums.RunState.DAY and endTime > 0 and endTime < songEndTime then
+			songEndTime = endTime
+			self.duskSongEndTime = endTime
+		end
+		if now >= songEndTime - fadeLeadSec then
+			self.isDuskSongFading = true
+			ClientSoundManager:fadeOutMusic(SoundNames.Music.DUSK_SONG_1, readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_DUSK_SONG_FADE_SEC), DEFAULT_DUSK_SONG_FADE_SEC))
+		end
+	end
 	if runState ~= Enums.RunState.DAY then
 		return
 	end
@@ -272,6 +292,8 @@ function ClientRunCycleManager:stepDuskSong(runState: number, endTime: number, n
 		return
 	end
 	self.duskSongDay = day
+	self.duskSongEndTime = endTime
+	self.isDuskSongFading = false
 	ClientSoundManager:playMusic(SoundNames.Music.DUSK_SONG_1)
 end
 
@@ -281,6 +303,11 @@ function ClientRunCycleManager:step()
 	local endTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_PHASE_END_TIME), 0)
 	local duskShare = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_DUSK_SHARE), DEFAULT_DUSK_SHARE)
 	local now = workspace:GetServerTimeNow()
+	-- the dev tool's pause holds the clock at the moment it was pressed
+	local pauseStartTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_PAUSE_START_TIME), 0)
+	if pauseStartTime > 0 then
+		now = pauseStartTime
+	end
 	local shareLeft = if runState == Enums.RunState.DAY then RunCycleRules.dayShareLeft(startTime, endTime, now) elseif runState == Enums.RunState.WAITING then 1 else 0
 	local fill = self.fill
 	if fill then
@@ -397,6 +424,8 @@ function ClientRunCycleManager.new(): ClientRunCycleManager
 	self.dayLabel = nil
 	self.shownPhase = nil
 	self.duskSongDay = nil
+	self.duskSongEndTime = nil
+	self.isDuskSongFading = false
 	self.warnedChildren = {}
 	return self
 end

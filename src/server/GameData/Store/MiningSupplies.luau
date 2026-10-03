@@ -17,7 +17,8 @@ return {
 		-- simulator curve): the price is the brake now that no camp level
 		-- gates a rung, and Gold per rock climbs deeper so the last rung is
 		-- as reachable on day 9 as the first was on day 2
-		[Enums.StoreItem.PICK_AXE] = { priceByLevel = { 0, 30, 90, 270, 800 } },
+		-- level 2 is 20 since 2026-10-02 (was 30), so the first pick is a day-1 buy
+		[Enums.StoreItem.PICK_AXE] = { priceByLevel = { 0, 20, 90, 270, 800 } },
 		[Enums.StoreItem.BOOTS] = { priceByLevel = { 0, 20, 60, 180, 540 } },
 		[Enums.StoreItem.BACKPACK] = { priceByLevel = { 0, 20, 60, 180, 540 } },
 		[Enums.StoreItem.JET_PACK] = { priceByLevel = { 0, 40, 120, 360, 1080 } },

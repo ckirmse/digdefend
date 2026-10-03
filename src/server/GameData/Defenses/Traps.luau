@@ -32,11 +32,14 @@ return {
 		[Enums.TrapKind.WALL] = {
 			PRICE_IRON = 12,
 			MAX_HP = 300,
-			-- a run of wall, four cells along the zone's columns and one deep
-			-- (2026-09-25, was a 2 x 2 block): the Defensive Zone's columns run
-			-- across the monsters' approach, so a placed wall lies across it.
-			-- The template (GameAssets/Traps/WALL) is sized to match
-			FOOTPRINT_CELLS = { 4, 1 },
+			-- a run of wall, four cells along the zone's columns and two deep
+			-- (2026-10-02; four by one from 2026-09-25, a 2 x 2 block before): the
+			-- Defensive Zone's columns run across the monsters' approach, so a
+			-- placed wall lies across it, and the player turns it with the Rotate
+			-- button. Every footprint is whole PlacementRules.FOOTPRINT_UNIT_CELLS
+			-- so the grid tiles. The template (GameAssets/Traps/WALL) is sized
+			-- to the footprint's length with no gap, so a row of walls joins up
+			FOOTPRINT_CELLS = { 4, 2 },
 			REQUIRED_CAMP_LEVEL = 1,
 			IS_REPAIRABLE = true,
 			BEHAVIOR = Enums.TrapBehavior.BARRIER,
@@ -56,7 +59,8 @@ return {
 		[Enums.TrapKind.GOO_PIT] = {
 			PRICE_IRON = 10,
 			MAX_HP = 100,
-			FOOTPRINT_CELLS = { 5, 2 },
+			-- 4 x 2 since 2026-10-02 (5 x 2 before) so it is whole units
+			FOOTPRINT_CELLS = { 4, 2 },
 			REQUIRED_CAMP_LEVEL = 1,
 			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.GOO,
@@ -66,7 +70,8 @@ return {
 		[Enums.TrapKind.LAND_MINE] = {
 			PRICE_IRON = 20,
 			MAX_HP = 60,
-			FOOTPRINT_CELLS = { 1, 1 },
+			-- 2 x 2 since 2026-10-02 (1 x 1 before): the smallest footprint
+			FOOTPRINT_CELLS = { 2, 2 },
 			REQUIRED_CAMP_LEVEL = 1,
 			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.MINE,
@@ -76,7 +81,7 @@ return {
 		[Enums.TrapKind.BEAR_TRAP] = {
 			PRICE_IRON = 8,
 			MAX_HP = 80,
-			FOOTPRINT_CELLS = { 1, 1 },
+			FOOTPRINT_CELLS = { 2, 2 },
 			REQUIRED_CAMP_LEVEL = 1,
 			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.SNARE,

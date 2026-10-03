@@ -32,6 +32,7 @@ local FORCE_NIGHT_COMMAND = "forceNight"
 local CLEAR_NIGHT_COMMAND = "clearNight"
 local LOSE_RUN_COMMAND = "loseRun"
 local SET_DAY_COMMAND = "setDay"
+local SET_PAUSED_COMMAND = "setPaused"
 -- must match RescueDevTools.*_COMMAND on the server
 local URANIUM_TO_TARGET_COMMAND = "uraniumToTarget"
 local CALL_HELICOPTER_COMMAND = "callHelicopter"
@@ -58,6 +59,11 @@ end
 function ClientRunDevTools:renderSection()
 	local runState = ClientDataManager:getGameMetadata(Attributes.RUN_STATE)
 	Iris.Text({ `Run: {Enums.getPublicName(Enums.RunState, if typeof(runState) == "number" then runState else 0) or "?"}, day {tostring(ClientDataManager:getGameMetadata(Attributes.RUN_DAY))}, crew {tostring(ClientDataManager:getGameMetadata(Attributes.RUN_SCALING_COUNT))}` })
+	local pauseStartTime = ClientDataManager:getGameMetadata(Attributes.RUN_PAUSE_START_TIME)
+	local isPaused = typeof(pauseStartTime) == "number" and pauseStartTime > 0
+	if Iris.Button({ if isPaused then "Resume the run" else "Pause the run" }).clicked() then
+		self:send(SET_PAUSED_COMMAND, { isPaused = not isPaused })
+	end
 	if Iris.Button({ "Dusk now" }).clicked() then
 		self:send(FORCE_NIGHT_COMMAND, { isNight = true })
 	end

@@ -29,6 +29,9 @@ export type Grid = {
 	heights: { number },
 	-- cell index -> the barrier id standing there
 	barriers: { [number]: string },
+	-- by cell index: open ground a ground monster still may not use because
+	-- the gap it lies in is narrower than the minimum (FlowField.markPinched)
+	pinched: { [number]: boolean },
 }
 
 export type Field = {
@@ -72,6 +75,7 @@ function FlowField.newGrid(originX: number, originZ: number, columns: number, ro
 		walkable = walkable,
 		heights = heights,
 		barriers = {},
+		pinched = {},
 	}
 end
 
@@ -100,7 +104,73 @@ function FlowField.centerOf(grid: Grid, index: number): (number, number)
 end
 
 function FlowField.isEnterable(grid: Grid, index: number, isAir: boolean): boolean
-	return if isAir then grid.inside[index] else grid.walkable[index]
+	return if isAir then grid.inside[index] else (grid.walkable[index] and not grid.pinched[index])
+end
+
+-- whether a ground monster is stopped at a cell: off the grid, blocked
+-- ground, or a barrier
+local function isSolid(grid: Grid, column: number, row: number): boolean
+	if column < 1 or column > grid.columns or row < 1 or row > grid.rows then
+		return true
+	end
+	local index = FlowField.indexOf(grid, column, row)
+	return not grid.walkable[index] or grid.barriers[index] ~= nil
+end
+
+local function isBarrier(grid: Grid, column: number, row: number): boolean
+	if column < 1 or column > grid.columns or row < 1 or row > grid.rows then
+		return false
+	end
+	return grid.barriers[FlowField.indexOf(grid, column, row)] ~= nil
+end
+
+-- the open cells along one axis through a cell, bounded by solids: how
+-- long the run is and whether a barrier closes either end
+local function measureRun(grid: Grid, column: number, row: number, stepColumn: number, stepRow: number): (number, boolean)
+	local length = 1
+	local isBarrierBounded = false
+	for direction = -1, 1, 2 do
+		local nextColumn = column + stepColumn * direction
+		local nextRow = row + stepRow * direction
+		while not isSolid(grid, nextColumn, nextRow) do
+			length += 1
+			nextColumn += stepColumn * direction
+			nextRow += stepRow * direction
+		end
+		if isBarrier(grid, nextColumn, nextRow) then
+			isBarrierBounded = true
+		end
+	end
+	return length, isBarrierBounded
+end
+
+-- closes every open cell that lies in a gap narrower than minGapCells
+-- along either axis where a barrier closes the gap (a wall against a
+-- wall, a wall against the zone's edge or a rock), so a crew cannot
+-- funnel the whole night through a one-cell slot: a ground monster
+-- treats such a cell as solid and breaks a wall instead (decided
+-- 2026-10-02). A narrow place between map geometry alone stays open, so
+-- an authored corridor is never shut. Recomputed with the barriers
+function FlowField.markPinched(grid: Grid, minGapCells: number)
+	grid.pinched = {}
+	if minGapCells <= 1 then
+		return
+	end
+	for row = 1, grid.rows do
+		for column = 1, grid.columns do
+			local index = FlowField.indexOf(grid, column, row)
+			if not grid.walkable[index] or grid.barriers[index] then
+				continue
+			end
+			for _, axis in { { 1, 0 }, { 0, 1 } } do
+				local length, isBarrierBounded = measureRun(grid, column, row, axis[1], axis[2])
+				if length < minGapCells and isBarrierBounded then
+					grid.pinched[index] = true
+					break
+				end
+			end
+		end
+	end
 end
 
 -- a binary min-heap of cell indices by cost, in two parallel arrays

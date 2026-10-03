@@ -22,6 +22,7 @@ local TrapRules = require("@game/ReplicatedStorage/Shared/TrapRules")
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local DamageableManager = require(script.Parent.DamageableManager)
 local PlacementManager = require(script.Parent.PlacementManager)
+local RunPauseManager = require(script.Parent.RunPauseManager)
 
 local TrapBehaviorManager = {}
 TrapBehaviorManager.__index = TrapBehaviorManager
@@ -146,6 +147,9 @@ function TrapBehaviorManager:stepSnare(placement: PlacementManager.Placement, tr
 end
 
 function TrapBehaviorManager:step(deltaSec: number)
+	if RunPauseManager:isPaused() then
+		return
+	end
 	local now = workspace:GetServerTimeNow()
 	-- walkers a barrier holds up wear it down
 	for _, blocked in DamageableManager:getBlockedTargets() do

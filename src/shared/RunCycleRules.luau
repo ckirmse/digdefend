@@ -19,6 +19,12 @@ function RunCycleRules.dayShareLeft(dayStartTime: number, dayEndTime: number, no
 	return math.clamp((dayEndTime - now) / length, 0, 1)
 end
 
+-- how long dusk lasts on a day: startSec on day 1, stepSec more each day
+-- after, never past maxSec (decided 2026-10-02)
+function RunCycleRules.duskSecForDay(day: number, startSec: number, stepSec: number, maxSec: number): number
+	return math.min(startSec + stepSec * math.max(math.floor(day) - 1, 0), maxSec)
+end
+
 -- which of the clock's three pictures shows: day while the crew lands
 -- and through a day until its last duskShare, which is dusk; night for
 -- a night and for a run that is over
