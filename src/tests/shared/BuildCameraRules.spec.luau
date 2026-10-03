@@ -155,15 +155,16 @@ describe(
 		it(
 			"keeps the focus on the zone's rectangle and surface",
 			function()
-				-- a 40 x 20 stud zone whose top face is at y = 1
-				local grid = PlacementRules.measureZone(CFrame.new(100, 0, 0), Vector3.new(40, 2, 20), 4)
+				-- a 40 x 24 stud zone whose top face is at y = 1 (an even count of
+				-- rows: a grid rounds its counts down to even since 2026-10-02)
+				local grid = PlacementRules.measureZone(CFrame.new(100, 0, 0), Vector3.new(40, 2, 24), 4)
 				local inside = BuildCameraRules.clampFocus(grid, Vector3.new(110, 50, 5))
 				expect(inside.X).toBeCloseTo(110, 4)
 				expect(inside.Y).toBeCloseTo(1, 4)
 				expect(inside.Z).toBeCloseTo(5, 4)
 				local outside = BuildCameraRules.clampFocus(grid, Vector3.new(500, 0, -500))
 				expect(outside.X).toBeCloseTo(120, 4)
-				expect(outside.Z).toBeCloseTo(-10, 4)
+				expect(outside.Z).toBeCloseTo(-12, 4)
 			end
 		)
 	end
