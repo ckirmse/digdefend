@@ -11,7 +11,7 @@ Rules:
 - Core loop first, art and polish later. A cube enemy is a fine enemy until Phase 9.
 - When copying UI or systems from the reference games, restyle to this project's UI standards (fonts, capitalization, centering, sparse exclamation points).
 
-Open design questions (sections of the GDD that are still empty headings, to be filled before their phase begins): Backpack, Boots, Posts, Defenses, Traps, Camp Level, Wave Cycle, Monsters, Random Events, Adjusting for Player Counts, Revives, Spectate Mode, Menus, Audio.
+Open design questions (sections of the GDD that are still empty headings, to be filled before their phase begins): Backpack, Boots, Posts, Defenses, Traps, Camp Level, Wave Cycle, Monsters, Random Events, Adjusting for Player Counts, Revives, Spectate Mode, Menus, Audio. Added 2026-10-03: Classes and Contracts have a direction in the GDD but every detail is still to be fleshed out (roster, odds, skills, XP curve, prices, tier curve, modifiers); see their "To be fleshed out" bullets. Revised the same day to four directly unlocked Classes with rolled, graded skills (21 at launch) instead of pulled Classes.
 
 ---
 
@@ -28,7 +28,7 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 ## Phase 6: Enemies and the Core Loop
 
 **M32 — Death, revives, and spectate**
-Player death handling, revive mechanic, spectate mode for dead players, all-dead loss. Needs the empty "Revives" and "Spectate Mode" sections filled first.
+Player death handling, revive mechanic, spectate mode for dead players, all-dead loss. Needs the empty "Revives" and "Spectate Mode" sections filled first. 2026-10-03: design the revive so a paid Revive product (M40) can hook into it.
 
 **M33 — Player-count scaling and return to lobby**
 Wave and resource adjustments for 1 to 6 players. Run-end summary screen with Cash milestones earned, then teleport back to the lobby. Needs the "Adjusting for Different Player Counts" section filled first.
@@ -37,6 +37,11 @@ Wave and resource adjustments for 1 to 6 players. Run-end summary screen with Ca
 Play Deadman's Canyon Normal solo and with a group, start to finish. Fix blockers, tune the first-pass numbers. This is the "core game is playable" gate.
 
 ## Phase 7: Meta Progression and Lobby Economy
+
+2026-10-03: the lobby economy is now the Class system plus the Contract system (GDD "Classes", "Contracts"). Both need fleshing out before any milestone in this phase starts; M35, M37, and M38 below are written for the earlier design and are redesigned with them. New milestones are numbered M55 upward and sit where they are built.
+
+**M55 — Class data and save shape** (needs fleshing out)
+Class definitions in GameData for the four launch Classes (kit, signature skill, skill pool of 5 shared and 3 exclusive) and the per-Class record in `PlayerSaveSchema` (owned, level, XP, chosen skills and their grades, stars), with reset-contract coverage and replication. The starter Class for every new player; the other three unlock directly with Cash. Decide here whether the reference games' `Item` pattern is ported after all, since a Class is the first instanced per-player record. Needs the "Classes" roster and save questions answered first.
 
 **M35 — Store config and Store Menu**
 Single `StoreConfig` GameData file driving Featured, Weapons, Posts, Placements, and Currency sections. Three-panel Store Menu with vertical scrolling inventory, item panel, and buy flow for Cash and Robux. Insufficient Cash routes to the smallest sufficient currency pack. Owned non-repeatable items hidden.
@@ -47,14 +52,26 @@ Showcase models in `Workspace.Store.Items` with `StoreItem` attributes and proxi
 **M37 — Loadout Menu**
 Owned/unowned/equipped states, equip/unequip/buy actions, slot replacement rules, five-slot loadout display. Loadout carried into the gameplay place via PlayerData.
 
+**M56 — Class XP and the skill system** (needs fleshing out)
+Class XP earned per run, the in-run skill system (21 launch skills: 5 shared, 12 exclusive, 4 signature, each rolled skill at grade I to III), and slots 2 and 3 unlocking at Class levels. Normal, Hard, and Nightmare stay tuned for a level 1 Class. Needs the skills, their grade values, and the XP curve decided first.
+
+**M57 — Skill rolls** (needs fleshing out)
+Class roster and roll screen: a pick of three from the Class's pool of eight, free on unlock, a Cash reroll that can always keep the current skill, the slot lock, grade odds shown, and a direct-purchase path where `PolicyService` reports paid random items as restricted. Needs grade odds and prices decided first.
+
 **M38 — Cash milestones**
 In-run milestone table awarding Cash. (Player level, XP, the level-10 bonus loadout slot, and level-gated pads were removed from the design on 2026-09-10; pads gate on completions only.)
+
+**M58 — Class mastery and promotion** (needs fleshing out)
+Max-level rewards other players can see (gold pick axe, overhead title, helicopter skin), the account-wide bonus per mastered Class, promotion (level reset, gaining a star, a cosmetic, and a Cash multiplier), Class and level shown in the Queue Menu, and the run-end awards (top miner, gunner, repairer) on the M33 summary. Needs the reward values decided first.
+
+**M61 — Cosmetics and the random box** (needs fleshing out)
+Skins for the handheld weapon, post weapon, mining gear, helicopter, and Class, owned per player and equipped in the lobby, replicated so crewmates see them. Obtained from a random box with rarity tiers and odds shown, with the `PolicyService` paid-random-items path. Needs the box price and currency, odds, duplicate rule, launch skin list, and the Class skin question (uniform over the avatar or full character) decided first.
 
 **M39 — Daily Rewards**
 Daily Rewards Menu ported from lights with configurable day count and rewards, restyled to this project's UI standards.
 
 **M40 — Dev products and Robux purchase handling**
-`ProcessReceipt` for currency packs and Robux store items, idempotent granting, purchase logging.
+`ProcessReceipt` for currency packs and Robux store items, idempotent granting, purchase logging. Added 2026-10-03 (needs fleshing out, prices undecided; GDD "Classes"): the 2x Cash, 2x Class XP, and fourth-skill-option gamepasses, the Revive product, the cosmetic box (M61), and the one-time starter pack. A season pass and further Classes are post launch.
 
 ## Phase 8: Second Map and Content Breadth
 
@@ -67,11 +84,17 @@ Second camp with more exposure and its own mine and wave data. Weather placehold
 **M43 — Difficulty tiers for both maps**
 Hard and Nightmare tuning for both maps. Map and difficulty unlock chain verified end to end.
 
+**M59 — Contract tiers** (needs fleshing out)
+The endless ladder past Nightmare: each tier a harder set of wave generator parameters with a rising Cash multiplier, unlock chain, Create Party Menu selection, and the balance sheet auditing a tier. Needs the "Contracts" tier and multiplier curves decided first.
+
 **M44 — Launch content**
 Full launch roster of weapons, post weapons, defensive units, traps, and mining tool tiers with data and placeholder models.
 
 **M45 — Random events**
 Mid-run random events framework and a first few events. Needs the empty "Random Events" section filled first.
+
+**M60 — Weekly Contract and leaderboards** (needs fleshing out)
+One featured map and tier a week with a modifier built on the M45 events framework, weekly rewards, and lobby leaderboards (highest tier cleared, fastest rescue, per Class). Needs the modifier list and the leaderboard's place in the lobby decided first.
 
 ## Phase 9: Art, Audio, and Feel
 

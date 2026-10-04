@@ -14,6 +14,7 @@ Overview
 * To win, players will need to extract the required amount of Uranium and survive long enough to be airlifted out by the company’s rescue helicopter
 * Players lose by dying or having their processing machine destroyed
 * In addition to in run currency, players receive Cash for reaching certain milestones during each run, which they can use outside the run to unlock new weapons, post upgrades, and defensive placements
+* Proposed 2026-10-03, to be fleshed out: the lobby economy becomes a Class system (four characters unlocked with Cash and levelled by playing, each with skills that are rolled and rerolled) plus a Contract system (endless difficulty tiers and a weekly contract), which together are the reason to keep playing after a map is beaten. See "Classes" and "Contracts" near the end of this document
 * As players level up their skills, they’ll be able to embark on more challenging missions in different locations 
 Place Structure
 * The game will have two separate places: a lobby place and a gameplay place. 
@@ -163,6 +164,7 @@ HUD
 
 
 Store Menu
+* To be redesigned (2026-10-03): with the Class system a weapon and a post weapon come with a Class rather than being bought one by one, so the Weapons and Posts sections below become a Class roster with a skill roll screen, and the Robux products listed under "Classes" join the store. What follows is the earlier design, kept until "Classes" is fleshed out
 * The store menu can be accessed from the Store Button in the HUD or via a proximity prompt in the 3D Store
 * The Store Menu will have 5 different sections:
    * Featured
@@ -194,6 +196,7 @@ Store Menu
 
 
 Loadout Menu
+* To be redesigned (2026-10-03): with the Class system this menu picks the Class to bring (its weapon, post weapon, and skills come with it) and the 3 Defenses, which stay the player's choice. What follows is the earlier design, kept until "Classes" is fleshed out
 * This menu allows players to view their current inventory and select their loadout
 * Players have a total of 5 slots per loadout
    * 1 for a handheld weapon
@@ -243,6 +246,7 @@ Create Party Menu
 * All selection state is client-side until Create is pressed. The server receives one message with the full selection and validates it.
 Queue Menu
 * The Queue Menu appears when a player is in a Boarding party (see Helicopter Pads section)
+* Proposed 2026-10-03, to be fleshed out: each member's Class and Class level show beside their name, so a host can see who is joining (see "Classes")
 * Every member sees: map name, difficulty name, "Players: X / Y", visibility ("Public" or "Friends Only"), the host's display name, and "Departing in N seconds"
 * It has an ExitButton at the bottom center of the screen
    * When pressed, the player is removed from the party and their character is moved to the ExitSpawn part of the HelicopterPad model they're on
@@ -1780,6 +1784,42 @@ Revives
 
 
 Spectate Mode
+Classes
+* Status (proposed 2026-10-03): the direction is agreed, nothing is built, and every bullet in this section needs to be fleshed out before its milestone begins (M55 to M58). It replaces buying weapons and post weapons one by one; the Store Menu and Loadout Menu sections describe the earlier design and are redesigned with it
+* A Class is a character a player owns and brings on a run. Each Class fixes a handheld weapon, a Post weapon, and one signature skill, so its kit always works and a crewmate can read what it does from its name. The 3 Defenses stay the player's choice and are still unlocked with Cash directly, so the question "what does this crew need" is still answered in the lobby
+* Four Classes at launch, one per job a run really has (decided 2026-10-03, replacing eight pulled Classes: the game has about four distinct jobs today, and more Classes would be the same thing with different numbers): a digger, a hauler or scout, a gunner, and an engineer who builds and repairs. No Class is stronger in base stats than another
+* Every player starts with one fixed Class (Rifle, Machine Gun, Sentry Gun). The other three are unlocked directly with Cash, never pulled: four is too few to pull for
+* New Classes come after launch, each together with the new mechanic that gives it a job (Revives bring a medic, monsters loose in the mine bring a guard, Frostbite Pass weather a survivalist), so the roster grows without filler and each one reopens the skill rolls for players who had finished
+* Class XP: earned by playing runs as that Class and kept per Class, so every new Class is a fresh bar to fill. (Player level and XP were removed from the design on 2026-09-10; this is per character, not per player)
+* Skills: a Class has up to 3 skill slots. Slot 1 is the signature skill and is available from the start; slots 2 and 3 unlock at Class levels. When a slot unlocks the player is offered three skills from the Class's pool and picks one, free the first time, so two players' copies of the same Class can be built differently. A reroll costs Cash and offers a new three; the player may always keep the current skill, so a reroll never makes a character worse
+* Skill rolls are the random part of the system and its repeating Cash sink. Cash is earned in runs and is what Robux buys, so a player who never pays still rolls
+* Skill pool: each Class rolls from 8 skills, 5 shared by every Class (covering mining and defense) and 3 only that Class can roll. With the 4 signature skills that is 21 skills to design for launch (5 shared, 12 exclusive, 4 signature)
+* Grades: every rolled skill comes at grade I, II, or III (for example carry +10%, +20%, +35%), grade III being rare (10% as a first guess). Getting a wanted skill at any grade takes about 3 rolls, so a new player has a working build almost at once; getting it at grade III takes about 27, which is the long chase. Perfecting all 8 slots across the four Classes is roughly 216 rolls
+* Slot lock: for an extra Cash cost per roll, one of the three offered options can be held while the others are rerolled
+* Roll rules: the roll screen shows the odds of each grade; where Roblox reports paid random items as restricted for a player (PolicyService, ArePaidRandomItemsRestricted) that player gets a direct-purchase path instead
+* Paid power stays fair only if grade III matters in the high Contract tiers and Normal, Hard, and Nightmare never require it
+* Skills cover both halves of the game: mining (carry more, dig faster) and defense (repair, revive, post and weapon handling), so a player who is not the best gunner still has a role. Skills are a new in-run system
+* Balance rule: Normal, Hard, and Nightmare stay tuned for a level 1 Class with one skill. Everything a levelled Class adds is absorbed by the Contract tiers (see "Contracts")
+* Mastery: a Class at max level earns rewards other players can see (a gold pick axe, a title over the head, a helicopter skin). Each mastered Class also adds a small account-wide bonus (for example +2% Cash), which is the reason to level Classes a player does not main and to unlock the ones they lack
+* Promotion: a maxed Class can be promoted. Its level resets, it gains a star and a cosmetic, and it earns a Cash multiplier
+* Run-end awards: the end screen names the top miner, top gunner, and top repairer of the run (with the run summary, M33)
+* Robux products at launch (proposed 2026-10-03; they sell speed, luck, and convenience, never the win):
+   * 2x Cash and 2x Class XP: gamepasses
+   * Revive: a repeatable product offered when a player goes down, designed together with Revives (M32)
+   * Fourth skill option: a gamepass that offers four skills per roll instead of three
+   * Cosmetics come from a random box (decided 2026-10-03, replacing direct purchase): skins for the handheld weapon, the post weapon, the mining gear (pick axe and the rest), the helicopter, and the Class. A box is opened for a random skin with rarity tiers; no balance cost and no ceiling. The box screen shows the odds, and the paid random items rule above applies to it as it does to skill rolls. To be fleshed out: what a box costs and whether it is bought with Cash, Robux, or both; the rarity tiers and odds; what a duplicate becomes; whether boxes are also earned (Weekly Contract, Daily Rewards, mastery); the launch skin list; and whether a Class skin is a uniform worn over the player's avatar or a full character
+   * Starter pack: a one-time offer of a Class plus Cash, shown after the first run
+   * Cash packs, as in the Store Menu
+* Post launch: a season pass tied to the Weekly Contract, and new Classes as above
+* Set aside 2026-10-03: collectible artifacts in the mine, rich ore veins, pulling for Classes (with rarity tiers, duplicates, and variant copies) were considered and removed for now
+* To be fleshed out: the four kits and their signature skills; the 21 skills and what each does at each grade; the grade odds and whether a pity counter guarantees a grade III; the XP curve, max level, and the levels that unlock slots 2 and 3; Class unlock, reroll, and slot lock prices; what a promotion is worth; the mastery rewards and roster bonus; how Cash is earned in a run (the milestone table, M38, and whether it banks every dawn so a lost run still pays), since Cash that comes too easily leaves nothing to sell; the save shape (a Class is the first per-player record with its own level, skills, grades, and stars); and the price of every Robux product
+Contracts
+* Status (proposed 2026-10-03): the direction is agreed, nothing is built, and every bullet in this section needs to be fleshed out before its milestone begins (M59, M60)
+* Contracts are what a levelled Class is for. A map is never simply beaten: past Nightmare each map has an endless ladder of Contract tiers
+* A Contract tier is one more set of wave generator parameters, harder than the last (difficulty is parameters, never a stat multiplier, as in "Difficulty"), with a Cash multiplier that rises with the tier. Normal is winnable with a level 1 Class; high tiers assume three skills and a crew that works together
+* Weekly Contract: one featured map and tier each week with a modifier (heavy air waves, a dark mine) that changes which Class is the best pick, so a roster matters and not only a main. Modifiers share their framework with Random Events (M45)
+* Leaderboards: highest Contract tier cleared and fastest rescue, per Class, reset weekly and shown in the lobby
+* To be fleshed out: how the parameters climb per tier and whether the ladder is per map; the Cash multiplier curve; how tiers unlock and how they appear in the Create Party Menu; the modifier list; weekly rewards; where the leaderboards stand in the lobby (the Event Area is the candidate); and how the balance sheet audits a tier
 Menus
 Audio
 
