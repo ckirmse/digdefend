@@ -30,6 +30,7 @@ local MapManager = require(script.Parent.MapManager)
 local MineManager = require(script.Parent.MineManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
 local RunManager = require(script.Parent.RunManager)
+local RunStatsManager = require(script.Parent.RunStatsManager)
 
 local RefineryManager = {}
 RefineryManager.__index = RefineryManager
@@ -205,6 +206,7 @@ function RefineryManager:credit(player: Player, refined: { [number]: number })
 		balances.ironBars += refined[Enums.RefinedResource.IRON_BAR] or 0
 		balances.goldBars += refined[Enums.RefinedResource.GOLD_BAR] or 0
 		self:replicatePlayer(player)
+		RunStatsManager:addRefined(player, refined[Enums.RefinedResource.IRON_BAR] or 0, refined[Enums.RefinedResource.GOLD_BAR] or 0, refined[Enums.RefinedResource.URANIUM] or 0)
 	end
 	local diamonds = refined[Enums.RefinedResource.DIAMOND] or 0
 	if diamonds > 0 then
@@ -241,7 +243,11 @@ function RefineryManager:refine(player: Player)
 	local ore = BackpackManager:takeAll(player)
 	local refined = RefineryRules.convert(ore, RefineryData.RATE_BY_RAW)
 	self.isBusy = true
-	NetManager:notifyClient(player, NetEventNames.NOTIFY_REFINE_STARTED, {
+	-- to everyone, naming the player: the crew sees the ore go in and the
+	-- bars come out; only that player's own client plays the sounds and
+	-- moves a HUD (2026-10-05)
+	NetManager:notifyAllClients(NetEventNames.NOTIFY_REFINE_STARTED, {
+		userId = player.UserId,
 		ore = toEntries(ore),
 		durationSec = RefineryData.REFINE_DURATION_SEC,
 	})
@@ -251,7 +257,8 @@ function RefineryManager:refine(player: Player)
 			self.isBusy = false
 			self:credit(player, refined)
 			if player.Parent == Players then
-				NetManager:notifyClient(player, NetEventNames.NOTIFY_REFINE_COMPLETED, {
+				NetManager:notifyAllClients(NetEventNames.NOTIFY_REFINE_COMPLETED, {
+					userId = player.UserId,
 					refined = toEntries(refined),
 				})
 			end

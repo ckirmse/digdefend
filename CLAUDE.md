@@ -31,6 +31,11 @@ The user jots dated notes directly into `milestones.md` while work is in progres
 
 While the project is young, ask before adopting anything from the reference projects that seems contradictory, a bad idea, or inapplicable here.
 
+### "Boot up the project"
+When the user says "boot up the project", do both of these without asking:
+1. **Make sure the project is up to date:** `git fetch` and check `git status`; if the branch is behind its remote, pull (fast-forward only). If there are local changes or the pull cannot fast-forward, stop and say so rather than merging or discarding anything.
+2. **Start both Rojo servers** in the background: `scripts/serve.sh lobby` (port 34872) and `scripts/serve.sh gameplay` (port 34873). Skip one that is already running. Then report what was pulled and that both servers are up, and remind the user to connect the Rojo plugin in each Studio place.
+
 ## Project structure
 
 ```
@@ -119,6 +124,9 @@ Everything a monster is lives in GameData: stats per `Enums.MonsterKind` in `Gam
 
 ### Rescue (M31)
 `RescueManager` (gameplay server) is the win: the radio's authored prompt (`Camp.Radio.PromptPart`) is enabled once `RefineryManager` reports the uranium target, `RunCycleManager:startRescue` puts the run in `RunState.RESCUE` (night rules, the phase end is the landing time, then the boarding deadline), `MonsterWaveManager:startFinalWave` spawns the next night's wave scaled up, `HelicopterManager` lands the company helicopter with a Board prompt that seats players the lobby's way, and `RescueRules` (pure, tested) decides departure, the winning line, and whether a player's own progression lets the completion record (`PlayerData:addCompletion` + `replicateCompletions`). `ClientRescueManager` draws the `RescueRadio` billboard from GameMetadata. Tuning: `GameData/Run/Rescue`; the difficulty's uranium multiplier is in `Control/Difficulty`.
+
+### Death, revives, and the run's end (M32)
+`ReviveManager` (gameplay server) owns who is dead. A player's health is their Humanoid's (100, `GameData/Run/Revives`; regeneration removed per character), only `MonsterManager` lowers it, and every hit goes through `damagePlayer`. At zero the character is never killed or respawned: `bury` lays a grave shadow (`Tags.TOMBSTONE`, lowest free `Camp.Cemetery.Plots` part; clients clone the designer's `GameAssets/Grave` and fill name, face, and day), makes the body limp (`Ragdoll`: the limb `AnimationConstraint`s off, the root one kept), and after the Game Over screen's length moves it to `Workspace.DeathRoom` with `ReplicationFocus` on the grave. `revive` is the one way back (own, Friend, Team, credit, dev tool); pure `ReviveRules` decides offers, wipes, and purchase outcomes. A wiped crew of two or more holds the run through `RunPauseManager` (named holders) and is offered the Team Revive once (`RunCycleManager:restartDay`); a solo player only ever gets their own Revive. `PurchaseManager` (common server) owns `ProcessReceipt`: handlers per product id, every purchase id saved (`PlayerSaveSchema.processedPurchaseIds`), a revive that cannot apply kept as a saved credit (`reviveCredits`), never refused. `RunStatsManager` counts each player's run numbers and crew places (`DamageableManager` names the attacker of every hit); `CashTapManager` pays night milestones (to the living at dawn) and the rescue reward through `PlayerData` and saves at once. `GiveCurrencyManager` moves Gold and Iron between players. Client side, `ClientReviveManager` runs the Game Over screen (tint, sounds, the orbit camera round the body or the Refinery, `ScreenFade`), the grave camera, the Results Menu, the HUD and notification blackout while dead, and the touch-control switch; `ClientSpectateManager` is Roblox's follow camera on a crewmate with the server told who (`TrySpectate`) so streaming and the monster snapshots follow. `ClientPlayerFeedbackManager` has one box coloured by priority. Return to Lobby teleports (`TryReturnToLobby`); the run summary is M33.
 
 ### Attributes and Tags
 All instance attribute names live in `Attributes.luau`; all CollectionService tags in `Tags.luau`. Never raw strings.

@@ -34,9 +34,11 @@ local HelicopterManager = require(script.Parent.Parent.Server.HelicopterManager)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
+local CashTapManager = require(script.Parent.CashTapManager)
 local MapManager = require(script.Parent.MapManager)
 local MonsterWaveManager = require(script.Parent.MonsterWaveManager)
 local RefineryManager = require(script.Parent.RefineryManager)
+local ReviveManager = require(script.Parent.ReviveManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
 local RunManager = require(script.Parent.RunManager)
 local RunPauseManager = require(script.Parent.RunPauseManager)
@@ -91,17 +93,9 @@ function RescueManager:getAboardCount(): number
 	return count
 end
 
--- Ready players whose character is up; until Revives (M32) that is everyone Ready
+-- Ready players who are not dead (ReviveManager, M32): who the helicopter waits for
 function RescueManager:getLivingPlayers(): { Player }
-	local living = {}
-	for _, player in GameController:getReadyPlayers() do
-		local character = player.Character
-		local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
-		if humanoid and humanoid.Health > 0 then
-			table.insert(living, player)
-		end
-	end
-	return living
+	return ReviveManager:getLivingPlayers()
 end
 
 function RescueManager:replicate()
@@ -199,7 +193,7 @@ function RescueManager:board(player: Player)
 	local helicopter = self.helicopter
 	local character = player.Character
 	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
-	if not helicopter or not humanoid or humanoid.Health <= 0 then
+	if not helicopter or not humanoid or humanoid.Health <= 0 or ReviveManager:isDead(player) then
 		return
 	end
 	local taken: { [Seat]: boolean } = {}
@@ -283,6 +277,7 @@ function RescueManager:depart()
 	for player in self.seatByPlayer do
 		table.insert(aboardNames, player.DisplayName)
 		self:recordCompletion(player)
+		CashTapManager:payRescue(player)
 	end
 	table.sort(aboardNames)
 	local helicopter = self.helicopter
@@ -290,7 +285,7 @@ function RescueManager:depart()
 		HelicopterManager:retire(helicopter, RescueData.DEPARTED_HELICOPTER_LIFETIME_SEC)
 	end
 	local message = RescueRules.wonMessage(aboardNames, #self:getLivingPlayers(), RescueData.WON_ALL_MESSAGE, RescueData.WON_SOME_FORMAT)
-	RunCycleManager:endRun(true, message)
+	RunCycleManager:endRun(true, message, Enums.RunEndReason.RESCUED)
 end
 
 function RescueManager:step()
@@ -312,6 +307,38 @@ function RescueManager:step()
 		return
 	end
 	self:departIfNeeded(now)
+end
+
+-- the Team Revive (M32) starts the day over: a rescue under way is called
+-- off, the helicopter goes, and the radio can be used again once the
+-- crew is ready
+function RescueManager:cancel()
+	if not self.isCalled or self.hasDeparted then
+		return
+	end
+	local connection = self.boardConnection
+	if connection then
+		connection:Disconnect()
+		self.boardConnection = nil
+	end
+	local prompt = self.boardPrompt
+	if prompt then
+		prompt:Destroy()
+		self.boardPrompt = nil
+	end
+	local helicopter = self.helicopter
+	if helicopter then
+		helicopter:Destroy()
+		self.helicopter = nil
+	end
+	self.isCalled = false
+	self.isLanded = false
+	self.landingTime = 0
+	self.landedTime = 0
+	self.seatByPlayer = {}
+	print("[RescueManager] the rescue is called off; the day starts over")
+	self:refreshRadio()
+	self:replicate()
 end
 
 -- binds the loaded camp's radio prompt (the designer's words and reach
@@ -374,6 +401,20 @@ function RescueManager:init()
 	RunCycleManager:subscribeRunEnded(
 		function(_isWon: boolean)
 			self:refreshRadio()
+		end
+	)
+	-- a restarted day (the Team Revive) is a day again, so the radio wakes
+	RunCycleManager:subscribeDayStarted(
+		function()
+			self:refreshRadio()
+		end
+	)
+	-- someone aboard who dies gives up their seat, and the helicopter
+	-- stops waiting for anyone who is dead
+	ReviveManager:subscribeDied(
+		function(player: Player)
+			self.seatByPlayer[player] = nil
+			self:replicate()
 		end
 	)
 	GameController:registerPlaceManager(self)

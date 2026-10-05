@@ -7,7 +7,9 @@
 -- 1 begins; Day for DAY_SEC, then Night until the night is cleared (a
 -- dev tool, the placeholder length, and from M29 the last enemy dying),
 -- then a dawn fade of DAWN_TRANSITION_SEC and the next Day, until the run
--- is Won (M31) or Lost (the Refinery destroyed, or every player down). The
+-- is Won (M31) or Lost (the Refinery destroyed, or the whole crew dead
+-- with nobody revived: ReviveManager, M32, which may also start the
+-- current day over for a Team Revive). The
 -- state, the day number, when the phase began and ends, and the crew
 -- size the run is scaled by are GameMetadata attributes, so every client
 -- draws the same clock from server time. The crew size is sampled once at
@@ -37,7 +39,7 @@ RunCycleManager.__index = RunCycleManager
 
 export type NightChangedHandler = (isNight: boolean) -> ()
 export type DayStartedHandler = (day: number, scalingCount: number) -> ()
-export type RunEndedHandler = (isWon: boolean) -> ()
+export type RunEndedHandler = (isWon: boolean, reason: number) -> ()
 export type ScalingCountChangedHandler = (count: number) -> ()
 
 export type RunCycleManager = typeof(setmetatable(
@@ -50,7 +52,6 @@ export type RunCycleManager = typeof(setmetatable(
 		scalingCount: number?,
 		-- server time day 1 may begin, once the crew has landed; nil until then
 		firstDayTime: number?,
-		lastDeathCheckTime: number,
 		nightChangedHandlers: { NightChangedHandler },
 		dayStartedHandlers: { DayStartedHandler },
 		runEndedHandlers: { RunEndedHandler },
@@ -59,8 +60,6 @@ export type RunCycleManager = typeof(setmetatable(
 	RunCycleManager
 ))
 
--- everyone down is checked this often, not every frame
-local DEATH_CHECK_INTERVAL_SEC = 1
 local MAX_SCALING_COUNT = #PartyScalingData.ORE_YIELD_MULTIPLIER_BY_PLAYER_COUNT
 
 function RunCycleManager:getRunState(): number
@@ -168,9 +167,24 @@ function RunCycleManager:replicateDusk(day: number)
 end
 
 function RunCycleManager:startDay()
+	self:beginDay(self.day + 1)
+end
+
+-- the Team Revive (M32): the same day number begins again from dawn, from
+-- a day, a night, or the rescue, so the same night comes a second time
+function RunCycleManager:restartDay()
+	local state = self.runState
+	if state ~= Enums.RunState.DAY and state ~= Enums.RunState.NIGHT and state ~= Enums.RunState.RESCUE then
+		return
+	end
+	print(`[RunCycleManager] day {self.day} starts over`)
+	self:beginDay(math.max(self.day, 1))
+end
+
+function RunCycleManager:beginDay(day: number)
 	local now = workspace:GetServerTimeNow()
-	local wasNight = self.runState == Enums.RunState.NIGHT
-	self.day += 1
+	local wasNight = self.runState == Enums.RunState.NIGHT or self.runState == Enums.RunState.RESCUE
+	self.day = day
 	self.runState = Enums.RunState.DAY
 	self.phaseStartTime = if wasNight then now + RunCycleData.LIGHTING_DAWN_TRANSITION_SEC else now
 	self.phaseEndTime = self.phaseStartTime + RunCycleData.DAY_SEC
@@ -285,17 +299,19 @@ function RunCycleManager:forceNight(isNight: boolean)
 	end
 end
 
-function RunCycleManager:endRun(isWon: boolean, message: string)
+function RunCycleManager:endRun(isWon: boolean, message: string, reason: number)
 	if RunCycleRules.isRunOver(self.runState) then
 		return
 	end
+	-- before the state, so a client that sees the run end already knows why
+	SplendidReplicationManager:setGameMetadata(Attributes.RUN_END_REASON, reason)
 	self.runState = if isWon then Enums.RunState.WON else Enums.RunState.LOST
 	self.phaseStartTime = workspace:GetServerTimeNow()
 	self.phaseEndTime = 0
 	self:replicate()
 	print(`[RunCycleManager] run over: {message}`)
 	for _, handler in self.runEndedHandlers do
-		handler(isWon)
+		handler(isWon, reason)
 	end
 	NetManager:notifyAllClients(NetEventNames.NOTIFY_RUN_ENDED, {
 		isWon = isWon,
@@ -305,24 +321,18 @@ function RunCycleManager:endRun(isWon: boolean, message: string)
 end
 
 function RunCycleManager:loseRefinery()
-	self:endRun(false, RunCycleData.LOST_REFINERY_MESSAGE)
+	self:endRun(false, RunCycleData.LOST_REFINERY_MESSAGE, Enums.RunEndReason.REFINERY_DESTROYED)
 end
 
--- every Ready player's character down at once loses the run; nobody
--- Ready yet (the crew still landing) is not a loss
-function RunCycleManager:isEveryoneDown(): boolean
-	local readyPlayers = GameController:getReadyPlayers()
-	if #readyPlayers == 0 then
-		return false
-	end
-	for _, player in readyPlayers do
-		local character = player.Character
-		local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
-		if humanoid and humanoid.Health > 0 then
-			return false
-		end
-	end
-	return true
+-- the whole crew dead and nobody revived in time (ReviveManager, M32)
+function RunCycleManager:loseAllDead()
+	self:endRun(false, RunCycleData.LOST_ALL_DEAD_MESSAGE, Enums.RunEndReason.CREW_DEAD)
+end
+
+-- a day, a night, or the rescue: the states a player can die and be revived in
+function RunCycleManager:isRunOn(): boolean
+	local state = self.runState
+	return state == Enums.RunState.DAY or state == Enums.RunState.NIGHT or state == Enums.RunState.RESCUE
 end
 
 function RunCycleManager:step()
@@ -341,12 +351,6 @@ function RunCycleManager:step()
 	elseif self.runState == Enums.RunState.NIGHT and RunCycleRules.isNightOver(self.phaseStartTime, now, RunCycleData.NIGHT_SPAWN_SEC, RunCycleData.NIGHT_PLACEHOLDER_SEC) then
 		self:startDay()
 	end
-	if now - self.lastDeathCheckTime >= DEATH_CHECK_INTERVAL_SEC then
-		self.lastDeathCheckTime = now
-		if self:isEveryoneDown() then
-			self:endRun(false, RunCycleData.LOST_ALL_DEAD_MESSAGE)
-		end
-	end
 end
 
 -- a run (or a dev-tool restart) begins waiting for the crew to land, in
@@ -360,6 +364,7 @@ function RunCycleManager:onRunStarted()
 	local now = workspace:GetServerTimeNow()
 	self.phaseStartTime = now
 	self.phaseEndTime = 0
+	SplendidReplicationManager:setGameMetadata(Attributes.RUN_END_REASON, 0)
 	self:replicate()
 	print("[RunCycleManager] waiting for the crew to land")
 end
@@ -383,7 +388,6 @@ function RunCycleManager:onResumed(pausedSec: number)
 	if self.firstDayTime then
 		self.firstDayTime += pausedSec
 	end
-	self.lastDeathCheckTime += pausedSec
 	self:replicate()
 end
 
@@ -421,7 +425,6 @@ function RunCycleManager.new(): RunCycleManager
 	self.phaseEndTime = 0
 	self.scalingCount = nil
 	self.firstDayTime = nil
-	self.lastDeathCheckTime = 0
 	self.nightChangedHandlers = {}
 	self.dayStartedHandlers = {}
 	self.runEndedHandlers = {}

@@ -67,8 +67,6 @@ return {
 	-- instead, so a crew cannot funnel a whole night through a one-cell
 	-- slot (decided 2026-10-02; FlowField.markPinched)
 	MIN_PASSABLE_GAP_CELLS = 2,
-	-- until Revives (M32) a monster can bring a player down to this, not below
-	PLAYER_MIN_HEALTH = 1,
 	-- the most monsters alive at once; a spawn past it waits
 	MAX_ALIVE = 500,
 	-- the stress test dev tool spawns this many at most per press

@@ -62,6 +62,8 @@ export type Stats = {
 export type ClientMineManager = typeof(setmetatable(
 	{} :: {
 		header: Header?,
+		-- Spectate Mode's centre for the streamed blocks, when set
+		viewPositionProvider: (() -> Vector3?)?,
 		chunks: { [number]: buffer },
 		chunksReceived: number,
 		bytesReceived: number,
@@ -317,7 +319,18 @@ function ClientMineManager:getNearestUraniumDistance(position: Vector3, maxStuds
 	return nearest
 end
 
+-- Spectate Mode (M32) points the mine at the player being watched: while
+-- a provider is set and answers, blocks stream round that position
+function ClientMineManager:setViewPositionProvider(provider: (() -> Vector3?)?)
+	self.viewPositionProvider = provider
+end
+
 function ClientMineManager:getPlayerPosition(): Vector3?
+	local provider = self.viewPositionProvider
+	local provided = if provider then provider() else nil
+	if provided then
+		return provided
+	end
 	local character = Players.LocalPlayer.Character
 	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
 	if root and root:IsA("BasePart") then
@@ -557,6 +570,7 @@ end
 function ClientMineManager.new(): ClientMineManager
 	local self = setmetatable({}, ClientMineManager) :: ClientMineManager
 	self.header = nil
+	self.viewPositionProvider = nil
 	self.chunks = {}
 	self.chunksReceived = 0
 	self.bytesReceived = 0

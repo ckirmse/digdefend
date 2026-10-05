@@ -62,7 +62,7 @@ function RunCycleDevTools:init()
 				warn("RunCycleDevTools: loseRun with invalid args:", err)
 				return
 			end
-			RunCycleManager:endRun(false, RunCycleData.LOST_ALL_DEAD_MESSAGE)
+			RunCycleManager:loseRefinery()
 		end
 	)
 	-- the coming night is night N, so any wave can be played without

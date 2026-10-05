@@ -7,6 +7,7 @@ local ArrivalManager = require(script.Parent.ArrivalManager)
 local BackpackManager = require(script.Parent.BackpackManager)
 local BalanceAudit = require(script.Parent.BalanceAudit)
 local BootsManager = require(script.Parent.BootsManager)
+local CashTapManager = require(script.Parent.CashTapManager)
 local ClearanceManager = require(script.Parent.ClearanceManager)
 local CompassManager = require(script.Parent.CompassManager)
 local DamageableManager = require(script.Parent.DamageableManager)
@@ -14,6 +15,7 @@ local DefenseTableManager = require(script.Parent.DefenseTableManager)
 local DynamiteManager = require(script.Parent.DynamiteManager)
 local GameplayMapManager = require(script.Parent.GameplayMapManager)
 local GeigerCounterManager = require(script.Parent.GeigerCounterManager)
+local GiveCurrencyManager = require(script.Parent.GiveCurrencyManager)
 local JetPackManager = require(script.Parent.JetPackManager)
 local MapManager = require(script.Parent.MapManager)
 local MineDevTools = require(script.Parent.MineDevTools)
@@ -32,11 +34,14 @@ local PostManager = require(script.Parent.PostManager)
 local RefineryManager = require(script.Parent.RefineryManager)
 local RescueDevTools = require(script.Parent.RescueDevTools)
 local RescueManager = require(script.Parent.RescueManager)
+local ReviveDevTools = require(script.Parent.ReviveDevTools)
+local ReviveManager = require(script.Parent.ReviveManager)
 local RunCycleDevTools = require(script.Parent.RunCycleDevTools)
 local RunCycleManager = require(script.Parent.RunCycleManager)
 local RunDevTools = require(script.Parent.RunDevTools)
 local RunPauseManager = require(script.Parent.RunPauseManager)
 local RunManager = require(script.Parent.RunManager)
+local RunStatsManager = require(script.Parent.RunStatsManager)
 local StructureDevTools = require(script.Parent.StructureDevTools)
 local StructureManager = require(script.Parent.StructureManager)
 local ToolManager = require(script.Parent.ToolManager)
@@ -68,6 +73,14 @@ RunManager:subscribeRunStarted(
 -- the target registry steps its walkers, burns, and slows; before every
 -- manager that hurts or reads targets
 DamageableManager:init()
+-- the run's numbers for the Results Menu (M32): right after the registry
+-- whose hits it counts, and before the refinery, which reports to it
+RunStatsManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		RunStatsManager:onRunStarted()
+	end
+)
 ToolManager:init()
 -- right after the tools, so the weapon is the second slot (GDD "Mining
 -- Tools": bought tools come after Pick Axe and Weapon)
@@ -215,9 +228,37 @@ RunManager:subscribeRunStarted(
 	end
 )
 
+-- death and revives (M32): after everything a dead player lets go of
+-- (tools, posts, Build Mode) and the run cycle it reads and restarts. The
+-- Team Revive starts the day over, so first the wave still to come is
+-- cancelled, every monster is removed, and a rescue under way is called off
+ReviveManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		ReviveManager:onRunStarted()
+	end
+)
+ReviveManager:subscribeTeamRevived(
+	function()
+		MonsterWaveManager:stop()
+		MonsterManager:killAll()
+		RescueManager:cancel()
+	end
+)
+-- Cash earned in the run: it listens for each dawn
+CashTapManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		CashTapManager:onRunStarted()
+	end
+)
+-- after the refinery, whose balances it moves between players
+GiveCurrencyManager:init()
+
 RunDevTools:init()
 RunCycleDevTools:init()
 RescueDevTools:init()
+ReviveDevTools:init()
 MineDevTools:init()
 StructureDevTools:init()
 WeaponDevTools:init()

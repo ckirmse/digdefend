@@ -186,6 +186,64 @@ module = {
 	RESCUE_IS_LANDED = "RescueIsLanded",
 	RESCUE_ABOARD_COUNT = "RescueAboardCount",
 	RESCUE_CREW_COUNT = "RescueCrewCount",
+	-- GameMetadata: why the run ended (Enums.RunEndReason), 0 while it is on
+	RUN_END_REASON = "RunEndReason",
+	-- GameMetadata: the Game Over screen's timing (GameData/Run/Revives):
+	-- how long the red screen holds, the fade to black, and the fade back
+	-- in over the Results Menu
+	GAME_OVER_HOLD_SEC = "GameOverHoldSec",
+	GAME_OVER_FADE_IN_SEC = "GameOverFadeInSec",
+	GAME_OVER_BLACK_HOLD_SEC = "GameOverBlackHoldSec",
+	GAME_OVER_FADE_OUT_SEC = "GameOverFadeOutSec",
+	-- death and revives (M32, ReviveManager). Public on AllPlayers: whether
+	-- the player is dead (Spectate Mode lists the living, the tombstones
+	-- and name tags follow it)
+	IS_DEAD = "IsDead",
+	-- private CurrentPlayer: what the Results Menu offers right now
+	-- (Enums.ReviveOffer), the server time that offer ends (0 = none), and
+	-- the revives paid for but not yet used, one count per Enums.ReviveKind
+	REVIVE_OFFER = "ReviveOffer",
+	REVIVE_OFFER_END_TIME = "ReviveOfferEndTime",
+	REVIVE_CREDITS_SELF = "ReviveCreditsSelf",
+	REVIVE_CREDITS_FRIEND = "ReviveCreditsFriend",
+	REVIVE_CREDITS_TEAM = "ReviveCreditsTeam",
+	-- GameMetadata: each revive's live Robux price (0 until Roblox answers),
+	-- a player's full health, and whether the whole crew is dead (the run
+	-- is held still)
+	REVIVE_PRICE_SELF = "RevivePriceSelf",
+	REVIVE_PRICE_FRIEND = "RevivePriceFriend",
+	REVIVE_PRICE_TEAM = "RevivePriceTeam",
+	PLAYER_MAX_HEALTH = "PlayerMaxHealth",
+	IS_CREW_WIPED = "IsCrewWiped",
+	-- on a tombstone shadow (Tags.TOMBSTONE): whose it is
+	TOMBSTONE_USER_ID = "TombstoneUserId",
+	TOMBSTONE_DISPLAY_NAME = "TombstoneDisplayName",
+	-- and the day of the run they died (or left) on
+	TOMBSTONE_DAY = "TombstoneDay",
+	-- GameMetadata: more than one player has been in this run, even if the
+	-- others have left (the Results Menu's Group Rank column shows from it)
+	RUN_IS_GROUP = "RunIsGroup",
+	-- private CurrentPlayer: the run's stats for the Results Menu
+	-- (RunStatsManager, M32)
+	RUN_STAT_URANIUM_REFINED = "RunStatUraniumRefined",
+	RUN_STAT_CASH_EARNED = "RunStatCashEarned",
+	RUN_STAT_GOLD_REFINED = "RunStatGoldRefined",
+	RUN_STAT_IRON_REFINED = "RunStatIronRefined",
+	RUN_STAT_ENEMIES_KILLED = "RunStatEnemiesKilled",
+	RUN_STAT_DAMAGE_GIVEN = "RunStatDamageGiven",
+	-- and this player's place in the crew for each of them (1 = the most;
+	-- RunStatsRules.rank), for the menu's Group Rank column
+	RUN_STAT_RANK_URANIUM_REFINED = "RunStatRankUraniumRefined",
+	RUN_STAT_RANK_CASH_EARNED = "RunStatRankCashEarned",
+	RUN_STAT_RANK_GOLD_REFINED = "RunStatRankGoldRefined",
+	RUN_STAT_RANK_IRON_REFINED = "RunStatRankIronRefined",
+	RUN_STAT_RANK_ENEMIES_KILLED = "RunStatRankEnemiesKilled",
+	RUN_STAT_RANK_DAMAGE_GIVEN = "RunStatRankDamageGiven",
+	-- GameMetadata: Give Currency (GiveCurrencyManager, M32): how much one
+	-- press of plus or minus changes an amount, and the prompt's words and reach
+	GIVE_CURRENCY_STEP = "GiveCurrencyStep",
+	GIVE_CURRENCY_PROMPT_ACTION_TEXT = "GiveCurrencyPromptActionText",
+	GIVE_CURRENCY_PROMPT_MAX_DISTANCE_STUDS = "GiveCurrencyPromptMaxDistanceStuds",
 	RUN_DUSK_SHARE = "RunDuskShare",
 	RUN_DUSK_SONG_LEAD_SEC = "RunDuskSongLeadSec",
 	-- the dusk song's fade: how long it takes and how long before night

@@ -34,9 +34,11 @@ module = {
 	-- with the world position it came from, so its icon flies into the HUD
 	-- backpack; the counts themselves arrive as attributes
 	NOTIFY_ORE_COLLECTED = "NotifyOreCollected",
-	-- to the refining player: what left their backpack (the suck-in), then,
-	-- after the grind, what was paid out (the fly-to-HUD); balances arrive as
-	-- attributes. Refining itself is a ProximityPrompt trigger, not a message
+	-- to every client, naming the refining player ({ userId, ... }): what
+	-- left their backpack (the suck-in), then, after the grind, what was
+	-- paid out. Everyone sees the icons fly; only that player's client
+	-- plays the sounds and moves its HUD. Balances arrive as attributes.
+	-- Refining itself is automatic at the Refinery, not a message
 	NOTIFY_REFINE_STARTED = "NotifyRefineStarted",
 	NOTIFY_REFINE_COMPLETED = "NotifyRefineCompleted",
 	-- to every client, once per payout that raises the Camp Level (M22)
@@ -147,6 +149,34 @@ module = {
 	NOTIFY_MONSTERS_DIED = "NotifyMonstersDied",
 	NOTIFY_MONSTER_PROJECTILE = "NotifyMonsterProjectile",
 	NOTIFY_MONSTER_BLAST = "NotifyMonsterBlast",
+	-- death and revives (M32). A dead player asks for the revive their
+	-- Results Menu offers ({ reviveKind }: their own or the crew's); the
+	-- server spends a saved credit or opens Roblox's purchase prompt. A
+	-- Friend Revive is the tombstone's ProximityPrompt, heard by the server
+	-- directly. To each living player: a line for the announcement box
+	-- (someone died, the day starts over). To every client: someone came
+	-- back ({ userId, reviveKind }); the state itself is the public IsDead
+	-- attribute
+	TRY_REVIVE = "TryRevive",
+	NOTIFY_REVIVE_ANNOUNCEMENT = "NotifyReviveAnnouncement",
+	NOTIFY_PLAYER_REVIVED = "NotifyPlayerRevived",
+	-- Spectate Mode: a dead player names who they are watching ({ userId },
+	-- 0 to stop), so the server streams the world and the monsters round
+	-- that player instead of the DeathRoom
+	TRY_SPECTATE = "TrySpectate",
+	-- Give Currency (M32): { targetUserId, goldBars, ironBars } after the
+	-- menu's Confirm; both players hear the result as feedback text
+	TRY_GIVE_CURRENCY = "TryGiveCurrency",
+	-- to every client: a gift went through ({ senderUserId, targetUserId,
+	-- goldBars, ironBars }), so the bars are seen flying from one player
+	-- to the other
+	NOTIFY_CURRENCY_GIVEN = "NotifyCurrencyGiven",
+	-- a dead player, or anyone once the run is over, asks to go back to
+	-- the lobby (the Results Menu's and the Spectate bar's button)
+	TRY_RETURN_TO_LOBBY = "TryReturnToLobby",
+	-- to one client: Cash was earned ({ amount, reason }), for the toast;
+	-- the balance itself is the Cash attribute
+	NOTIFY_CASH_EARNED = "NotifyCashEarned",
 }
 
 return module

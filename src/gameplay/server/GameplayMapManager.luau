@@ -88,6 +88,18 @@ function GameplayMapManager:checkRadio(camp: Folder)
 	end
 end
 
+-- the Cemetery (M32): six numbered plots a tombstone stands on
+function GameplayMapManager:checkCemetery(camp: Folder)
+	local cemetery = self:requireChild(camp, Constants.CAMP_CEMETERY_FOLDER, "Folder")
+	local plots = if cemetery then self:requireChild(cemetery, Constants.CEMETERY_PLOTS_FOLDER, "Folder") else nil
+	if not plots then
+		return
+	end
+	for index = 1, Constants.CEMETERY_PLOT_COUNT do
+		self:requireChild(plots, tostring(index), "BasePart")
+	end
+end
+
 function GameplayMapManager:checkMineEntrance(camp: Folder)
 	local mine = self:requireChild(camp, Constants.CAMP_MINE_FOLDER, "Folder")
 	if not mine then
@@ -292,6 +304,7 @@ function GameplayMapManager:checkCamp(camp: Folder, mapName: string)
 	local before = #self.problems
 	self:checkHelicopterPad(camp)
 	self:checkRadio(camp)
+	self:checkCemetery(camp)
 	self:checkMineEntrance(camp)
 	self:checkRefinery(camp)
 	self:checkMiningStore(camp)

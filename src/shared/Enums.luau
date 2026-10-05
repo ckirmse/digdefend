@@ -498,6 +498,33 @@ module = {
 			WAITING = "Landing",
 		},
 	},
+	-- why a run ended, for the screen that says so
+	RunEndReason = {
+		RESCUED = 1,
+		REFINERY_DESTROYED = 2,
+		CREW_DEAD = 3,
+	},
+	-- the three ways a dead player comes back (GDD "Health and Revives",
+	-- M32), each its own Robux developer product; keys double as the
+	-- save-data keys of the revive credits
+	ReviveKind = {
+		SELF = 1,
+		FRIEND = 2,
+		TEAM = 3,
+
+		PublicNames = {
+			SELF = "Revive",
+			FRIEND = "Friend Revive",
+			TEAM = "Team Revive",
+		},
+	},
+	-- what a dead player's Results Menu offers right now: nothing (the 60
+	-- seconds ran out), their own Revive, or the crew's Team Revive
+	ReviveOffer = {
+		NONE = 1,
+		SELF = 2,
+		TEAM = 3,
+	},
 	-- which two sky looks the client is blending between (LightingPresets):
 	-- day start into day end over a day, day end into night start over the
 	-- dusk seconds, night start into night end over the spawn window, night

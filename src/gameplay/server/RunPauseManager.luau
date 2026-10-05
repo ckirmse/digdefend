@@ -10,6 +10,8 @@
 -- group's spawn is as far off as it was. The pause start is published as
 -- GameMetadata so the clients' clocks hold still too. Players themselves
 -- are never frozen: a tester may still walk, mine, and build.
+-- The same hold is what a wiped crew gets (M32, ReviveManager): each
+-- holder names itself, and the run is paused while any holder holds it.
 -- This module depends on nothing in gameplay so every loop can read it
 -- without a circular require.
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
@@ -24,10 +26,14 @@ export type RunPauseManager = typeof(setmetatable(
 	{} :: {
 		-- 0 while the run is running
 		pauseStartTime: number,
+		-- who is holding the run still right now
+		holders: { [string]: boolean },
 		resumedHandlers: { ResumedHandler },
 	},
 	RunPauseManager
 ))
+
+RunPauseManager.DEV_TOOL_HOLDER = "devTool"
 
 function RunPauseManager:isPaused(): boolean
 	return self.pauseStartTime > 0
@@ -43,8 +49,17 @@ function RunPauseManager:replicate()
 	SplendidReplicationManager:setGameMetadata(Attributes.RUN_PAUSE_START_TIME, self.pauseStartTime)
 end
 
-function RunPauseManager:setPaused(isPaused: boolean)
-	if isPaused == self:isPaused() then
+function RunPauseManager:isHeldBy(holder: string): boolean
+	return self.holders[holder] == true
+end
+
+-- the run is paused while any holder holds it; the dev tool is the
+-- holder when none is named
+function RunPauseManager:setPaused(isPaused: boolean, holder: string?)
+	local wasPaused = self:isPaused()
+	self.holders[holder or RunPauseManager.DEV_TOOL_HOLDER] = if isPaused then true else nil
+	isPaused = next(self.holders) ~= nil
+	if isPaused == wasPaused then
 		return
 	end
 	local now = workspace:GetServerTimeNow()
@@ -65,6 +80,7 @@ end
 
 -- a fresh run is never paused
 function RunPauseManager:onRunStarted()
+	self.holders = {}
 	self.pauseStartTime = 0
 	self:replicate()
 end
@@ -76,6 +92,7 @@ end
 function RunPauseManager.new(): RunPauseManager
 	local self = setmetatable({}, RunPauseManager) :: RunPauseManager
 	self.pauseStartTime = 0
+	self.holders = {}
 	self.resumedHandlers = {}
 	return self
 end

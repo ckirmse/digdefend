@@ -65,6 +65,8 @@ local sfx = {
 	HELICOPTER = "Helicopter",
 	-- 2D: something just stopped working for you (backpack full, tank dry)
 	FAIL = "Fail",
+	-- 2D: the Game Over screen (this player died, or the Refinery fell; M32)
+	GAME_OVER = "GameOver",
 	-- M28: a new day (the rooster) and a new night (the bell), with the
 	-- DayNightNumber card
 	ROOSTER = "Rooster",
@@ -115,6 +117,9 @@ local music = {
 	-- plays from the top as dusk begins, the day's dusk before every night
 	-- (2026-09-25), and fades out across night fall (2026-10-02)
 	DUSK_SONG_1 = "DuskSong1",
+	-- starts as the Game Over screen fades to black and plays out over the
+	-- Results Menu, looping, until the player leaves the menu (M32)
+	GAME_OVER = "GameOver",
 }
 
 local module = {

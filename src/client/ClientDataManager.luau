@@ -37,6 +37,8 @@ export type PublicData = {
 	-- published, and which dot colour is theirs
 	compassPosition: Vector3?,
 	compassColorIndex: number,
+	-- dead and waiting on a revive (ReviveManager, M32)
+	isDead: boolean,
 }
 
 export type AllPlayersHandlers = {
@@ -79,6 +81,7 @@ local function readPublicData(folder: Instance): PublicData
 		mannedPostIndex = (folder:GetAttribute(Attributes.MANNED_POST_INDEX) :: number?) or 0,
 		compassPosition = folder:GetAttribute(Attributes.COMPASS_POSITION) :: Vector3?,
 		compassColorIndex = (folder:GetAttribute(Attributes.COMPASS_COLOR_INDEX) :: number?) or 1,
+		isDead = folder:GetAttribute(Attributes.IS_DEAD) == true,
 	}
 end
 

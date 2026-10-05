@@ -1,11 +1,12 @@
 -- Rebuilds the "PlayerFeedback" ScreenGui under StarterGui. Run from the Studio
 -- command bar (or the MCP execute_luau tool) in either place; it replaces any
--- existing copy. Names must match Constants.PLAYER_FEEDBACK_*. Three boxes:
--- the feedback box at the bottom for ordinary messages, the announcement box
--- at the top centre, blue, for the beats nobody should miss (the Camp Level
--- rising; decided 2026-09-16), and the alert box under it, red, for danger
--- (a wall down, the Refinery under attack; 2026-09-25). Layout follows the
--- GUI standard in CLAUDE.md.
+-- existing copy. Names must match Constants.PLAYER_FEEDBACK_*. One box
+-- (decided 2026-10-05; there were three), low on the screen above the
+-- tool bar. ClientPlayerFeedbackManager colours it by what the message
+-- is: its own colour for ordinary feedback, UiStyle.ANNOUNCEMENT_COLOR
+-- for the beats nobody should miss, UiStyle.ALERT_COLOR for danger (a
+-- wall down, the Refinery under attack, a crewmate dead). Layout follows
+-- the GUI standard in CLAUDE.md.
 local StarterGui = game:GetService("StarterGui")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
@@ -66,14 +67,10 @@ local function makeBox(name, anchorPoint, position, backgroundColor)
 	return box
 end
 
--- ordinary feedback, low on the screen where the eye rests on the action
-makeBox("FeedbackBox", Vector2.new(0.5, 1), UDim2.fromScale(0.5, 0.85), UiStyle.PANEL_COLOR)
--- announcements, top centre under the top bar: clear of the chat window on
--- the left and the right-edge panels, per the reserved-regions rule
--- under the day clock (M28, decided 2026-09-22), which owns the very top
-makeBox("AnnouncementBox", Vector2.new(0.5, 0), UDim2.fromScale(0.5, 0.115), UiStyle.ANNOUNCEMENT_COLOR)
--- alerts, red, just under the announcement so both can show at once
-makeBox("AlertBox", Vector2.new(0.5, 0), UDim2.fromScale(0.5, 0.2), UiStyle.ALERT_COLOR)
+-- low on the screen where the eye rests on the action, its bottom edge
+-- clear of the tool bar's top (the tool bar's Slots end at 0.93 and are
+-- 0.098 tall)
+makeBox("FeedbackBox", Vector2.new(0.5, 1), UDim2.fromScale(0.5, 0.81), UiStyle.PANEL_COLOR)
 
 gui.Parent = StarterGui
 

@@ -42,6 +42,10 @@ module = {
 	-- a Defensive Zone part in the camp (PlacementManager numbers it); clients
 	-- draw the grid and outline over it in Repair Mode
 	DEFENSIVE_ZONE = "DefensiveZone",
+	-- a dead player's tombstone (ReviveManager, M32): an invisible server
+	-- part on a Cemetery plot carrying the Tombstone* attributes and the
+	-- Friend Revive prompt; clients clone the stone onto it
+	TOMBSTONE = "Tombstone",
 }
 
 return module

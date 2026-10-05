@@ -21,6 +21,8 @@ export type ClientSoundManager = typeof(setmetatable(
 	{} :: {
 		-- the designer's volume of each looping player faded by setSfxLoopLevel
 		authoredVolumeByName: { [string]: number },
+		-- a music track's fade out while it runs, so a new play can drop it
+		musicFadeTweenByName: { [string]: Tween },
 		sfxFolder: Instance?,
 		musicFolder: Instance?,
 		warnedNames: { [string]: boolean },
@@ -100,6 +102,17 @@ function ClientSoundManager:playMusic(name: string, isLooping: boolean?)
 		self:warnOnce(name, `{Constants.MUSIC_FOLDER}.{name} has no asset yet`)
 		return
 	end
+	-- a fade still running on this track would carry on turning the new
+	-- play down, so it is dropped and the authored volume put back
+	local fadeTween = self.musicFadeTweenByName[name]
+	if fadeTween then
+		self.musicFadeTweenByName[name] = nil
+		fadeTween:Cancel()
+		local authoredVolume = self.authoredVolumeByName[name]
+		if authoredVolume then
+			player.Volume = authoredVolume
+		end
+	end
 	player:Stop()
 	player.Looping = isLooping == true
 	player.TimePosition = 0
@@ -126,10 +139,15 @@ function ClientSoundManager:fadeOutMusic(name: string, fadeSec: number)
 		function(state: Enum.PlaybackState)
 			if state == Enum.PlaybackState.Completed then
 				player:Stop()
+				player.TimePosition = 0
 				player.Volume = authoredVolume :: number
+				if self.musicFadeTweenByName[name] == tween then
+					self.musicFadeTweenByName[name] = nil
+				end
 			end
 		end
 	)
+	self.musicFadeTweenByName[name] = tween
 	tween:Play()
 end
 
@@ -353,6 +371,7 @@ end
 function ClientSoundManager.new(): ClientSoundManager
 	local self = setmetatable({}, ClientSoundManager) :: ClientSoundManager
 	self.authoredVolumeByName = {}
+	self.musicFadeTweenByName = {}
 	self.sfxFolder = nil
 	self.musicFolder = nil
 	self.warnedNames = {}

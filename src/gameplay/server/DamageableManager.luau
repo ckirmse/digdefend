@@ -65,6 +65,10 @@ export type BlockedTarget = {
 	attackDamagePerSec: number,
 }
 
+-- told of every hit a player (or their Tower or Trap) landed: how much HP
+-- it really took off and whether it killed (RunStatsManager, M32)
+export type DamagedHandler = (attacker: Player, amount: number, isKill: boolean) -> ()
+
 -- the placement id standing where a walker wants to go, or nil
 export type BlockerQuery = (position: Vector3, size: Vector3) -> string?
 
@@ -98,6 +102,7 @@ export type DamageableManager = typeof(setmetatable(
 		nextId: number,
 		shadowFolder: Folder?,
 		blockerQuery: BlockerQuery?,
+		damagedHandlers: { DamagedHandler },
 	},
 	DamageableManager
 ))
@@ -336,6 +341,10 @@ function DamageableManager:applyBurn(id: string, damagePerSec: number, durationS
 	self:replicateEffects(damageable, now)
 end
 
+function DamageableManager:subscribeDamaged(handler: DamagedHandler)
+	table.insert(self.damagedHandlers, handler)
+end
+
 function DamageableManager:getSpeedMultiplier(id: string): number
 	local damageable = self.damageableById[id]
 	return if damageable then StatusRules.speedMultiplier(damageable.effects, workspace:GetServerTimeNow()) else 1
@@ -347,8 +356,14 @@ function DamageableManager:damage(id: string, amount: number, attacker: Player?)
 	if not damageable or amount <= 0 then
 		return nil
 	end
+	local taken = math.min(amount, damageable.hp)
 	damageable.hp = math.max(0, damageable.hp - amount)
 	self.targetsCache = nil
+	if attacker then
+		for _, handler in self.damagedHandlers do
+			handler(attacker, taken, damageable.hp <= 0)
+		end
+	end
 	if damageable.hp > 0 then
 		if damageable.shadow then
 			damageable.shadow:SetAttribute(Attributes.DAMAGEABLE_HP, damageable.hp)
@@ -447,6 +462,7 @@ function DamageableManager.new(): DamageableManager
 	self.nextId = 1
 	self.shadowFolder = nil
 	self.blockerQuery = nil
+	self.damagedHandlers = {}
 	return self
 end
 

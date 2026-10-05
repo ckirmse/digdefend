@@ -371,7 +371,11 @@ function ClientRunCycleManager:onRunEnded(payload: any)
 		warn("ClientRunCycleManager: malformed NotifyRunEnded")
 		return
 	end
-	ClientPlayerFeedbackManager:announceLocal(payload.message, payload.displaySec)
+	-- a lost run is told by the Game Over screen and the Results Menu
+	-- (ClientReviveManager, M32); only a win still gets its line here
+	if payload.isWon then
+		ClientPlayerFeedbackManager:announceLocal(payload.message, payload.displaySec)
+	end
 end
 
 function ClientRunCycleManager:init()

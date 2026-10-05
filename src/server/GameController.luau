@@ -14,6 +14,7 @@ local DevTools = require(script.Parent.DevTools)
 local NetManager = require(script.Parent.NetManager)
 local PlayerData = require(script.Parent.PlayerData)
 local PlayerFeedbackManager = require(script.Parent.PlayerFeedbackManager)
+local PurchaseManager = require(script.Parent.PurchaseManager)
 local SplendidReplicationManager = require(script.Parent.SplendidReplicationManager)
 
 local GameController = {}
@@ -32,6 +33,7 @@ export type GameController = typeof(setmetatable(
 		netManager: typeof(NetManager),
 		devTools: typeof(DevTools),
 		playerFeedbackManager: typeof(PlayerFeedbackManager),
+		purchaseManager: typeof(PurchaseManager),
 		splendidReplicationManager: typeof(SplendidReplicationManager),
 	},
 	GameController
@@ -341,6 +343,10 @@ function GameController:init()
 
 	self.playerFeedbackManager = PlayerFeedbackManager
 
+	-- the one ProcessReceipt callback; place managers register their products
+	self.purchaseManager = PurchaseManager
+	PurchaseManager:init(self)
+
 	-- the full network protocol, assembled in one place; common managers that
 	-- handle client messages are listed here, place managers register themselves
 	local handlerOwners: { any } = {
@@ -415,6 +421,7 @@ function GameController.new(): GameController
 	self.netManager = NetManager
 	self.devTools = DevTools
 	self.playerFeedbackManager = PlayerFeedbackManager
+	self.purchaseManager = PurchaseManager
 	self.splendidReplicationManager = SplendidReplicationManager
 	return self
 end

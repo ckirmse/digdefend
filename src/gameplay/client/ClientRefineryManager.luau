@@ -65,11 +65,14 @@ local NOTIFY_CAMP_LEVEL_UP_SHAPE = {
 }
 local CAMP_LEVEL_UP_FORMAT = "Camp upgraded to level %d"
 
+-- a user id is any whole number (Studio's local test players have negative ones)
 local NOTIFY_REFINE_STARTED_SHAPE = {
+	userId = "integer",
 	ore = { type = "array", elementType = ORE_ENTRY_SHAPE },
 	durationSec = "positiveNumber",
 }
 local NOTIFY_REFINE_COMPLETED_SHAPE = {
+	userId = "integer",
 	refined = { type = "array", elementType = REFINED_ENTRY_SHAPE },
 }
 
@@ -258,10 +261,29 @@ function ClientRefineryManager:refineryHopperPosition(): Vector3?
 	return boundsCFrame.Position + Vector3.new(0, boundsSize.Y / 2, 0)
 end
 
--- where the player is, a little above the feet, for ore to leave from and
--- bars to arrive at; nil without a character
-function ClientRefineryManager:characterPosition(): Vector3?
-	local character = Players.LocalPlayer.Character
+-- a crewmate's refine, watched from outside: the same icons fly between
+-- that player and the hopper, and nothing else happens here (no sound, no
+-- HUD). Either end may be streamed out for a watcher far away, and then
+-- there is nothing to show
+function ClientRefineryManager:flyForCrewmate(entries: { { resource: number, amount: number } }, imageByResource: { [number]: string }, colorByResource: { [number]: Color3 }, from: Vector3?, to: Vector3?)
+	if not from or not to then
+		return
+	end
+	local delaySec = 0
+	for _, entry in entries do
+		for _ = 1, iconCount(entry.amount) do
+			ClientIconFlightManager:flyWorld(imageByResource[entry.resource], colorByResource[entry.resource] or UiStyle.TEXT_MUTED_COLOR, from, to, delaySec, nil)
+			delaySec += ICON_STAGGER_SEC
+		end
+	end
+end
+
+-- where a player is (this one when no user id is given), a little above
+-- the feet, for ore to leave from and bars to arrive at; nil without a
+-- character
+function ClientRefineryManager:characterPosition(userId: number?): Vector3?
+	local player = if userId then Players:GetPlayerByUserId(userId) else Players.LocalPlayer
+	local character = if player then player.Character else nil
 	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
 	if not root or not root:IsA("BasePart") then
 		return nil
@@ -273,6 +295,10 @@ function ClientRefineryManager:onRefineStarted(payload: any)
 	local isValid = Validate.isTableShape(payload, NOTIFY_REFINE_STARTED_SHAPE)
 	if not isValid then
 		warn("ClientRefineryManager: malformed NotifyRefineStarted")
+		return
+	end
+	if payload.userId ~= Players.LocalPlayer.UserId then
+		self:flyForCrewmate(payload.ore, Icons.RAW_RESOURCE, COLOR_BY_RAW, self:characterPosition(payload.userId), self:refineryHopperPosition())
 		return
 	end
 	ClientSoundManager:playSfx(SoundNames.Sfx.REFINERY_GRIND)
@@ -327,6 +353,10 @@ function ClientRefineryManager:onRefineCompleted(payload: any)
 	local isValid = Validate.isTableShape(payload, NOTIFY_REFINE_COMPLETED_SHAPE)
 	if not isValid then
 		warn("ClientRefineryManager: malformed NotifyRefineCompleted")
+		return
+	end
+	if payload.userId ~= Players.LocalPlayer.UserId then
+		self:flyForCrewmate(payload.refined, Icons.REFINED_RESOURCE, COLOR_BY_REFINED, self:refineryHopperPosition(), self:characterPosition(payload.userId))
 		return
 	end
 	ClientSoundManager:playSfx(SoundNames.Sfx.REFINERY_PAYOUT)

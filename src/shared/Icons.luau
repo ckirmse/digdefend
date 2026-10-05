@@ -63,6 +63,8 @@ Icons.UI = {
 	CLOCK_NIGHT = "rbxassetid://72038436524050",
 	-- the compass's Refinery marker (designer's art, 2026-09-30)
 	COMPASS_HOME = "rbxassetid://98277990053980",
+	-- Cash, in the Results Menu; no art yet, so the row shows no icon
+	CASH = Icons.PLACEHOLDER,
 }
 
 function Icons.isPlaceholder(id: string?): boolean

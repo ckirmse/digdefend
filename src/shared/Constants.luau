@@ -33,10 +33,8 @@ Constants.DEV_TEST_MENU_DIALOG = "Dialog"
 Constants.PLAYER_FEEDBACK_GUI_NAME = "PlayerFeedback"
 Constants.PLAYER_FEEDBACK_BOX = "FeedbackBox"
 -- top-centre blue box for the beats nobody should miss (Camp Level up)
-Constants.PLAYER_FEEDBACK_ANNOUNCEMENT_BOX = "AnnouncementBox"
 -- red box under the announcement for danger (a wall down, the Refinery
 -- under attack; 2026-09-25)
-Constants.PLAYER_FEEDBACK_ALERT_BOX = "AlertBox"
 Constants.PLAYER_FEEDBACK_LABEL = "Message"
 Constants.HUD_GUI_NAME = "HUD"
 Constants.HUD_CASH_WALLET = "CashWallet"
@@ -112,6 +110,28 @@ Constants.RADIO_SCREEN_LABEL = "TextLabel"
 Constants.RADIO_SCREEN_LIGHT = "SpotLight"
 -- BaseParts named 1..6; players are placed on them in arrival order
 Constants.CAMP_SPAWNS_FOLDER = "Spawns"
+-- death and revives (M32). Camp.Cemetery.Plots holds BaseParts named 1..6,
+-- each the size and pose of the Grave template's Ground: a dead player's
+-- grave is laid on the lowest free one, and a revived player appears on
+-- it. Workspace.DeathRoom
+-- exists once in the gameplay place (not per map), a closed room far from
+-- every camp whose Spawn part a dead character is moved onto
+Constants.CAMP_CEMETERY_FOLDER = "Cemetery"
+Constants.CEMETERY_PLOTS_FOLDER = "Plots"
+Constants.CEMETERY_PLOT_COUNT = 6
+Constants.DEATH_ROOM_MODEL = "DeathRoom"
+Constants.DEATH_ROOM_SPAWN_PART = "Spawn"
+-- the designer's grave a client lays on each tombstone shadow:
+-- GameAssets/Grave, a Model whose PrimaryPart is its Ground, with a
+-- SurfaceGui on the stone (DisplayName, Thumbnail, and Day are filled in)
+-- and an invisible CameraLocation part: where the dead player's camera
+-- stands, looking the way the part faces, while the Results Menu is up
+Constants.GRAVE_TEMPLATE = "Grave"
+Constants.GRAVE_DISPLAY_NAME_LABEL = "DisplayName"
+Constants.GRAVE_THUMBNAIL = "Thumbnail"
+Constants.GRAVE_DAY_LABEL = "Day"
+Constants.GRAVE_CAMERA_PART = "CameraLocation"
+Constants.TOMBSTONE_SHADOWS_FOLDER = "TombstoneShadows"
 -- Camp.Mine.Entrance: an anchored part whose position is the mine origin and
 -- whose look direction (snapped to an axis) is the mine facing
 Constants.CAMP_MINE_FOLDER = "Mine"
@@ -645,5 +665,78 @@ Constants.DAMAGEABLE_BODIES_FOLDER = "DamageableBodies"
 Constants.WEAPON_HUD_GUI_NAME = "WeaponHud"
 Constants.WEAPON_HUD_AMMO_BUTTON = "AmmoButton"
 Constants.WEAPON_HUD_AMMO_LABEL = "AmmoLabel"
+
+-- the Results Menu (M32; scripts/studio/build_results_menu_gui.luau): the
+-- run's stats, shown at death with the Revive and Spectate buttons and at
+-- the end of a run with Close (Return to Base is M33)
+Constants.RESULTS_MENU_GUI_NAME = "ResultsMenu"
+Constants.RESULTS_MENU_DIALOG = "Dialog"
+Constants.RESULTS_MENU_TITLE_LABEL = "Title"
+Constants.RESULTS_MENU_STATS = "Stats"
+Constants.RESULTS_MENU_ROW_URANIUM_REFINED = "UraniumRefined"
+Constants.RESULTS_MENU_ROW_CASH_EARNED = "CashEarned"
+Constants.RESULTS_MENU_ROW_GOLD_REFINED = "GoldRefined"
+Constants.RESULTS_MENU_ROW_IRON_REFINED = "IronRefined"
+Constants.RESULTS_MENU_ROW_ENEMIES_KILLED = "EnemiesKilled"
+Constants.RESULTS_MENU_ROW_DAMAGE_GIVEN = "DamageGiven"
+Constants.RESULTS_MENU_ROW_NAME_LABEL = "Name"
+Constants.RESULTS_MENU_ROW_ICON = "Icon"
+Constants.RESULTS_MENU_ROW_VALUE_LABEL = "Value"
+-- the crew column: a header over the rows and each row's place ("2nd");
+-- both are hidden for a solo player
+Constants.RESULTS_MENU_RANK_HEADER_LABEL = "RankHeader"
+Constants.RESULTS_MENU_ROW_RANK_LABEL = "Rank"
+Constants.RESULTS_MENU_COUNTDOWN_LABEL = "Countdown"
+Constants.RESULTS_MENU_REVIVE_BUTTON = "ReviveButton"
+Constants.RESULTS_MENU_REVIVE_LABEL = "Label"
+Constants.RESULTS_MENU_REVIVE_PRICE_LABEL = "Price"
+Constants.RESULTS_MENU_SPECTATE_BUTTON = "SpectateButton"
+Constants.RESULTS_MENU_CLOSE_BUTTON = "CloseButton"
+-- the Game Over screen (designer-authored ScreenGui, M32): one TextLabel
+-- that reads why, shown over a red-tinted world before the Results Menu.
+-- ScreenFade (scripts/studio/build_screen_fade_gui.luau) is the black
+-- frame that fades in over it and out over the menu
+Constants.GAME_OVER_GUI_NAME = "GameOver"
+Constants.GAME_OVER_LABEL = "TextLabel"
+Constants.SCREEN_FADE_GUI_NAME = "ScreenFade"
+Constants.SCREEN_FADE_FRAME = "Black"
+-- the Spectate bar (M32; scripts/studio/build_spectate_gui.luau): who a
+-- dead player is watching, arrows to change, and the way back to the
+-- Results Menu
+Constants.SPECTATE_GUI_NAME = "Spectate"
+Constants.SPECTATE_BAR = "Bar"
+Constants.SPECTATE_PREVIOUS_BUTTON = "PreviousButton"
+Constants.SPECTATE_NEXT_BUTTON = "NextButton"
+Constants.SPECTATE_NAME_LABEL = "NameLabel"
+Constants.SPECTATE_RESULTS_BUTTON = "ResultsButton"
+Constants.SPECTATE_LOBBY_BUTTON = "LobbyButton"
+-- right of the bar: the Revive on offer under a countdown, gone when its
+-- time is up
+Constants.SPECTATE_REVIVE_BOX = "ReviveBox"
+Constants.SPECTATE_REVIVE_BUTTON = "ReviveButton"
+Constants.SPECTATE_REVIVE_TIMER_LABEL = "Timer"
+-- the Give Currency menu (M32; scripts/studio/build_give_currency_gui.luau):
+-- a send page and a confirmation page in one dialog
+Constants.GIVE_CURRENCY_GUI_NAME = "GiveCurrency"
+Constants.GIVE_CURRENCY_DIALOG = "Dialog"
+Constants.GIVE_CURRENCY_SEND_PAGE = "SendPage"
+Constants.GIVE_CURRENCY_CONFIRM_PAGE = "ConfirmPage"
+Constants.GIVE_CURRENCY_THUMBNAIL = "Thumbnail"
+Constants.GIVE_CURRENCY_TITLE_LABEL = "Title"
+Constants.GIVE_CURRENCY_GOLD_ROW = "GoldRow"
+Constants.GIVE_CURRENCY_IRON_ROW = "IronRow"
+Constants.GIVE_CURRENCY_ROW_ICON = "Icon"
+Constants.GIVE_CURRENCY_ROW_MINUS_BUTTON = "MinusButton"
+Constants.GIVE_CURRENCY_ROW_PLUS_BUTTON = "PlusButton"
+Constants.GIVE_CURRENCY_ROW_AMOUNT_BOX = "Amount"
+Constants.GIVE_CURRENCY_ROW_OWNED_LABEL = "Owned"
+Constants.GIVE_CURRENCY_SEND_BUTTON = "SendButton"
+Constants.GIVE_CURRENCY_CLOSE_BUTTON = "CloseButton"
+Constants.GIVE_CURRENCY_NAME_LABEL = "Name"
+Constants.GIVE_CURRENCY_GOLD_AMOUNT = "GoldAmount"
+Constants.GIVE_CURRENCY_IRON_AMOUNT = "IronAmount"
+Constants.GIVE_CURRENCY_AMOUNT_VALUE_LABEL = "Value"
+Constants.GIVE_CURRENCY_CONFIRM_BUTTON = "ConfirmButton"
+Constants.GIVE_CURRENCY_BACK_BUTTON = "BackButton"
 
 return Constants

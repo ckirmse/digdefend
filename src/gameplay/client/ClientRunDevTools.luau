@@ -37,6 +37,11 @@ local SET_PAUSED_COMMAND = "setPaused"
 local URANIUM_TO_TARGET_COMMAND = "uraniumToTarget"
 local CALL_HELICOPTER_COMMAND = "callHelicopter"
 local BOARD_HELICOPTER_COMMAND = "boardHelicopter"
+-- must match ReviveDevTools.*_COMMAND on the server
+local KILL_ME_COMMAND = "killMe"
+local REVIVE_FREE_COMMAND = "reviveFree"
+local RESET_TEAM_REVIVE_COMMAND = "resetTeamRevive"
+local ADD_REVIVE_CREDIT_COMMAND = "addReviveCredit"
 
 local function enumKeyOptions(enumTable: Enums.EnumTable): { string }
 	local options = {}
@@ -81,6 +86,21 @@ function ClientRunDevTools:renderSection()
 	end
 	if Iris.Button({ "Board the helicopter" }).clicked() then
 		self:send(BOARD_HELICOPTER_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Kill me" }).clicked() then
+		self:send(KILL_ME_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Revive me (free)" }).clicked() then
+		self:send(REVIVE_FREE_COMMAND, { reviveKind = Enums.ReviveKind.SELF })
+	end
+	if Iris.Button({ "Team Revive (free, crew wiped)" }).clicked() then
+		self:send(REVIVE_FREE_COMMAND, { reviveKind = Enums.ReviveKind.TEAM })
+	end
+	if Iris.Button({ "Make the Team Revive available again" }).clicked() then
+		self:send(RESET_TEAM_REVIVE_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Add a Revive credit" }).clicked() then
+		self:send(ADD_REVIVE_CREDIT_COMMAND, { reviveKind = Enums.ReviveKind.SELF })
 	end
 	Iris.InputNum({ "Day", 1, 1, 99 }, { number = self.dayInput })
 	if Iris.Button({ "Set day (by day only)" }).clicked() then

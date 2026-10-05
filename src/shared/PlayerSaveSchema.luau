@@ -32,14 +32,32 @@ export type SaveData = {
 	completions: { [string]: boolean },
 	dailyReward: DailyRewardSave,
 	sessionMeta: SessionMetaSave,
+	-- the Robux receipts already granted, oldest first (PurchaseManager): a
+	-- receipt Roblox sends again is answered without granting twice
+	processedPurchaseIds: { string },
+	-- Enums.ReviveKind key name -> revives paid for but not yet used (a
+	-- purchase that could not apply is kept as a credit, never refused)
+	reviveCredits: { [string]: number },
 }
 
 export type Defaults = {
 	startingCash: number,
 }
 
+-- only the newest receipts are kept: Roblox retries a receipt for days at
+-- most, so an old id can never come back, and the save stays small
+PlayerSaveSchema.MAX_PROCESSED_PURCHASE_IDS = 100
+
 -- a unit-test-visible record of what validate() had to repair
 export type Repair = string
+
+function PlayerSaveSchema.getDefaultReviveCredits(): { [string]: number }
+	local credits = {}
+	for _, kind in Enums.getAllValues(Enums.ReviveKind) do
+		credits[Enums.getName(Enums.ReviveKind, kind) :: string] = 0
+	end
+	return credits
+end
 
 function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 	return {
@@ -57,6 +75,8 @@ function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 			totalPlaySec = 0,
 			saveTime = 0,
 		},
+		processedPurchaseIds = {},
+		reviveCredits = PlayerSaveSchema.getDefaultReviveCredits(),
 	}
 end
 
@@ -115,6 +135,57 @@ local function validateNonnegativeIntegerFields(container: any, fields: { string
 	end
 end
 
+-- an ordered list of non-empty strings, trimmed to the newest entries
+local function validatePurchaseIds(data: any, repairs: { Repair })
+	if typeof(data.processedPurchaseIds) ~= "table" then
+		data.processedPurchaseIds = {}
+		table.insert(repairs, "processedPurchaseIds reset")
+		return
+	end
+	local kept = {}
+	local isRepaired = false
+	for key, value in data.processedPurchaseIds do
+		if typeof(key) == "number" and typeof(value) == "string" and value ~= "" then
+			table.insert(kept, value)
+		else
+			isRepaired = true
+		end
+	end
+	local overflow = #kept - PlayerSaveSchema.MAX_PROCESSED_PURCHASE_IDS
+	if overflow > 0 then
+		kept = table.move(kept, overflow + 1, #kept, 1, {})
+		isRepaired = true
+	end
+	if isRepaired then
+		data.processedPurchaseIds = kept
+		table.insert(repairs, "processedPurchaseIds repaired")
+	end
+end
+
+-- one count per Enums.ReviveKind key; a missing or bad count is 0
+local function validateReviveCredits(data: any, repairs: { Repair })
+	if typeof(data.reviveCredits) ~= "table" then
+		data.reviveCredits = PlayerSaveSchema.getDefaultReviveCredits()
+		table.insert(repairs, "reviveCredits reset")
+		return
+	end
+	for key in data.reviveCredits do
+		if Enums.getValueByName(Enums.ReviveKind, key) == nil then
+			data.reviveCredits[key] = nil
+			table.insert(repairs, "reviveCredits dropped entry " .. tostring(key))
+		end
+	end
+	for key in PlayerSaveSchema.getDefaultReviveCredits() do
+		if not Validate.isValueType(data.reviveCredits[key], "nonnegativeInteger") then
+			-- a save from before the field existed simply has no counts yet
+			if data.reviveCredits[key] ~= nil then
+				table.insert(repairs, "reviveCredits." .. key .. " reset")
+			end
+			data.reviveCredits[key] = 0
+		end
+	end
+end
+
 -- repairs data in place and returns it, plus the list of repairs made; a
 -- non-table save is replaced wholesale
 function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { Repair })
@@ -154,6 +225,9 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 			repairs
 		)
 	end
+
+	validatePurchaseIds(data, repairs)
+	validateReviveCredits(data, repairs)
 
 	-- unknown top-level keys are dropped so a renamed field cannot linger forever
 	local knownFields = defaultData :: any

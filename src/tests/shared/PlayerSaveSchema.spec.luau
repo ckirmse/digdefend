@@ -17,6 +17,8 @@ local function makeValidSave()
 		completions = { ["DEADMANS_CANYON/NORMAL"] = true },
 		dailyReward = { lastClaimedDay = 3, nextClaimTime = 1700000000 },
 		sessionMeta = { creationTime = 1690000000, sessions = 4, totalPlaySec = 3600, saveTime = 1700000000 },
+		processedPurchaseIds = { "purchase-1", "purchase-2" },
+		reviveCredits = { SELF = 1, FRIEND = 0, TEAM = 2 },
 	}
 end
 
@@ -165,7 +167,38 @@ describe(
 				expect(validated.loadout).toEqual({})
 				expect(validated.completions).toEqual({})
 				expect(validated.sessionMeta.sessions).toBe(0)
-				expect(#repairs).toBe(5)
+				expect(validated.processedPurchaseIds).toEqual({})
+				expect(validated.reviveCredits).toEqual({ SELF = 0, FRIEND = 0, TEAM = 0 })
+				expect(#repairs).toBe(7)
+			end
+		)
+		it(
+			"keeps good purchase ids in order, drops bad ones, and trims to the newest",
+			function()
+				local data = makeValidSave()
+				data.processedPurchaseIds = { "a", 7 :: any, "", "b" }
+				local validated, repairs = PlayerSaveSchema.validate(data, DEFAULTS)
+				expect(validated.processedPurchaseIds).toEqual({ "a", "b" })
+				expect(#repairs).toBe(1)
+
+				local long = makeValidSave()
+				long.processedPurchaseIds = {}
+				for index = 1, PlayerSaveSchema.MAX_PROCESSED_PURCHASE_IDS + 3 do
+					table.insert(long.processedPurchaseIds, "id" .. index)
+				end
+				local trimmed = PlayerSaveSchema.validate(long, DEFAULTS)
+				expect(#trimmed.processedPurchaseIds).toBe(PlayerSaveSchema.MAX_PROCESSED_PURCHASE_IDS)
+				expect(trimmed.processedPurchaseIds[1]).toBe("id4")
+			end
+		)
+		it(
+			"repairs revive credits: unknown kinds dropped, bad counts zeroed, missing kinds filled quietly",
+			function()
+				local data = makeValidSave()
+				data.reviveCredits = { SELF = 2, FRIEND = -1, BOGUS = 5 } :: any
+				local validated, repairs = PlayerSaveSchema.validate(data, DEFAULTS)
+				expect(validated.reviveCredits).toEqual({ SELF = 2, FRIEND = 0, TEAM = 0 })
+				expect(#repairs).toBe(2)
 			end
 		)
 	end

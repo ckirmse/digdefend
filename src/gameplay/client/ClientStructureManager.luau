@@ -63,6 +63,8 @@ type Tracked = {
 export type ClientStructureManager = typeof(setmetatable(
 	{} :: {
 		isRepairMode: boolean,
+		-- every HP bar off, whatever else says to show one (a dead player's screens)
+		areBarsHidden: boolean,
 		trackedByShadow: { [BasePart]: Tracked },
 		-- the structure under the reticle, within reach
 		target: BasePart?,
@@ -254,6 +256,9 @@ end
 -- whether a shadow's HP bar shows: everything in Repair Mode; outside it
 -- the Refinery always, and a wall or the gate only while damaged
 function ClientStructureManager:isBarShown(shadow: BasePart): boolean
+	if self.areBarsHidden then
+		return false
+	end
 	if self.isRepairMode then
 		return true
 	end
@@ -675,6 +680,18 @@ function ClientStructureManager:untrack(shadow: Instance)
 	end
 end
 
+-- a dead player's Game Over screen and Results Menu want a clear view:
+-- the bars draw through the world and would sit over them (2026-10-05)
+function ClientStructureManager:setBarsHidden(areBarsHidden: boolean)
+	if self.areBarsHidden == areBarsHidden then
+		return
+	end
+	self.areBarsHidden = areBarsHidden
+	for shadow, tracked in self.trackedByShadow do
+		self:applyBarVisibility(shadow, tracked)
+	end
+end
+
 function ClientStructureManager:setRepairMode(isRepairMode: boolean)
 	if self.isRepairMode == isRepairMode then
 		return
@@ -858,6 +875,7 @@ end
 function ClientStructureManager.new(): ClientStructureManager
 	local self = setmetatable({}, ClientStructureManager) :: ClientStructureManager
 	self.isRepairMode = false
+	self.areBarsHidden = false
 	self.trackedByShadow = {}
 	self.target = nil
 	self.highlight = nil

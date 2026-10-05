@@ -18,8 +18,9 @@
 -- one UnreliableRemoteEvent: each player every tick for the monsters near
 -- them, the rest every FAR_EVERY_TICKS ticks, so nothing is ever streamed
 -- out. Spawns, deaths, projectiles, and blasts go on the reliable event,
--- batched per tick. Until Revives (M32) a player is never brought below
--- PLAYER_MIN_HEALTH.
+-- batched per tick. A hit on a player is handed to ReviveManager (M32),
+-- which owns health and death; a dead player is no target, and a
+-- spectator's snapshots are sent by distance from the player they watch.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -41,6 +42,7 @@ local DamageableManager = require(script.Parent.DamageableManager)
 local MonsterPathManager = require(script.Parent.MonsterPathManager)
 local PlacementManager = require(script.Parent.PlacementManager)
 local StructureManager = require(script.Parent.StructureManager)
+local ReviveManager = require(script.Parent.ReviveManager)
 local RunPauseManager = require(script.Parent.RunPauseManager)
 
 local MonsterManager = {}
@@ -133,7 +135,6 @@ export type MonsterManager = typeof(setmetatable(
 		lastStatsTime: number,
 		stepSecTotal: number,
 		stepCount: number,
-		lastDownWarnTime: number,
 		killedHandlers: { (kind: number) -> () },
 		random: Random,
 		-- per kind, so a tick allocates no priority list per monster
@@ -154,7 +155,6 @@ local DEFAULT_METRICS: ModelMetrics = {
 }
 local PLAYER_CANDIDATE_PREFIX = "Player"
 local STATS_INTERVAL_SEC = 1
-local DOWN_WARN_INTERVAL_SEC = 2
 -- a projectile at a player lands on them only if they are still this close
 -- to where it was aimed (or inside its radius)
 local PROJECTILE_PLAYER_HIT_STUDS = 3
@@ -391,7 +391,7 @@ function MonsterManager:buildCandidates()
 		local character = player.Character
 		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
 		local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
-		if not root or not root:IsA("BasePart") or not humanoid or humanoid.Health <= 0 then
+		if not root or not root:IsA("BasePart") or not humanoid or humanoid.Health <= 0 or ReviveManager:isDead(player) then
 			continue
 		end
 		local id = PLAYER_CANDIDATE_PREFIX .. player.UserId
@@ -458,21 +458,9 @@ function MonsterManager:hurt(candidate: MonsterRules.Candidate, amount: number)
 	local targetType = candidate.targetType
 	if targetType == Enums.MonsterTargetType.PLAYERS then
 		local player = self.playerByCandidateId[candidate.id]
-		local character = if player then player.Character else nil
-		local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
-		if not player or not humanoid then
-			return
+		if player then
+			ReviveManager:damagePlayer(player, amount)
 		end
-		local health = humanoid.Health - amount
-		if health < BehaviorData.PLAYER_MIN_HEALTH then
-			local now = workspace:GetServerTimeNow()
-			if now - self.lastDownWarnTime >= DOWN_WARN_INTERVAL_SEC then
-				self.lastDownWarnTime = now
-				warn(`MonsterManager: {player.Name} would be down (held at {BehaviorData.PLAYER_MIN_HEALTH} HP until Revives, M32)`)
-			end
-			health = BehaviorData.PLAYER_MIN_HEALTH
-		end
-		humanoid.Health = health
 	elseif targetType == Enums.MonsterTargetType.TOWERS or targetType == Enums.MonsterTargetType.TRAPS then
 		PlacementManager:damagePlacement(candidate.id, amount)
 	else
@@ -976,9 +964,7 @@ function MonsterManager:sendSnapshots(now: number)
 	local farEvery = BehaviorData.FAR_EVERY_TICKS
 	local farPhase = self.tickCount % farEvery
 	for _, player in GameController:getReadyPlayers() do
-		local character = player.Character
-		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
-		local viewer = if root and root:IsA("BasePart") then root.Position else nil
+		local viewer = ReviveManager:getViewPosition(player)
 		local records = {}
 		for _, monster in self.monsters do
 			local isDue = monster.id % farEvery == farPhase
@@ -1181,7 +1167,6 @@ function MonsterManager.new(): MonsterManager
 	self.lastStatsTime = 0
 	self.stepSecTotal = 0
 	self.stepCount = 0
-	self.lastDownWarnTime = 0
 	self.killedHandlers = {}
 	self.random = Random.new()
 	self.priorityOrderByKind = {}

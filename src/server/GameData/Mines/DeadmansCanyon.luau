@@ -58,8 +58,12 @@ return {
 			-- much for its nine towers by night 10). The day before, the
 			-- third playtest had cut iron under gold because three towers
 			-- went up by night 1; that was with seven-block veins
-			iron = 192,
-			gold = 136,
+			-- iron and gold up 25% in zones 1 and 2 and 15% in zones 3 to 5
+			-- (2026-10-05, playtest feedback: resources too scarce; was
+			-- 192 / 136 in zones 1 to 3 and 144 / 104 in zones 4 and 5)
+			-- zone 1 gold up another 50% the same day (170 to 255)
+			iron = 240,
+			gold = 255,
 			-- crystal removed from the spawns (2026-09-29) while the camp-level
 			-- gates are open for testing; was 36 / 36 / 72 / 108 / 108
 			crystal = 0,
@@ -75,8 +79,8 @@ return {
 			floorDrop = 4,
 			hardness = 2.0,
 			tierBias = 2.0,
-			iron = 192,
-			gold = 136,
+			iron = 240,
+			gold = 170,
 			crystal = 0,
 			uranium = 8,
 			pockets = 6,
@@ -88,8 +92,8 @@ return {
 			floorDrop = 6,
 			hardness = 3.0,
 			tierBias = 3.0,
-			iron = 192,
-			gold = 136,
+			iron = 221,
+			gold = 156,
 			crystal = 0,
 			uranium = 9,
 			pockets = 8,
@@ -102,8 +106,8 @@ return {
 			floorDrop = 8,
 			hardness = 4.0,
 			tierBias = 4.0,
-			iron = 144,
-			gold = 104,
+			iron = 166,
+			gold = 120,
 			crystal = 0,
 			uranium = 14,
 			pockets = 10,
@@ -123,8 +127,8 @@ return {
 			floorDrop = 10,
 			hardness = 5.0,
 			tierBias = 4.0,
-			iron = 144,
-			gold = 104,
+			iron = 166,
+			gold = 120,
 			crystal = 0,
 			uranium = 362,
 			pockets = 10,

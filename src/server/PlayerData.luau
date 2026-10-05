@@ -28,6 +28,8 @@ export type PlayerData = typeof(setmetatable(
 		completions: { [string]: boolean },
 		dailyReward: PlayerSaveSchema.DailyRewardSave,
 		sessionMeta: PlayerSaveSchema.SessionMetaSave,
+		processedPurchaseIds: { string },
+		reviveCredits: { [string]: number },
 	},
 	PlayerData
 ))
@@ -41,6 +43,8 @@ local SAVE_FIELDS = {
 	"completions",
 	"dailyReward",
 	"sessionMeta",
+	"processedPurchaseIds",
+	"reviveCredits",
 }
 
 local SCHEMA_DEFAULTS: PlayerSaveSchema.Defaults = {
@@ -213,6 +217,55 @@ function PlayerData:getSessionMeta(): PlayerSaveSchema.SessionMetaSave
 	return self.sessionMeta
 end
 
+function PlayerData:hasProcessedPurchase(purchaseId: string): boolean
+	return table.find(self.processedPurchaseIds, purchaseId) ~= nil
+end
+
+-- newest last; the oldest fall off the front (PlayerSaveSchema's cap)
+function PlayerData:addProcessedPurchase(purchaseId: string)
+	if self:hasProcessedPurchase(purchaseId) then
+		return
+	end
+	table.insert(self.processedPurchaseIds, purchaseId)
+	while #self.processedPurchaseIds > PlayerSaveSchema.MAX_PROCESSED_PURCHASE_IDS do
+		table.remove(self.processedPurchaseIds, 1)
+	end
+end
+
+function PlayerData:getReviveCredits(reviveKind: number): number
+	local key = Enums.getName(Enums.ReviveKind, reviveKind)
+	return if key then self.reviveCredits[key] or 0 else 0
+end
+
+function PlayerData:addReviveCredit(reviveKind: number)
+	local key = Enums.getName(Enums.ReviveKind, reviveKind)
+	if key then
+		self.reviveCredits[key] = (self.reviveCredits[key] or 0) + 1
+	end
+end
+
+-- false, and nothing spent, when there is no credit of that kind
+function PlayerData:spendReviveCredit(reviveKind: number): boolean
+	local key = Enums.getName(Enums.ReviveKind, reviveKind)
+	if not key or (self.reviveCredits[key] or 0) <= 0 then
+		return false
+	end
+	self.reviveCredits[key] -= 1
+	return true
+end
+
+-- copies the live state into the profile and asks ProfileStore to write it
+-- now, for the few changes that must survive a crash a moment later (a
+-- Robux receipt, Cash paid at a dawn)
+function PlayerData:saveNow()
+	local profile = self.profile
+	if not profile or not self.isSaveOnExit then
+		return
+	end
+	profile.Data = self:getSaveData()
+	profile:Save()
+end
+
 function PlayerData:destroy()
 	self.profile = nil
 end
@@ -232,6 +285,8 @@ function PlayerData.new(player: Player): PlayerData
 	self.completions = defaults.completions
 	self.dailyReward = defaults.dailyReward
 	self.sessionMeta = defaults.sessionMeta
+	self.processedPurchaseIds = defaults.processedPurchaseIds
+	self.reviveCredits = defaults.reviveCredits
 	return self
 end
 
