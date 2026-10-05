@@ -11,7 +11,7 @@ Rules:
 - Core loop first, art and polish later. A cube enemy is a fine enemy until Phase 9.
 - When copying UI or systems from the reference games, restyle to this project's UI standards (fonts, capitalization, centering, sparse exclamation points).
 
-Open design questions (sections of the GDD that are still empty headings, to be filled before their phase begins): Backpack, Boots, Posts, Defenses, Traps, Camp Level, Wave Cycle, Monsters, Random Events, Adjusting for Player Counts, Revives, Spectate Mode, Menus, Audio. Added 2026-10-03: Classes and Contracts have a direction in the GDD but every detail is still to be fleshed out (roster, odds, skills, XP curve, prices, tier curve, modifiers); see their "To be fleshed out" bullets. Revised the same day to four directly unlocked Classes with rolled, graded skills (21 at launch) instead of pulled Classes.
+Open design questions (sections of the GDD that are still empty headings, to be filled before their phase begins): Backpack, Boots, Posts, Defenses, Traps, Camp Level, Wave Cycle, Monsters, Random Events, Adjusting for Player Counts, Revives, Spectate Mode, Menus, Audio. Added 2026-10-03: Classes and Contracts have a direction in the GDD but every detail is still to be fleshed out (roster, odds, skills, XP curve, prices, tier curve, modifiers); see their "To be fleshed out" bullets. Revised the same day to four directly unlocked Classes with rolled, graded skills (21 at launch) instead of pulled Classes. Replaced 2026-10-05 by Characters (a generic character with a Cash reroll on its weapon, post, and three skills; more slots to buy), with Earning Cash and Contracts; all three still to be fleshed out.
 
 ---
 
@@ -28,7 +28,20 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 ## Phase 6: Enemies and the Core Loop
 
 **M32 — Death, revives, and spectate**
-Player death handling, revive mechanic, spectate mode for dead players, all-dead loss. Needs the empty "Revives" and "Spectate Mode" sections filled first. 2026-10-03: design the revive so a paid Revive product (M40) can hook into it.
+Player death handling, revive mechanic, spectate mode for dead players, all-dead loss. 2026-10-05: designed in the GDD ("Health and Revives", "Spectate Mode", "Results Menu"): static health, damage from enemies only, no healing, the character moved to a DeathRoom on death, a tombstone in the Cemetery, the Results Menu with a Robux Revive (60 seconds to buy, unlimited) and a Spectate button, the Friend Revive prompt at the tombstone, and the once-per-run Team Revive (every player dead: the run freezes for 60 seconds, and one purchase revives the crew and restarts the current day). Each section ends with the questions to answer before the build. The Results Menu's end-of-run form and its "Return to Base" button are shared with M33. Scope added 2026-10-05: the three revive purchases (Revive, Friend Revive, Team Revive) are real Robux developer products in this milestone, so the `ProcessReceipt` handling planned for M40 (idempotent granting, purchase logging) is built here and M40 adds the remaining products to it.
+
+Build notes for M32 (2026-10-05, written so the build can start from a fresh conversation; the GDD sections are the design, these are how it lands in the code):
+- Before building, the designer confirms or changes the "Proposed answers" bullets at the end of "Health and Revives", "Spectate Mode", and "Results Menu", and supplies the three developer product ids and prices. Build against placeholder ids plus a dev tool that revives without paying; Studio test purchases exercise the real flow once the ids exist.
+- Today: `MonsterManager` holds a player at `BehaviorData.PLAYER_MIN_HEALTH` and warns "would be down" (about line 471); `RunCycleManager:endRun(false, RunCycleData.LOST_ALL_DEAD_MESSAGE)` exists but only the dev tool reaches it; `RunPauseManager` already freezes the clock, monsters, waves, Towers, Traps, and the rescue, and is what the Team Revive's 60 second freeze should reuse.
+- `PurchaseManager` (new, common server code in `src/server` so the lobby uses it at M40) owns the one `MarketplaceService.ProcessReceipt` callback; managers register a handler per product id, wired by `GameController`. It records each receipt's purchase id through `PlayerData` before answering PurchaseGranted so a retried receipt is never granted twice (new save field: type, default, and rule in `PlayerSaveSchema`, an entry in `PlayerData.SAVE_FIELDS`, reset-contract coverage). It never answers NotProcessedYet for a revive that cannot apply: the buyer gets a saved revive credit instead (also a save field).
+- `ReviveManager` (new, gameplay server) owns who is dead, the one "revive this player" entry point every path calls (Revive, Friend Revive, Team Revive, credit, dev tool), the tombstones, the 60 second windows, and the once-per-run Team Revive. A Friend Revive remembers which tombstone the buyer triggered, since a receipt names only the buyer. Pure decisions (can this player be revived, is the crew wiped, what a purchase turns into) go in a shared `ReviveRules` with unit tests.
+- Product ids, the 60 second windows, the invulnerability time, and health live in GameData (a new `GameData/Run/Revives`). The client never requires GameData: the server reads each product's live Robux price from `MarketplaceService` and publishes it through `GameMetadata` for the buttons.
+- Death moves the character to the DeathRoom and never calls `LoadCharacter`. Dead is per-player run state published through `SplendidReplicationManager` (public, so Spectate and the tombstone prompts can read it). Build Mode, a manned post, and tools must let go on death.
+- A tombstone is a shadow part (one invisible anchored part per dead player with attributes; clients dress it from a `GameAssets` template and show the Friend Revive prompt only while its player is in the game and dead). The Cemetery joins the required map parts in `GameplayMapManager:checkCamp` and is authored in both maps with `scripts/studio/map_tools.luau`.
+- Team Revive restarts the current day without advancing the day counter: kill every monster, cancel the groups still to spawn, revive everyone, start the same day again. On the rescue wave the run returns to that day and the radio can be used again.
+- Per-player run stats for the Results Menu (nights survived, Cash earned, Gold and Iron refined, enemies killed, damage given) are new server Lua state; kills and damage need the attacker passed through `DamageableManager`.
+- GUIs (Results Menu, Spectate bar) are authored in StarterGui by build scripts in `scripts/studio/`, registered with `ClientOverlayManager`, and checked on a phone preset. Spectating a far player needs streaming focused on them, as Build Mode does for the Defensive Zone.
+- Health regeneration, if confirmed off, is removed in one place for every character.
 
 **M33 — Player-count scaling and return to lobby**
 Wave and resource adjustments for 1 to 6 players. Run-end summary screen with Cash milestones earned, then teleport back to the lobby. Needs the "Adjusting for Different Player Counts" section filled first.
@@ -38,10 +51,10 @@ Play Deadman's Canyon Normal solo and with a group, start to finish. Fix blocker
 
 ## Phase 7: Meta Progression and Lobby Economy
 
-2026-10-03: the lobby economy is now the Class system plus the Contract system (GDD "Classes", "Contracts"). Both need fleshing out before any milestone in this phase starts; M35, M37, and M38 below are written for the earlier design and are redesigned with them. New milestones are numbered M55 upward and sit where they are built.
+2026-10-05 (replacing the Class system of 2026-10-03): the lobby economy is now Characters plus Contracts (GDD "Characters", "Earning Cash", "Contracts"). All three need fleshing out before any milestone in this phase starts; M35 and M37 below are written for the earlier design and are redesigned with them. New milestones are numbered M55 upward and sit where they are built.
 
-**M55 — Class data and save shape** (needs fleshing out)
-Class definitions in GameData for the four launch Classes (kit, signature skill, skill pool of 5 shared and 3 exclusive) and the per-Class record in `PlayerSaveSchema` (owned, level, XP, chosen skills and their grades, stars), with reset-contract coverage and replication. The starter Class for every new player; the other three unlock directly with Cash. Decide here whether the reference games' `Item` pattern is ported after all, since a Class is the first instanced per-player record. Needs the "Classes" roster and save questions answered first.
+**M55 — Character data and save shape** (needs fleshing out)
+The per-character record in `PlayerSaveSchema` (level, XP, weapon and post type and stars, up to three skills with their rarities) and the list of character slots, with reset-contract coverage and replication. One free character for every new player, starting empty (level 1, one skill slot, 1-star gear); characters are permanent, with no reset or delete. Weapon and post star values and the skill definitions in GameData. Decide here whether the reference games' `Item` pattern is ported after all, since a character is the first instanced per-player record. Needs the "Characters" save questions answered first.
 
 **M35 — Store config and Store Menu**
 Single `StoreConfig` GameData file driving Featured, Weapons, Posts, Placements, and Currency sections. Three-panel Store Menu with vertical scrolling inventory, item panel, and buy flow for Cash and Robux. Insufficient Cash routes to the smallest sufficient currency pack. Owned non-repeatable items hidden.
@@ -52,26 +65,26 @@ Showcase models in `Workspace.Store.Items` with `StoreItem` attributes and proxi
 **M37 — Loadout Menu**
 Owned/unowned/equipped states, equip/unequip/buy actions, slot replacement rules, five-slot loadout display. Loadout carried into the gameplay place via PlayerData.
 
-**M56 — Class XP and the skill system** (needs fleshing out)
-Class XP earned per run, the in-run skill system (21 launch skills: 5 shared, 12 exclusive, 4 signature, each rolled skill at grade I to III), and slots 2 and 3 unlocking at Class levels. Normal, Hard, and Nightmare stay tuned for a level 1 Class. Needs the skills, their grade values, and the XP curve decided first.
+**M56 — Character XP, stars, and the skill system** (needs fleshing out)
+Character XP earned per run, slots 2 and 3 unlocking at character levels, weapon and post stars applied to their stats in a run, and the in-run skill system (first guess 36 skills in six families, each with a rarity, with a title for two of a family and a set bonus for three). Normal stays tuned for a new character. Needs the skills, the star values, and the XP curve decided first.
 
-**M57 — Skill rolls** (needs fleshing out)
-Class roster and roll screen: a pick of three from the Class's pool of eight, free on unlock, a Cash reroll that can always keep the current skill, the slot lock, grade odds shown, and a direct-purchase path where `PolicyService` reports paid random items as restricted. Needs grade odds and prices decided first.
+**M57 — Character sheet and rerolls** (needs fleshing out)
+The character sheet: five rows (weapon, post, skills 1 to 3), each with a Cash reroll. Weapon and post roll stars 1 to 5 on a type the player picks, shown beside the current one to keep either; a skill roll offers three to pick from or keep. Odds shown, and a direct-purchase path where `PolicyService` reports paid random items as restricted. Rank worked out from stars, rarities, and level. Needs the odds, reroll prices, and rank formula decided first.
 
-**M38 — Cash milestones**
-In-run milestone table awarding Cash. (Player level, XP, the level-10 bonus loadout slot, and level-gated pads were removed from the design on 2026-09-10; pads gate on completions only.)
+**M38 — Cash taps** (needs fleshing out)
+The four ways Cash is earned (GDD "Earning Cash", structure copied from 99 Nights in the Forest): night milestones paid and saved at dawn so a lost run keeps them, Cash chests in the world, one-time badges that follow the completion rule, and each Contract's own rescue reward. Needs every amount decided first, set in rerolls per run. (Player level, XP, the level-10 bonus loadout slot, and level-gated pads were removed from the design on 2026-09-10; pads gate on completions only.)
 
-**M58 — Class mastery and promotion** (needs fleshing out)
-Max-level rewards other players can see (gold pick axe, overhead title, helicopter skin), the account-wide bonus per mastered Class, promotion (level reset, gaining a star, a cosmetic, and a Cash multiplier), Class and level shown in the Queue Menu, and the run-end awards (top miner, gunner, repairer) on the M33 summary. Needs the reward values decided first.
+**M58 — Character slots, rank display, and mastery** (needs fleshing out)
+Extra character slots bought with Cash at a rising price or with Robux, and picking which character to bring. Title and rank shown in the Queue Menu and over the head, the recommended rank on each Contract (never a lock), max-level rewards other players can see, and the run-end awards (top miner, gunner, repairer) on the M33 summary. Needs slot prices and the reward values decided first.
 
 **M61 — Cosmetics and the random box** (needs fleshing out)
-Skins for the handheld weapon, post weapon, mining gear, helicopter, and Class, owned per player and equipped in the lobby, replicated so crewmates see them. Obtained from a random box with rarity tiers and odds shown, with the `PolicyService` paid-random-items path. Needs the box price and currency, odds, duplicate rule, launch skin list, and the Class skin question (uniform over the avatar or full character) decided first.
+Skins for the handheld weapon, post weapon, mining gear, helicopter, and character, owned per player and equipped in the lobby, replicated so crewmates see them. Obtained from a random box with rarity tiers and odds shown, with the `PolicyService` paid-random-items path. Needs the box price and currency, odds, duplicate rule, launch skin list, and the character skin question (uniform over the avatar or full character) decided first.
 
 **M39 — Daily Rewards**
 Daily Rewards Menu ported from lights with configurable day count and rewards, restyled to this project's UI standards.
 
 **M40 — Dev products and Robux purchase handling**
-`ProcessReceipt` for currency packs and Robux store items, idempotent granting, purchase logging. Added 2026-10-03 (needs fleshing out, prices undecided; GDD "Classes"): the 2x Cash, 2x Class XP, and fourth-skill-option gamepasses, the Revive product, the cosmetic box (M61), and the one-time starter pack. A season pass and further Classes are post launch.
+`ProcessReceipt` for currency packs and Robux store items, idempotent granting, purchase logging. Added 2026-10-03, revised 2026-10-05 (needs fleshing out, prices undecided; GDD "Characters"): the character slot, the 2x Cash, 2x Character XP, and fourth-skill-option gamepasses, the Revive product, the cosmetic box (M61), and the one-time starter pack (a second character slot plus Cash). A season pass is post launch.
 
 ## Phase 8: Second Map and Content Breadth
 
@@ -85,7 +98,7 @@ Second camp with more exposure and its own mine and wave data. Weather placehold
 Hard and Nightmare tuning for both maps. Map and difficulty unlock chain verified end to end.
 
 **M59 — Contract tiers** (needs fleshing out)
-The endless ladder past Nightmare: each tier a harder set of wave generator parameters with a rising Cash multiplier, unlock chain, Create Party Menu selection, and the balance sheet auditing a tier. Needs the "Contracts" tier and multiplier curves decided first.
+The endless ladder past Nightmare: each tier a harder set of wave generator parameters with its own fixed Cash reward for completing it (2026-10-05, replacing a Cash multiplier) and a recommended rank, unlock chain, Create Party Menu selection, and the balance sheet auditing a tier against a rank. Needs the "Contracts" tier curve, rewards, and recommended ranks decided first.
 
 **M44 — Launch content**
 Full launch roster of weapons, post weapons, defensive units, traps, and mining tool tiers with data and placeholder models.
@@ -94,7 +107,7 @@ Full launch roster of weapons, post weapons, defensive units, traps, and mining 
 Mid-run random events framework and a first few events. Needs the empty "Random Events" section filled first.
 
 **M60 — Weekly Contract and leaderboards** (needs fleshing out)
-One featured map and tier a week with a modifier built on the M45 events framework, weekly rewards, and lobby leaderboards (highest tier cleared, fastest rescue, per Class). Needs the modifier list and the leaderboard's place in the lobby decided first.
+One featured map and tier a week with a modifier built on the M45 events framework, weekly rewards, and lobby leaderboards (highest tier cleared, fastest rescue). Needs the modifier list and the leaderboard's place in the lobby decided first.
 
 ## Phase 9: Art, Audio, and Feel
 
