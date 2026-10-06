@@ -53,9 +53,11 @@ local DEFAULT_DISPLAY_SEC = 3
 local STYLE_PLAIN = 1
 local STYLE_ANNOUNCEMENT = 2
 local STYLE_ALERT = 3
+local STYLE_SUCCESS = 4
 local COLOR_BY_STYLE: { [number]: Color3 } = {
 	[STYLE_ANNOUNCEMENT] = UiStyle.ANNOUNCEMENT_COLOR,
 	[STYLE_ALERT] = UiStyle.ALERT_COLOR,
+	[STYLE_SUCCESS] = UiStyle.POSITIVE_COLOR,
 }
 
 function ClientPlayerFeedbackManager:addListener(listener: FeedbackListener)
@@ -144,6 +146,12 @@ end
 -- danger (a wall down, the Refinery under attack, a crewmate dead): red
 function ClientPlayerFeedbackManager:alertLocal(message: string, displaySec: number?)
 	self:show(message, displaySec or DEFAULT_DISPLAY_SEC, STYLE_ALERT)
+end
+
+-- good news for the whole crew (the uranium target reached, the rescue
+-- called, 2026-10-06): green
+function ClientPlayerFeedbackManager:successLocal(message: string, displaySec: number?)
+	self:show(message, displaySec or DEFAULT_DISPLAY_SEC, STYLE_SUCCESS)
 end
 
 -- no messages at all while this is on (a dead player looking at the Game

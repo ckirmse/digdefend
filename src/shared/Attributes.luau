@@ -67,7 +67,9 @@ module = {
 	GEIGER_COUNTER_RANGE_STUDS = "GeigerCounterRangeStuds",
 	-- GameMetadata: JSON list of the share of the range each ring lights at,
 	-- inner ring first (GeigerRules codec), and how often the client looks
-	GEIGER_COUNTER_RING_SHARES = "GeigerCounterRingShares",
+	-- private: the distances the dial's rings light at for the player's
+	-- level, outer first, as JSON (GeigerRules codec)
+	GEIGER_COUNTER_RING_STUDS = "GeigerCounterRingStuds",
 	GEIGER_COUNTER_SCAN_INTERVAL_SEC = "GeigerCounterScanIntervalSec",
 	-- jet pack (JetPackManager): the tank is private, the burning flag is
 	-- public so every client shows the flame

@@ -52,6 +52,11 @@ export type ZoneDefinition = {
 	gold: number?,
 	uranium: number?,
 	pockets: number?,
+	-- a zone's own pocket size, inherited; the mine's pocketRadiusMin and
+	-- pocketRadiusMax until a zone sets them (2026-10-06: deeper zones carve
+	-- bigger pockets)
+	pocketRadiusMin: number?,
+	pocketRadiusMax: number?,
 	handPlaced: { HandPlaced }?,
 }
 
@@ -119,6 +124,8 @@ export type ResolvedZone = {
 	tierBias: number,
 	veins: { [number]: number },
 	pockets: number,
+	pocketRadiusMin: number,
+	pocketRadiusMax: number,
 	handPlaced: { HandPlaced },
 	depthStart: number,
 	heightStart: number,
@@ -212,6 +219,8 @@ local INHERITED_FIELDS = {
 	"gold",
 	"uranium",
 	"pockets",
+	"pocketRadiusMin",
+	"pocketRadiusMax",
 }
 
 local REQUIRED_FIRST_ZONE_FIELDS = { "depth" }
@@ -328,6 +337,8 @@ local function resolveZones(definition: MineDefinition, config: GeneratorConfig,
 		gold = 0,
 		uranium = 0,
 		pockets = 0,
+		pocketRadiusMin = definition.pocketRadiusMin,
+		pocketRadiusMax = definition.pocketRadiusMax,
 	}
 
 	for index, zoneDefinition in definition.zones do
@@ -402,6 +413,8 @@ local function resolveZones(definition: MineDefinition, config: GeneratorConfig,
 			tierBias = tierBias,
 			veins = veins,
 			pockets = values.pockets,
+			pocketRadiusMin = math.max(0, math.floor(values.pocketRadiusMin)),
+			pocketRadiusMax = math.max(math.floor(values.pocketRadiusMax), math.max(0, math.floor(values.pocketRadiusMin))),
 			handPlaced = zoneDefinition.handPlaced or {},
 			depthStart = 0,
 			heightStart = 0,
@@ -598,7 +611,7 @@ local function carvePockets(grid: MineGrid, definition: MineDefinition, zones: {
 		local random = zoneRandoms[zone.index]
 		local bounds = zoneBox(zone)
 		for _ = 1, zone.pockets do
-			local radius = random:NextInteger(definition.pocketRadiusMin, definition.pocketRadiusMax)
+			local radius = random:NextInteger(zone.pocketRadiusMin, zone.pocketRadiusMax)
 			local centerDepth = random:NextInteger(bounds.depthStart, bounds.depthEnd)
 			local centerHeight = random:NextInteger(bounds.heightStart, bounds.heightEnd)
 			local centerWidth = random:NextInteger(bounds.widthStart, bounds.widthEnd)

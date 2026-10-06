@@ -1,7 +1,7 @@
 -- Rebuilds the placeholder held-tool models under
 -- ReplicatedStorage/GameAssets/Tools: a Model per held tool, each with a
 -- Handle part the Humanoid grips once ToolManager wraps it in a Tool. The pick
--- axe has one model per level ("PICK_AXE_1" .. "PICK_AXE_5", the level count
+-- axe has one model per level ("PICK_AXE_1" .. "PICK_AXE_6", the level count
 -- in GameData/Store/MiningSupplies) so an upgrade shows in the hand and on
 -- the store stand; TORCH and DYNAMITE are the consumables, HAMMER is the
 -- Repair Mode tool, and WEAPON_RIFLE (M24) is made from the designer's art
@@ -13,7 +13,7 @@ local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
 local Constants = require(ReplicatedStorage.Shared.Constants)
 
-local PICK_AXE_LEVEL_COUNT = 5
+local PICK_AXE_LEVEL_COUNT = 6
 -- head colour and size grow with the level so the upgrade reads at a glance
 local HEAD_COLOR_BY_LEVEL = {
 	Color3.fromRGB(150, 150, 155),
@@ -21,7 +21,10 @@ local HEAD_COLOR_BY_LEVEL = {
 	Color3.fromRGB(200, 200, 210),
 	Color3.fromRGB(240, 200, 60),
 	Color3.fromRGB(120, 220, 255),
+	Color3.fromRGB(120, 220, 255),
 }
+-- the top head glows (2026-10-06)
+local NEON_FROM_LEVEL = 6
 
 ChangeHistoryService:SetWaypoint("Before tool templates")
 
@@ -68,7 +71,7 @@ for level = 1, PICK_AXE_LEVEL_COUNT do
 	pickAxe.Name = "PICK_AXE_" .. level
 	local haft = makePart(Constants.TOOL_HANDLE_PART, Vector3.new(0.3, 2.4, 0.3), Color3.fromRGB(120, 80, 40), Enum.Material.Wood, CFrame.new(0, 0, 0), pickAxe)
 	local headWidth = 1.6 + 0.2 * level
-	local head = makePart("Head", Vector3.new(headWidth, 0.35, 0.35), HEAD_COLOR_BY_LEVEL[level], Enum.Material.Metal, CFrame.new(0, 1.2, 0), pickAxe)
+	local head = makePart("Head", Vector3.new(headWidth, 0.35, 0.35), HEAD_COLOR_BY_LEVEL[level], if level >= NEON_FROM_LEVEL then Enum.Material.Neon else Enum.Material.Metal, CFrame.new(0, 1.2, 0), pickAxe)
 	weldTo(haft, head)
 	pickAxe.PrimaryPart = haft
 	pickAxe.Parent = tools

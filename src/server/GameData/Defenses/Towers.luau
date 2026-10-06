@@ -31,6 +31,14 @@ return {
 	-- dawn, so a leaver's share opens up the next morning
 	MAX_ACTIVE_TOWERS_CAMP = 12,
 	PRICE_RESOURCE = Enums.RefinedResource.IRON_BAR,
+	-- every build and upgrade price tripled on 2026-10-06 (the second M34
+	-- run, solo Normal, won on day 14): nights 4 to 9 did no wall damage
+	-- at all, a day's Iron (110 to 220 by then, after the Iron blocks were
+	-- tripled on 2026-09-29) bought a Sentry and most of its upgrades at
+	-- once, and the crew sat at the cap with maxed towers by night 10. At
+	-- three times the price a maxed Sentry is 510 Iron, about three days,
+	-- so the cap of 12 is a run's worth of choices rather than a day's
+	-- (docs/balance-plan.md, tower economy)
 	-- every kind's DAMAGE doubled on 2026-09-30: the ninth playtest (solo
 	-- Normal, lost on night 4) and the sheet agreed the towers a player
 	-- can buy by night 4 shot less than the rifle, so the night's leak was
@@ -43,8 +51,8 @@ return {
 	MUZZLE_HEIGHT_STUDS = 3,
 	BY_KIND = {
 		[Enums.TowerKind.SENTRY_GUN] = {
-			BUILD_PRICE_IRON = 20,
-			UPGRADE_PRICE_IRON_BY_LEVEL = { 10, 20, 40, 80 },
+			BUILD_PRICE_IRON = 60,
+			UPGRADE_PRICE_IRON_BY_LEVEL = { 30, 60, 120, 240 },
 			FOOTPRINT_CELLS = { 4, 4 },
 			STAT_ROWS = { Enums.TowerStat.FIRE_RATE, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
 			BEHAVIOR = {
@@ -65,8 +73,8 @@ return {
 		-- rate"); DAMAGE lands every TICK_INTERVAL_SEC while it burns, and
 		-- the turret rests REST_SEC between flames
 		[Enums.TowerKind.FLAMETHROWER] = {
-			BUILD_PRICE_IRON = 30,
-			UPGRADE_PRICE_IRON_BY_LEVEL = { 15, 25, 50, 100 },
+			BUILD_PRICE_IRON = 90,
+			UPGRADE_PRICE_IRON_BY_LEVEL = { 45, 75, 150, 300 },
 			FOOTPRINT_CELLS = { 4, 4 },
 			STAT_ROWS = { Enums.TowerStat.FLAME_LENGTH, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
 			BEHAVIOR = {
@@ -87,8 +95,8 @@ return {
 			},
 		},
 		[Enums.TowerKind.AA_TURRET] = {
-			BUILD_PRICE_IRON = 35,
-			UPGRADE_PRICE_IRON_BY_LEVEL = { 15, 25, 50, 100 },
+			BUILD_PRICE_IRON = 105,
+			UPGRADE_PRICE_IRON_BY_LEVEL = { 45, 75, 150, 300 },
 			FOOTPRINT_CELLS = { 4, 4 },
 			STAT_ROWS = { Enums.TowerStat.FIRE_RATE, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
 			BEHAVIOR = {
@@ -109,8 +117,8 @@ return {
 		-- of everything in the cone for SLOW_SEC (StatusRules; the strongest
 		-- slow wins). The frost pulses for FLAME_SEC and rests REST_SEC
 		[Enums.TowerKind.FROST_TOWER] = {
-			BUILD_PRICE_IRON = 30,
-			UPGRADE_PRICE_IRON_BY_LEVEL = { 15, 25, 50, 100 },
+			BUILD_PRICE_IRON = 90,
+			UPGRADE_PRICE_IRON_BY_LEVEL = { 45, 75, 150, 300 },
 			FOOTPRINT_CELLS = { 4, 4 },
 			STAT_ROWS = { Enums.TowerStat.SLOW_RATE, Enums.TowerStat.FREEZE_LENGTH, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
 			BEHAVIOR = {
@@ -135,8 +143,8 @@ return {
 		-- CHAIN_COUNT more, each within CHAIN_JUMP_STUDS of the last, every
 		-- FIRE_INTERVAL_SEC, stunning each for STUN_SEC
 		[Enums.TowerKind.TESLA_COIL] = {
-			BUILD_PRICE_IRON = 40,
-			UPGRADE_PRICE_IRON_BY_LEVEL = { 15, 35, 70, 140 },
+			BUILD_PRICE_IRON = 120,
+			UPGRADE_PRICE_IRON_BY_LEVEL = { 45, 105, 210, 420 },
 			FOOTPRINT_CELLS = { 4, 4 },
 			STAT_ROWS = { Enums.TowerStat.DAMAGE, Enums.TowerStat.FIRE_RATE, Enums.TowerStat.RANGE, Enums.TowerStat.CHAIN_COUNT },
 			BEHAVIOR = {
@@ -156,8 +164,8 @@ return {
 			},
 		},
 		[Enums.TowerKind.SNIPER_TOWER] = {
-			BUILD_PRICE_IRON = 45,
-			UPGRADE_PRICE_IRON_BY_LEVEL = { 15, 35, 70, 140 },
+			BUILD_PRICE_IRON = 135,
+			UPGRADE_PRICE_IRON_BY_LEVEL = { 45, 105, 210, 420 },
 			FOOTPRINT_CELLS = { 4, 4 },
 			STAT_ROWS = { Enums.TowerStat.FIRE_RATE, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
 			BEHAVIOR = {

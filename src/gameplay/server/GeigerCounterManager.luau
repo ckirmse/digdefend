@@ -35,6 +35,7 @@ function GeigerCounterManager:replicate(player: Player)
 	local level = self:getLevel(player)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.GEIGER_COUNTER_RANGE_STUDS, GeigerRules.rangeForLevel(GeigerCounterData.RANGE_STUDS_BY_LEVEL, level))
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.GEIGER_COUNTER_LEVEL, level)
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.GEIGER_COUNTER_RING_STUDS, GeigerRules.encodeRingStuds(GeigerRules.ringStudsForLevel(GeigerCounterData.RING_STUDS_BY_LEVEL, level)))
 end
 
 function GeigerCounterManager:setLevel(player: Player, level: number)
@@ -56,7 +57,6 @@ end
 
 function GeigerCounterManager:init()
 	GameController:registerPlaceManager(self)
-	SplendidReplicationManager:setGameMetadata(Attributes.GEIGER_COUNTER_RING_SHARES, GeigerRules.encodeRingShares(GeigerCounterData.RING_RANGE_SHARES))
 	SplendidReplicationManager:setGameMetadata(Attributes.GEIGER_COUNTER_SCAN_INTERVAL_SEC, GeigerCounterData.SCAN_INTERVAL_SEC)
 	-- not a teardown entry: a dev-tool reset must not strip the run's upgrades
 	Players.PlayerRemoving:Connect(

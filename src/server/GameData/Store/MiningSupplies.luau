@@ -17,17 +17,19 @@ return {
 		-- gates a rung, and Gold per rock climbs deeper so the last rung is
 		-- as reachable on day 9 as the first was on day 2
 		-- level 2 is 20 since 2026-10-02 (was 30), so the first pick is a day-1 buy
-		[Enums.StoreItem.PICK_AXE] = { priceByLevel = { 0, 20, 90, 270, 800 } },
+		-- level 6 (2026-10-06): the ladder's next step, the Gold sink a run
+		-- past day 10 was missing
+		[Enums.StoreItem.PICK_AXE] = { priceByLevel = { 0, 20, 90, 270, 800, 2400 } },
 		[Enums.StoreItem.BOOTS] = { priceByLevel = { 0, 20, 60, 180, 540 } },
 		[Enums.StoreItem.BACKPACK] = { priceByLevel = { 0, 20, 60, 180, 540 } },
 		[Enums.StoreItem.JET_PACK] = { priceByLevel = { 0, 40, 120, 360, 1080 } },
 		-- bought once, never upgraded: a track with a single rung, priced
 		-- like the level 2 pick axe (2026-09-30)
 		[Enums.StoreItem.COMPASS] = { priceByLevel = { 0, 30 }, startsUnowned = true },
-		-- bought like the compass, then upgraded three times for more range
+		-- bought like the compass, then upgraded twice for more range
 		-- (GameData/Mining/GeigerCounter): it starts at the level 3 pick axe
 		-- price and triples on the pick axe's curve (2026-09-30)
-		[Enums.StoreItem.GEIGER_COUNTER] = { priceByLevel = { 0, 90, 270, 800, 2400 }, startsUnowned = true },
+		[Enums.StoreItem.GEIGER_COUNTER] = { priceByLevel = { 0, 90, 270, 800 }, startsUnowned = true },
 	},
 	-- one buy grants `amount` of the tool; never capped by Camp Level
 	CONSUMABLES = {

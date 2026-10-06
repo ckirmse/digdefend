@@ -231,6 +231,13 @@ module = {
 	},
 	-- what a placement on the grid is: a Tower (paid on build, upgradable)
 	-- or a Trap (consumed from the inventory)
+	-- what a player just did at the Defense Table, for listeners such as
+	-- the run report (M34)
+	PlacementAction = {
+		BUILT = 1,
+		UPGRADED = 2,
+		SOLD = 3,
+	},
 	PlacementKind = {
 		TOWER = 1,
 		TRAP = 2,
@@ -439,12 +446,14 @@ module = {
 		IRON_2 = 7,
 		IRON_3 = 8,
 		IRON_4 = 9,
-		GOLD_1 = 10,
-		GOLD_2 = 11,
-		GOLD_3 = 12,
-		GOLD_4 = 13,
-		URANIUM = 14,
-		BEDROCK = 15,
+		IRON_5 = 10,
+		GOLD_1 = 11,
+		GOLD_2 = 12,
+		GOLD_3 = 13,
+		GOLD_4 = 14,
+		GOLD_5 = 15,
+		URANIUM = 16,
+		BEDROCK = 17,
 
 		PublicNames = {
 			STONE_1 = "Stone 1",
@@ -456,10 +465,12 @@ module = {
 			IRON_2 = "Iron 2",
 			IRON_3 = "Iron 3",
 			IRON_4 = "Iron 4",
+			IRON_5 = "Iron 5",
 			GOLD_1 = "Gold 1",
 			GOLD_2 = "Gold 2",
 			GOLD_3 = "Gold 3",
 			GOLD_4 = "Gold 4",
+			GOLD_5 = "Gold 5",
 			URANIUM = "Uranium",
 			BEDROCK = "Bedrock",
 		},

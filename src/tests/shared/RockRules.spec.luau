@@ -46,8 +46,8 @@ local function makeRockTable()
 	return {
 		FILLER_ORDER = { RockName.STONE_1, RockName.STONE_2, RockName.STONE_3, RockName.STONE_4, RockName.STONE_5 },
 		RESOURCE_TIERS = {
-			[RawResource.IRON_ORE] = { RockName.IRON_1, RockName.IRON_2, RockName.IRON_3, RockName.IRON_4 },
-			[RawResource.GOLD_ORE] = { RockName.GOLD_1, RockName.GOLD_2, RockName.GOLD_3, RockName.GOLD_4 },
+			[RawResource.IRON_ORE] = { RockName.IRON_1, RockName.IRON_2, RockName.IRON_3, RockName.IRON_4, RockName.IRON_5 },
+			[RawResource.GOLD_ORE] = { RockName.GOLD_1, RockName.GOLD_2, RockName.GOLD_3, RockName.GOLD_4, RockName.GOLD_5 },
 			[RawResource.URANIUM_ORE] = { RockName.URANIUM },
 		},
 		ROCKS = {
@@ -60,10 +60,12 @@ local function makeRockTable()
 			[RockName.IRON_2] = makeResource(RawResource.IRON_ORE, 2, 30, 10, 1, 2),
 			[RockName.IRON_3] = makeResource(RawResource.IRON_ORE, 3, 60, 29, 1, 2),
 			[RockName.IRON_4] = makeResource(RawResource.IRON_ORE, 4, 110, 78, 0, 1),
+			[RockName.IRON_5] = makeResource(RawResource.IRON_ORE, 5, 1215, 72, 0, 0),
 			[RockName.GOLD_1] = makeResource(RawResource.GOLD_ORE, 1, 20, 3, 1, 2),
 			[RockName.GOLD_2] = makeResource(RawResource.GOLD_ORE, 2, 40, 10, 1, 2),
 			[RockName.GOLD_3] = makeResource(RawResource.GOLD_ORE, 3, 75, 30, 1, 1),
 			[RockName.GOLD_4] = makeResource(RawResource.GOLD_ORE, 4, 140, 87, 0, 1),
+			[RockName.GOLD_5] = makeResource(RawResource.GOLD_ORE, 5, 1620, 768, 0, 0),
 			[RockName.URANIUM] = makeResource(RawResource.URANIUM_ORE, 1, 100, 1, 0, 0),
 			[RockName.BEDROCK] = { kind = RockKind.BEDROCK },
 		},

@@ -40,12 +40,14 @@ return {
 			Enums.RockName.IRON_2,
 			Enums.RockName.IRON_3,
 			Enums.RockName.IRON_4,
+			Enums.RockName.IRON_5,
 		},
 		[Enums.RawResource.GOLD_ORE] = {
 			Enums.RockName.GOLD_1,
 			Enums.RockName.GOLD_2,
 			Enums.RockName.GOLD_3,
 			Enums.RockName.GOLD_4,
+			Enums.RockName.GOLD_5,
 		},
 		-- uranium has no tiers; tierBias never applies to it
 		[Enums.RawResource.URANIUM_ORE] = {
@@ -96,6 +98,18 @@ return {
 			clusterRadiusMin = 0,
 			clusterRadiusMax = 0,
 		},
+		-- tier 5 (2026-10-06, after the first M34 run found zone 5 harder rock
+		-- for zone 4's ore): Iron per rock triples here rather than doubling,
+		-- since Iron is what starves a crew by day 10
+		[Enums.RockName.IRON_5] = {
+			kind = Enums.RockKind.RESOURCE,
+			resource = Enums.RawResource.IRON_ORE,
+			tier = 5,
+			hp = 1215,
+			yield = 72,
+			clusterRadiusMin = 0,
+			clusterRadiusMax = 0,
+		},
 
 		[Enums.RockName.GOLD_1] = {
 			kind = Enums.RockKind.RESOURCE,
@@ -130,6 +144,15 @@ return {
 			tier = 4,
 			hp = 540,
 			yield = 192,
+			clusterRadiusMin = 0,
+			clusterRadiusMax = 0,
+		},
+		[Enums.RockName.GOLD_5] = {
+			kind = Enums.RockKind.RESOURCE,
+			resource = Enums.RawResource.GOLD_ORE,
+			tier = 5,
+			hp = 1620,
+			yield = 768,
 			clusterRadiusMin = 0,
 			clusterRadiusMax = 0,
 		},

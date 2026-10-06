@@ -27,8 +27,11 @@ Open design questions (sections of the GDD that are still empty headings, to be 
 
 ## Phase 6: Enemies and the Core Loop
 
+**M62 — Pocket lurkers** (added 2026-10-06, needs fleshing out)
+A 20% chance that a pocket holds a zombie. It behaves like a normal zombie but hunts players before the Refinery: it wanders its pocket and gives chase only while it has a clear path to a player, jumping as a player would. Needs monster pathing inside the mine grid (today the flow field covers only the camp's wave areas), spawning when a pocket is first opened, and the Camp Map's dots to follow it underground. Proposed after the first M34 playtest, when pockets were tripled and made bigger with depth so finding one is a moment; the lurker is what makes the moment a risk.
+
 **M34 — First full playtest pass**
-Play Deadman's Canyon Normal solo and with a group, start to finish. Fix blockers, tune the first-pass numbers. This is the "core game is playable" gate.
+Play Deadman's Canyon Normal solo and with a group, start to finish. Fix blockers, tune the first-pass numbers. This is the "core game is playable" gate. Scope agreed 2026-10-06: build the run-report dev tool first (per dawn, per player: ore refined, Refinery trips, towers built and upgraded, night clear time, wall and Refinery damage; a table at run end) so every playtest yields numbers; then solo Normal start to finish with a blocker list fixed between sessions; then one tuning pass from the reports (uranium pacing, the quiet early nights, Iron running ahead), checked against the balance sheet. The group run is deferred: nobody to play with for now, and a one-person multi-client test says nothing true about a crew.
 
 ## Phase 7: Meta Progression and Lobby Economy
 
@@ -99,7 +102,7 @@ Final rock textures, crack overlays, hit particles, ore pop, refinery suck-in/gr
 Replace placeholder enemy, weapon, post, defense, trap, and structure models with final assets from the central asset location.
 
 **M48 — Lobby art and helicopters**
-Lobby environment, helicopter models and takeoff animation, 3D store showcases, loading screen art.
+Lobby environment, helicopter models and takeoff animation, 3D store showcases, loading screen art. The rescue escape sequence polished end to end (the radio call, the approach and landing, boarding, the lift-off, the winning line, and the hand-off to the Results Menu); as of 2026-10-06 it works but is very rough.
 
 **M49 — Audio**
 Sound effects across mining, combat, UI, and camp; ambient and music per place; volume options. Needs the empty "Audio" section filled first.

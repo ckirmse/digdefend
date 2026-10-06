@@ -33,6 +33,8 @@ local CLEAR_NIGHT_COMMAND = "clearNight"
 local LOSE_RUN_COMMAND = "loseRun"
 local SET_DAY_COMMAND = "setDay"
 local SET_PAUSED_COMMAND = "setPaused"
+-- must match RunReportDevTools.*_COMMAND on the server
+local PRINT_RUN_REPORT_COMMAND = "printRunReport"
 -- must match RescueDevTools.*_COMMAND on the server
 local URANIUM_TO_TARGET_COMMAND = "uraniumToTarget"
 local CALL_HELICOPTER_COMMAND = "callHelicopter"
@@ -77,6 +79,9 @@ function ClientRunDevTools:renderSection()
 	end
 	if Iris.Button({ "Lose the run" }).clicked() then
 		self:send(LOSE_RUN_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Print the run report (Output)" }).clicked() then
+		self:send(PRINT_RUN_REPORT_COMMAND, {} :: { [string]: any })
 	end
 	if Iris.Button({ "Uranium to target" }).clicked() then
 		self:send(URANIUM_TO_TARGET_COMMAND, {} :: { [string]: any })

@@ -8,7 +8,8 @@ local expect = JestGlobals.expect
 local GeigerRules = require(game:GetService("ReplicatedStorage").Shared.GeigerRules)
 
 local RANGES = { 0, 20, 30, 40, 50 }
-local RING_SHARES = { 1, 0.5, 0.25 }
+local RING_STUDS = { 20, 10, 5 }
+local RING_STUDS_BY_LEVEL = { {}, { 20, 13, 8 }, { 30, 16, 8 } }
 local BLOCK_SIZE = 4
 
 describe(
@@ -63,54 +64,70 @@ describe(
 )
 
 describe(
-	"GeigerRules.litRingCount",
+	"GeigerRules.ringStudsForLevel",
 	function()
 		it(
-			"lights one ring per threshold crossed at the base range",
+			"reads the level's rings and none for the unowned level or past the table",
 			function()
-				expect(GeigerRules.litRingCount(21, 20, RING_SHARES)).toBe(0)
-				expect(GeigerRules.litRingCount(20, 20, RING_SHARES)).toBe(1)
-				expect(GeigerRules.litRingCount(11, 20, RING_SHARES)).toBe(1)
-				expect(GeigerRules.litRingCount(10, 20, RING_SHARES)).toBe(2)
-				expect(GeigerRules.litRingCount(6, 20, RING_SHARES)).toBe(2)
-				expect(GeigerRules.litRingCount(5, 20, RING_SHARES)).toBe(3)
-				expect(GeigerRules.litRingCount(0, 20, RING_SHARES)).toBe(3)
-			end
-		)
-		it(
-			"scales every ring with an upgraded range",
-			function()
-				expect(GeigerRules.litRingCount(45, 50, RING_SHARES)).toBe(1)
-				expect(GeigerRules.litRingCount(25, 50, RING_SHARES)).toBe(2)
-				expect(GeigerRules.litRingCount(12.5, 50, RING_SHARES)).toBe(3)
-			end
-		)
-		it(
-			"lights nothing with no uranium found or no range",
-			function()
-				expect(GeigerRules.litRingCount(nil, 20, RING_SHARES)).toBe(0)
-				expect(GeigerRules.litRingCount(1, 0, RING_SHARES)).toBe(0)
+				expect(GeigerRules.ringStudsForLevel(RING_STUDS_BY_LEVEL, 1)).toEqual({})
+				expect(GeigerRules.ringStudsForLevel(RING_STUDS_BY_LEVEL, 2)).toEqual({ 20, 13, 8 })
+				expect(GeigerRules.ringStudsForLevel(RING_STUDS_BY_LEVEL, 3.9)).toEqual({ 30, 16, 8 })
+				expect(GeigerRules.ringStudsForLevel(RING_STUDS_BY_LEVEL, 7)).toEqual({})
 			end
 		)
 	end
 )
 
 describe(
-	"GeigerRules ring shares codec",
+	"GeigerRules.litRingCount",
 	function()
 		it(
-			"round-trips the list",
+			"lights each ring once the rock is within its own distance",
 			function()
-				local decoded = GeigerRules.decodeRingShares(GeigerRules.encodeRingShares(RING_SHARES))
-				expect(decoded).toEqual(RING_SHARES)
+				expect(GeigerRules.litRingCount(21, RING_STUDS)).toBe(0)
+				expect(GeigerRules.litRingCount(20, RING_STUDS)).toBe(1)
+				expect(GeigerRules.litRingCount(11, RING_STUDS)).toBe(1)
+				expect(GeigerRules.litRingCount(10, RING_STUDS)).toBe(2)
+				expect(GeigerRules.litRingCount(6, RING_STUDS)).toBe(2)
+				expect(GeigerRules.litRingCount(5, RING_STUDS)).toBe(3)
+				expect(GeigerRules.litRingCount(0, RING_STUDS)).toBe(3)
+			end
+		)
+		it(
+			"keeps the inner ring at the same distance whatever the level",
+			function()
+				expect(GeigerRules.litRingCount(9, RING_STUDS_BY_LEVEL[2])).toBe(2)
+				expect(GeigerRules.litRingCount(9, RING_STUDS_BY_LEVEL[3])).toBe(2)
+				expect(GeigerRules.litRingCount(8, RING_STUDS_BY_LEVEL[2])).toBe(3)
+				expect(GeigerRules.litRingCount(8, RING_STUDS_BY_LEVEL[3])).toBe(3)
+			end
+		)
+		it(
+			"lights nothing with no rock found or no rings",
+			function()
+				expect(GeigerRules.litRingCount(nil, RING_STUDS)).toBe(0)
+				expect(GeigerRules.litRingCount(1, {})).toBe(0)
+			end
+		)
+	end
+)
+
+describe(
+	"GeigerRules ring codec",
+	function()
+		it(
+			"round-trips the ring distances",
+			function()
+				local decoded = GeigerRules.decodeRingStuds(GeigerRules.encodeRingStuds(RING_STUDS))
+				expect(decoded).toEqual(RING_STUDS)
 			end
 		)
 		it(
 			"returns nil for garbage",
 			function()
-				expect(GeigerRules.decodeRingShares(nil)).toBe(nil)
-				expect(GeigerRules.decodeRingShares("not json")).toBe(nil)
-				expect(GeigerRules.decodeRingShares('["a"]')).toBe(nil)
+				expect(GeigerRules.decodeRingStuds(nil)).toBe(nil)
+				expect(GeigerRules.decodeRingStuds("not json")).toBe(nil)
+				expect(GeigerRules.decodeRingStuds('["a"]')).toBe(nil)
 			end
 		)
 	end

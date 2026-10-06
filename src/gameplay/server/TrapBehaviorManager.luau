@@ -18,10 +18,12 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PlacementRules = require("@game/ReplicatedStorage/Shared/PlacementRules")
+local RunCycleRules = require("@game/ReplicatedStorage/Shared/RunCycleRules")
 local TrapRules = require("@game/ReplicatedStorage/Shared/TrapRules")
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local DamageableManager = require(script.Parent.DamageableManager)
 local PlacementManager = require(script.Parent.PlacementManager)
+local RunCycleManager = require(script.Parent.RunCycleManager)
 local RunPauseManager = require(script.Parent.RunPauseManager)
 
 local TrapBehaviorManager = {}
@@ -147,7 +149,7 @@ function TrapBehaviorManager:stepSnare(placement: PlacementManager.Placement, tr
 end
 
 function TrapBehaviorManager:step(deltaSec: number)
-	if RunPauseManager:isPaused() then
+	if RunPauseManager:isPaused() or RunCycleRules.isRunOver(RunCycleManager:getRunState()) then
 		return
 	end
 	local now = workspace:GetServerTimeNow()

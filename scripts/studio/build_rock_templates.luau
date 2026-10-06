@@ -40,10 +40,12 @@ local LOOKS = {
 	IRON_2 = { color = Color3.fromRGB(170, 110, 80), material = Enum.Material.Rock },
 	IRON_3 = { color = Color3.fromRGB(150, 85, 55), material = Enum.Material.Rock },
 	IRON_4 = { color = Color3.fromRGB(120, 60, 35), material = Enum.Material.Rock },
+	IRON_5 = { color = Color3.fromRGB(80, 35, 20), material = Enum.Material.Rock },
 	GOLD_1 = { color = Color3.fromRGB(235, 215, 120), material = Enum.Material.Rock },
 	GOLD_2 = { color = Color3.fromRGB(230, 195, 70), material = Enum.Material.Rock },
 	GOLD_3 = { color = Color3.fromRGB(220, 170, 30), material = Enum.Material.Metal },
 	GOLD_4 = { color = Color3.fromRGB(200, 140, 0), material = Enum.Material.Metal },
+	GOLD_5 = { color = Color3.fromRGB(255, 190, 40), material = Enum.Material.Metal },
 	URANIUM = { color = Color3.fromRGB(110, 255, 90), material = Enum.Material.Neon },
 	BEDROCK = { color = Color3.fromRGB(28, 28, 32), material = Enum.Material.Basalt },
 }

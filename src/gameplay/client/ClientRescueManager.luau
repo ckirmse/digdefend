@@ -45,6 +45,8 @@ export type ClientRescueManager = typeof(setmetatable(
 local NOTIFY_RESCUE_ANNOUNCEMENT_SHAPE = {
 	message = "string",
 	displaySec = "positiveNumber",
+	-- good news (the target reached, the rescue called) is green
+	isGood = "boolean",
 }
 
 local STEP_INTERVAL_SEC = 0.25
@@ -203,7 +205,11 @@ function ClientRescueManager:onAnnouncement(payload: any)
 		warn("ClientRescueManager: malformed NotifyRescueAnnouncement:", errorMessage)
 		return
 	end
-	ClientPlayerFeedbackManager:announceLocal(payload.message, payload.displaySec)
+	if payload.isGood then
+		ClientPlayerFeedbackManager:successLocal(payload.message, payload.displaySec)
+	else
+		ClientPlayerFeedbackManager:announceLocal(payload.message, payload.displaySec)
+	end
 end
 
 function ClientRescueManager:init()

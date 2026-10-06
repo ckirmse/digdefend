@@ -369,10 +369,14 @@ return {
 			PROJECTILE = FIREBALL,
 			ATTACK_INTERVAL_SEC = 2,
 		},
-		-- boss: enormous HP, devastating melee
+		-- boss: enormous HP, devastating melee. HP 4000 / 8000 and 90 / 180
+		-- points since 2026-10-06 (2500 / 5000 at 75 / 150 before): in the
+		-- second M34 run the night 11 Titan died to the towers before it
+		-- reached a wall; the points rise by less than the HP so a night 11
+		-- group still carries one with an escort
 		[Enums.MonsterKind.TITAN_1] = {
-			DIFFICULTY_VALUE = 75,
-			MAX_HP = 2500,
+			DIFFICULTY_VALUE = 90,
+			MAX_HP = 4000,
 			DAMAGE = 500,
 			SPEED_STUDS_PER_SEC = 5,
 			TARGET_PRIORITIES = { TOWERS, TRAPS, WALLS },
@@ -390,8 +394,8 @@ return {
 			ATTACK_INTERVAL_SEC = 2.5,
 		},
 		[Enums.MonsterKind.TITAN_2] = {
-			DIFFICULTY_VALUE = 150,
-			MAX_HP = 5000,
+			DIFFICULTY_VALUE = 180,
+			MAX_HP = 8000,
 			DAMAGE = 1000,
 			SPEED_STUDS_PER_SEC = 5,
 			TARGET_PRIORITIES = { TOWERS, TRAPS, WALLS },

@@ -55,6 +55,8 @@ export type RescueManager = typeof(setmetatable(
 		helicopter: Model?,
 		isCalled: boolean,
 		isLanded: boolean,
+		-- the green ready line goes out once per run
+		isReadyAnnounced: boolean?,
 		landingTime: number,
 		landedTime: number,
 		seatByPlayer: { [Player]: Seat },
@@ -104,11 +106,25 @@ function RescueManager:replicate()
 	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_CREW_COUNT, #self:getLivingPlayers())
 end
 
-function RescueManager:announce(message: string)
+function RescueManager:announce(message: string, isGood: boolean?)
 	NetManager:notifyAllClients(NetEventNames.NOTIFY_RESCUE_ANNOUNCEMENT, {
 		message = message,
 		displaySec = RescueData.ANNOUNCEMENT_DISPLAY_SEC,
+		isGood = isGood == true,
 	})
+end
+
+-- the first time the target is refined in a run, everyone hears it
+function RescueManager:announceReadyIfNeeded()
+	if self.isReadyAnnounced or not self:isTargetReached() then
+		return
+	end
+	local state = RunCycleManager:getRunState()
+	if state ~= Enums.RunState.DAY and state ~= Enums.RunState.NIGHT then
+		return
+	end
+	self.isReadyAnnounced = true
+	self:announce(RescueData.READY_MESSAGE, true)
 end
 
 -- the radio works only while a run is on and the target is refined; the
@@ -144,7 +160,7 @@ function RescueManager:call(player: Player)
 	RunCycleManager:startRescue(self.landingTime)
 	MonsterWaveManager:startFinalWave(RescueRules.finalWaveNight(RunCycleManager:getDay()), RescueData.FINAL_WAVE_MULTIPLIER)
 	self:replicate()
-	self:announce(RescueData.CALLED_MESSAGE)
+	self:announce(RescueData.CALLED_MESSAGE, true)
 end
 
 function RescueManager:land()
@@ -367,6 +383,7 @@ function RescueManager:bindRadio()
 end
 
 function RescueManager:onRunStarted()
+	self.isReadyAnnounced = false
 	local connection = self.boardConnection
 	if connection then
 		connection:Disconnect()
@@ -396,6 +413,7 @@ function RescueManager:init()
 	RefineryManager:subscribeUraniumChanged(
 		function()
 			self:refreshRadio()
+			self:announceReadyIfNeeded()
 		end
 	)
 	RunCycleManager:subscribeRunEnded(

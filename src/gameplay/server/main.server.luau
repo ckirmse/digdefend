@@ -41,6 +41,8 @@ local RunCycleManager = require(script.Parent.RunCycleManager)
 local RunDevTools = require(script.Parent.RunDevTools)
 local RunPauseManager = require(script.Parent.RunPauseManager)
 local RunManager = require(script.Parent.RunManager)
+local RunReportDevTools = require(script.Parent.RunReportDevTools)
+local RunReportManager = require(script.Parent.RunReportManager)
 local RunStatsManager = require(script.Parent.RunStatsManager)
 local StructureDevTools = require(script.Parent.StructureDevTools)
 local StructureManager = require(script.Parent.StructureManager)
@@ -255,8 +257,17 @@ RunManager:subscribeRunStarted(
 -- after the refinery, whose balances it moves between players
 GiveCurrencyManager:init()
 
+-- the run report (M34): after every manager whose events it listens to
+RunReportManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		RunReportManager:onRunStarted()
+	end
+)
+
 RunDevTools:init()
 RunCycleDevTools:init()
+RunReportDevTools:init()
 RescueDevTools:init()
 ReviveDevTools:init()
 MineDevTools:init()

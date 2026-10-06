@@ -19,12 +19,14 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PlacementRules = require("@game/ReplicatedStorage/Shared/PlacementRules")
+local RunCycleRules = require("@game/ReplicatedStorage/Shared/RunCycleRules")
 local TowerRules = require("@game/ReplicatedStorage/Shared/TowerRules")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local TowersData = require("@game/ServerScriptService/GameData/Defenses/Towers")
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local DamageableManager = require(script.Parent.DamageableManager)
 local PlacementManager = require(script.Parent.PlacementManager)
+local RunCycleManager = require(script.Parent.RunCycleManager)
 local RunPauseManager = require(script.Parent.RunPauseManager)
 
 local TowerBehaviorManager = {}
@@ -171,7 +173,9 @@ function TowerBehaviorManager:stepChain(placement: PlacementManager.Placement, s
 end
 
 function TowerBehaviorManager:step()
-	if RunPauseManager:isPaused() then
+	-- a lost or won run is over: the defenses fall silent with it (designer,
+	-- 2026-10-06, after towers kept firing past the Refinery's fall)
+	if RunPauseManager:isPaused() or RunCycleRules.isRunOver(RunCycleManager:getRunState()) then
 		return
 	end
 	local now = workspace:GetServerTimeNow()

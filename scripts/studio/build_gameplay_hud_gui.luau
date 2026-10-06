@@ -115,18 +115,26 @@ count.FontFace = UiStyle.BODY_BOLD_FONT
 addTextSizeBounds(count, UiStyle.BODY_TEXT_MIN_PX, 32)
 count.Parent = button
 
+-- above the panel, bold, so it reads from the corner of the eye (designer,
+-- 2026-10-06; it sat inside the button under the count before); the client
+-- also turns the backpack icon red while full
 local full = Instance.new("TextLabel")
 full.Name = "FullLabel"
-full.Position = UDim2.fromScale(0.36, 0.6)
-full.Size = UDim2.fromScale(0.6, 0.3)
+full.AnchorPoint = Vector2.new(0.5, 1)
+full.Position = UDim2.fromScale(0.5, -0.08)
+full.Size = UDim2.fromScale(1, 0.45)
 full.BackgroundTransparency = 1
 full.Text = "Backpack full"
 full.TextColor3 = UiStyle.NEGATIVE_COLOR
 full.TextScaled = true
-full.TextXAlignment = Enum.TextXAlignment.Left
-full.FontFace = UiStyle.BODY_FONT
+full.TextXAlignment = Enum.TextXAlignment.Center
+full.FontFace = UiStyle.BODY_BOLD_FONT
 full.Visible = false
-addTextSizeBounds(full, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.LABEL_TEXT_MAX_PX)
+addTextSizeBounds(full, UiStyle.BODY_TEXT_MIN_PX, UiStyle.BODY_TEXT_MAX_PX)
+local fullStroke = Instance.new("UIStroke")
+fullStroke.Thickness = UiStyle.STROKE_PX
+fullStroke.Color = UiStyle.BACKGROUND_COLOR
+fullStroke.Parent = full
 full.Parent = button
 
 -- balances, top left, one row per resource; the icon comes from Icons, with

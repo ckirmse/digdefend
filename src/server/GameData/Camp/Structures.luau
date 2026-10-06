@@ -51,7 +51,8 @@ return {
 	-- alerts (2026-09-25): a wall falling and the Refinery coming under attack
 	-- are announced to everyone in the red alert box, for ALERT_DISPLAY_SEC.
 	-- The Refinery is under attack while any live monster is within
-	-- REFINERY_ATTACK_RADIUS_STUDS of its box (MonsterManager checks every
+	-- REFINERY_ATTACK_RADIUS_STUDS of its box, a flyer measured at the
+	-- box's height (MonsterManager checks every
 	-- REFINERY_ATTACK_POLL_SEC); the alert fires once per attack, and the
 	-- siren every client loops runs until the last one leaves the radius.
 	-- A wall that falls also plays its 3D collapse from where it stood,
@@ -75,7 +76,9 @@ return {
 	-- repaired at tier 1. One Iron per ten HP since the eighth playtest
 	-- (2026-09-29): at two, rebuilding the two walls that fall most nights
 	-- was 120 Iron, six Sentries, and no tower went up after day 3
-	REPAIR_CHUNK_HP_BY_TIER = { 10, 20, 40 },
+	-- tripled 2026-10-06 (M34 playtest: repairs ate every Iron from day 10
+	-- and most of each day; was 10 / 20 / 40)
+	REPAIR_CHUNK_HP_BY_TIER = { 30, 60, 120 },
 	REPAIR_CHUNK_IRON_BY_TIER = { 1, 2, 4 },
 	REBUILD_STAND_SHARE = 1,
 	-- the Hammer swings like the pick axe: how often a held input swings,

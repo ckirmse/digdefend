@@ -6,7 +6,7 @@
 -- far the nearest uranium rock is, buried or not, and lights as many rings
 -- as GeigerRules says for the range the player's level detects at; with
 -- nothing in range no ring shows. The server publishes the level and its
--- range privately and the ring thresholds in GameMetadata. Nothing here
+-- range and the ring distances privately. Nothing here
 -- decides anything: the dial is a hint drawn from the grid this client
 -- already holds.
 local Players = game:GetService("Players")
@@ -38,7 +38,7 @@ export type ClientGeigerCounterManager = typeof(setmetatable(
 -- GeigerCounterLevel at or above this is owning the counter
 local OWNED_LEVEL = 2
 -- the server publishes the real numbers (GameData/Mining/GeigerCounter)
-local DEFAULT_RING_SHARES = { 1, 0.65, 0.4 }
+local DEFAULT_RING_STUDS = { 20, 13, 8 }
 local DEFAULT_SCAN_INTERVAL_SEC = 0.2
 -- the 2D loop for each count of lit rings; none for zero. Played on this
 -- client only, so nobody else hears a crewmate's counter
@@ -111,9 +111,9 @@ function ClientGeigerCounterManager:scan()
 		self:setLitRingCount(0)
 		return
 	end
-	local ringShares = GeigerRules.decodeRingShares(ClientDataManager:getGameMetadata(Attributes.GEIGER_COUNTER_RING_SHARES)) or DEFAULT_RING_SHARES
+	local ringStuds = GeigerRules.decodeRingStuds(ClientDataManager:getCurrentPlayerAttribute(Attributes.GEIGER_COUNTER_RING_STUDS)) or DEFAULT_RING_STUDS
 	local distance = ClientMineManager:getNearestUraniumDistance(position, rangeStuds)
-	self:setLitRingCount(GeigerRules.litRingCount(distance, rangeStuds, ringShares))
+	self:setLitRingCount(GeigerRules.litRingCount(distance, ringStuds))
 end
 
 -- the dial is drawn, and the mine scanned, only while it is shown

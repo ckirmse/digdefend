@@ -20,6 +20,9 @@ return {
 	BOARD_PROMPT_OBJECT_TEXT = "Rescue helicopter",
 	BOARD_PROMPT_MAX_DISTANCE_STUDS = 14,
 
+	-- green (good news) when the target is first reached and when the
+	-- rescue is called (2026-10-06); the rest stay blue announcements
+	READY_MESSAGE = "The uranium target is reached. Call the rescue on the Radio",
 	CALLED_MESSAGE = "The rescue helicopter is on its way. Hold out",
 	LANDED_MESSAGE = "The helicopter has landed. Get aboard",
 	WON_ALL_MESSAGE = "The whole crew made it out. The run is won",

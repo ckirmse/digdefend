@@ -651,13 +651,17 @@ function PostManager:stepRockets(deltaSec: number)
 	self.rockets = survivors
 end
 
+-- upgrades belong to the player, not the post (2026-10-06): they can be
+-- bought before a claim, against the loadout weapon the claim would
+-- spawn, and a claimed post fires with them from its first shot
 function PostManager:upgrade(player: Player, attribute: number)
-	local post = self:getOwnedPost(player)
-	if not post then
+	if not GameController:isPlayerReady(player) then
 		return
 	end
+	local post = self:getOwnedPost(player)
+	local weaponKind = if post then post.weaponKind else self:resolveWeaponKind(player)
 	local state = self:getPlayerState(player)
-	if not PostRules.kindHasAttribute(self.catalog, post.weaponKind, attribute) then
+	if not PostRules.kindHasAttribute(self.catalog, weaponKind, attribute) then
 		PlayerFeedbackManager:give(player, FEEDBACK_NO_SUCH_UPGRADE)
 		return
 	end

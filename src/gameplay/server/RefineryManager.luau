@@ -44,6 +44,8 @@ export type RefineryManager = typeof(setmetatable(
 		uraniumTotal: number,
 		isBusy: boolean,
 		uraniumChangedHandlers: { () -> () },
+		-- every payout, with what it paid (the run report, M34)
+		creditedHandlers: { (player: Player, refined: { [number]: number }) -> () },
 		-- the loaded camp's Refinery, flat, for the radius check; nil until a run
 		refineryPosition: Vector3?,
 		pollAccumulatorSec: number,
@@ -133,6 +135,10 @@ function RefineryManager:getUraniumTarget(): number
 end
 
 -- the rescue (M31) listens for the target being reached
+function RefineryManager:subscribeCredited(handler: (player: Player, refined: { [number]: number }) -> ())
+	table.insert(self.creditedHandlers, handler)
+end
+
 function RefineryManager:subscribeUraniumChanged(handler: () -> ())
 	table.insert(self.uraniumChangedHandlers, handler)
 end
@@ -179,6 +185,9 @@ function RefineryManager:credit(player: Player, refined: { [number]: number })
 	self:replicateShared()
 	if uranium > 0 then
 		self:fireUraniumChanged()
+	end
+	for _, handler in self.creditedHandlers do
+		handler(player, refined)
 	end
 end
 
@@ -333,6 +342,7 @@ function RefineryManager.new(): RefineryManager
 	self.uraniumTotal = 0
 	self.isBusy = false
 	self.uraniumChangedHandlers = {}
+	self.creditedHandlers = {}
 	self.refineryPosition = nil
 	self.pollAccumulatorSec = 0
 	return self

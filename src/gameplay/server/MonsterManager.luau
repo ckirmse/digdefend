@@ -1029,7 +1029,9 @@ function MonsterManager:publishStats(now: number, stepSec: number)
 end
 
 -- whether any live monster is within the attack radius of the standing
--- Refinery, told to StructureManager a few times a second (2026-09-25)
+-- Refinery, told to StructureManager a few times a second (2026-09-25).
+-- A flyer hovers far above the box, so it is measured at the box's
+-- height (2026-10-06: the alarm stayed quiet while flyers hit the Refinery)
 function MonsterManager:pollRefineryAttack(now: number)
 	if now - self.lastRefineryPollTime < StructuresData.REFINERY_ATTACK_POLL_SEC then
 		return
@@ -1048,7 +1050,11 @@ function MonsterManager:pollRefineryAttack(now: number)
 			if monster.isDead then
 				continue
 			end
-			if StructureRules.distanceToBox(monster.position, refineryBox.cframe, refineryBox.size) <= StructuresData.REFINERY_ATTACK_RADIUS_STUDS then
+			local position = monster.position
+			if monster.isAir then
+				position = Vector3.new(position.X, refineryBox.cframe.Position.Y, position.Z)
+			end
+			if StructureRules.distanceToBox(position, refineryBox.cframe, refineryBox.size) <= StructuresData.REFINERY_ATTACK_RADIUS_STUDS then
 				isUnderAttack = true
 				break
 			end

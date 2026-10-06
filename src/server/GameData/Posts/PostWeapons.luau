@@ -86,7 +86,10 @@ return {
 			-- the gun sits a dozen studs over the ground, so a monster at the foot
 			-- of the tower needs a steep look down (-70 since 2026-09-30, was -40)
 			PITCH_MIN_DEGREES = -70,
-			PITCH_MAX_DEGREES = 45,
+			-- all the way up (designer, 2026-10-06: Flyers hovered over a post
+			-- the gunner could not raise to; 89 rather than 90 so the gun's look
+			-- direction never degenerates straight up)
+			PITCH_MAX_DEGREES = 89,
 			-- overheat (decided 2026-09-18): holding the trigger for FULL_SEC
 			-- fills the heat; it then refuses to fire until fully cooled, which
 			-- takes COOL_SEC from full. Heat only cools once the trigger rests
@@ -115,7 +118,7 @@ return {
 			FIELD_OF_VIEW = 40,
 			-- as the Machine Gun: a monster at the foot of the tower (was -35)
 			PITCH_MIN_DEGREES = -70,
-			PITCH_MAX_DEGREES = 60,
+			PITCH_MAX_DEGREES = 89,
 			-- the reload bar's length, shortened by Fire Rate like the interval
 			RELOAD_SEC = 6,
 			PROJECTILE = {

@@ -28,28 +28,34 @@ function GeigerRules.rangeForLevel(rangeStudsByLevel: { number }, level: number)
 	return rangeStudsByLevel[math.clamp(math.floor(level), 1, #rangeStudsByLevel)]
 end
 
+-- the ring distances for a level, outer first; none for a level the
+-- table does not have (level 1 is not owning a counter)
+function GeigerRules.ringStudsForLevel(ringStudsByLevel: { { number } }, level: number): { number }
+	return ringStudsByLevel[math.floor(level)] or {}
+end
+
 -- how many rings are lit, counted from the inner one: each ring lights
--- once the distance is within its share of the range. No uranium found
--- (nil), or no range, lights none
-function GeigerRules.litRingCount(distanceStuds: number?, rangeStuds: number, ringRangeShares: { number }): number
-	if not distanceStuds or rangeStuds <= 0 then
+-- once the distance is within its own distance. No uranium found (nil)
+-- lights none
+function GeigerRules.litRingCount(distanceStuds: number?, ringStuds: { number }): number
+	if not distanceStuds then
 		return 0
 	end
 	local count = 0
-	for _, share in ringRangeShares do
-		if distanceStuds <= rangeStuds * share then
+	for _, ringDistance in ringStuds do
+		if distanceStuds <= ringDistance then
 			count += 1
 		end
 	end
 	return count
 end
 
-function GeigerRules.encodeRingShares(ringRangeShares: { number }): string
-	return HttpService:JSONEncode(ringRangeShares)
+function GeigerRules.encodeRingStuds(ringStuds: { number }): string
+	return HttpService:JSONEncode(ringStuds)
 end
 
 -- nil for anything that is not a list of numbers
-function GeigerRules.decodeRingShares(encoded: any): { number }?
+function GeigerRules.decodeRingStuds(encoded: any): { number }?
 	if typeof(encoded) ~= "string" or encoded == "" then
 		return nil
 	end

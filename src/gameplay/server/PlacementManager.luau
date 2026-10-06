@@ -102,6 +102,8 @@ export type PlacementManager = typeof(setmetatable(
 		nextId: number,
 		shadowFolder: Folder?,
 		placementsChangedHandlers: { () -> () },
+		-- a build, upgrade, or sale and the Iron it moved (the run report, M34)
+		placementSpentHandlers: { (player: Player, action: number, placementKind: number, typeKind: number, iron: number) -> () },
 	},
 	PlacementManager
 ))
@@ -230,6 +232,16 @@ function PlacementManager:replicatePlacement(placement: Placement)
 end
 
 -- the monsters' way round the defenses is recomputed from here (M29)
+function PlacementManager:subscribePlacementSpent(handler: (player: Player, action: number, placementKind: number, typeKind: number, iron: number) -> ())
+	table.insert(self.placementSpentHandlers, handler)
+end
+
+function PlacementManager:firePlacementSpent(player: Player, action: number, placementKind: number, typeKind: number, iron: number)
+	for _, handler in self.placementSpentHandlers do
+		handler(player, action, placementKind, typeKind, iron)
+	end
+end
+
 function PlacementManager:subscribePlacementsChanged(handler: () -> ())
 	table.insert(self.placementsChangedHandlers, handler)
 end
@@ -381,6 +393,7 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 	if not placement then
 		return
 	end
+	self:firePlacementSpent(player, Enums.PlacementAction.BUILT, placementKind, typeKind, price)
 	self:replicatePlayer(player)
 	NetManager:notifyClient(player, NetEventNames.NOTIFY_PLACEMENT_BUILT, {
 		id = placement.id,
@@ -441,6 +454,7 @@ function PlacementManager:sell(player: Player, id: string)
 		value = value,
 	})
 	print(`[PlacementManager] {player.Name} sold {id} for {value} Iron`)
+	self:firePlacementSpent(player, Enums.PlacementAction.SOLD, placement.placementKind, placement.typeKind, value)
 end
 
 function PlacementManager:upgrade(player: Player, id: string)
@@ -468,6 +482,7 @@ function PlacementManager:upgrade(player: Player, id: string)
 		price = offer.price,
 	})
 	print(`[PlacementManager] {player.Name} upgraded {id} to level {placement.level} for {offer.price} Iron`)
+	self:firePlacementSpent(player, Enums.PlacementAction.UPGRADED, placement.placementKind, placement.typeKind, offer.price)
 end
 
 function PlacementManager:setTargetPriority(player: Player, id: string, priority: number)
@@ -712,6 +727,7 @@ function PlacementManager.new(): PlacementManager
 	self.nextId = 1
 	self.shadowFolder = nil
 	self.placementsChangedHandlers = {}
+	self.placementSpentHandlers = {}
 	return self
 end
 

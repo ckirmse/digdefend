@@ -45,6 +45,8 @@ export type ClientBackpackManager = typeof(setmetatable(
 		isMenuOpen: boolean,
 		-- so the fail sound plays once, on the change to full
 		wasFull: boolean,
+		-- the button's picture, red while the backpack is full
+		icon: ImageLabel?,
 	},
 	ClientBackpackManager
 ))
@@ -108,6 +110,10 @@ function ClientBackpackManager:renderHud()
 	countLabel.TextColor3 = if isFull then UiStyle.NEGATIVE_COLOR else UiStyle.TEXT_COLOR
 	if fullLabel then
 		fullLabel.Visible = isFull
+	end
+	local icon = self.icon
+	if icon then
+		icon.ImageColor3 = if isFull then UiStyle.NEGATIVE_COLOR else UiStyle.TEXT_COLOR
 	end
 end
 
@@ -295,6 +301,7 @@ function ClientBackpackManager:findHud()
 	local icon = button:FindFirstChild(Constants.HUD_BACKPACK_ICON)
 	if icon and icon:IsA("ImageLabel") then
 		icon.Image = if Icons.isPlaceholder(Icons.UI.BACKPACK) then "" else Icons.UI.BACKPACK
+		self.icon = icon
 	end
 	local countLabel = button:FindFirstChild(Constants.HUD_BACKPACK_COUNT_LABEL)
 	self.countLabel = if countLabel and countLabel:IsA("TextLabel") then countLabel else nil
@@ -406,6 +413,7 @@ function ClientBackpackManager.new(): ClientBackpackManager
 	self.overlay = nil
 	self.isMenuOpen = false
 	self.wasFull = false
+	self.icon = nil
 	return self
 end
 

@@ -108,6 +108,10 @@ export type StructureManager = typeof(setmetatable(
 		-- fired when what blocks the monsters' way changes: a structure
 		-- falls or is rebuilt, the gate opens or shuts, a run starts
 		barriersChangedHandlers: { () -> () },
+		-- damage landed on a structure, and a Hammer swing that put HP back
+		-- (the run report, M34)
+		structureDamagedHandlers: { (id: string, kind: number, amount: number, isDestroyed: boolean) -> () },
+		structureRepairedHandlers: { (player: Player, id: string, gained: number, cost: number) -> () },
 		warnedTemplates: { [string]: boolean },
 		-- a live monster is within the attack radius of the Refinery
 		isRefineryUnderAttack: boolean,
@@ -160,6 +164,14 @@ end
 -- the run state machine (M28) ends the run from here
 function StructureManager:subscribeRefineryDestroyed(handler: () -> ())
 	table.insert(self.refineryDestroyedHandlers, handler)
+end
+
+function StructureManager:subscribeStructureDamaged(handler: (id: string, kind: number, amount: number, isDestroyed: boolean) -> ())
+	table.insert(self.structureDamagedHandlers, handler)
+end
+
+function StructureManager:subscribeStructureRepaired(handler: (player: Player, id: string, gained: number, cost: number) -> ())
+	table.insert(self.structureRepairedHandlers, handler)
 end
 
 -- the monsters' way through the camp is recomputed from here (M29)
@@ -479,8 +491,13 @@ function StructureManager:damageStructure(id: string, amount: number)
 	if not structure or amount <= 0 or structure.hp <= 0 then
 		return
 	end
+	local applied = math.min(amount, structure.hp)
 	structure.hp = math.max(0, structure.hp - amount)
-	if structure.hp <= 0 and not structure.isDestroyed then
+	local isNewlyDestroyed = structure.hp <= 0 and not structure.isDestroyed
+	for _, handler in self.structureDamagedHandlers do
+		handler(id, structure.kind, applied, isNewlyDestroyed)
+	end
+	if isNewlyDestroyed then
 		structure.isDestroyed = true
 		print(`[StructureManager] {id} destroyed`)
 		self:syncModel(structure)
@@ -527,6 +544,9 @@ function StructureManager:handleRepair(player: Player, id: string)
 		return
 	end
 	structure.hp += gained
+	for _, handler in self.structureRepairedHandlers do
+		handler(player, id, gained, cost)
+	end
 	if structure.isDestroyed and StructureRules.isRebuilt(structure.hp, self:getMaxHp(structure), StructuresData.REBUILD_STAND_SHARE) then
 		structure.isDestroyed = false
 		self:syncModel(structure)
@@ -812,6 +832,8 @@ function StructureManager.new(): StructureManager
 	self.refineryDestroyedHandlers = {}
 	self.postModelsFilledHandlers = {}
 	self.barriersChangedHandlers = {}
+	self.structureDamagedHandlers = {}
+	self.structureRepairedHandlers = {}
 	self.warnedTemplates = {}
 	self.isRefineryUnderAttack = false
 	return self

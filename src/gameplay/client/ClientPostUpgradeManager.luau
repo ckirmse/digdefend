@@ -3,8 +3,9 @@
 -- The post upgrade menu on this client (GDD "Upgrading a Post Weapon"),
 -- M25, opened at the Post Upgrade Table in the defense building (decided
 -- 2026-10-01). The table's prompt (Tags.POST_UPGRADE_PROMPT) is the
--- server's; when it fires here, this opens the PostUpgrade overlay if this
--- player owns a post, else says a post must be claimed first. The menu is
+-- server's; when it fires here, this opens the PostUpgrade overlay (for
+-- the owned post's weapon, or the loadout weapon before a claim, since
+-- upgrades are the player's and carry onto the post, 2026-10-06). The menu is
 -- one row per attribute with four pips (one filled per upgrade bought) and
 -- a button showing the Gold price, gone when maxed. Everything is drawn
 -- from the catalogue in GameMetadata, the upgrade counts on CurrentPlayer,
@@ -74,7 +75,6 @@ local NOTIFY_POST_UPGRADED_SHAPE = {
 local TITLE_FORMAT = "Upgrade %s"
 local MAXED_TEXT = "MAX"
 local FEEDBACK_NOT_ENOUGH_GOLD = "Not enough Gold"
-local FEEDBACK_NO_POST = "You must claim a Post before upgrading"
 local WAIT_FOR_CAMP_SEC = 30
 local DISPLAY_POST_NAME = "DisplayPost"
 local DISPLAY_WEAPON_NAME = "DisplayWeapon"
@@ -131,6 +131,9 @@ function ClientPostUpgradeManager:renderMenu()
 		return
 	end
 	local kind = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.POST_WEAPON_KIND), 0)
+	if kind == 0 then
+		kind = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.POST_LOADOUT_WEAPON_KIND), 0)
+	end
 	if self.titleLabel then
 		self.titleLabel.Text = UiStyle.formatTitle(string.format(TITLE_FORMAT, Enums.getPublicName(Enums.PostWeaponKind, kind) or "Post"))
 	end
@@ -175,13 +178,8 @@ function ClientPostUpgradeManager:openMenu()
 	ClientOverlayManager:notifyBeginOverlay(overlay)
 end
 
--- the table's prompt: the menu for a post owner, the reason for anyone else
+-- the table's prompt opens the menu for anyone
 function ClientPostUpgradeManager:onTablePrompt()
-	if self:getOwnPostIndex() == PostRules.NO_POST then
-		ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
-		ClientPlayerFeedbackManager:giveLocal(FEEDBACK_NO_POST)
-		return
-	end
 	self:openMenu()
 end
 
