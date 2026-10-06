@@ -14,7 +14,7 @@ export type Snapshot = {
 	displayName: string,
 	isReady: boolean,
 	isAdmin: boolean?,
-	cash: number?,
+	diamonds: number?,
 	-- LoadoutSlot key name -> unlock name
 	loadout: { [string]: string }?,
 	dailyRewardLastClaimedDay: number?,
@@ -51,7 +51,7 @@ end
 function PlayerPublicSchema.buildCurrentPlayerAttributes(snapshot: Snapshot): AttributeMap
 	local attributes: AttributeMap = {
 		[Attributes.USER_ID] = snapshot.userId,
-		[Attributes.CASH] = snapshot.cash or 0,
+		[Attributes.DIAMONDS] = snapshot.diamonds or 0,
 		[Attributes.IS_ADMIN] = snapshot.isAdmin or false,
 		[Attributes.DAILY_REWARD_LAST_CLAIMED_DAY] = snapshot.dailyRewardLastClaimedDay or 0,
 		[Attributes.DAILY_REWARD_NEXT_CLAIM_TIME] = snapshot.dailyRewardNextClaimTime or 0,

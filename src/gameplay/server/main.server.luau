@@ -7,7 +7,7 @@ local ArrivalManager = require(script.Parent.ArrivalManager)
 local BackpackManager = require(script.Parent.BackpackManager)
 local BalanceAudit = require(script.Parent.BalanceAudit)
 local BootsManager = require(script.Parent.BootsManager)
-local CashTapManager = require(script.Parent.CashTapManager)
+local DiamondTapManager = require(script.Parent.DiamondTapManager)
 local ClearanceManager = require(script.Parent.ClearanceManager)
 local CompassManager = require(script.Parent.CompassManager)
 local DamageableManager = require(script.Parent.DamageableManager)
@@ -113,7 +113,7 @@ RunManager:subscribeRunStarted(
 		TorchManager:onRunStarted()
 	end
 )
--- after the mine, so the refinery reads the run's uranium target and camp level
+-- after the mine, so the refinery reads the run's uranium target
 RefineryManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
@@ -128,7 +128,7 @@ RunManager:subscribeRunStarted(
 	end
 )
 -- after the tools (everyone is handed a Hammer) and the refinery, which
--- owns the Iron repairs spend and the Camp Level the Refinery's HP follows
+-- owns the Iron repairs spend
 StructureManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
@@ -245,11 +245,11 @@ ReviveManager:subscribeTeamRevived(
 		RescueManager:cancel()
 	end
 )
--- Cash earned in the run: it listens for each dawn
-CashTapManager:init()
+-- Diamonds earned in the run: it listens for each dawn
+DiamondTapManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
-		CashTapManager:onRunStarted()
+		DiamondTapManager:onRunStarted()
 	end
 )
 -- after the refinery, whose balances it moves between players

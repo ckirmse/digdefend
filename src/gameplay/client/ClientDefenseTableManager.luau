@@ -48,7 +48,6 @@ local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PlacementRules = require("@game/ReplicatedStorage/Shared/PlacementRules")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
-local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local TowerRules = require("@game/ReplicatedStorage/Shared/TowerRules")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
@@ -251,10 +250,6 @@ function ClientDefenseTableManager:getIron(): number
 	return readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_IRON_BARS), 0)
 end
 
-function ClientDefenseTableManager:getCampLevel(): number
-	return readNumber(ClientDataManager:getGameMetadata(Attributes.CAMP_LEVEL), 1)
-end
-
 function ClientDefenseTableManager:getLoadout(): { number }
 	return PlacementRules.decodeTowerLoadout(ClientDataManager:getCurrentPlayerAttribute(Attributes.TOWER_LOADOUT))
 end
@@ -267,15 +262,9 @@ function ClientDefenseTableManager:getTransitionSec(): number
 	return readNumber(ClientDataManager:getGameMetadata(Attributes.BUILD_CAMERA_TRANSITION_SEC), DEFAULT_CAMERA_TRANSITION_SEC)
 end
 
--- a Trap the Camp Level has not opened yet; Towers are gated by the loadout
-function ClientDefenseTableManager:isEntryLocked(placementKind: number, typeKind: number): boolean
-	local catalog = self.catalog
-	return catalog ~= nil and self:getCampLevel() < PlacementRules.requiredCampLevel(catalog, placementKind, typeKind)
-end
-
 function ClientDefenseTableManager:canAffordEntry(placementKind: number, typeKind: number): boolean
 	local catalog = self.catalog
-	if not catalog or self:isEntryLocked(placementKind, typeKind) then
+	if not catalog then
 		return false
 	end
 	return PlacementRules.canAfford(self:getIron(), PlacementRules.buildPrice(catalog, placementKind, typeKind))
@@ -943,11 +932,6 @@ function ClientDefenseTableManager:toggleEntry(placementKind: number, typeKind: 
 	local selection = self.selection
 	if selection and selection.placementKind == placementKind and selection.typeKind == typeKind then
 		self:cancel()
-		return
-	end
-	if self:isEntryLocked(placementKind, typeKind) and self.catalog then
-		ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
-		ClientPlayerFeedbackManager:giveLocal(string.format(StoreRules.LOCKED_FORMAT, PlacementRules.requiredCampLevel(self.catalog, placementKind, typeKind)))
 		return
 	end
 	self:select(placementKind, typeKind)
@@ -1670,12 +1654,6 @@ function ClientDefenseTableManager:init()
 		Attributes.RUN_SCALING_COUNT,
 		function()
 			self:renderTowerCount()
-		end
-	)
-	ClientDataManager:subscribeGameMetadataAttribute(
-		Attributes.CAMP_LEVEL,
-		function()
-			self:renderAffordability()
 		end
 	)
 	-- a placement appearing or going can free or take the ghost's cells,

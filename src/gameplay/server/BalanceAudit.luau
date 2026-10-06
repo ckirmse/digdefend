@@ -18,7 +18,6 @@ local PartyScalingData = require("@game/ServerScriptService/GameData/Control/Par
 local RunCycleData = require("@game/ServerScriptService/GameData/Control/RunCycle")
 local StructuresData = require("@game/ServerScriptService/GameData/Camp/Structures")
 local BehaviorData = require("@game/ServerScriptService/GameData/Monsters/Behavior")
-local LevelData = require("@game/ServerScriptService/GameData/Camp/Level")
 local TowersData = require("@game/ServerScriptService/GameData/Defenses/Towers")
 local MinesRegistryData = require("@game/ServerScriptService/GameData/Mines/Registry")
 local GenerationData = require("@game/ServerScriptService/GameData/Mines/Generation")
@@ -139,25 +138,20 @@ function BalanceAudit:buildInput(map: number, difficulty: number, crew: number, 
 		hitIntervalSec = PickAxeData.HIT_INTERVAL_SEC,
 		pickDamageByLevel = PickAxeData.DAMAGE_BY_LEVEL,
 		pickPriceByLevel = MiningSuppliesData.UPGRADES[Enums.StoreItem.PICK_AXE].priceByLevel,
-		pickRequiredCampLevelByLevel = LevelData.MINING_UPGRADE_REQUIRED_CAMP_LEVEL_BY_LEVEL,
 		backpack = {
 			valueByLevel = BackpackData.CAPACITY_BY_LEVEL,
 			priceByLevel = MiningSuppliesData.UPGRADES[Enums.StoreItem.BACKPACK].priceByLevel,
-			requiredCampLevelByLevel = LevelData.MINING_UPGRADE_REQUIRED_CAMP_LEVEL_BY_LEVEL,
 		},
 		boots = {
 			valueByLevel = BootsData.WALK_SPEED_BY_LEVEL,
 			priceByLevel = MiningSuppliesData.UPGRADES[Enums.StoreItem.BOOTS].priceByLevel,
-			requiredCampLevelByLevel = LevelData.MINING_UPGRADE_REQUIRED_CAMP_LEVEL_BY_LEVEL,
 		},
 		refineSec = RefineryData.REFINE_DURATION_SEC,
 		refineryToEntranceStuds = BalanceData.ASSUMPTIONS.REFINERY_TO_ENTRANCE_STUDS,
 		blockSizeStuds = Constants.MINE_BLOCK_SIZE_STUDS,
-		diamondsRequiredByLevel = LevelData.DIAMONDS_REQUIRED_BY_LEVEL,
 		zones = zones,
 		ironResource = Enums.RawResource.IRON_ORE,
 		goldResource = Enums.RawResource.GOLD_ORE,
-		crystalResource = Enums.RawResource.CRYSTAL,
 		uraniumResource = Enums.RawResource.URANIUM_ORE,
 		refineRateByRaw = RefineryData.RATE_BY_RAW,
 		oreYieldMultiplier = RunCycleRules.multiplierFor(PartyScalingData.ORE_YIELD_MULTIPLIER_BY_PLAYER_COUNT, crew),
@@ -175,7 +169,6 @@ function BalanceAudit:buildInput(map: number, difficulty: number, crew: number, 
 		postDps = self:postDps(),
 		postUpgrades = {
 			priceByLevel = PostWeaponsData.UPGRADE_PRICE_BY_LEVEL,
-			requiredCampLevelByLevel = LevelData.POST_UPGRADE_REQUIRED_CAMP_LEVEL_BY_LEVEL,
 			damageBonusPerLevel = PostWeaponsData.BONUS_PER_LEVEL_BY_ATTRIBUTE[Enums.PostAttribute.DAMAGE],
 			fireRateBonusPerLevel = PostWeaponsData.BONUS_PER_LEVEL_BY_ATTRIBUTE[Enums.PostAttribute.FIRE_RATE],
 			cooldownBonusPerLevel = if defaultPost.HEAT then PostWeaponsData.BONUS_PER_LEVEL_BY_ATTRIBUTE[Enums.PostAttribute.COOLDOWN] else nil,

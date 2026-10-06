@@ -15,7 +15,7 @@ local function makeSnapshot()
 		displayName = "Ada",
 		isReady = true,
 		isAdmin = true,
-		cash = 4321,
+		diamonds = 4321,
 		loadout = { WEAPON = "Pistol", DEFENSE_2 = "Spikes" },
 		dailyRewardLastClaimedDay = 3,
 		dailyRewardNextClaimTime = 1700000000,
@@ -42,7 +42,7 @@ describe(
 			function()
 				local attributes = PlayerPublicSchema.buildPublicAttributes(makeSnapshot())
 				expect(attributes[Attributes.IS_ADMIN]).toBeNil()
-				expect(attributes[Attributes.CASH]).toBeNil()
+				expect(attributes[Attributes.DIAMONDS]).toBeNil()
 				expect(attributes[Attributes.LOADOUT_WEAPON]).toBeNil()
 			end
 		)
@@ -57,7 +57,7 @@ describe(
 			function()
 				local attributes = PlayerPublicSchema.buildCurrentPlayerAttributes(makeSnapshot())
 				expect(attributes[Attributes.USER_ID]).toBe(123)
-				expect(attributes[Attributes.CASH]).toBe(4321)
+				expect(attributes[Attributes.DIAMONDS]).toBe(4321)
 				expect(attributes[Attributes.IS_ADMIN]).toBe(true)
 				expect(attributes[Attributes.LOADOUT_WEAPON]).toBe("Pistol")
 				expect(attributes[Attributes.LOADOUT_POST]).toBe("")
@@ -77,7 +77,7 @@ describe(
 					displayName = "Bob",
 					isReady = true,
 				})
-				expect(attributes[Attributes.CASH]).toBe(0)
+				expect(attributes[Attributes.DIAMONDS]).toBe(0)
 				expect(attributes[Attributes.IS_ADMIN]).toBe(false)
 				expect(attributes[Attributes.LOADOUT_WEAPON]).toBe("")
 				expect(attributes[Attributes.DAILY_REWARD_LAST_CLAIMED_DAY]).toBe(0)

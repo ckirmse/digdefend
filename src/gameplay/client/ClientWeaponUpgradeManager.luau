@@ -5,8 +5,7 @@
 -- table's prompt (Tags.WEAPON_UPGRADE_PROMPT) is the server's; when it
 -- fires here, this opens the WeaponUpgrade overlay: one row per attribute
 -- (Damage, Ammo, Range) with four pips, one filled per upgrade bought, and
--- a button showing the Gold price, gone when maxed. Weapon upgrades are
--- never locked by Camp Level. Everything is drawn from the catalogue in
+-- a button showing the Gold price, gone when maxed. Everything is drawn from the catalogue in
 -- GameMetadata, the upgrade counts on CurrentPlayer, and the Gold
 -- balance; a tap sends TryUpgradeWeapon and the server decides. The menu
 -- is the same build as the post one, so the two read alike.
@@ -40,7 +39,6 @@ type Row = {
 	button: GuiButton?,
 	priceLabel: TextLabel?,
 	resourceIcon: ImageLabel?,
-	lockLabel: TextLabel?,
 }
 
 export type ClientWeaponUpgradeManager = typeof(setmetatable(
@@ -104,10 +102,6 @@ function ClientWeaponUpgradeManager:renderRow(row: Row, catalog: WeaponRules.Cat
 		local imageId = Icons.REFINED_RESOURCE[Enums.RefinedResource.GOLD_BAR]
 		row.resourceIcon.Image = if Icons.isPlaceholder(imageId) then "" else imageId
 		row.resourceIcon.Visible = not isMaxed
-	end
-	-- the shared menu build has a lock line; weapons never lock
-	if row.lockLabel then
-		row.lockLabel.Visible = false
 	end
 end
 
@@ -212,7 +206,6 @@ function ClientWeaponUpgradeManager:findMenu()
 		local button = frame:FindFirstChild(Constants.UPGRADE_MENU_ROW_BUTTON)
 		local priceLabel = if button then button:FindFirstChild(Constants.UPGRADE_MENU_ROW_PRICE_LABEL) else nil
 		local resourceIcon = if button then button:FindFirstChild(Constants.UPGRADE_MENU_ROW_RESOURCE_ICON) else nil
-		local lockLabel = frame:FindFirstChild(Constants.UPGRADE_MENU_ROW_LOCK_LABEL)
 		local row: Row = {
 			attribute = attribute,
 			frame = frame,
@@ -220,7 +213,6 @@ function ClientWeaponUpgradeManager:findMenu()
 			button = if button and button:IsA("GuiButton") then button else nil,
 			priceLabel = if priceLabel and priceLabel:IsA("TextLabel") then priceLabel else nil,
 			resourceIcon = if resourceIcon and resourceIcon:IsA("ImageLabel") then resourceIcon else nil,
-			lockLabel = if lockLabel and lockLabel:IsA("TextLabel") then lockLabel else nil,
 		}
 		if row.button then
 			row.button.Activated:Connect(

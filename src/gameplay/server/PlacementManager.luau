@@ -14,7 +14,7 @@
 -- A build is a TryBuildPlacement request naming the kind, the zone, and
 -- the anchor cell; the server checks Build Mode (the player is at the
 -- Defense Table, DefenseTableManager), that the loadout brought the Tower
--- or the Camp Level allows the Trap, the Tower limit, that every cell is
+-- or the Trap exists, the Tower limit, that every cell is
 -- inside and free, and the Iron, then spawns the shadow. Towers and Traps
 -- alike are paid for in Iron when they are placed (decided 2026-09-30:
 -- the Trap stands and the carried-Trap inventory are gone). Selling either
@@ -38,7 +38,6 @@ local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PlacementRules = require("@game/ReplicatedStorage/Shared/PlacementRules")
 local StructureRules = require("@game/ReplicatedStorage/Shared/StructureRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
-local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
 local StructuresData = require("@game/ServerScriptService/GameData/Camp/Structures")
 local PlacementData = require("@game/ServerScriptService/GameData/Defenses/Placement")
 local TowersData = require("@game/ServerScriptService/GameData/Defenses/Towers")
@@ -370,10 +369,6 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 	else
 		local trap = self.catalog.traps[typeKind]
 		if not trap then
-			return
-		end
-		if RefineryManager:getCampLevel() < trap.REQUIRED_CAMP_LEVEL then
-			PlayerFeedbackManager:give(player, string.format(StoreRules.LOCKED_FORMAT, trap.REQUIRED_CAMP_LEVEL))
 			return
 		end
 	end

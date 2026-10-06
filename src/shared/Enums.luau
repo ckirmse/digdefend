@@ -57,26 +57,22 @@ module = {
 	RawResource = {
 		IRON_ORE = 1,
 		GOLD_ORE = 2,
-		CRYSTAL = 3,
-		URANIUM_ORE = 4,
+		URANIUM_ORE = 3,
 
 		PublicNames = {
 			IRON_ORE = "Iron Ore",
 			GOLD_ORE = "Gold Ore",
-			CRYSTAL = "Crystal",
 			URANIUM_ORE = "Uranium Ore",
 		},
 	},
 	RefinedResource = {
 		IRON_BAR = 1,
 		GOLD_BAR = 2,
-		DIAMOND = 3,
-		URANIUM = 4,
+		URANIUM = 3,
 
 		PublicNames = {
 			IRON_BAR = "Iron Bar",
 			GOLD_BAR = "Gold Bar",
-			DIAMOND = "Diamond",
 			URANIUM = "Uranium",
 		},
 	},
@@ -414,8 +410,7 @@ module = {
 	-- what a stand offers a given player right now (StoreRules.getOffer)
 	StoreOffer = {
 		AVAILABLE = 1,
-		LOCKED = 2,
-		MAXED = 3,
+		MAXED = 2,
 	},
 	-- the direction a player walks to enter a mine; 90 degree steps keep
 	-- blocks axis-aligned (GDD "Coordinate model")
@@ -433,7 +428,7 @@ module = {
 	-- every rock in the global rock table (GDD "Rock definitions"). One integer
 	-- per grid cell in the generated mine; keys double as the template names
 	-- under ReplicatedStorage/Rocks. PublicNames match the hand-placed rock
-	-- strings in the GDD ("Crystal 3").
+	-- strings in the GDD ("Gold 3").
 	RockName = {
 		STONE_1 = 1,
 		STONE_2 = 2,
@@ -448,12 +443,8 @@ module = {
 		GOLD_2 = 11,
 		GOLD_3 = 12,
 		GOLD_4 = 13,
-		CRYSTAL_1 = 14,
-		CRYSTAL_2 = 15,
-		CRYSTAL_3 = 16,
-		CRYSTAL_4 = 17,
-		URANIUM = 18,
-		BEDROCK = 19,
+		URANIUM = 14,
+		BEDROCK = 15,
 
 		PublicNames = {
 			STONE_1 = "Stone 1",
@@ -469,10 +460,6 @@ module = {
 			GOLD_2 = "Gold 2",
 			GOLD_3 = "Gold 3",
 			GOLD_4 = "Gold 4",
-			CRYSTAL_1 = "Crystal 1",
-			CRYSTAL_2 = "Crystal 2",
-			CRYSTAL_3 = "Crystal 3",
-			CRYSTAL_4 = "Crystal 4",
 			URANIUM = "Uranium",
 			BEDROCK = "Bedrock",
 		},
@@ -540,6 +527,14 @@ module = {
 		DAY = 1,
 		DUSK = 2,
 		NIGHT = 3,
+	},
+	-- how healthy a camp structure reads on the Camp Map (CampMapRules, M33)
+	StructureHealthBand = {
+		FULL = 1,
+		HIGH = 2,
+		MID = 3,
+		LOW = 4,
+		DESTROYED = 5,
 	},
 	LoadoutSlot = {
 		WEAPON = 1,

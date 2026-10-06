@@ -3,8 +3,8 @@
 -- The Mining Supplies Store (GDD "Mining Supplies Store"): one stand per
 -- item in the camp's MiningStore model, each with a ProximityPrompt the
 -- server hears directly (never a client message). A trigger is a purchase
--- request: the offer is worked out here from the catalogue, the buyer's
--- level on that track, and the crew's Camp Level; Gold Bars are spent and
+-- request: the offer is worked out here from the catalogue and the buyer's
+-- level on that track; Gold Bars are spent and
 -- the owning manager raises the level or hands over the consumables. The
 -- catalogue itself is published once as GameMetadata JSON so every client
 -- draws its own stands (what the next level is differs per player).
@@ -13,7 +13,6 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
-local LevelData = require("@game/ServerScriptService/GameData/Camp/Level")
 local MiningSuppliesData = require("@game/ServerScriptService/GameData/Store/MiningSupplies")
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
@@ -87,17 +86,13 @@ function MiningStoreManager:buy(player: Player, item: number)
 	if not GameController:isPlayerReady(player) then
 		return
 	end
-	local offer = StoreRules.getOffer(self.catalog, item, self:getLevel(player, item), RefineryManager:getCampLevel())
+	local offer = StoreRules.getOffer(self.catalog, item, self:getLevel(player, item))
 	if not offer then
 		warn(`MiningStoreManager: no catalogue entry for item {item}`)
 		return
 	end
 	if offer.status == Enums.StoreOffer.MAXED then
 		PlayerFeedbackManager:give(player, if offer.isSinglePurchase then FEEDBACK_OWNED else FEEDBACK_MAXED)
-		return
-	end
-	if offer.status == Enums.StoreOffer.LOCKED then
-		PlayerFeedbackManager:give(player, string.format(StoreRules.LOCKED_FORMAT, offer.requiredCampLevel or 0))
 		return
 	end
 	local price = offer.price or 0
@@ -184,12 +179,11 @@ function MiningStoreManager:onRunStarted()
 end
 
 function MiningStoreManager:init()
-	-- prices from the store data, the Camp Level gate from the level data
+	-- prices from the store data
 	local upgrades: { [number]: StoreRules.UpgradeTrack } = {}
 	for item, track in MiningSuppliesData.UPGRADES do
 		upgrades[item] = {
 			priceByLevel = track.priceByLevel,
-			requiredCampLevelByLevel = LevelData.MINING_UPGRADE_REQUIRED_CAMP_LEVEL_BY_LEVEL,
 			startsUnowned = (track :: any).startsUnowned == true,
 		}
 	end

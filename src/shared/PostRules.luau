@@ -48,13 +48,11 @@ export type KindData = {
 	PITCH_MAX_DEGREES: number,
 }
 
--- what the server publishes as GameMetadata: entry N of the two lists is
--- the Gold price of upgrade N and the Camp Level it needs; the price list's
--- length is the upgrade cap
+-- what the server publishes as GameMetadata: entry N of the price list is
+-- the Gold price of upgrade N; the list's length is the upgrade cap
 export type Catalog = {
 	claimPriceGold: number,
 	upgradePriceByLevel: { number },
-	requiredCampLevelByLevel: { number },
 	-- the share of the base stat each upgrade adds, by Enums.PostAttribute
 	bonusPerLevelByAttribute: { [number]: number },
 	kinds: { [number]: KindData },
@@ -80,7 +78,6 @@ export type Offer = {
 	-- the upgrade the buy would be, nil when maxed
 	level: number?,
 	price: number?,
-	requiredCampLevel: number?,
 }
 
 -- what a weapon model's parts are relative to each other, measured once
@@ -112,7 +109,6 @@ PostRules.UPGRADE_ATTRIBUTE_BY_POST_ATTRIBUTE = {
 
 PostRules.NO_POST = 0
 PostRules.NOBODY = 0
-PostRules.LOCKED_FORMAT = "Camp Level %d required"
 
 -- a cool time never shrinks below this share of its base, whatever the levels
 local MIN_COOL_SHARE = 0.05
@@ -176,24 +172,21 @@ function PostRules.kindHasAttribute(catalog: Catalog, kind: number, attribute: n
 	return PostRules.attributeOrder(catalog, kind, attribute) ~= nil
 end
 
--- what the next upgrade of one attribute would be for a player, given the
--- crew's Camp Level; mirrors StoreRules.getOffer
-function PostRules.getUpgradeOffer(catalog: Catalog, upgrades: Upgrades, attribute: number, campLevel: number): Offer
+-- what the next upgrade of one attribute would be for a player; mirrors
+-- StoreRules.getOffer
+function PostRules.getUpgradeOffer(catalog: Catalog, upgrades: Upgrades, attribute: number): Offer
 	local nextLevel = PostRules.upgradeLevel(upgrades, attribute) + 1
 	if nextLevel > PostRules.upgradeCap(catalog) then
 		return {
 			status = Enums.StoreOffer.MAXED,
 			level = nil,
 			price = nil,
-			requiredCampLevel = nil,
 		}
 	end
-	local requiredCampLevel = catalog.requiredCampLevelByLevel[nextLevel] or 1
 	return {
-		status = if campLevel < requiredCampLevel then Enums.StoreOffer.LOCKED else Enums.StoreOffer.AVAILABLE,
+		status = Enums.StoreOffer.AVAILABLE,
 		level = nextLevel,
 		price = catalog.upgradePriceByLevel[nextLevel],
-		requiredCampLevel = requiredCampLevel,
 	}
 end
 
@@ -450,7 +443,6 @@ function PostRules.encodeCatalog(catalog: Catalog): string
 	return HttpService:JSONEncode({
 		claimPriceGold = catalog.claimPriceGold,
 		upgradePriceByLevel = catalog.upgradePriceByLevel,
-		requiredCampLevelByLevel = catalog.requiredCampLevelByLevel,
 		bonusPerLevelByAttribute = encodeNumberKeys(catalog.bonusPerLevelByAttribute),
 		kinds = encodeNumberKeys(catalog.kinds),
 	})
@@ -468,7 +460,6 @@ function PostRules.decodeCatalog(json: any): Catalog?
 	return {
 		claimPriceGold = decoded.claimPriceGold,
 		upgradePriceByLevel = decoded.upgradePriceByLevel or {},
-		requiredCampLevelByLevel = decoded.requiredCampLevelByLevel or {},
 		bonusPerLevelByAttribute = decodeNumberKeys(decoded.bonusPerLevelByAttribute),
 		kinds = decodeNumberKeys(decoded.kinds),
 	}

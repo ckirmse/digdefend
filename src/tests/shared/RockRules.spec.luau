@@ -48,7 +48,6 @@ local function makeRockTable()
 		RESOURCE_TIERS = {
 			[RawResource.IRON_ORE] = { RockName.IRON_1, RockName.IRON_2, RockName.IRON_3, RockName.IRON_4 },
 			[RawResource.GOLD_ORE] = { RockName.GOLD_1, RockName.GOLD_2, RockName.GOLD_3, RockName.GOLD_4 },
-			[RawResource.CRYSTAL] = { RockName.CRYSTAL_1, RockName.CRYSTAL_2, RockName.CRYSTAL_3, RockName.CRYSTAL_4 },
 			[RawResource.URANIUM_ORE] = { RockName.URANIUM },
 		},
 		ROCKS = {
@@ -65,10 +64,6 @@ local function makeRockTable()
 			[RockName.GOLD_2] = makeResource(RawResource.GOLD_ORE, 2, 40, 10, 1, 2),
 			[RockName.GOLD_3] = makeResource(RawResource.GOLD_ORE, 3, 75, 30, 1, 1),
 			[RockName.GOLD_4] = makeResource(RawResource.GOLD_ORE, 4, 140, 87, 0, 1),
-			[RockName.CRYSTAL_1] = makeResource(RawResource.CRYSTAL, 1, 30, 2, 1, 1),
-			[RockName.CRYSTAL_2] = makeResource(RawResource.CRYSTAL, 2, 60, 5, 1, 1),
-			[RockName.CRYSTAL_3] = makeResource(RawResource.CRYSTAL, 3, 110, 14, 0, 1),
-			[RockName.CRYSTAL_4] = makeResource(RawResource.CRYSTAL, 4, 200, 39, 0, 1),
 			[RockName.URANIUM] = makeResource(RawResource.URANIUM_ORE, 1, 100, 1, 0, 0),
 			[RockName.BEDROCK] = { kind = RockKind.BEDROCK },
 		},
@@ -420,7 +415,7 @@ describe(
 				expect((RockRules.validateRockTable(rockTable))).toBe(false)
 
 				rockTable = makeRockTable()
-				rockTable.ROCKS[RockName.CRYSTAL_1].clusterRadiusMax = 0
+				rockTable.ROCKS[RockName.GOLD_1].clusterRadiusMax = 0
 				expect((RockRules.validateRockTable(rockTable))).toBe(false)
 
 				rockTable = makeRockTable()

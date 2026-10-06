@@ -15,7 +15,7 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 -- The mine is a simulator (decided 2026-09-28, docs/balance-plan.md):
 -- rock HP triples a tier (10 to 810 for stone), matching the pick that
 -- triples a level, so the deep mine is a wall until the pick has been
--- earned; Gold and Diamonds per rock quadruple a tier, so the deeper the
+-- earned; Gold per rock quadruples a tier, so the deeper the
 -- crew digs the faster they arrive, while Iron per rock only doubles a
 -- tier, under the rock's HP, so a bigger pick in deeper rock does not
 -- flood the tower budget (option 1 of
@@ -46,12 +46,6 @@ return {
 			Enums.RockName.GOLD_2,
 			Enums.RockName.GOLD_3,
 			Enums.RockName.GOLD_4,
-		},
-		[Enums.RawResource.CRYSTAL] = {
-			Enums.RockName.CRYSTAL_1,
-			Enums.RockName.CRYSTAL_2,
-			Enums.RockName.CRYSTAL_3,
-			Enums.RockName.CRYSTAL_4,
 		},
 		-- uranium has no tiers; tierBias never applies to it
 		[Enums.RawResource.URANIUM_ORE] = {
@@ -136,43 +130,6 @@ return {
 			tier = 4,
 			hp = 540,
 			yield = 192,
-			clusterRadiusMin = 0,
-			clusterRadiusMax = 0,
-		},
-
-		[Enums.RockName.CRYSTAL_1] = {
-			kind = Enums.RockKind.RESOURCE,
-			resource = Enums.RawResource.CRYSTAL,
-			tier = 1,
-			hp = 30,
-			yield = 2,
-			clusterRadiusMin = 0,
-			clusterRadiusMax = 0,
-		},
-		[Enums.RockName.CRYSTAL_2] = {
-			kind = Enums.RockKind.RESOURCE,
-			resource = Enums.RawResource.CRYSTAL,
-			tier = 2,
-			hp = 90,
-			yield = 8,
-			clusterRadiusMin = 0,
-			clusterRadiusMax = 0,
-		},
-		[Enums.RockName.CRYSTAL_3] = {
-			kind = Enums.RockKind.RESOURCE,
-			resource = Enums.RawResource.CRYSTAL,
-			tier = 3,
-			hp = 270,
-			yield = 32,
-			clusterRadiusMin = 0,
-			clusterRadiusMax = 0,
-		},
-		[Enums.RockName.CRYSTAL_4] = {
-			kind = Enums.RockKind.RESOURCE,
-			resource = Enums.RawResource.CRYSTAL,
-			tier = 4,
-			hp = 810,
-			yield = 128,
 			clusterRadiusMin = 0,
 			clusterRadiusMax = 0,
 		},

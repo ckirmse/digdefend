@@ -7,11 +7,11 @@ local expect = JestGlobals.expect
 
 local PlayerSaveSchema = require(game:GetService("ReplicatedStorage").Shared.PlayerSaveSchema)
 
-local DEFAULTS = { startingCash = 0 }
+local DEFAULTS = { startingDiamonds = 0 }
 
 local function makeValidSave()
 	return {
-		cash = 250,
+		diamonds = 250,
 		ownedUnlocks = { Pistol = true, Turret = true },
 		loadout = { WEAPON = "Pistol", POST = "Turret" },
 		completions = { ["DEADMANS_CANYON/NORMAL"] = true },
@@ -26,10 +26,10 @@ describe(
 	"PlayerSaveSchema.getDefault",
 	function()
 		it(
-			"starts a new player with the configured cash and nothing else",
+			"starts a new player with the configured diamonds and nothing else",
 			function()
-				local data = PlayerSaveSchema.getDefault({ startingCash = 50 })
-				expect(data.cash).toBe(50)
+				local data = PlayerSaveSchema.getDefault({ startingDiamonds = 50 })
+				expect(data.diamonds).toBe(50)
 				expect(data.ownedUnlocks).toEqual({})
 				expect(data.loadout).toEqual({})
 				expect(data.completions).toEqual({})
@@ -71,13 +71,13 @@ describe(
 		)
 
 		it(
-			"repairs corrupt cash",
+			"repairs corrupt diamonds",
 			function()
-				for _, badCash in { -5, 1.5, "100", nil, 0 / 0 } do
+				for _, badDiamonds in { -5, 1.5, "100", nil, 0 / 0 } do
 					local save = makeValidSave()
-					save.cash = badCash
+					save.diamonds = badDiamonds
 					local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
-					expect(validated.cash).toBe(0)
+					expect(validated.diamonds).toBe(0)
 					expect(#repairs).toBe(1)
 				end
 			end
@@ -161,8 +161,8 @@ describe(
 		it(
 			"fills a partially missing save with defaults",
 			function()
-				local validated, repairs = PlayerSaveSchema.validate({ cash = 10 }, DEFAULTS)
-				expect(validated.cash).toBe(10)
+				local validated, repairs = PlayerSaveSchema.validate({ diamonds = 10 }, DEFAULTS)
+				expect(validated.diamonds).toBe(10)
 				expect(validated.ownedUnlocks).toEqual({})
 				expect(validated.loadout).toEqual({})
 				expect(validated.completions).toEqual({})
@@ -199,6 +199,40 @@ describe(
 				local validated, repairs = PlayerSaveSchema.validate(data, DEFAULTS)
 				expect(validated.reviveCredits).toEqual({ SELF = 2, FRIEND = 0, TEAM = 0 })
 				expect(#repairs).toBe(2)
+			end
+		)
+	end
+)
+
+describe(
+	"PlayerSaveSchema cash migration",
+	function()
+		it(
+			"carries an older save's cash across as diamonds, once",
+			function()
+				local validated, repairs = PlayerSaveSchema.validate({ cash = 120 }, DEFAULTS)
+				expect(validated.diamonds).toBe(120)
+				expect((validated :: any).cash).toBeNil()
+				expect(table.find(repairs, "cash migrated to diamonds")).never.toBeNil()
+			end
+		)
+		it(
+			"adds the cash onto a reconciled save's starting diamonds",
+			function()
+				-- GameController reconciles the profile against the defaults before
+				-- validating, so an old save arrives with diamonds already present
+				local validated = PlayerSaveSchema.validate({ diamonds = 0, cash = 120 }, DEFAULTS)
+				expect(validated.diamonds).toBe(120)
+				local bothValidated = PlayerSaveSchema.validate({ diamonds = 7, cash = 120 }, DEFAULTS)
+				expect(bothValidated.diamonds).toBe(127)
+			end
+		)
+		it(
+			"leaves a save with no cash alone",
+			function()
+				local validated, repairs = PlayerSaveSchema.validate({ diamonds = 7 }, DEFAULTS)
+				expect(validated.diamonds).toBe(7)
+				expect(table.find(repairs, "cash migrated to diamonds")).toBeNil()
 			end
 		)
 	end

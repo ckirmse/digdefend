@@ -307,19 +307,6 @@ describe(
 )
 
 describe(
-	"StructureRules.requiredCampLevel",
-	function()
-		it(
-			"reads the table and never locks a tier past it",
-			function()
-				expect(StructureRules.requiredCampLevel({ 1, 2, 3 }, 2)).toBe(2)
-				expect(StructureRules.requiredCampLevel({ 1, 2, 3 }, 7)).toBe(1)
-			end
-		)
-	end
-)
-
-describe(
 	"StructureRules.isDecorativeWall",
 	function()
 		it(

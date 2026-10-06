@@ -32,13 +32,15 @@ Constants.DEV_TEST_MENU_GUI_NAME = "DevTestMenu"
 Constants.DEV_TEST_MENU_DIALOG = "Dialog"
 Constants.PLAYER_FEEDBACK_GUI_NAME = "PlayerFeedback"
 Constants.PLAYER_FEEDBACK_BOX = "FeedbackBox"
--- top-centre blue box for the beats nobody should miss (Camp Level up)
+-- top-centre blue box for the beats nobody should miss (a day's start)
 -- red box under the announcement for danger (a wall down, the Refinery
 -- under attack; 2026-09-25)
 Constants.PLAYER_FEEDBACK_LABEL = "Message"
+-- the resource icon a message can end with ("+5 [diamond]", M33), after the words
+Constants.PLAYER_FEEDBACK_ICON = "Icon"
 Constants.HUD_GUI_NAME = "HUD"
-Constants.HUD_CASH_WALLET = "CashWallet"
-Constants.HUD_CASH_AMOUNT_LABEL = "CashAmount"
+Constants.HUD_DIAMOND_WALLET = "DiamondWallet"
+Constants.HUD_DIAMOND_AMOUNT_LABEL = "DiamondAmount"
 Constants.HUD_LOADOUT_STRIP = "LoadoutStrip"
 Constants.HUD_MENU_BUTTONS = "MenuButtons"
 Constants.HUD_STORE_BUTTON = "StoreButton"
@@ -154,8 +156,6 @@ Constants.STAND_NAME_LABEL = "NameLabel"
 Constants.STAND_PRICE_BOX = "PriceBox"
 Constants.STAND_PRICE_LABEL = "Price"
 Constants.STAND_RESOURCE_ICON = "ResourceIcon"
--- "Camp Level N required" under the price on an upgrade stand, shown in red only while unmet
-Constants.STAND_CAMP_LEVEL_LABEL = "CampLevel"
 -- display models for the store stands under GameAssets: "<KEY>_<level>" for
 -- upgrade tracks and "<KEY>" for consumables (scripts/studio/build_store_displays.luau)
 Constants.STORE_DISPLAY_TEMPLATES_FOLDER = "StoreDisplays"
@@ -384,7 +384,6 @@ Constants.UPGRADE_MENU_ROW_PIP_PREFIX = "Pip"
 Constants.UPGRADE_MENU_ROW_BUTTON = "UpgradeButton"
 Constants.UPGRADE_MENU_ROW_PRICE_LABEL = "Price"
 Constants.UPGRADE_MENU_ROW_RESOURCE_ICON = "ResourceIcon"
-Constants.UPGRADE_MENU_ROW_LOCK_LABEL = "Lock"
 Constants.UPGRADE_MENU_CLOSE_BUTTON = "CloseButton"
 -- inside every gate template: the two leaves, authored shut, and a marker
 -- part per leaf ("DoorLeftOpen") whose CFrame is its open pose; a Closed
@@ -463,6 +462,27 @@ Constants.DAY_CLOCK_PHASE_GRADIENT_NIGHT = "UIGradientNight"
 Constants.DAY_CLOCK_BAR = "Bar"
 Constants.DAY_CLOCK_FILL = "Fill"
 Constants.DAY_CLOCK_DAY_LABEL = "DayLabel"
+-- the Refinery HP bar (scripts/studio/build_refinery_hp_gui.luau, M33):
+-- the day clock's box top centre, taken over at night; the home icon, a
+-- bar whose Fill is the Refinery's HP share, and "REFINERY HP" under it
+Constants.REFINERY_HP_GUI_NAME = "RefineryHp"
+Constants.REFINERY_HP_ROOT_FRAME = "Root"
+Constants.REFINERY_HP_ICON = "Icon"
+Constants.REFINERY_HP_BAR = "Bar"
+Constants.REFINERY_HP_FILL = "Fill"
+Constants.REFINERY_HP_LABEL = "Label"
+-- the Camp Map (scripts/studio/build_camp_map_gui.luau, M33): a square top
+-- right that slides in from the right edge at night, drawing every structure shadow from a clone of
+-- StructureTemplate (black once rubble, with a DestroyedMarkTemplate
+-- clone, a red X, laid over it unturned), each crewmate from
+-- PlayerDotTemplate, and each monster from MonsterDotTemplate, all inside Canvas
+Constants.CAMP_MAP_GUI_NAME = "CampMap"
+Constants.CAMP_MAP_ROOT_FRAME = "Root"
+Constants.CAMP_MAP_CANVAS = "Canvas"
+Constants.CAMP_MAP_STRUCTURE_TEMPLATE = "StructureTemplate"
+Constants.CAMP_MAP_DESTROYED_MARK_TEMPLATE = "DestroyedMarkTemplate"
+Constants.CAMP_MAP_PLAYER_DOT_TEMPLATE = "PlayerDotTemplate"
+Constants.CAMP_MAP_MONSTER_DOT_TEMPLATE = "MonsterDotTemplate"
 -- the compass (scripts/studio/build_compass_gui.luau): a locator bar hung
 -- directly under the day clock. Markers slide along the Markers frame: the
 -- one HomeIcon (the Refinery) and a clone of PlayerDotTemplate per
@@ -523,10 +543,8 @@ Constants.HUD_BALANCE_ICON = "Icon"
 Constants.HUD_BALANCE_VALUE_LABEL = "ValueLabel"
 -- BillboardGui and SurfaceGui templates under GameAssets, cloned by clients
 Constants.GUI_TEMPLATES_FOLDER = "Gui"
-Constants.CAMP_LEVEL_ICON = "Icon"
--- how far above the Refinery's top the billboard floats, in studs
 -- the sign floated above the Walls Table: tier title, the shared Iron pool as
--- a bar reading "pool / required", and the Camp Level lock line
+-- a bar reading "pool / required"
 -- (scripts/studio/build_fortification_billboard.luau)
 Constants.FORTIFICATION_BILLBOARD = "Fortification"
 Constants.FORTIFICATION_ROOT_FRAME = "Root"
@@ -535,7 +553,6 @@ Constants.FORTIFICATION_BAR = "Bar"
 Constants.FORTIFICATION_FILL = "Fill"
 Constants.FORTIFICATION_PROGRESS_LABEL = "ProgressLabel"
 Constants.FORTIFICATION_ICON = "Icon"
-Constants.FORTIFICATION_LOCK_LABEL = "LockLabel"
 -- the Repair Mode HP bar cloned onto every structure shadow while the Hammer
 -- is equipped (scripts/studio/build_structure_hp_billboard.luau)
 Constants.STRUCTURE_HP_BILLBOARD = "StructureHp"
@@ -555,8 +572,7 @@ Constants.STRUCTURE_HP_COST_ROW = "CostRow"
 Constants.STRUCTURE_HP_COST_AMOUNT_LABEL = "AmountLabel"
 Constants.STRUCTURE_HP_COST_ICON = "Icon"
 Constants.STRUCTURE_HP_COST_GAIN_LABEL = "GainLabel"
--- the Refinery's HP bar floats this far above the model's top (the spot
--- the Camp Level billboard had until 2026-09-29)
+-- the Refinery's HP bar floats this far above the model's top
 Constants.REFINERY_HP_BILLBOARD_LIFT_STUDS = 5.5
 -- the radio's sign (M31), GameAssets/Gui/RescueRadio
 Constants.RESCUE_RADIO_BILLBOARD = "RescueRadio"
@@ -674,7 +690,7 @@ Constants.RESULTS_MENU_DIALOG = "Dialog"
 Constants.RESULTS_MENU_TITLE_LABEL = "Title"
 Constants.RESULTS_MENU_STATS = "Stats"
 Constants.RESULTS_MENU_ROW_URANIUM_REFINED = "UraniumRefined"
-Constants.RESULTS_MENU_ROW_CASH_EARNED = "CashEarned"
+Constants.RESULTS_MENU_ROW_DIAMONDS_EARNED = "DiamondsEarned"
 Constants.RESULTS_MENU_ROW_GOLD_REFINED = "GoldRefined"
 Constants.RESULTS_MENU_ROW_IRON_REFINED = "IronRefined"
 Constants.RESULTS_MENU_ROW_ENEMIES_KILLED = "EnemiesKilled"

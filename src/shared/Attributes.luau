@@ -93,16 +93,10 @@ module = {
 	BACKPACK_CAPACITY = "BackpackCapacity",
 	BACKPACK_IRON_ORE = "BackpackIronOre",
 	BACKPACK_GOLD_ORE = "BackpackGoldOre",
-	BACKPACK_CRYSTAL = "BackpackCrystal",
 	BACKPACK_URANIUM_ORE = "BackpackUraniumOre",
 	-- refinery (RefineryManager, gameplay): private CurrentPlayer balances
 	BALANCE_IRON_BARS = "BalanceIronBars",
 	BALANCE_GOLD_BARS = "BalanceGoldBars",
-	-- GameMetadata (gameplay): the shared camp progress every client shows;
-	-- CampDiamondsRequired is 0 at the top level
-	CAMP_LEVEL = "CampLevel",
-	CAMP_DIAMONDS = "CampDiamonds",
-	CAMP_DIAMONDS_REQUIRED = "CampDiamondsRequired",
 	URANIUM_TOTAL = "UraniumTotal",
 	URANIUM_TARGET = "UraniumTarget",
 	REFINE_DURATION_SEC = "RefineDurationSec",
@@ -133,7 +127,7 @@ module = {
 	-- on each HUD loadout slot frame: the Enums.LoadoutSlot value it shows
 	LOADOUT_SLOT = "LoadoutSlot",
 	-- CurrentPlayer (private)
-	CASH = "Cash",
+	DIAMONDS = "Diamonds",
 	LOADOUT_WEAPON = "LoadoutWeapon",
 	LOADOUT_POST = "LoadoutPost",
 	LOADOUT_DEFENSE_1 = "LoadoutDefense1",
@@ -160,11 +154,10 @@ module = {
 	-- GameMetadata: the shared tier of the gate, walls, and posts; whether it
 	-- is night (the real clock is M28); door tween time for the clients
 	FORTIFICATION_TIER = "FortificationTier",
-	-- GameMetadata, the Workbench sign: Iron donated toward the next tier,
-	-- what that tier costs (0 at the top tier), and the Camp Level it needs
+	-- GameMetadata, the Workbench sign: Iron donated toward the next tier
+	-- and what that tier costs (0 at the top tier)
 	FORTIFICATION_POOL = "FortificationPool",
 	FORTIFICATION_POOL_REQUIRED = "FortificationPoolRequired",
-	FORTIFICATION_REQUIRED_CAMP_LEVEL = "FortificationRequiredCampLevel",
 	IS_NIGHT = "IsNight",
 	-- GameMetadata: a live monster is within the attack radius of the
 	-- Refinery; clients loop the siren while it is true (2026-09-25)
@@ -226,7 +219,7 @@ module = {
 	-- private CurrentPlayer: the run's stats for the Results Menu
 	-- (RunStatsManager, M32)
 	RUN_STAT_URANIUM_REFINED = "RunStatUraniumRefined",
-	RUN_STAT_CASH_EARNED = "RunStatCashEarned",
+	RUN_STAT_DIAMONDS_EARNED = "RunStatDiamondsEarned",
 	RUN_STAT_GOLD_REFINED = "RunStatGoldRefined",
 	RUN_STAT_IRON_REFINED = "RunStatIronRefined",
 	RUN_STAT_ENEMIES_KILLED = "RunStatEnemiesKilled",
@@ -234,7 +227,7 @@ module = {
 	-- and this player's place in the crew for each of them (1 = the most;
 	-- RunStatsRules.rank), for the menu's Group Rank column
 	RUN_STAT_RANK_URANIUM_REFINED = "RunStatRankUraniumRefined",
-	RUN_STAT_RANK_CASH_EARNED = "RunStatRankCashEarned",
+	RUN_STAT_RANK_DIAMONDS_EARNED = "RunStatRankDiamondsEarned",
 	RUN_STAT_RANK_GOLD_REFINED = "RunStatRankGoldRefined",
 	RUN_STAT_RANK_IRON_REFINED = "RunStatRankIronRefined",
 	RUN_STAT_RANK_ENEMIES_KILLED = "RunStatRankEnemiesKilled",
@@ -326,7 +319,7 @@ module = {
 	POST_UPGRADE_RANGE = "PostUpgradeRange",
 	POST_UPGRADE_COOLDOWN = "PostUpgradeCooldown",
 	-- GameMetadata: the post catalogue as JSON (PostRules codec): claim
-	-- price, per-kind base stats, upgrade prices, and the Camp Level gates
+	-- price, per-kind base stats, and upgrade prices
 	POST_CATALOG = "PostCatalog",
 	-- on each post model (Tags.POST): its number and the owner's UserId (0
 	-- while unclaimed), so a client can enable the claim prompt for itself

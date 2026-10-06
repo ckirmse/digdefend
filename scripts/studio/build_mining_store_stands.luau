@@ -44,10 +44,10 @@ local function normaliseGui(stand)
 		nameLabel.TextColor3 = UiStyle.TEXT_COLOR
 		nameLabel.TextScaled = true
 	end
-	local campLevel = gui:FindFirstChild(Constants.STAND_CAMP_LEVEL_LABEL)
+	-- the Camp Level line the stands carried until M33 is removed
+	local campLevel = gui:FindFirstChild("CampLevel")
 	if campLevel then
-		campLevel.FontFace = UiStyle.BODY_BOLD_FONT
-		campLevel.TextScaled = true
+		campLevel:Destroy()
 	end
 	local priceBox = gui:FindFirstChild(Constants.STAND_PRICE_BOX)
 	if not priceBox then

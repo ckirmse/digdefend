@@ -33,7 +33,6 @@ local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
-local LevelData = require("@game/ServerScriptService/GameData/Camp/Level")
 local PostWeaponsData = require("@game/ServerScriptService/GameData/Posts/PostWeapons")
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
@@ -662,13 +661,9 @@ function PostManager:upgrade(player: Player, attribute: number)
 		PlayerFeedbackManager:give(player, FEEDBACK_NO_SUCH_UPGRADE)
 		return
 	end
-	local offer = PostRules.getUpgradeOffer(self.catalog, state.upgrades, attribute, RefineryManager:getCampLevel())
+	local offer = PostRules.getUpgradeOffer(self.catalog, state.upgrades, attribute)
 	if offer.status == Enums.StoreOffer.MAXED then
 		PlayerFeedbackManager:give(player, FEEDBACK_MAXED)
-		return
-	end
-	if offer.status == Enums.StoreOffer.LOCKED then
-		PlayerFeedbackManager:give(player, string.format(PostRules.LOCKED_FORMAT, offer.requiredCampLevel or 0))
 		return
 	end
 	local price = offer.price or 0
@@ -920,7 +915,6 @@ function PostManager:init()
 	self.catalog = {
 		claimPriceGold = PostWeaponsData.CLAIM_PRICE_GOLD,
 		upgradePriceByLevel = PostWeaponsData.UPGRADE_PRICE_BY_LEVEL,
-		requiredCampLevelByLevel = LevelData.POST_UPGRADE_REQUIRED_CAMP_LEVEL_BY_LEVEL,
 		bonusPerLevelByAttribute = PostWeaponsData.BONUS_PER_LEVEL_BY_ATTRIBUTE,
 		kinds = kinds,
 	}
@@ -948,7 +942,6 @@ function PostManager.new(): PostManager
 	self.catalog = {
 		claimPriceGold = 0,
 		upgradePriceByLevel = {},
-		requiredCampLevelByLevel = {},
 		bonusPerLevelByAttribute = {},
 		kinds = {},
 	}

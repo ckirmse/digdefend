@@ -1,6 +1,6 @@
 --!strict
 
--- Drives the Studio-authored lobby HUD (GDD "HUD"): Cash balance with the
+-- Drives the Studio-authored lobby HUD (GDD "HUD"): Diamonds balance with the
 -- green/red change flash and sounds, the five loadout slots, and the menu
 -- buttons. Slides off screen while a menu (overlay) is open. Menus arrive in
 -- later milestones; until then the buttons give "coming soon" feedback.
@@ -36,8 +36,8 @@ type SlotView = {
 export type ClientHudManager = typeof(setmetatable(
 	{} :: {
 		gui: ScreenGui?,
-		cashLabel: TextLabel?,
-		lastCash: number?,
+		diamondLabel: TextLabel?,
+		lastDiamonds: number?,
 		-- bumps per flash so an older restore cannot undo a newer flash
 		flashGeneration: number,
 		groups: { HudGroup },
@@ -69,27 +69,27 @@ function ClientHudManager:notifyEndOverlay()
 	end
 end
 
-function ClientHudManager:renderCash(cash: number)
-	local label = self.cashLabel
+function ClientHudManager:renderDiamonds(diamonds: number)
+	local label = self.diamondLabel
 	if label then
-		label.Text = utils.abbreviateNumber(cash)
+		label.Text = utils.abbreviateNumber(diamonds)
 	end
 end
 
 -- GDD: an increase turns the text green with the coins sound, a decrease red
 -- with the sale sound, then the value updates; the first value never flashes
-function ClientHudManager:onCashChanged(cash: number)
-	local lastCash = self.lastCash
-	self.lastCash = cash
-	local label = self.cashLabel
-	if not label or lastCash == nil or cash == lastCash then
-		self:renderCash(cash)
+function ClientHudManager:onDiamondsChanged(diamonds: number)
+	local lastDiamonds = self.lastDiamonds
+	self.lastDiamonds = diamonds
+	local label = self.diamondLabel
+	if not label or lastDiamonds == nil or diamonds == lastDiamonds then
+		self:renderDiamonds(diamonds)
 		return
 	end
 
 	self.flashGeneration += 1
 	local generation = self.flashGeneration
-	if cash > lastCash then
+	if diamonds > lastDiamonds then
 		label.TextColor3 = UiStyle.POSITIVE_COLOR
 		ClientSoundManager:playSfx(SoundNames.Sfx.COINS_ADDED)
 	else
@@ -100,7 +100,7 @@ function ClientHudManager:onCashChanged(cash: number)
 		BALANCE_UPDATE_DELAY_SEC,
 		function()
 			if self.flashGeneration == generation then
-				self:renderCash(cash)
+				self:renderDiamonds(diamonds)
 			end
 		end
 	)
@@ -190,12 +190,12 @@ function ClientHudManager:init()
 	gui.Enabled = true
 	self.gui = gui
 
-	local cashWallet = gui:WaitForChild(Constants.HUD_CASH_WALLET) :: GuiObject
-	self.cashLabel = cashWallet:WaitForChild(Constants.HUD_CASH_AMOUNT_LABEL) :: TextLabel
-	self:addGroup(cashWallet, UDim2.new(-0.5, 0, cashWallet.Position.Y.Scale, 0))
+	local diamondWallet = gui:WaitForChild(Constants.HUD_DIAMOND_WALLET) :: GuiObject
+	self.diamondLabel = diamondWallet:WaitForChild(Constants.HUD_DIAMOND_AMOUNT_LABEL) :: TextLabel
+	self:addGroup(diamondWallet, UDim2.new(-0.5, 0, diamondWallet.Position.Y.Scale, 0))
 	-- opens the store's currency section once the store exists (M35)
-	if cashWallet:IsA("GuiButton") then
-		cashWallet.Activated:Connect(
+	if diamondWallet:IsA("GuiButton") then
+		diamondWallet.Activated:Connect(
 			function()
 				self:giveComingSoon()
 			end
@@ -220,11 +220,11 @@ function ClientHudManager:init()
 
 	ClientOverlayManager:addOverlayNotifier(self)
 
-	self:onCashChanged(ClientDataManager:getCash())
+	self:onDiamondsChanged(ClientDataManager:getDiamonds())
 	ClientDataManager:subscribeCurrentPlayerAttribute(
-		Attributes.CASH,
+		Attributes.DIAMONDS,
 		function()
-			self:onCashChanged(ClientDataManager:getCash())
+			self:onDiamondsChanged(ClientDataManager:getDiamonds())
 		end
 	)
 end
@@ -232,8 +232,8 @@ end
 function ClientHudManager.new(): ClientHudManager
 	local self = setmetatable({}, ClientHudManager) :: ClientHudManager
 	self.gui = nil
-	self.cashLabel = nil
-	self.lastCash = nil
+	self.diamondLabel = nil
+	self.lastDiamonds = nil
 	self.flashGeneration = 0
 	self.groups = {}
 	self.slotViews = {}

@@ -41,7 +41,7 @@ return {
 
 	defaultZoneHeight = 8,
 	-- vein counts are single blocks since 2026-09-28: four times the old
-	-- iron and gold counts and six times the crystal, the same ore in more,
+	-- iron and gold counts, the same ore in more,
 	-- smaller finds
 	defaultZoneWidth = 24,
 
@@ -64,9 +64,6 @@ return {
 			-- zone 1 gold up another 50% the same day (170 to 255)
 			iron = 240,
 			gold = 255,
-			-- crystal removed from the spawns (2026-09-29) while the camp-level
-			-- gates are open for testing; was 36 / 36 / 72 / 108 / 108
-			crystal = 0,
 			-- thinner since the third playtest: it hums, so it is found fast
 			uranium = 7,
 			-- pockets doubled on 2026-09-28 (third playtest: more open
@@ -81,7 +78,6 @@ return {
 			tierBias = 2.0,
 			iron = 240,
 			gold = 170,
-			crystal = 0,
 			uranium = 8,
 			pockets = 6,
 		},
@@ -94,7 +90,6 @@ return {
 			tierBias = 3.0,
 			iron = 221,
 			gold = 156,
-			crystal = 0,
 			uranium = 9,
 			pockets = 8,
 		},
@@ -108,7 +103,6 @@ return {
 			tierBias = 4.0,
 			iron = 166,
 			gold = 120,
-			crystal = 0,
 			uranium = 14,
 			pockets = 10,
 		},
@@ -129,7 +123,6 @@ return {
 			tierBias = 4.0,
 			iron = 166,
 			gold = 120,
-			crystal = 0,
 			uranium = 362,
 			pockets = 10,
 		},

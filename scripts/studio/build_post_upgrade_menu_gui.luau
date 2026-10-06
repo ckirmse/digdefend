@@ -4,9 +4,8 @@
 -- copies it for the Weapons Table, so rebuild that one after this). A
 -- dialog with a title ("UPGRADE MACHINE GUN"), one row per attribute cloned
 -- from RowTemplate by ClientPostUpgradeManager (the name, four pips filled
--- one per upgrade bought, an Upgrade button with the Gold Bar icon and the
--- price, and a red "Camp Level N required" line while locked), and a close
--- button. Run from the Studio command bar (or the MCP execute_luau tool) in
+-- one per upgrade bought, and an Upgrade button with the Gold Bar icon and
+-- the price), and a close button. Run from the Studio command bar (or the MCP execute_luau tool) in
 -- the gameplay place; it replaces any existing copy. Names must match
 -- Constants.UPGRADE_MENU_*. Layout follows the GUI standard in CLAUDE.md;
 -- fonts and colours come from Shared/UiStyle.
@@ -165,8 +164,7 @@ name.Parent = row
 
 local pips = Instance.new("Frame")
 pips.Name = "Pips"
--- the pips sit in the upper half of the row's middle, leaving the lower
--- half for the Camp Level line under them
+-- the pips sit in the upper half of the row's middle
 pips.AnchorPoint = Vector2.new(0, 0.5)
 pips.Position = UDim2.fromScale(0.32, 0.32)
 pips.Size = UDim2.fromScale(0.36, 0.42)
@@ -228,15 +226,6 @@ price.Position = UDim2.fromScale(0.92, 0.5)
 price.Size = UDim2.fromScale(0.6, 0.6)
 price.TextXAlignment = Enum.TextXAlignment.Right
 price.Parent = button
-
--- under the pips, red, only while the Camp Level is short
-local lock = makeLabel("Lock", UiStyle.formatTitle("Camp Level 2 required"), UiStyle.BODY_BOLD_FONT, UiStyle.NEGATIVE_COLOR, UiStyle.LABEL_TEXT_MIN_PX, 22)
-lock.AnchorPoint = Vector2.new(0, 0.5)
-lock.Position = UDim2.fromScale(0.32, 0.75)
-lock.Size = UDim2.fromScale(0.36, 0.3)
-lock.TextXAlignment = Enum.TextXAlignment.Left
-lock.Visible = false
-lock.Parent = row
 
 gui.Parent = StarterGui
 ChangeHistoryService:SetWaypoint("After PostUpgrade gui")

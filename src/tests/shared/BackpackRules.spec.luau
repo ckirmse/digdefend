@@ -47,9 +47,8 @@ describe(
 		)
 
 		it(
-			"never scales Crystal or Uranium",
+			"never scales Uranium",
 			function()
-				expect(BackpackRules.yieldForBreak(24, RawResource.CRYSTAL, 6, ORE_YIELD_BY_COUNT)).toBe(24)
 				expect(BackpackRules.yieldForBreak(1, RawResource.URANIUM_ORE, 6, ORE_YIELD_BY_COUNT)).toBe(1)
 			end
 		)
@@ -79,7 +78,7 @@ describe(
 		it(
 			"takes nothing when full and ignores non-positive amounts",
 			function()
-				local contents = { [RawResource.CRYSTAL] = 50 }
+				local contents = { [RawResource.GOLD_ORE] = 50 }
 				local added, overflow = BackpackRules.add(contents, 50, RawResource.IRON_ORE, 7)
 				expect(added).toBe(0)
 				expect(overflow).toBe(7)

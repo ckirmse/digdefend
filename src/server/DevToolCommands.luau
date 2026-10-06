@@ -7,7 +7,7 @@ local DevToolCommands = {}
 DevToolCommands.NAMES = {
 	"resetPlayerState",
 	"sendTestFeedback",
-	"setCash",
+	"setDiamonds",
 }
 
 local isCommandByName: { [string]: boolean } = {}

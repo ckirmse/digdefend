@@ -41,10 +41,9 @@ export type Assumptions = {
 }
 
 -- a post's upgrade ladder: each attribute climbs its own levels for the
--- same Gold prices, each level gated by the camp level
+-- same Gold prices
 export type PostUpgrades = {
 	priceByLevel: { number },
-	requiredCampLevelByLevel: { number },
 	damageBonusPerLevel: number,
 	fireRateBonusPerLevel: number,
 	-- the machine gun's Cooldown rung (2026-09-30): each level cuts the
@@ -101,11 +100,10 @@ export type ZoneSupply = {
 	depthBlocks: number,
 }
 
--- a mining upgrade ladder bought with Gold, camp-level gated
+-- a mining upgrade ladder bought with Gold
 export type UpgradeLadder = {
 	valueByLevel: { number },
 	priceByLevel: { number },
-	requiredCampLevelByLevel: { number },
 }
 
 export type Input = {
@@ -117,7 +115,6 @@ export type Input = {
 	pickDamageByLevel: { number },
 	-- Gold to reach each level; [1] is 0
 	pickPriceByLevel: { number },
-	pickRequiredCampLevelByLevel: { number },
 	-- ore units a player carries before walking back, by level
 	backpack: UpgradeLadder,
 	-- walk speed in studs a second, by level
@@ -126,12 +123,9 @@ export type Input = {
 	refineSec: number,
 	refineryToEntranceStuds: number,
 	blockSizeStuds: number,
-	-- Diamonds to reach the next camp level, one entry per step
-	diamondsRequiredByLevel: { number },
 	zones: { ZoneSupply },
 	ironResource: number,
 	goldResource: number,
-	crystalResource: number,
 	uraniumResource: number,
 	refineRateByRaw: { [number]: number },
 	oreYieldMultiplier: number,
@@ -167,7 +161,6 @@ export type NightRow = {
 	night: number,
 	zone: number,
 	pickLevel: number,
-	campLevel: number,
 	postLevel: number,
 	backpackLevel: number,
 	bootsLevel: number,
@@ -402,21 +395,19 @@ function BalanceModel.miningSeconds(windowSec: number, orePerSec: number, capaci
 	return windowSec / (1 + orePerSec / capacity * tripSec)
 end
 
--- a mining ladder's level for the Gold, one level at a time, camp gated;
--- the pick axe, the backpack, and the boots all climb this way
-function BalanceModel.affordableLadderLevel(goldSpendable: number, priceByLevel: { number }, requiredCampLevelByLevel: { number }, campLevel: number): (number, number)
-	return BalanceModel.affordablePickLevel(goldSpendable, priceByLevel, requiredCampLevelByLevel, campLevel)
+-- a mining ladder's level for the Gold, one level at a time; the pick
+-- axe, the backpack, and the boots all climb this way
+function BalanceModel.affordableLadderLevel(goldSpendable: number, priceByLevel: { number }): (number, number)
+	return BalanceModel.affordablePickLevel(goldSpendable, priceByLevel)
 end
 
--- the pick axe level a player's Gold buys, one level at a time, each
--- gated by the camp level
-function BalanceModel.affordablePickLevel(goldSpendable: number, priceByLevel: { number }, requiredCampLevelByLevel: { number }, campLevel: number): (number, number)
+-- the pick axe level a player's Gold buys, one level at a time
+function BalanceModel.affordablePickLevel(goldSpendable: number, priceByLevel: { number }): (number, number)
 	local level = 1
 	local spent = 0
 	while priceByLevel[level + 1] ~= nil do
 		local price = priceByLevel[level + 1]
-		local required = requiredCampLevelByLevel[level + 1] or 1
-		if spent + price > goldSpendable or required > campLevel then
+		if spent + price > goldSpendable then
 			break
 		end
 		spent += price
@@ -425,12 +416,11 @@ function BalanceModel.affordablePickLevel(goldSpendable: number, priceByLevel: {
 	return level, spent
 end
 
--- how many post upgrade levels a player's Gold buys, damage and fire
--- rate alternating so both climb, each level gated by the camp level;
--- returns the damage level, the fire rate level, and the Gold spent
--- the post's rungs bought in turn, damage first, then fire rate, then (for
--- a gun with heat) cooldown, each round taking the cheapest next rung
-function BalanceModel.affordablePostLevels(goldSpendable: number, upgrades: PostUpgrades, campLevel: number): (number, number, number, number)
+-- how many post upgrade levels a player's Gold buys: the post's rungs
+-- bought in turn, damage first, then fire rate, then (for a gun with
+-- heat) cooldown, each round taking the cheapest next rung; returns the
+-- damage level, the fire rate level, the Gold spent, and the cooldown level
+function BalanceModel.affordablePostLevels(goldSpendable: number, upgrades: PostUpgrades): (number, number, number, number)
 	local levels = { 0, 0, 0 }
 	local attributeCount = if upgrades.cooldownBonusPerLevel then 3 else 2
 	local spent = 0
@@ -443,8 +433,7 @@ function BalanceModel.affordablePostLevels(goldSpendable: number, upgrades: Post
 		end
 		local nextLevel = levels[lowest] + 1
 		local price = upgrades.priceByLevel[nextLevel]
-		local required = upgrades.requiredCampLevelByLevel[nextLevel] or 1
-		if price == nil or spent + price > goldSpendable or required > campLevel then
+		if price == nil or spent + price > goldSpendable then
 			break
 		end
 		spent += price
@@ -466,21 +455,6 @@ function BalanceModel.cooldownFactor(upgrades: PostUpgrades, cooldownLevel: numb
 	return (fullSec / (fullSec + cooledSec)) / (fullSec / (fullSec + coolSec))
 end
 
--- the camp level a shared Diamond total has reached, each step costing
--- its own entry
-function BalanceModel.campLevelFor(diamonds: number, requiredByLevel: { number }): number
-	local level = 1
-	local remaining = diamonds
-	for _, required in requiredByLevel do
-		if remaining < required then
-			break
-		end
-		remaining -= required
-		level += 1
-	end
-	return level
-end
-
 function BalanceModel.simulate(input: Input): Result
 	local assumptions = input.assumptions
 	local crew = math.max(input.crew, 1)
@@ -490,7 +464,6 @@ function BalanceModel.simulate(input: Input): Result
 	local oreLeftInZone: { [number]: number } = table.clone(input.zones[1].ore)
 	local ironTotal = 0
 	local goldTotal = 0
-	local diamondsTotal = 0
 	local uraniumTotal = 0
 	local uraniumNight: number? = nil
 	local firstTowerNight: number? = nil
@@ -498,7 +471,6 @@ function BalanceModel.simulate(input: Input): Result
 	local pickLevel = 1
 	local backpackLevel = 1
 	local bootsLevel = 1
-	local campLevel = 1
 	local difficultyValueByKind: { [number]: number } = {}
 	for kind, stats in input.monsterByKind do
 		difficultyValueByKind[kind] = stats.DIFFICULTY_VALUE
@@ -570,24 +542,22 @@ function BalanceModel.simulate(input: Input): Result
 		end
 		ironTotal += (dayOre[input.ironResource] or 0) * input.oreYieldMultiplier * rateOf(input.ironResource)
 		goldTotal += (dayOre[input.goldResource] or 0) * input.oreYieldMultiplier * rateOf(input.goldResource)
-		diamondsTotal += (dayOre[input.crystalResource] or 0) * rateOf(input.crystalResource)
 		uraniumTotal += (dayOre[input.uraniumResource] or 0) * rateOf(input.uraniumResource)
 		if uraniumNight == nil and uraniumTotal >= input.uraniumTarget then
 			uraniumNight = night
 		end
 
-		-- the shops: Diamonds raise the camp, Gold raises the pick axe and
-		-- the player's post
-		campLevel = BalanceModel.campLevelFor(diamondsTotal, input.diamondsRequiredByLevel)
+		-- the shops: Gold raises the pick axe, the carry, the walk, and the
+		-- player's post
 		local goldPerPlayer = goldTotal / crew
-		pickLevel = BalanceModel.affordablePickLevel(goldPerPlayer * assumptions.PICK_AXE_GOLD_SHARE, input.pickPriceByLevel, input.pickRequiredCampLevelByLevel, campLevel)
-		backpackLevel = BalanceModel.affordableLadderLevel(goldPerPlayer * assumptions.BACKPACK_GOLD_SHARE, input.backpack.priceByLevel, input.backpack.requiredCampLevelByLevel, campLevel)
-		bootsLevel = BalanceModel.affordableLadderLevel(goldPerPlayer * assumptions.BOOTS_GOLD_SHARE, input.boots.priceByLevel, input.boots.requiredCampLevelByLevel, campLevel)
+		pickLevel = BalanceModel.affordablePickLevel(goldPerPlayer * assumptions.PICK_AXE_GOLD_SHARE, input.pickPriceByLevel)
+		backpackLevel = BalanceModel.affordableLadderLevel(goldPerPlayer * assumptions.BACKPACK_GOLD_SHARE, input.backpack.priceByLevel)
+		bootsLevel = BalanceModel.affordableLadderLevel(goldPerPlayer * assumptions.BOOTS_GOLD_SHARE, input.boots.priceByLevel)
 		local postDps = input.postDps
 		local postLevel = 0
 		local postUpgrades = input.postUpgrades
 		if postUpgrades ~= nil then
-			local damageLevel, rateLevel, _, cooldownLevel = BalanceModel.affordablePostLevels(goldPerPlayer * assumptions.POST_GOLD_SHARE, postUpgrades, campLevel)
+			local damageLevel, rateLevel, _, cooldownLevel = BalanceModel.affordablePostLevels(goldPerPlayer * assumptions.POST_GOLD_SHARE, postUpgrades)
 			postDps *= (1 + postUpgrades.damageBonusPerLevel * damageLevel) * (1 + postUpgrades.fireRateBonusPerLevel * rateLevel) * BalanceModel.cooldownFactor(postUpgrades, cooldownLevel)
 			postLevel = damageLevel + rateLevel + cooldownLevel
 		end
@@ -624,7 +594,6 @@ function BalanceModel.simulate(input: Input): Result
 			night = night,
 			zone = zoneIndex,
 			pickLevel = pickLevel,
-			campLevel = campLevel,
 			postLevel = postLevel,
 			backpackLevel = backpackLevel,
 			bootsLevel = bootsLevel,
@@ -784,18 +753,17 @@ end
 
 function BalanceModel.formatRows(result: Result): { string }
 	local lines = {
-		"night zone pick pack boot  mine s camp post  iron/p  gold/p  uran   budget kinds   waveHp  freeDps towerDps towers  needDps  slack  final  clear  wall%",
+		"night zone pick pack boot  mine s post  iron/p  gold/p  uran   budget kinds   waveHp  freeDps towerDps towers  needDps  slack  final  clear  wall%",
 	}
 	for _, row in result.rows do
 		table.insert(lines, string.format(
-			"%5d %4d %4d %4d %4d %7.0f %4d %4d %7.0f %7.0f %5.0f %8.0f %5d %8.0f %8.0f %8.0f %6d %8.0f %6.2f %6.2f %6.0f %6.0f",
+			"%5d %4d %4d %4d %4d %7.0f %4d %7.0f %7.0f %5.0f %8.0f %5d %8.0f %8.0f %8.0f %6d %8.0f %6.2f %6.2f %6.0f %6.0f",
 			row.night,
 			row.zone,
 			row.pickLevel,
 			row.backpackLevel,
 			row.bootsLevel,
 			row.miningSec,
-			row.campLevel,
 			row.postLevel,
 			row.ironPerPlayer,
 			row.goldPerPlayer,

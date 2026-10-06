@@ -116,8 +116,8 @@ function GameplayMapManager:checkRefinery(camp: Folder)
 	if not refinery then
 		return
 	end
-	-- clients hang the Camp Level billboard on the Refinery as soon as the
-	-- Model appears; Atomic streaming makes its parts arrive with it
+	-- clients hang the HP billboard on the Refinery as soon as the Model
+	-- appears; Atomic streaming makes its parts arrive with it
 	if refinery:IsA("Model") and refinery.ModelStreamingMode ~= Enum.ModelStreamingMode.Atomic then
 		self:report(`{refinery:GetFullName()} must use Atomic ModelStreamingMode`)
 	end

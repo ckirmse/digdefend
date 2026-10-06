@@ -31,8 +31,8 @@ function StructureRules.repairChunk(maxHp: number, hp: number, chunkHp: number, 
 	return gained, math.max(1, math.ceil(chunkIron * gained / chunkHp))
 end
 
--- the swing chunk for a tier; a tier past the tables (the Refinery's
--- Camp Level 4) repairs like the last listed one
+-- the swing chunk for a tier; a tier past the tables repairs like the
+-- last listed one
 function StructureRules.repairChunkForTier(chunkHpByTier: { number }, chunkIronByTier: { number }, tier: number): (number, number)
 	local index = math.clamp(math.floor(tier), 1, math.max(#chunkHpByTier, 1))
 	return chunkHpByTier[index] or 0, chunkIronByTier[math.min(index, #chunkIronByTier)] or 0
@@ -92,7 +92,6 @@ function StructureRules.donate(pool: number, required: number?, donationIron: nu
 	return amount, amount > 0 and pool + amount >= required
 end
 
--- the Camp Level needed to reach `tier`; a tier past the table is never locked
 -- the number a map gives a numbered structure ("Wall3" is wall 3); nil for
 -- an id without a trailing number (the Gate, the Refinery)
 function StructureRules.numberFromId(id: string): number?
@@ -155,10 +154,6 @@ function StructureRules.rayBoxDistance(origin: Vector3, direction: Vector3, boxC
 		end
 	end
 	return nearest
-end
-
-function StructureRules.requiredCampLevel(requiredByTier: { number }, tier: number): number
-	return requiredByTier[math.floor(tier)] or 1
 end
 
 return StructureRules

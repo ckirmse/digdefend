@@ -1,10 +1,8 @@
 -- Rebuilds the "Fortification" BillboardGui template under
 -- ReplicatedStorage/GameAssets/Gui: the shared fortification tier,
 -- "FORTIFICATIONS LEVEL n" over a bar of the crew's donated Iron reading
--- "pool / required" with the Iron Bar icon, and a red "Camp Level N required"
--- line under it while the next tier is locked. ClientWorkbenchManager clones
--- it above the camp's Workbench (GDD "Wall Repair"), the way the Camp Level
--- sign hangs over the Refinery. Run from the Studio command bar (or the MCP
+-- "pool / required" with the Iron Bar icon. ClientWorkbenchManager clones
+-- it above the camp's Walls Table (GDD "Wall Repair"). Run from the Studio command bar (or the MCP
 -- execute_luau tool) in the gameplay place; it replaces any existing copy.
 -- Names must match Constants.FORTIFICATION_*. Sizes are in studs
 -- (BillboardGui scale units), so the sign reads the same on every screen.
@@ -136,21 +134,6 @@ iconAspect.AspectRatio = 1
 iconAspect.DominantAxis = Enum.DominantAxis.Height
 iconAspect.Parent = icon
 icon.Parent = root
-
-local lock = Instance.new("TextLabel")
-lock.Name = Constants.FORTIFICATION_LOCK_LABEL
-lock.AnchorPoint = Vector2.new(0.5, 1)
-lock.Position = UDim2.fromScale(0.5, 1)
-lock.Size = UDim2.fromScale(1, 0.24)
-lock.BackgroundTransparency = 1
-lock.Text = "Camp Level 2 required"
-lock.TextColor3 = UiStyle.NEGATIVE_COLOR
-lock.TextScaled = true
-lock.FontFace = UiStyle.BODY_BOLD_FONT
-lock.Visible = false
-addTextSizeBounds(lock, UiStyle.LABEL_TEXT_MIN_PX, 36)
-addStroke(lock, UiStyle.BACKGROUND_COLOR, UiStyle.STROKE_PX)
-lock.Parent = root
 
 billboard.Parent = guiFolder
 ChangeHistoryService:SetWaypoint("After Fortification billboard")

@@ -2,10 +2,9 @@
 
 -- The Mining Supplies Store on this client (GDD "Mining Supplies Store"):
 -- every stand in the camp's MiningStore is drawn here, because what a stand
--- offers depends on the viewer (their level on that track) as well as the
--- crew (the Camp Level). The server publishes the catalogue once as
--- GameMetadata JSON; this manager fills each stand's SurfaceGui (next level
--- name, Gold price, "Maxed out", greyed when locked), sets the prompt's text
+-- offers depends on the viewer (their level on that track). The server
+-- publishes the catalogue once as GameMetadata JSON; this manager fills
+-- each stand's SurfaceGui (next level name, Gold price, "Maxed out"), sets the prompt's text
 -- locally, and spins the next level's display model over the ItemSpawn part.
 -- Buying is the server's job: the prompt trigger never leaves this client as
 -- a message.
@@ -37,7 +36,6 @@ type StandView = {
 	priceBox: GuiObject?,
 	priceLabel: TextLabel?,
 	resourceIcon: ImageLabel?,
-	campLevelLabel: TextLabel?,
 	prompt: ProximityPrompt?,
 	display: Model?,
 	displayName: string?,
@@ -68,10 +66,6 @@ local PROMPT_ACTION_BUY = "Buy"
 
 local function readNumber(value: any, default: number): number
 	return if typeof(value) == "number" then value else default
-end
-
-function ClientMiningStoreManager:getCampLevel(): number
-	return readNumber(ClientDataManager:getGameMetadata(Attributes.CAMP_LEVEL), 1)
 end
 
 function ClientMiningStoreManager:getGold(): number
@@ -158,12 +152,11 @@ function ClientMiningStoreManager:renderStand(view: StandView)
 	if not catalog then
 		return
 	end
-	local offer = StoreRules.getOffer(catalog, view.item, self:getOwnedLevel(view.item), self:getCampLevel())
+	local offer = StoreRules.getOffer(catalog, view.item, self:getOwnedLevel(view.item))
 	if not offer then
 		return
 	end
 	local isMaxed = offer.status == Enums.StoreOffer.MAXED
-	local isLocked = offer.status == Enums.StoreOffer.LOCKED
 	local price = offer.price or 0
 	if view.nameLabel then
 		view.nameLabel.Text = UiStyle.formatTitle(StoreRules.nameText(view.item, offer))
@@ -173,30 +166,12 @@ function ClientMiningStoreManager:renderStand(view: StandView)
 	end
 	if view.priceLabel then
 		view.priceLabel.Text = tostring(price)
-		local color = UiStyle.TEXT_COLOR
-		if isLocked then
-			color = UiStyle.DISABLED_COLOR
-		elseif not StoreRules.canAfford(self:getGold(), price) then
-			color = UiStyle.NEGATIVE_COLOR
-		end
-		view.priceLabel.TextColor3 = color
-	end
-	local campLevelLabel = view.campLevelLabel
-	if campLevelLabel then
-		-- only a requirement the crew has not met is worth a line (decided 2026-09-15)
-		local required = StoreRules.requiredCampLevelForOffer(offer)
-		if required and isLocked then
-			campLevelLabel.Text = string.format(StoreRules.LOCKED_FORMAT, required)
-			campLevelLabel.TextColor3 = UiStyle.NEGATIVE_COLOR
-			campLevelLabel.Visible = true
-		else
-			campLevelLabel.Visible = false
-		end
+		view.priceLabel.TextColor3 = if StoreRules.canAfford(self:getGold(), price) then UiStyle.TEXT_COLOR else UiStyle.NEGATIVE_COLOR
 	end
 	if view.resourceIcon then
 		local imageId = Icons.REFINED_RESOURCE[Enums.RefinedResource.GOLD_BAR]
 		view.resourceIcon.Image = if Icons.isPlaceholder(imageId) then "" else imageId
-		view.resourceIcon.ImageColor3 = if isLocked then UiStyle.DISABLED_COLOR else Color3.new(1, 1, 1)
+		view.resourceIcon.ImageColor3 = Color3.new(1, 1, 1)
 	end
 	-- these prompt edits are local: the server still decides every buy
 	local prompt = view.prompt
@@ -249,7 +224,6 @@ function ClientMiningStoreManager:bindStand(store: Instance, item: number)
 	local nameLabel = if gui then gui:FindFirstChild(Constants.STAND_NAME_LABEL) else nil
 	local priceLabel = if priceBox then priceBox:FindFirstChild(Constants.STAND_PRICE_LABEL) else nil
 	local resourceIcon = if priceBox then priceBox:FindFirstChild(Constants.STAND_RESOURCE_ICON) else nil
-	local campLevelLabel = if gui then gui:FindFirstChild(Constants.STAND_CAMP_LEVEL_LABEL) else nil
 	local itemSpawn = if stand then stand:FindFirstChild(Constants.STAND_ITEM_SPAWN_PART) else nil
 	-- the server creates the prompt on run start; it may land after the camp
 	local prompt = base:FindFirstChildWhichIsA("ProximityPrompt")
@@ -261,7 +235,6 @@ function ClientMiningStoreManager:bindStand(store: Instance, item: number)
 		priceBox = if priceBox and priceBox:IsA("GuiObject") then priceBox else nil,
 		priceLabel = if priceLabel and priceLabel:IsA("TextLabel") then priceLabel else nil,
 		resourceIcon = if resourceIcon and resourceIcon:IsA("ImageLabel") then resourceIcon else nil,
-		campLevelLabel = if campLevelLabel and campLevelLabel:IsA("TextLabel") then campLevelLabel else nil,
 		prompt = prompt,
 		display = nil,
 		displayName = nil,
@@ -330,12 +303,6 @@ function ClientMiningStoreManager:init()
 		Attributes.STORE_CATALOG,
 		function()
 			self:readCatalog()
-		end
-	)
-	ClientDataManager:subscribeGameMetadataAttribute(
-		Attributes.CAMP_LEVEL,
-		function()
-			self:renderAll()
 		end
 	)
 	local watched = { Attributes.BALANCE_GOLD_BARS }

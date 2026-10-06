@@ -20,12 +20,17 @@ ClientPlayerFeedbackManager.__index = ClientPlayerFeedbackManager
 
 export type FeedbackListener = (message: string, displaySec: number) -> ()
 
+-- a message may end with a resource icon (an Icons id), never a resource word
+
 export type ClientPlayerFeedbackManager = typeof(setmetatable(
 	{} :: {
 		localEvent: BindableEvent?,
 		listeners: { FeedbackListener },
 		feedbackBox: Frame?,
 		messageLabel: TextLabel?,
+		icon: ImageLabel?,
+		-- the label's authored position, which an icon shifts
+		messagePosition: UDim2,
 		-- the box's authored colour, for an ordinary message
 		plainColor: Color3,
 		-- what is showing now and until when, so a lesser message waits its turn
@@ -61,7 +66,41 @@ end
 -- three boxes): its colour says how much the message matters. A message
 -- replaces what is showing unless what is showing matters more and its
 -- time is not up, so a wall falling is never wiped by "Not enough Iron"
-function ClientPlayerFeedbackManager:show(message: string, displaySec: number, style: number)
+-- the icon sits right after the words, a gap this share of the box's
+-- height away; the words slide left by half the pair's extra width
+local ICON_GAP_SHARE_OF_HEIGHT = 0.3
+
+function ClientPlayerFeedbackManager:placeIcon(iconId: string?)
+	local icon = self.icon
+	local messageLabel = self.messageLabel
+	if not icon or not messageLabel then
+		return
+	end
+	if not iconId then
+		icon.Visible = false
+		messageLabel.Position = self.messagePosition
+		return
+	end
+	icon.Image = iconId
+	-- the words' width is known only once the frame has laid them out
+	task.defer(
+		function()
+			if not icon.Parent or icon.Image ~= iconId then
+				return
+			end
+			local height = messageLabel.AbsoluteSize.Y
+			local gap = height * ICON_GAP_SHARE_OF_HEIGHT
+			local iconWidth = icon.AbsoluteSize.X
+			local shift = (iconWidth + gap) / 2
+			local textEnd = (messageLabel.AbsoluteSize.X + messageLabel.TextBounds.X) / 2 - shift
+			messageLabel.Position = UDim2.new(self.messagePosition.X.Scale, self.messagePosition.X.Offset - shift, self.messagePosition.Y.Scale, self.messagePosition.Y.Offset)
+			icon.Position = UDim2.new(0, math.ceil(textEnd + gap), 0.5, 0)
+			icon.Visible = true
+		end
+	)
+end
+
+function ClientPlayerFeedbackManager:show(message: string, displaySec: number, style: number, iconId: string?)
 	if self.isSuppressed then
 		return
 	end
@@ -80,6 +119,7 @@ function ClientPlayerFeedbackManager:show(message: string, displaySec: number, s
 	self.showGeneration += 1
 	local generation = self.showGeneration
 	messageLabel.Text = message
+	self:placeIcon(iconId)
 	feedbackBox.BackgroundColor3 = COLOR_BY_STYLE[style] or self.plainColor
 	feedbackBox.Visible = true
 	task.delay(
@@ -92,8 +132,8 @@ function ClientPlayerFeedbackManager:show(message: string, displaySec: number, s
 	)
 end
 
-function ClientPlayerFeedbackManager:showInBox(message: string, displaySec: number)
-	self:show(message, displaySec, STYLE_PLAIN)
+function ClientPlayerFeedbackManager:showInBox(message: string, displaySec: number, iconId: string?)
+	self:show(message, displaySec, STYLE_PLAIN, iconId)
 end
 
 -- a beat nobody should miss (a new tier, the rescue's lines): blue
@@ -122,21 +162,21 @@ function ClientPlayerFeedbackManager:setSuppressed(isSuppressed: boolean)
 	end
 end
 
-function ClientPlayerFeedbackManager:dispatch(message: string, displaySec: number)
-	self:showInBox(message, displaySec)
+function ClientPlayerFeedbackManager:dispatch(message: string, displaySec: number, iconId: string?)
+	self:showInBox(message, displaySec, iconId)
 	for _, listener in self.listeners do
 		listener(message, displaySec)
 	end
 end
 
 -- client systems call this instead of firing the BindableEvent by hand
-function ClientPlayerFeedbackManager:giveLocal(message: string, displaySec: number?)
+function ClientPlayerFeedbackManager:giveLocal(message: string, displaySec: number?, iconId: string?)
 	local localEvent = self.localEvent
 	if not localEvent then
 		warn("ClientPlayerFeedbackManager: giveLocal before init")
 		return
 	end
-	localEvent:Fire(message, displaySec or DEFAULT_DISPLAY_SEC)
+	localEvent:Fire(message, displaySec or DEFAULT_DISPLAY_SEC, iconId)
 end
 
 function ClientPlayerFeedbackManager:findGui()
@@ -159,6 +199,14 @@ function ClientPlayerFeedbackManager:findGui()
 	feedbackBox.Visible = false
 	self.feedbackBox = feedbackBox
 	self.messageLabel = messageLabel
+	self.messagePosition = messageLabel.Position
+	local icon = feedbackBox:FindFirstChild(Constants.PLAYER_FEEDBACK_ICON)
+	if icon and icon:IsA("ImageLabel") then
+		icon.Visible = false
+		self.icon = icon
+	else
+		warn(`ClientPlayerFeedbackManager: {feedbackBox:GetFullName()} has no {Constants.PLAYER_FEEDBACK_ICON}; run scripts/studio/build_player_feedback_gui.luau`)
+	end
 	self.plainColor = feedbackBox.BackgroundColor3
 end
 
@@ -170,12 +218,12 @@ function ClientPlayerFeedbackManager:init()
 	self.localEvent = localEvent
 
 	localEvent.Event:Connect(
-		function(message: any, displaySec: any)
-			if not Validate.isString(message) or not Validate.isFiniteNumber(displaySec) or displaySec <= 0 then
+		function(message: any, displaySec: any, iconId: any)
+			if not Validate.isString(message) or not Validate.isFiniteNumber(displaySec) or displaySec <= 0 or (iconId ~= nil and not Validate.isString(iconId)) then
 				warn("ClientPlayerFeedbackManager: bad local feedback", tostring(message), tostring(displaySec))
 				return
 			end
-			self:dispatch(message, displaySec)
+			self:dispatch(message, displaySec, iconId)
 		end
 	)
 
@@ -198,6 +246,8 @@ function ClientPlayerFeedbackManager.new(): ClientPlayerFeedbackManager
 	self.listeners = {}
 	self.feedbackBox = nil
 	self.messageLabel = nil
+	self.icon = nil
+	self.messagePosition = UDim2.fromScale(0, 0)
 	self.plainColor = UiStyle.PANEL_COLOR
 	self.shownStyle = STYLE_PLAIN
 	self.shownUntilTime = 0

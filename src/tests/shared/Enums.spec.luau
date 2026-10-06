@@ -15,7 +15,7 @@ describe(
 			function()
 				expect(Enums.getCount(Enums.Difficulty)).toBe(3)
 				expect(Enums.getCount(Enums.PlaceKind)).toBe(3)
-				expect(Enums.getCount(Enums.RawResource)).toBe(4)
+				expect(Enums.getCount(Enums.RawResource)).toBe(3)
 			end
 		)
 
@@ -23,7 +23,7 @@ describe(
 			"lists all values sorted",
 			function()
 				expect(Enums.getAllValues(Enums.Difficulty)).toEqual({ 1, 2, 3 })
-				expect(Enums.getAllValues(Enums.RefinedResource)).toEqual({ 1, 2, 3, 4 })
+				expect(Enums.getAllValues(Enums.RefinedResource)).toEqual({ 1, 2, 3 })
 			end
 		)
 

@@ -15,8 +15,7 @@
 -- Workbench: each press donates FORTIFICATION_DONATION_IRON into a shared
 -- pool, and the tier goes up by itself when the pool reaches
 -- FORTIFICATION_UPGRADE_IRON_TO_TIER (entry 1 unused: a camp starts at tier
--- 1); every structure keeps its share of HP through the upgrade. The Camp
--- Level each tier needs lives in GameData/Camp/Level with the other gates.
+-- 1); every structure keeps its share of HP through the upgrade.
 -- Placeholder numbers until enemies exist to tune against.
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 

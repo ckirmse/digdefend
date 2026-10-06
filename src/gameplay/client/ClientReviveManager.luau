@@ -1037,10 +1037,10 @@ function ClientReviveManager:findMenu()
 			icon = Icons.REFINED_RESOURCE[Enums.RefinedResource.URANIUM],
 		},
 		{
-			name = Constants.RESULTS_MENU_ROW_CASH_EARNED,
-			attribute = Attributes.RUN_STAT_CASH_EARNED,
-			rankAttribute = Attributes.RUN_STAT_RANK_CASH_EARNED,
-			icon = Icons.UI.CASH,
+			name = Constants.RESULTS_MENU_ROW_DIAMONDS_EARNED,
+			attribute = Attributes.RUN_STAT_DIAMONDS_EARNED,
+			rankAttribute = Attributes.RUN_STAT_RANK_DIAMONDS_EARNED,
+			icon = Icons.UI.DIAMONDS,
 		},
 		{
 			name = Constants.RESULTS_MENU_ROW_GOLD_REFINED,

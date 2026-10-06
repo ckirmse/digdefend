@@ -2,8 +2,7 @@
 
 -- The Refinery (GDD "Refining Ore", "Resources"): the camp machine that
 -- turns a player's whole backpack into Iron Bars and Gold Bars (private
--- balances), Diamonds (the shared Camp Level pool), and Uranium (the shared
--- rescue count). Run state lives in Lua here; the private balances are
+-- balances) and Uranium (the shared rescue count). Run state lives in Lua here; the private balances are
 -- CurrentPlayer attributes and the shared progress is GameMetadata, so every
 -- client reads the same numbers. Refining is automatic (decided 2026-10-01,
 -- replacing the proximity prompt): every REFINE_POLL_SEC the server looks
@@ -19,7 +18,6 @@ local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local RefineryRules = require("@game/ReplicatedStorage/Shared/RefineryRules")
 local DifficultyData = require("@game/ServerScriptService/GameData/Control/Difficulty")
 local PartyScalingData = require("@game/ServerScriptService/GameData/Control/PartyScaling")
-local LevelData = require("@game/ServerScriptService/GameData/Camp/Level")
 local RefineryData = require("@game/ServerScriptService/GameData/Refinery/Refinery")
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
@@ -43,11 +41,8 @@ type Balances = {
 export type RefineryManager = typeof(setmetatable(
 	{} :: {
 		balancesByPlayer: { [Player]: Balances },
-		campLevel: number,
-		diamondPool: number,
 		uraniumTotal: number,
 		isBusy: boolean,
-		campLevelChangedHandlers: { (level: number) -> () },
 		uraniumChangedHandlers: { () -> () },
 		-- the loaded camp's Refinery, flat, for the radius check; nil until a run
 		refineryPosition: Vector3?,
@@ -55,8 +50,6 @@ export type RefineryManager = typeof(setmetatable(
 	},
 	RefineryManager
 ))
-
-local DEFAULT_CAMP_LEVEL = 1
 
 local function toEntries(contents: { [number]: number }): { { resource: number, amount: number } }
 	local entries = {}
@@ -71,10 +64,6 @@ end
 
 function RefineryManager:getBalances(player: Player): Balances?
 	return self.balancesByPlayer[player]
-end
-
-function RefineryManager:getCampLevel(): number
-	return self.campLevel
 end
 
 function RefineryManager:getGoldBars(player: Player): number
@@ -118,19 +107,7 @@ function RefineryManager:addIronBars(player: Player, amount: number)
 	self:replicatePlayer(player)
 end
 
--- the Refinery's own toughness follows the Camp Level (StructureManager)
-function RefineryManager:subscribeCampLevelChanged(handler: (level: number) -> ())
-	table.insert(self.campLevelChangedHandlers, handler)
-end
-
-function RefineryManager:fireCampLevelChanged()
-	for _, handler in self.campLevelChangedHandlers do
-		handler(self.campLevel)
-	end
-end
-
--- dev tools: grant Gold and jump the camp level, so the store can be tested
--- without a mining trip
+-- dev tools: grant Gold, so the store can be tested without a mining trip
 function RefineryManager:addGoldBars(player: Player, amount: number)
 	local balances = self.balancesByPlayer[player]
 	if not balances then
@@ -138,14 +115,6 @@ function RefineryManager:addGoldBars(player: Player, amount: number)
 	end
 	balances.goldBars = math.max(balances.goldBars + amount, 0)
 	self:replicatePlayer(player)
-end
-
-function RefineryManager:setCampLevel(level: number)
-	local topLevel = #LevelData.DIAMONDS_REQUIRED_BY_LEVEL + 1
-	self.campLevel = math.clamp(math.floor(level), DEFAULT_CAMP_LEVEL, topLevel)
-	self.diamondPool = 0
-	self:replicateShared()
-	self:fireCampLevelChanged()
 end
 
 function RefineryManager:getUraniumTotal(): number
@@ -191,9 +160,6 @@ function RefineryManager:replicatePlayer(player: Player)
 end
 
 function RefineryManager:replicateShared()
-	SplendidReplicationManager:setGameMetadata(Attributes.CAMP_LEVEL, self.campLevel)
-	SplendidReplicationManager:setGameMetadata(Attributes.CAMP_DIAMONDS, self.diamondPool)
-	SplendidReplicationManager:setGameMetadata(Attributes.CAMP_DIAMONDS_REQUIRED, RefineryRules.diamondsRequired(LevelData.DIAMONDS_REQUIRED_BY_LEVEL, self.campLevel) or 0)
 	SplendidReplicationManager:setGameMetadata(Attributes.URANIUM_TOTAL, self.uraniumTotal)
 	SplendidReplicationManager:setGameMetadata(Attributes.URANIUM_TARGET, self:getUraniumTarget())
 end
@@ -207,17 +173,6 @@ function RefineryManager:credit(player: Player, refined: { [number]: number })
 		balances.goldBars += refined[Enums.RefinedResource.GOLD_BAR] or 0
 		self:replicatePlayer(player)
 		RunStatsManager:addRefined(player, refined[Enums.RefinedResource.IRON_BAR] or 0, refined[Enums.RefinedResource.GOLD_BAR] or 0, refined[Enums.RefinedResource.URANIUM] or 0)
-	end
-	local diamonds = refined[Enums.RefinedResource.DIAMOND] or 0
-	if diamonds > 0 then
-		local level, pool, gained = RefineryRules.applyDiamonds(self.campLevel, self.diamondPool, diamonds, LevelData.DIAMONDS_REQUIRED_BY_LEVEL)
-		self.campLevel = level
-		self.diamondPool = pool
-		if gained > 0 then
-			-- one notification for the level reached, however many were crossed
-			print(`[RefineryManager] camp level {level}`)
-			NetManager:notifyAllClients(NetEventNames.NOTIFY_CAMP_LEVEL_UP, { level = level })
-		end
 	end
 	local uranium = refined[Enums.RefinedResource.URANIUM] or 0
 	self.uraniumTotal += uranium
@@ -313,8 +268,6 @@ end
 
 -- a run (or a dev-tool restart) starts the shared progress over
 function RefineryManager:onRunStarted()
-	self.campLevel = DEFAULT_CAMP_LEVEL
-	self.diamondPool = 0
 	self.uraniumTotal = 0
 	self:bindRefinery()
 	self:replicateShared()
@@ -327,11 +280,8 @@ function RefineryManager:resetProgress()
 		balances.goldBars = 0
 		self:replicatePlayer(player)
 	end
-	self.campLevel = DEFAULT_CAMP_LEVEL
-	self.diamondPool = 0
 	self.uraniumTotal = 0
 	self:replicateShared()
-	self:fireCampLevelChanged()
 	self:fireUraniumChanged()
 end
 
@@ -380,11 +330,8 @@ end
 function RefineryManager.new(): RefineryManager
 	local self = setmetatable({}, RefineryManager) :: RefineryManager
 	self.balancesByPlayer = {}
-	self.campLevel = DEFAULT_CAMP_LEVEL
-	self.diamondPool = 0
 	self.uraniumTotal = 0
 	self.isBusy = false
-	self.campLevelChangedHandlers = {}
 	self.uraniumChangedHandlers = {}
 	self.refineryPosition = nil
 	self.pollAccumulatorSec = 0

@@ -8,7 +8,6 @@ return {
 	RATE_BY_RAW = {
 		[Enums.RawResource.IRON_ORE] = 1,
 		[Enums.RawResource.GOLD_ORE] = 1,
-		[Enums.RawResource.CRYSTAL] = 1,
 		[Enums.RawResource.URANIUM_ORE] = 1,
 	},
 	-- the machine is busy while it grinds; the client plays the suck-in for

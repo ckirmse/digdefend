@@ -7,8 +7,7 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 -- level (entry 1 is unused: everyone starts at level 1) and their length is
 -- the top level, so adding a level is adding a price. A track marked
 -- startsUnowned is an item nobody has until they buy it: level 1 is not
--- having it and entry 2 is the price of the item itself. The Camp Level each
--- buy needs comes from GameData/Camp/Level. Placeholder prices sized against Gold rock
+-- having it and entry 2 is the price of the item itself. Placeholder prices sized against Gold rock
 -- yields (3 / 10 / 30 / 87 ore per rock by tier), to tune in play.
 return {
 	PRICE_RESOURCE = Enums.RefinedResource.GOLD_BAR,

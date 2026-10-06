@@ -20,7 +20,7 @@
 -- tier, paid for by the whole crew at the Workbench: each prompt press
 -- donates a little Iron into a shared pool and the tier goes up by itself
 -- when the pool fills. Every segment is repaired on its own. The Refinery
--- keeps its authored model and its tier is the Camp Level.
+-- keeps its authored model.
 --
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -33,10 +33,8 @@ local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PlacementRules = require("@game/ReplicatedStorage/Shared/PlacementRules")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local RunCycleRules = require("@game/ReplicatedStorage/Shared/RunCycleRules")
-local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
 local StructureRules = require("@game/ReplicatedStorage/Shared/StructureRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
-local LevelData = require("@game/ServerScriptService/GameData/Camp/Level")
 local StructuresData = require("@game/ServerScriptService/GameData/Camp/Structures")
 local PartyScalingData = require("@game/ServerScriptService/GameData/Control/PartyScaling")
 local GameController = require(script.Parent.Parent.Server.GameController)
@@ -59,8 +57,8 @@ type Structure = {
 	-- rubble: set by the blow that empties it, cleared once rebuilt to
 	-- REBUILD_STAND_SHARE, so a half-rebuilt wall is still a breach
 	isDestroyed: boolean,
-	-- the size HP was last measured against, so a tier or Camp Level change
-	-- can carry the share over
+	-- the size HP was last measured against, so a tier change can carry
+	-- the share over
 	maxHp: number,
 	shadow: BasePart,
 	-- what a swing must be in reach of; measured once from the map's model
@@ -241,8 +239,6 @@ function StructureManager:getKindData(kind: number): StructureRules.KindData
 end
 
 -- every structure shares the fortification tier, the Refinery included
--- (its tier was the Camp Level until 2026-09-29, when Camp Level left the
--- game for now)
 function StructureManager:getTier(structure: Structure): number
 	return self.fortificationTier
 end
@@ -421,7 +417,6 @@ function StructureManager:replicateFortification()
 	SplendidReplicationManager:setGameMetadata(Attributes.FORTIFICATION_TIER, self.fortificationTier)
 	SplendidReplicationManager:setGameMetadata(Attributes.FORTIFICATION_POOL, self.fortificationPool)
 	SplendidReplicationManager:setGameMetadata(Attributes.FORTIFICATION_POOL_REQUIRED, nextTierCost or 0)
-	SplendidReplicationManager:setGameMetadata(Attributes.FORTIFICATION_REQUIRED_CAMP_LEVEL, StructureRules.requiredCampLevel(LevelData.STRUCTURE_TIER_REQUIRED_CAMP_LEVEL_BY_TIER, self.fortificationTier + 1))
 	local prompt = self.workbenchPrompt
 	if prompt then
 		prompt.Enabled = nextTierCost ~= nil
@@ -547,8 +542,7 @@ end
 
 -- one press at the Workbench: a little of the player's Iron goes into the
 -- crew's pool, and the press that fills it lifts the gate, every wall, and
--- the look of the posts a tier. The pool only fills while the Camp Level
--- allows the next tier, so Iron is never locked away behind Diamonds
+-- the look of the posts a tier
 function StructureManager:donate(player: Player)
 	if not GameController:isPlayerReady(player) then
 		return
@@ -556,11 +550,6 @@ function StructureManager:donate(player: Player)
 	local nextTierCost = self:getNextTierCost()
 	if not nextTierCost then
 		PlayerFeedbackManager:give(player, FEEDBACK_MAXED)
-		return
-	end
-	local requiredCampLevel = StructureRules.requiredCampLevel(LevelData.STRUCTURE_TIER_REQUIRED_CAMP_LEVEL_BY_TIER, self.fortificationTier + 1)
-	if RefineryManager:getCampLevel() < requiredCampLevel then
-		PlayerFeedbackManager:give(player, string.format(StoreRules.LOCKED_FORMAT, requiredCampLevel))
 		return
 	end
 	local amount, isFilled = StructureRules.donate(self.fortificationPool, nextTierCost, StructuresData.FORTIFICATION_DONATION_IRON)
@@ -614,12 +603,6 @@ function StructureManager:setFortificationTier(tier: number)
 	end
 	self:firePostModelsFilled()
 	self:replicateAll()
-end
-
--- the Camp Level moved: the Refinery keeps its share of HP at its new size
--- the Refinery's HP no longer follows the Camp Level (2026-09-29); only
--- the Workbench's lock line still reads it
-function StructureManager:onCampLevelChanged()
 end
 
 -- binds the loaded camp's Walls Table in the defense building (2026-10-01,
@@ -809,13 +792,6 @@ function StructureManager:init()
 	Players.PlayerRemoving:Connect(
 		function(player: Player)
 			self.lastSwingTimeByPlayer[player] = nil
-		end
-	)
-	RefineryManager:subscribeCampLevelChanged(
-		function(_level: number)
-			self:onCampLevelChanged()
-			-- the Workbench's lock line depends on the Camp Level
-			self:replicateFortification()
 		end
 	)
 end

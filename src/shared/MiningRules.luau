@@ -115,8 +115,8 @@ function MiningRules.getOreYieldMultiplier(multiplierByPlayerCount: { number }, 
 	return multiplierByPlayerCount[clamped]
 end
 
--- only Iron and Gold are per player (GDD "Party scaling"); Diamonds and
--- Uranium are shared and never scaled
+-- only Iron and Gold are per player (GDD "Party scaling"); Uranium is
+-- shared and never scaled
 function MiningRules.isYieldScaledByParty(resource: number): boolean
 	return resource == Enums.RawResource.IRON_ORE or resource == Enums.RawResource.GOLD_ORE
 end

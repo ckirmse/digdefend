@@ -19,12 +19,12 @@
 -- time. The day-start line and the end of the run arrive as
 -- notifies and go to the announcement box; each also flashes the
 -- designer's DayNightNumber card ("DAY N" / "NIGHT N") for a moment with
--- the rooster or the night bell, and the clock fades out for the night
--- and back in at dawn. Nothing here decides anything.
+-- the rooster or the night bell. At dusk the clock slides up off the
+-- screen and the Refinery HP bar (ClientRefineryHpManager, M33) comes
+-- down in its place; at dawn they swap back. Nothing here decides anything.
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -38,6 +38,7 @@ local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
+local ClientHudSlide = require(script.Parent.Parent.Client.ClientHudSlide)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 
 local ClientRunCycleManager = {}
@@ -47,8 +48,8 @@ export type ClientRunCycleManager = typeof(setmetatable(
 	{} :: {
 		gui: ScreenGui?,
 		clockGroup: CanvasGroup?,
-		-- whether the clock is shown (day) or faded out (night)
-		isClockShown: boolean,
+		-- the clock on stage by day and off the top of the screen by night
+		slide: ClientHudSlide.ClientHudSlide?,
 		numberGui: ScreenGui?,
 		numberLabel: TextLabel?,
 		numberGeneration: number,
@@ -83,6 +84,8 @@ local NOTIFY_RUN_ENDED_SHAPE = {
 }
 
 local DAY_FORMAT = "Day %d"
+-- the clock waits off the top of the screen at night; well clear of its own height
+local HIDDEN_POSITION_Y_SCALE = -0.3
 -- the same label reads SUNSET once the clock turns to dusk (2026-09-29)
 local SUNSET_FORMAT = "Sunset %d"
 -- two spaces: the font sets the word and the number too close otherwise
@@ -138,8 +141,9 @@ function ClientRunCycleManager:findGui()
 	self.dayLabel = if dayLabel and dayLabel:IsA("TextLabel") then dayLabel else nil
 	if root and root:IsA("CanvasGroup") then
 		self.clockGroup = root
+		self.slide = ClientHudSlide.new(root, UDim2.new(root.Position.X.Scale, root.Position.X.Offset, HIDDEN_POSITION_Y_SCALE, 0))
 	else
-		warn("ClientRunCycleManager: the DayClock Root is not a CanvasGroup, so the clock cannot fade; rebuild it")
+		warn("ClientRunCycleManager: the DayClock Root is not a CanvasGroup; rebuild it")
 	end
 	local numberGui = playerGui:FindFirstChild(Constants.DAY_NIGHT_NUMBER_GUI_NAME)
 	if numberGui and numberGui:IsA("ScreenGui") then
@@ -152,15 +156,12 @@ function ClientRunCycleManager:findGui()
 	end
 end
 
--- the clock fades out for the night and back in at dawn
+-- the clock slides up off the screen for the night and, once the Refinery
+-- HP bar has left again, back down at dawn
 function ClientRunCycleManager:setClockShown(isShown: boolean)
-	if self.isClockShown == isShown then
-		return
-	end
-	self.isClockShown = isShown
-	local group = self.clockGroup
-	if group then
-		TweenService:Create(group, TweenInfo.new(UiStyle.HUD_TWEEN_SEC, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { GroupTransparency = if isShown then 0 else 1 }):Play()
+	local slide = self.slide
+	if slide then
+		slide:setShown(isShown, if isShown then UiStyle.HUD_SLIDE_SEC else 0)
 	end
 end
 
@@ -419,7 +420,7 @@ function ClientRunCycleManager.new(): ClientRunCycleManager
 	local self = setmetatable({}, ClientRunCycleManager) :: ClientRunCycleManager
 	self.gui = nil
 	self.clockGroup = nil
-	self.isClockShown = true
+	self.slide = nil
 	self.numberGui = nil
 	self.numberLabel = nil
 	self.numberGeneration = 0

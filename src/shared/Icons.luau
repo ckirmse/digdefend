@@ -17,14 +17,12 @@ Icons.PLACEHOLDER = "rbxassetid://0"
 Icons.RAW_RESOURCE = {
 	[Enums.RawResource.IRON_ORE] = "rbxassetid://139984344282023",
 	[Enums.RawResource.GOLD_ORE] = "rbxassetid://83250762899012",
-	[Enums.RawResource.CRYSTAL] = "rbxassetid://137679245645054",
 	[Enums.RawResource.URANIUM_ORE] = "rbxassetid://81326903056199",
 }
 
 Icons.REFINED_RESOURCE = {
 	[Enums.RefinedResource.IRON_BAR] = "rbxassetid://94215413697416",
 	[Enums.RefinedResource.GOLD_BAR] = "rbxassetid://137446117638753",
-	[Enums.RefinedResource.DIAMOND] = "rbxassetid://101719152234191",
 	[Enums.RefinedResource.URANIUM] = "rbxassetid://125767847132761",
 }
 
@@ -63,8 +61,9 @@ Icons.UI = {
 	CLOCK_NIGHT = "rbxassetid://72038436524050",
 	-- the compass's Refinery marker (designer's art, 2026-09-30)
 	COMPASS_HOME = "rbxassetid://98277990053980",
-	-- Cash, in the Results Menu; no art yet, so the row shows no icon
-	CASH = Icons.PLACEHOLDER,
+	-- Diamonds, the lobby currency (M33): the lobby HUD wallet and the
+	-- Results Menu row; the art the in-run Diamond had before it was retired
+	DIAMONDS = "rbxassetid://101719152234191",
 }
 
 function Icons.isPlaceholder(id: string?): boolean

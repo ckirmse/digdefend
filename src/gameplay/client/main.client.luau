@@ -7,7 +7,8 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientActionButtonManager = require(script.Parent.ClientActionButtonManager)
 local ClientAimManager = require(script.Parent.ClientAimManager)
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
-local ClientCashTapManager = require(script.Parent.ClientCashTapManager)
+local ClientCampMapManager = require(script.Parent.ClientCampMapManager)
+local ClientDiamondTapManager = require(script.Parent.ClientDiamondTapManager)
 local ClientCompassManager = require(script.Parent.ClientCompassManager)
 local ClientDamageableManager = require(script.Parent.ClientDamageableManager)
 local ClientDefenseTableManager = require(script.Parent.ClientDefenseTableManager)
@@ -36,6 +37,7 @@ local ClientTrapBehaviorManager = require(script.Parent.ClientTrapBehaviorManage
 local ClientPostDevTools = require(script.Parent.ClientPostDevTools)
 local ClientPostManager = require(script.Parent.ClientPostManager)
 local ClientPostUpgradeManager = require(script.Parent.ClientPostUpgradeManager)
+local ClientRefineryHpManager = require(script.Parent.ClientRefineryHpManager)
 local ClientRefineryManager = require(script.Parent.ClientRefineryManager)
 local ClientRunDevTools = require(script.Parent.ClientRunDevTools)
 local ClientStructureDevTools = require(script.Parent.ClientStructureDevTools)
@@ -94,8 +96,13 @@ ClientTowerBehaviorManager:init()
 ClientTrapBehaviorManager:init()
 -- the day clock reads GameMetadata the server set before anyone was Ready
 ClientRunCycleManager:init()
+-- the Refinery HP bar that takes the clock's place at night
+ClientRefineryHpManager:init()
 -- the locator bar that hangs under the day clock
 ClientCompassManager:init()
+-- the night's overhead map of the camp; after the structures and the
+-- monsters it draws
+ClientCampMapManager:init()
 -- the uranium dial beside the day clock; it asks the mine manager for distances
 ClientGeigerCounterManager:init()
 -- crewmates' overhead names, in their compass dot colours
@@ -105,7 +112,7 @@ ClientRescueManager:init()
 -- starts, and which points the mine renderer at the watched player), and
 -- the tombstones
 ClientReviveManager:init()
-ClientCashTapManager:init()
+ClientDiamondTapManager:init()
 ClientGiveCurrencyManager:init()
 ClientTowerMenuManager:init()
 -- Build Mode's overhead view: after the placements it taps, the Tower Menu

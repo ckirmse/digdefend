@@ -23,7 +23,7 @@ export type DailyRewardSave = {
 }
 
 export type SaveData = {
-	cash: number,
+	diamonds: number,
 	-- set of owned unlock names (weapons, posts, defenses)
 	ownedUnlocks: { [string]: boolean },
 	-- LoadoutSlot key name -> equipped unlock name; absent when the slot is empty
@@ -41,7 +41,7 @@ export type SaveData = {
 }
 
 export type Defaults = {
-	startingCash: number,
+	startingDiamonds: number,
 }
 
 -- only the newest receipts are kept: Roblox retries a receipt for days at
@@ -61,7 +61,7 @@ end
 
 function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 	return {
-		cash = defaults.startingCash,
+		diamonds = defaults.startingDiamonds,
 		ownedUnlocks = {},
 		loadout = {},
 		completions = {},
@@ -197,9 +197,20 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 
 	local defaultData = PlayerSaveSchema.getDefault(defaults)
 
-	if not Validate.isValueType(data.cash, "nonnegativeInteger") then
-		data.cash = defaultData.cash
-		table.insert(repairs, "cash reset")
+	-- the balance was saved as "cash" until M33 (2026-10-06): an older save
+	-- carries it across under its new name, once. The profile is reconciled
+	-- against the defaults before it gets here, so `diamonds` already holds
+	-- the starting balance; the old cash is added onto it, never compared
+	if Validate.isValueType(data.cash, "nonnegativeInteger") then
+		local diamonds = if Validate.isValueType(data.diamonds, "nonnegativeInteger") then data.diamonds else 0
+		data.diamonds = diamonds + data.cash
+		data.cash = nil
+		table.insert(repairs, "cash migrated to diamonds")
+	end
+
+	if not Validate.isValueType(data.diamonds, "nonnegativeInteger") then
+		data.diamonds = defaultData.diamonds
+		table.insert(repairs, "diamonds reset")
 	end
 
 	-- ownedUnlocks before loadout: an equipped item must be owned

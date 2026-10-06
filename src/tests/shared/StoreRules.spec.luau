@@ -10,8 +10,6 @@ local StoreRules = require(game:GetService("ReplicatedStorage").Shared.StoreRule
 
 local TRACK = {
 	priceByLevel = { 0, 15, 40, 100, 250 },
-	-- level N+1 needs Camp Level N, the GameData/Camp/Level default
-	requiredCampLevelByLevel = { 1, 1, 2, 3, 4 },
 }
 local CATALOG = {
 	upgrades = {
@@ -26,54 +24,27 @@ describe(
 	"StoreRules.getUpgradeOffer",
 	function()
 		it(
-			"offers level 2 as a plain buy at camp level 1",
+			"offers the next level at its price",
 			function()
-				local offer = StoreRules.getUpgradeOffer(TRACK, 1, 1)
+				local offer = StoreRules.getUpgradeOffer(TRACK, 1)
 				expect(offer.status).toBe(Enums.StoreOffer.AVAILABLE)
 				expect(offer.level).toBe(2)
 				expect(offer.price).toBe(15)
 			end
 		)
 		it(
-			"locks level N+1 until camp level N",
+			"climbs the track one level at a time",
 			function()
-				local locked = StoreRules.getUpgradeOffer(TRACK, 2, 1)
-				expect(locked.status).toBe(Enums.StoreOffer.LOCKED)
-				expect(locked.level).toBe(3)
-				expect(locked.requiredCampLevel).toBe(2)
-				local open = StoreRules.getUpgradeOffer(TRACK, 2, 2)
-				expect(open.status).toBe(Enums.StoreOffer.AVAILABLE)
-				expect(open.price).toBe(40)
-			end
-		)
-		it(
-			"reads the gate from the track's table, not a formula",
-			function()
-				local loose = {
-					priceByLevel = { 0, 15, 40, 100 },
-					requiredCampLevelByLevel = { 1, 1, 1, 3 },
-				}
-				expect(StoreRules.getUpgradeOffer(loose, 2, 1).status).toBe(Enums.StoreOffer.AVAILABLE)
-				local gated = StoreRules.getUpgradeOffer(loose, 3, 2)
-				expect(gated.status).toBe(Enums.StoreOffer.LOCKED)
-				expect(gated.requiredCampLevel).toBe(3)
-			end
-		)
-		it(
-			"never gates a level the table does not mention",
-			function()
-				local short = {
-					priceByLevel = { 0, 15, 40 },
-					requiredCampLevelByLevel = {},
-				}
-				expect(StoreRules.getUpgradeOffer(short, 2, 1).status).toBe(Enums.StoreOffer.AVAILABLE)
-				expect(StoreRules.requiredCampLevel(short, 3)).toBe(1)
+				local third = StoreRules.getUpgradeOffer(TRACK, 2)
+				expect(third.status).toBe(Enums.StoreOffer.AVAILABLE)
+				expect(third.level).toBe(3)
+				expect(third.price).toBe(40)
 			end
 		)
 		it(
 			"is maxed past the last price",
 			function()
-				local offer = StoreRules.getUpgradeOffer(TRACK, 5, 9)
+				local offer = StoreRules.getUpgradeOffer(TRACK, 5)
 				expect(offer.status).toBe(Enums.StoreOffer.MAXED)
 				expect(offer.level).toBe(nil)
 			end
@@ -87,7 +58,7 @@ describe(
 		it(
 			"never locks or maxes a consumable",
 			function()
-				local offer = StoreRules.getOffer(CATALOG, Enums.StoreItem.TORCH, 1, 1)
+				local offer = StoreRules.getOffer(CATALOG, Enums.StoreItem.TORCH, 1)
 				expect(offer.status).toBe(Enums.StoreOffer.AVAILABLE)
 				expect(offer.price).toBe(5)
 				expect(StoreRules.nameText(Enums.StoreItem.TORCH, offer)).toBe("Torch")
@@ -96,14 +67,14 @@ describe(
 		it(
 			"returns nil for an item the catalogue lacks",
 			function()
-				expect(StoreRules.getOffer(CATALOG, Enums.StoreItem.BOOTS, 1, 1)).toBe(nil)
+				expect(StoreRules.getOffer(CATALOG, Enums.StoreItem.BOOTS, 1)).toBe(nil)
 			end
 		)
 		it(
 			"names the next level and the maxed state",
 			function()
-				expect(StoreRules.nameText(Enums.StoreItem.PICK_AXE, StoreRules.getUpgradeOffer(TRACK, 1, 1))).toBe("Pick Axe 2")
-				expect(StoreRules.nameText(Enums.StoreItem.PICK_AXE, StoreRules.getUpgradeOffer(TRACK, 5, 1))).toBe(StoreRules.MAXED_TEXT)
+				expect(StoreRules.nameText(Enums.StoreItem.PICK_AXE, StoreRules.getUpgradeOffer(TRACK, 1))).toBe("Pick Axe 2")
+				expect(StoreRules.nameText(Enums.StoreItem.PICK_AXE, StoreRules.getUpgradeOffer(TRACK, 5))).toBe(StoreRules.MAXED_TEXT)
 			end
 		)
 		it(
@@ -111,16 +82,15 @@ describe(
 			function()
 				local single = {
 					priceByLevel = { 0, 30 },
-					requiredCampLevelByLevel = {},
 					startsUnowned = true,
 				}
 				expect(StoreRules.isSinglePurchase(single)).toBe(true)
 				expect(StoreRules.isSinglePurchase(TRACK)).toBe(false)
-				local offer = StoreRules.getUpgradeOffer(single, 1, 1)
+				local offer = StoreRules.getUpgradeOffer(single, 1)
 				expect(offer.status).toBe(Enums.StoreOffer.AVAILABLE)
 				expect(offer.price).toBe(30)
 				expect(StoreRules.nameText(Enums.StoreItem.COMPASS, offer)).toBe("Compass")
-				local owned = StoreRules.getUpgradeOffer(single, 2, 1)
+				local owned = StoreRules.getUpgradeOffer(single, 2)
 				expect(owned.status).toBe(Enums.StoreOffer.MAXED)
 				expect(StoreRules.nameText(Enums.StoreItem.COMPASS, owned)).toBe(StoreRules.OWNED_TEXT)
 			end
@@ -130,14 +100,13 @@ describe(
 			function()
 				local bought = {
 					priceByLevel = { 0, 90, 270, 800 },
-					requiredCampLevelByLevel = {},
 					startsUnowned = true,
 				}
 				expect(StoreRules.isSinglePurchase(bought)).toBe(false)
-				expect(StoreRules.nameText(Enums.StoreItem.GEIGER_COUNTER, StoreRules.getUpgradeOffer(bought, 1, 1))).toBe("Geiger Counter")
-				expect(StoreRules.nameText(Enums.StoreItem.GEIGER_COUNTER, StoreRules.getUpgradeOffer(bought, 2, 1))).toBe("Geiger Counter 2")
-				expect(StoreRules.nameText(Enums.StoreItem.GEIGER_COUNTER, StoreRules.getUpgradeOffer(bought, 3, 1))).toBe("Geiger Counter 3")
-				expect(StoreRules.nameText(Enums.StoreItem.GEIGER_COUNTER, StoreRules.getUpgradeOffer(bought, 4, 1))).toBe(StoreRules.MAXED_TEXT)
+				expect(StoreRules.nameText(Enums.StoreItem.GEIGER_COUNTER, StoreRules.getUpgradeOffer(bought, 1))).toBe("Geiger Counter")
+				expect(StoreRules.nameText(Enums.StoreItem.GEIGER_COUNTER, StoreRules.getUpgradeOffer(bought, 2))).toBe("Geiger Counter 2")
+				expect(StoreRules.nameText(Enums.StoreItem.GEIGER_COUNTER, StoreRules.getUpgradeOffer(bought, 3))).toBe("Geiger Counter 3")
+				expect(StoreRules.nameText(Enums.StoreItem.GEIGER_COUNTER, StoreRules.getUpgradeOffer(bought, 4))).toBe(StoreRules.MAXED_TEXT)
 				local decoded = StoreRules.decodeCatalog(StoreRules.encodeCatalog({
 					upgrades = { [Enums.StoreItem.GEIGER_COUNTER] = bought },
 					consumables = {},
@@ -171,7 +140,6 @@ describe(
 			function()
 				local decoded = StoreRules.decodeCatalog(StoreRules.encodeCatalog(CATALOG))
 				expect(decoded.upgrades[Enums.StoreItem.PICK_AXE].priceByLevel[3]).toBe(40)
-				expect(decoded.upgrades[Enums.StoreItem.PICK_AXE].requiredCampLevelByLevel[3]).toBe(2)
 				expect(decoded.consumables[Enums.StoreItem.TORCH].amount).toBe(4)
 				expect(decoded.consumables[Enums.StoreItem.TORCH].tool).toBe(Enums.ToolKind.TORCH)
 			end
@@ -183,7 +151,7 @@ describe(
 					upgrades = {
 						[Enums.StoreItem.PICK_AXE] = TRACK,
 						[Enums.StoreItem.BOOTS] = TRACK,
-						[Enums.StoreItem.COMPASS] = { priceByLevel = { 0, 30 }, requiredCampLevelByLevel = {} },
+						[Enums.StoreItem.COMPASS] = { priceByLevel = { 0, 30 } },
 					},
 					consumables = {},
 				}
@@ -198,21 +166,6 @@ describe(
 			function()
 				expect(StoreRules.decodeCatalog(nil)).toBe(nil)
 				expect(StoreRules.decodeCatalog("not json")).toBe(nil)
-			end
-		)
-	end
-)
-
-describe(
-	"StoreRules.requiredCampLevelForOffer",
-	function()
-		it(
-			"names the level for any upgrade offer and nothing for the rest",
-			function()
-				expect(StoreRules.requiredCampLevelForOffer(StoreRules.getUpgradeOffer(TRACK, 1, 1))).toBe(1)
-				expect(StoreRules.requiredCampLevelForOffer(StoreRules.getUpgradeOffer(TRACK, 2, 1))).toBe(2)
-				expect(StoreRules.requiredCampLevelForOffer(StoreRules.getUpgradeOffer(TRACK, 5, 1))).toBe(nil)
-				expect(StoreRules.requiredCampLevelForOffer(StoreRules.getConsumableOffer({ tool = 3, price = 5, amount = 4 }))).toBe(nil)
 			end
 		)
 	end

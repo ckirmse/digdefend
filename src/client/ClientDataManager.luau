@@ -122,8 +122,8 @@ function ClientDataManager:getCurrentPlayerAttribute(key: string): any
 	return currentPlayer:GetAttribute(key)
 end
 
-function ClientDataManager:getCash(): number
-	local value = self:getCurrentPlayerAttribute(Attributes.CASH)
+function ClientDataManager:getDiamonds(): number
+	local value = self:getCurrentPlayerAttribute(Attributes.DIAMONDS)
 	return if typeof(value) == "number" then value else 0
 end
 

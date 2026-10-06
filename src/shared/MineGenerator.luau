@@ -50,7 +50,6 @@ export type ZoneDefinition = {
 	tierBias: number?,
 	iron: number?,
 	gold: number?,
-	crystal: number?,
 	uranium: number?,
 	pockets: number?,
 	handPlaced: { HandPlaced }?,
@@ -199,7 +198,6 @@ type Bedrock = {
 local RESOURCE_FIELDS = {
 	{ field = "iron", resource = Enums.RawResource.IRON_ORE },
 	{ field = "gold", resource = Enums.RawResource.GOLD_ORE },
-	{ field = "crystal", resource = Enums.RawResource.CRYSTAL },
 	{ field = "uranium", resource = Enums.RawResource.URANIUM_ORE },
 }
 
@@ -212,7 +210,6 @@ local INHERITED_FIELDS = {
 	"tierBias",
 	"iron",
 	"gold",
-	"crystal",
 	"uranium",
 	"pockets",
 }
@@ -329,7 +326,6 @@ local function resolveZones(definition: MineDefinition, config: GeneratorConfig,
 		tierBias = 1.0,
 		iron = 0,
 		gold = 0,
-		crystal = 0,
 		uranium = 0,
 		pockets = 0,
 	}

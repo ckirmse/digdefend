@@ -8,6 +8,7 @@ local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
 local Enums = require(game.ReplicatedStorage.Shared.Enums)
 local UiStyle = require(game.ReplicatedStorage.Shared.UiStyle)
+local Icons = require(game.ReplicatedStorage.Shared.Icons)
 
 ChangeHistoryService:SetWaypoint("Before HUD gui")
 
@@ -57,46 +58,47 @@ gui.DisplayOrder = 0
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Enabled = true
 
--- Cash wallet, top center (designer decision 2026-09-11); a button because
+-- Diamonds wallet, top center (designer decision 2026-09-11); a button because
 -- tapping it opens the store later
-local cashWallet = Instance.new("TextButton")
-cashWallet.Name = "CashWallet"
-cashWallet.AnchorPoint = Vector2.new(0.5, 0)
-cashWallet.Position = UDim2.fromScale(0.5, 0.03)
-cashWallet.Size = UDim2.fromScale(0.16, 0.07)
-addTouchTarget(cashWallet, Vector2.new(320, 72))
-cashWallet.BackgroundColor3 = UiStyle.PANEL_COLOR
-cashWallet.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
-cashWallet.BorderSizePixel = 0
-cashWallet.Text = ""
-cashWallet.AutoButtonColor = true
-cashWallet.Parent = gui
-addCorner(cashWallet)
+local diamondWallet = Instance.new("TextButton")
+diamondWallet.Name = "DiamondWallet"
+diamondWallet.AnchorPoint = Vector2.new(0.5, 0)
+diamondWallet.Position = UDim2.fromScale(0.5, 0.03)
+diamondWallet.Size = UDim2.fromScale(0.16, 0.07)
+addTouchTarget(diamondWallet, Vector2.new(320, 72))
+diamondWallet.BackgroundColor3 = UiStyle.PANEL_COLOR
+diamondWallet.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
+diamondWallet.BorderSizePixel = 0
+diamondWallet.Text = ""
+diamondWallet.AutoButtonColor = true
+diamondWallet.Parent = gui
+addCorner(diamondWallet)
 
-local cashIcon = Instance.new("TextLabel")
-cashIcon.Name = "Icon"
-cashIcon.Position = UDim2.fromScale(0.04, 0.1)
-cashIcon.Size = UDim2.fromScale(0.2, 0.8)
-cashIcon.BackgroundTransparency = 1
-cashIcon.Text = "$"
-cashIcon.TextColor3 = UiStyle.ACCENT_COLOR
-cashIcon.TextScaled = true
-cashIcon.FontFace = UiStyle.TITLE_FONT
-addTextSizeBounds(cashIcon, UiStyle.BODY_TEXT_MIN_PX, UiStyle.TITLE_TEXT_MAX_PX)
-cashIcon.Parent = cashWallet
+-- the resource is its icon, never a word or a symbol (UI standard, 2026-09-24)
+local diamondIcon = Instance.new("ImageLabel")
+diamondIcon.Name = "Icon"
+diamondIcon.Position = UDim2.fromScale(0.04, 0.1)
+diamondIcon.Size = UDim2.fromScale(0.2, 0.8)
+diamondIcon.BackgroundTransparency = 1
+diamondIcon.Image = Icons.UI.DIAMONDS
+diamondIcon.ScaleType = Enum.ScaleType.Fit
+local diamondIconAspect = Instance.new("UIAspectRatioConstraint")
+diamondIconAspect.AspectRatio = 1
+diamondIconAspect.Parent = diamondIcon
+diamondIcon.Parent = diamondWallet
 
-local cashAmount = Instance.new("TextLabel")
-cashAmount.Name = "CashAmount"
-cashAmount.Position = UDim2.fromScale(0.26, 0.1)
-cashAmount.Size = UDim2.fromScale(0.7, 0.8)
-cashAmount.BackgroundTransparency = 1
-cashAmount.Text = "0"
-cashAmount.TextColor3 = UiStyle.TEXT_COLOR
-cashAmount.TextXAlignment = Enum.TextXAlignment.Left
-cashAmount.TextScaled = true
-cashAmount.FontFace = UiStyle.BODY_BOLD_FONT
-addTextSizeBounds(cashAmount, UiStyle.BODY_TEXT_MIN_PX, 32)
-cashAmount.Parent = cashWallet
+local diamondsAmount = Instance.new("TextLabel")
+diamondsAmount.Name = "DiamondAmount"
+diamondsAmount.Position = UDim2.fromScale(0.26, 0.1)
+diamondsAmount.Size = UDim2.fromScale(0.7, 0.8)
+diamondsAmount.BackgroundTransparency = 1
+diamondsAmount.Text = "0"
+diamondsAmount.TextColor3 = UiStyle.TEXT_COLOR
+diamondsAmount.TextXAlignment = Enum.TextXAlignment.Left
+diamondsAmount.TextScaled = true
+diamondsAmount.FontFace = UiStyle.BODY_BOLD_FONT
+addTextSizeBounds(diamondsAmount, UiStyle.BODY_TEXT_MIN_PX, 32)
+diamondsAmount.Parent = diamondWallet
 
 -- Menu buttons, right edge, stacked
 local menuButtons = Instance.new("Frame")

@@ -28,8 +28,8 @@ local sfx = {
 	ORE_PICKUP = "OrePickup",
 	REFINERY_GRIND = "RefineryGrind",
 	REFINERY_PAYOUT = "RefineryPayout",
-	-- M22: the crew's Camp Level just rose (2D, everyone)
-	CAMP_LEVEL_UP = "CampLevelUp",
+	-- M23: the walls and gate reached a new tier (2D, everyone)
+	FORTIFICATION_TIER_UP = "FortificationTierUp",
 	-- M21: store and consumables
 	STORE_PURCHASE = "StorePurchase",
 	DYNAMITE_FUSE = "DynamiteFuse",
@@ -73,7 +73,8 @@ local sfx = {
 	NIGHT_BELL = "NightBell",
 	-- alerts (2026-09-25): a wall fell (2D, everyone, with the red alert),
 	-- the 3D collapse from where the wall stood (server-side), and the
-	-- siren every client loops while the Refinery is under attack
+	-- siren every client hears once per red flash of the Refinery HP bar
+	-- while the Refinery is under attack (M33; a loop before that)
 	WALL_DESTROYED = "WallDestroyed",
 	WALL_COLLAPSE = "WallCollapse",
 	REFINERY_UNDER_ATTACK = "RefineryUnderAttack",

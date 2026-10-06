@@ -11,14 +11,12 @@ local RefineryRules = require(game:GetService("ReplicatedStorage").Shared.Refine
 local RawResource = Enums.RawResource
 local RefinedResource = Enums.RefinedResource
 
--- mirrors GameData/Refinery/Refinery, GameData/Camp/Level, and PartyScaling
+-- mirrors GameData/Refinery/Refinery and PartyScaling
 local RATE_BY_RAW = {
 	[RawResource.IRON_ORE] = 1,
 	[RawResource.GOLD_ORE] = 1,
-	[RawResource.CRYSTAL] = 1,
 	[RawResource.URANIUM_ORE] = 1,
 }
-local DIAMONDS_REQUIRED_BY_LEVEL = { 20, 60, 150 }
 local URANIUM_TARGET_BY_COUNT = { 1.0, 1.5, 2.0, 2.5, 3.0, 3.5 }
 
 describe(
@@ -30,12 +28,10 @@ describe(
 				local refined = RefineryRules.convert({
 					[RawResource.IRON_ORE] = 5,
 					[RawResource.GOLD_ORE] = 3,
-					[RawResource.CRYSTAL] = 2,
 					[RawResource.URANIUM_ORE] = 1,
 				}, RATE_BY_RAW)
 				expect(refined[RefinedResource.IRON_BAR]).toBe(5)
 				expect(refined[RefinedResource.GOLD_BAR]).toBe(3)
-				expect(refined[RefinedResource.DIAMOND]).toBe(2)
 				expect(refined[RefinedResource.URANIUM]).toBe(1)
 			end
 		)
@@ -58,65 +54,6 @@ describe(
 			"returns an empty table for an empty backpack",
 			function()
 				expect(next(RefineryRules.convert({}, RATE_BY_RAW))).toBeNil()
-			end
-		)
-	end
-)
-
-describe(
-	"RefineryRules.applyDiamonds",
-	function()
-		it(
-			"accumulates below the threshold",
-			function()
-				local level, pool, gained = RefineryRules.applyDiamonds(1, 5, 10, DIAMONDS_REQUIRED_BY_LEVEL)
-				expect(level).toBe(1)
-				expect(pool).toBe(15)
-				expect(gained).toBe(0)
-			end
-		)
-
-		it(
-			"levels up and carries the remainder",
-			function()
-				local level, pool, gained = RefineryRules.applyDiamonds(1, 15, 12, DIAMONDS_REQUIRED_BY_LEVEL)
-				expect(level).toBe(2)
-				expect(pool).toBe(7)
-				expect(gained).toBe(1)
-			end
-		)
-
-		it(
-			"can gain several levels from one big payout",
-			function()
-				local level, pool, gained = RefineryRules.applyDiamonds(1, 0, 85, DIAMONDS_REQUIRED_BY_LEVEL)
-				expect(level).toBe(3)
-				expect(pool).toBe(5)
-				expect(gained).toBe(2)
-			end
-		)
-
-		it(
-			"stops at the top level with an empty pool",
-			function()
-				local level, pool, gained = RefineryRules.applyDiamonds(3, 100, 500, DIAMONDS_REQUIRED_BY_LEVEL)
-				expect(level).toBe(4)
-				expect(pool).toBe(0)
-				expect(gained).toBe(1)
-				expect(RefineryRules.diamondsRequired(DIAMONDS_REQUIRED_BY_LEVEL, 4)).toBeNil()
-				local sameLevel, samePool, none = RefineryRules.applyDiamonds(4, 0, 9, DIAMONDS_REQUIRED_BY_LEVEL)
-				expect(sameLevel).toBe(4)
-				expect(samePool).toBe(0)
-				expect(none).toBe(0)
-			end
-		)
-
-		it(
-			"ignores negative or fractional additions",
-			function()
-				local level, pool = RefineryRules.applyDiamonds(1, 3, -4, DIAMONDS_REQUIRED_BY_LEVEL)
-				expect(level).toBe(1)
-				expect(pool).toBe(3)
 			end
 		)
 	end

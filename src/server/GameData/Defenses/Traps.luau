@@ -9,9 +9,6 @@
 -- IS_REPAIRABLE is whether the Hammer can mend the Trap like a Tower, a
 -- chunk of HP for a few Iron per swing (2026-09-30): only the Wall for now,
 -- since the rest are spent by doing their job.
--- REQUIRED_CAMP_LEVEL locks the Trap on the table's bar; every kind sits at 1
--- because Traps are never capped (GDD "Camp Level"), and the field is here
--- so a designer can gate one without a code change.
 -- BEHAVIOR (Enums.TrapBehavior) is what the Trap does when an enemy's
 -- footprint overlaps its cells (air units never touch a Trap):
 --   BARRIER blocks walkers, who attack it; DRAWS_ATTACKS marks the Decoy
@@ -40,7 +37,6 @@ return {
 			-- so the grid tiles. The template (GameAssets/Traps/WALL) is sized
 			-- to the footprint's length with no gap, so a row of walls joins up
 			FOOTPRINT_CELLS = { 4, 2 },
-			REQUIRED_CAMP_LEVEL = 1,
 			IS_REPAIRABLE = true,
 			BEHAVIOR = Enums.TrapBehavior.BARRIER,
 			DRAWS_ATTACKS = false,
@@ -49,7 +45,6 @@ return {
 			PRICE_IRON = 15,
 			MAX_HP = 120,
 			FOOTPRINT_CELLS = { 4, 4 },
-			REQUIRED_CAMP_LEVEL = 1,
 			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.SPIKES,
 			DAMAGE = 25,
@@ -61,7 +56,6 @@ return {
 			MAX_HP = 100,
 			-- 4 x 2 since 2026-10-02 (5 x 2 before) so it is whole units
 			FOOTPRINT_CELLS = { 4, 2 },
-			REQUIRED_CAMP_LEVEL = 1,
 			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.GOO,
 			SLOW_SHARE = 0.5,
@@ -72,7 +66,6 @@ return {
 			MAX_HP = 60,
 			-- 2 x 2 since 2026-10-02 (1 x 1 before): the smallest footprint
 			FOOTPRINT_CELLS = { 2, 2 },
-			REQUIRED_CAMP_LEVEL = 1,
 			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.MINE,
 			DAMAGE = 120,
@@ -82,7 +75,6 @@ return {
 			PRICE_IRON = 8,
 			MAX_HP = 80,
 			FOOTPRINT_CELLS = { 2, 2 },
-			REQUIRED_CAMP_LEVEL = 1,
 			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.SNARE,
 			DAMAGE = 40,
@@ -93,7 +85,6 @@ return {
 			PRICE_IRON = 18,
 			MAX_HP = 400,
 			FOOTPRINT_CELLS = { 2, 2 },
-			REQUIRED_CAMP_LEVEL = 1,
 			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.BARRIER,
 			DRAWS_ATTACKS = true,

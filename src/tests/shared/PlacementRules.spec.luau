@@ -29,7 +29,6 @@ local SPIKES = {
 	PRICE_IRON = 15,
 	MAX_HP = 120,
 	FOOTPRINT_CELLS = { 2, 1 },
-	REQUIRED_CAMP_LEVEL = 1,
 }
 
 local function makeCatalog()
@@ -353,8 +352,6 @@ describe(
 				expect(PlacementRules.buildPrice(catalog, Enums.PlacementKind.TOWER, Enums.TowerKind.SENTRY_GUN)).toBe(20)
 				expect(PlacementRules.buildPrice(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.SPIKE_TRAP)).toBe(15)
 				expect(PlacementRules.buildPrice(catalog, Enums.PlacementKind.TRAP, 99)).toBe(0)
-				expect(PlacementRules.requiredCampLevel(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.SPIKE_TRAP)).toBe(1)
-				expect(PlacementRules.requiredCampLevel(catalog, Enums.PlacementKind.TOWER, Enums.TowerKind.SENTRY_GUN)).toBe(1)
 			end
 		)
 		it(
@@ -364,7 +361,7 @@ describe(
 				expect(PlacementRules.isRepairable(catalog, Enums.PlacementKind.TOWER, Enums.TowerKind.SENTRY_GUN)).toBe(true)
 				expect(PlacementRules.isRepairable(catalog, Enums.PlacementKind.TOWER, 99)).toBe(false)
 				expect(PlacementRules.isRepairable(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.SPIKE_TRAP)).toBe(false)
-				catalog.traps[Enums.TrapKind.WALL] = { PRICE_IRON = 12, MAX_HP = 300, FOOTPRINT_CELLS = { 4, 1 }, REQUIRED_CAMP_LEVEL = 1, IS_REPAIRABLE = true }
+				catalog.traps[Enums.TrapKind.WALL] = { PRICE_IRON = 12, MAX_HP = 300, FOOTPRINT_CELLS = { 4, 1 }, IS_REPAIRABLE = true }
 				expect(PlacementRules.isRepairable(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.WALL)).toBe(true)
 				expect(PlacementRules.isRepairable(catalog, Enums.PlacementKind.TRAP, 99)).toBe(false)
 				expect(PlacementRules.maxHpFor(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.SPIKE_TRAP, 1)).toBe(120)

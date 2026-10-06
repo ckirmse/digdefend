@@ -9,7 +9,7 @@ local Enums = require(game:GetService("ReplicatedStorage").Shared.Enums)
 local PostRules = require(game:GetService("ReplicatedStorage").Shared.PostRules)
 local SoundNames = require(game:GetService("ReplicatedStorage").Shared.SoundNames)
 
--- mirrors GameData/Posts/PostWeapons and GameData/Camp/Level; GameData
+-- mirrors GameData/Posts/PostWeapons; GameData
 -- cannot load under jest
 local MACHINE_GUN = {
 	UPGRADE_ATTRIBUTES = {
@@ -33,7 +33,6 @@ local function makeCatalog()
 	return {
 		claimPriceGold = 10,
 		upgradePriceByLevel = { 15, 30, 60, 120 },
-		requiredCampLevelByLevel = { 1, 2, 3, 4 },
 		bonusPerLevelByAttribute = {
 			[Enums.PostAttribute.DAMAGE] = 0.25,
 			[Enums.PostAttribute.FIRE_RATE] = 0.2,
@@ -173,23 +172,20 @@ describe(
 		)
 
 		it(
-			"offers the next upgrade at its price, locked by the Camp Level, until the cap",
+			"offers the next upgrade at its price until the cap",
 			function()
 				local catalog = makeCatalog()
-				local first = PostRules.getUpgradeOffer(catalog, {}, Enums.PostAttribute.DAMAGE, 1)
+				local first = PostRules.getUpgradeOffer(catalog, {}, Enums.PostAttribute.DAMAGE)
 				expect(first.status).toBe(Enums.StoreOffer.AVAILABLE)
 				expect(first.level).toBe(1)
 				expect(first.price).toBe(15)
 
-				local second = PostRules.getUpgradeOffer(catalog, { [Enums.PostAttribute.DAMAGE] = 1 }, Enums.PostAttribute.DAMAGE, 1)
-				expect(second.status).toBe(Enums.StoreOffer.LOCKED)
-				expect(second.requiredCampLevel).toBe(2)
+				local second = PostRules.getUpgradeOffer(catalog, { [Enums.PostAttribute.DAMAGE] = 1 }, Enums.PostAttribute.DAMAGE)
+				expect(second.status).toBe(Enums.StoreOffer.AVAILABLE)
+				expect(second.level).toBe(2)
 				expect(second.price).toBe(30)
 
-				local unlocked = PostRules.getUpgradeOffer(catalog, { [Enums.PostAttribute.DAMAGE] = 1 }, Enums.PostAttribute.DAMAGE, 2)
-				expect(unlocked.status).toBe(Enums.StoreOffer.AVAILABLE)
-
-				local maxed = PostRules.getUpgradeOffer(catalog, { [Enums.PostAttribute.DAMAGE] = 4 }, Enums.PostAttribute.DAMAGE, 4)
+				local maxed = PostRules.getUpgradeOffer(catalog, { [Enums.PostAttribute.DAMAGE] = 4 }, Enums.PostAttribute.DAMAGE)
 				expect(maxed.status).toBe(Enums.StoreOffer.MAXED)
 				expect(maxed.level).toBeNil()
 			end

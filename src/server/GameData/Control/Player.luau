@@ -4,7 +4,7 @@
 return {
 	PROFILE_STORE_NAME = "DigDefendPlayerData_v1",
 	PROFILE_KEY_PREFIX = "p_",
-	STARTING_CASH = 0,
+	STARTING_DIAMONDS = 0,
 	-- bounds the ProfileStore retry loop so a DataStore outage strands nobody on
 	-- the loading screen forever; past this the player is kicked with a message
 	DATA_LOAD_TIMEOUT_SEC = 30,

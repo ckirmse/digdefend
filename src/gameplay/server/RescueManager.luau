@@ -34,7 +34,7 @@ local HelicopterManager = require(script.Parent.Parent.Server.HelicopterManager)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
-local CashTapManager = require(script.Parent.CashTapManager)
+local DiamondTapManager = require(script.Parent.DiamondTapManager)
 local MapManager = require(script.Parent.MapManager)
 local MonsterWaveManager = require(script.Parent.MonsterWaveManager)
 local RefineryManager = require(script.Parent.RefineryManager)
@@ -277,7 +277,7 @@ function RescueManager:depart()
 	for player in self.seatByPlayer do
 		table.insert(aboardNames, player.DisplayName)
 		self:recordCompletion(player)
-		CashTapManager:payRescue(player)
+		DiamondTapManager:payRescue(player)
 	end
 	table.sort(aboardNames)
 	local helicopter = self.helicopter

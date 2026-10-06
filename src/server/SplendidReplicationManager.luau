@@ -61,7 +61,7 @@ local function snapshot(player: Player, playerData: any): PlayerPublicSchema.Sna
 		displayName = player.DisplayName,
 		isReady = true,
 		isAdmin = playerData:getIsAdmin(),
-		cash = playerData:getCash(),
+		diamonds = playerData:getDiamonds(),
 		loadout = playerData.loadout,
 		dailyRewardLastClaimedDay = dailyReward.lastClaimedDay,
 		dailyRewardNextClaimTime = dailyReward.nextClaimTime,
@@ -258,13 +258,13 @@ function SplendidReplicationManager:resetPlayerTree(player: Player)
 	self:updateAllPlayersEntry(player)
 end
 
-function SplendidReplicationManager:replicateCash(player: Player)
+function SplendidReplicationManager:replicateDiamonds(player: Player)
 	local playerData = gameController:getPlayerData(player)
 	local currentPlayer = self:getCurrentPlayerFolder(player)
 	if not playerData or not currentPlayer then
 		return
 	end
-	currentPlayer:SetAttribute(Attributes.CASH, playerData:getCash())
+	currentPlayer:SetAttribute(Attributes.DIAMONDS, playerData:getDiamonds())
 end
 
 function SplendidReplicationManager:replicateOwnedUnlocks(player: Player)

@@ -4,9 +4,9 @@
 -- optional seed, so a designer can edit the mine file, sync, regenerate, and
 -- walk in without restarting the run (GDD "Designer tooling"); and fill or
 -- empty the backpack so the full state and overflow drops can be tested
--- without mining fifty ore; and reset the refinery balances and camp
--- progress so a payout can be watched from zero. For the store (M21): grant
--- Gold, jump the camp level, and hand out consumables.
+-- without mining fifty ore; and reset the refinery balances so a payout
+-- can be watched from zero. For the store (M21): grant Gold and hand out
+-- consumables.
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local DevTools = require(script.Parent.Parent.Server.DevTools)
 local GameController = require(script.Parent.Parent.Server.GameController)
@@ -28,20 +28,10 @@ MineDevTools.FILL_BACKPACK_COMMAND = "fillBackpack"
 MineDevTools.EMPTY_BACKPACK_COMMAND = "emptyBackpack"
 MineDevTools.RESET_REFINERY_COMMAND = "resetRefinery"
 MineDevTools.ADD_GOLD_COMMAND = "addGold"
--- diamonds go through the real payout path, so a level-up fires as in play
-MineDevTools.ADD_DIAMONDS_COMMAND = "addDiamonds"
-MineDevTools.SET_CAMP_LEVEL_COMMAND = "setCampLevel"
 MineDevTools.GIVE_CONSUMABLES_COMMAND = "giveConsumables"
-
-local ADD_DIAMONDS_ARGS_SHAPE = {
-	amount = "positiveInteger",
-}
 
 local ADD_GOLD_ARGS_SHAPE = {
 	amount = "integer",
-}
-local SET_CAMP_LEVEL_ARGS_SHAPE = {
-	level = "positiveInteger",
 }
 local GIVE_CONSUMABLES_TORCHES = 8
 local GIVE_CONSUMABLES_DYNAMITE = 3
@@ -101,32 +91,6 @@ function MineDevTools:init()
 			end
 			RefineryManager:addGoldBars(player, args.amount)
 			PlayerFeedbackManager:give(player, `Gold is now {RefineryManager:getGoldBars(player)}`)
-		end
-	)
-	DevTools:registerPlaceCommand(
-		MineDevTools.ADD_DIAMONDS_COMMAND,
-		function(player: Player, args: { [string]: any })
-			local isValid, err = Validate.isTableShape(args, ADD_DIAMONDS_ARGS_SHAPE)
-			if not isValid then
-				warn("MineDevTools: addDiamonds with invalid args:", err)
-				return
-			end
-			RefineryManager:credit(player, { [Enums.RefinedResource.DIAMOND] = args.amount })
-			PlayerFeedbackManager:give(player, `Added {args.amount} diamonds; camp level {RefineryManager:getCampLevel()}`)
-		end
-	)
-	DevTools:registerPlaceCommand(
-		MineDevTools.SET_CAMP_LEVEL_COMMAND,
-		function(player: Player, args: { [string]: any })
-			local isValid, err = Validate.isTableShape(args, SET_CAMP_LEVEL_ARGS_SHAPE)
-			if not isValid then
-				warn("MineDevTools: setCampLevel with invalid args:", err)
-				return
-			end
-			RefineryManager:setCampLevel(args.level)
-			for _, readyPlayer in GameController:getReadyPlayers() do
-				PlayerFeedbackManager:give(readyPlayer, `Camp level set to {RefineryManager:getCampLevel()}`)
-			end
 		end
 	)
 	DevTools:registerPlaceCommand(

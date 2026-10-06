@@ -6,11 +6,9 @@
 -- server's; when it fires here, this opens the PostUpgrade overlay if this
 -- player owns a post, else says a post must be claimed first. The menu is
 -- one row per attribute with four pips (one filled per upgrade bought) and
--- a button showing the Gold price, greyed with a "Camp Level N required"
--- line while locked, gone when maxed. Everything is drawn from the
--- catalogue in GameMetadata, the upgrade counts on CurrentPlayer, the Gold
--- balance, and the Camp Level; a tap sends TryUpgradePost and the server
--- decides.
+-- a button showing the Gold price, gone when maxed. Everything is drawn
+-- from the catalogue in GameMetadata, the upgrade counts on CurrentPlayer,
+-- and the Gold balance; a tap sends TryUpgradePost and the server decides.
 -- The table also carries a display: the designer's DisplayPost model sets
 -- the spot and size, and this client redraws it locally as the current
 -- fortification tier's post with its own loadout post weapon standing on
@@ -46,7 +44,6 @@ type Row = {
 	button: GuiButton?,
 	priceLabel: TextLabel?,
 	resourceIcon: ImageLabel?,
-	lockLabel: TextLabel?,
 }
 
 export type ClientPostUpgradeManager = typeof(setmetatable(
@@ -98,21 +95,19 @@ function ClientPostUpgradeManager:getOwnUpgrades(): PostRules.Upgrades
 	return upgrades
 end
 
-function ClientPostUpgradeManager:renderRow(row: Row, catalog: PostRules.Catalog, upgrades: PostRules.Upgrades, gold: number, campLevel: number)
-	local offer = PostRules.getUpgradeOffer(catalog, upgrades, row.attribute, campLevel)
+function ClientPostUpgradeManager:renderRow(row: Row, catalog: PostRules.Catalog, upgrades: PostRules.Upgrades, gold: number)
+	local offer = PostRules.getUpgradeOffer(catalog, upgrades, row.attribute)
 	local level = PostRules.upgradeLevel(upgrades, row.attribute)
 	for index, pip in row.pips do
 		pip.BackgroundColor3 = if index <= level then UiStyle.ACCENT_COLOR else UiStyle.EMPTY_SLOT_COLOR
 	end
 	local isMaxed = offer.status == Enums.StoreOffer.MAXED
-	local isLocked = offer.status == Enums.StoreOffer.LOCKED
 	local price = offer.price or 0
 	local button = row.button
 	if button then
-		-- a locked button still takes the tap, to say why it is locked
 		button.Active = not isMaxed
 		button.AutoButtonColor = button.Active
-		button.BackgroundColor3 = if not isMaxed and not isLocked then UiStyle.ACCENT_COLOR else UiStyle.DISABLED_COLOR
+		button.BackgroundColor3 = if not isMaxed then UiStyle.ACCENT_COLOR else UiStyle.DISABLED_COLOR
 	end
 	if row.priceLabel then
 		if isMaxed then
@@ -120,17 +115,13 @@ function ClientPostUpgradeManager:renderRow(row: Row, catalog: PostRules.Catalog
 			row.priceLabel.TextColor3 = UiStyle.TEXT_COLOR
 		else
 			row.priceLabel.Text = tostring(price)
-			row.priceLabel.TextColor3 = if not isLocked and not PostRules.canAfford(gold, price) then UiStyle.NEGATIVE_COLOR else UiStyle.ACCENT_STROKE_COLOR
+			row.priceLabel.TextColor3 = if not PostRules.canAfford(gold, price) then UiStyle.NEGATIVE_COLOR else UiStyle.ACCENT_STROKE_COLOR
 		end
 	end
 	if row.resourceIcon then
 		local imageId = Icons.REFINED_RESOURCE[Enums.RefinedResource.GOLD_BAR]
 		row.resourceIcon.Image = if Icons.isPlaceholder(imageId) then "" else imageId
 		row.resourceIcon.Visible = not isMaxed
-	end
-	if row.lockLabel then
-		row.lockLabel.Visible = isLocked
-		row.lockLabel.Text = UiStyle.formatTitle(string.format(PostRules.LOCKED_FORMAT, offer.requiredCampLevel or 0))
 	end
 end
 
@@ -145,7 +136,6 @@ function ClientPostUpgradeManager:renderMenu()
 	end
 	local upgrades = self:getOwnUpgrades()
 	local gold = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_GOLD_BARS), 0)
-	local campLevel = readNumber(ClientDataManager:getGameMetadata(Attributes.CAMP_LEVEL), 1)
 	-- a row per attribute exists; the weapon kind picks which four show
 	-- and in what order (the Machine Gun has Cooldown, the Rocket
 	-- Launcher has Range)
@@ -154,7 +144,7 @@ function ClientPostUpgradeManager:renderMenu()
 		row.frame.Visible = order ~= nil
 		row.frame.LayoutOrder = order or 0
 		if order ~= nil then
-			self:renderRow(row, catalog, upgrades, gold, campLevel)
+			self:renderRow(row, catalog, upgrades, gold)
 		end
 	end
 end
@@ -200,13 +190,10 @@ end
 function ClientPostUpgradeManager:requestUpgrade(attribute: number)
 	local catalog = PostRules.decodeCatalog(ClientDataManager:getGameMetadata(Attributes.POST_CATALOG))
 	if catalog then
-		local campLevel = readNumber(ClientDataManager:getGameMetadata(Attributes.CAMP_LEVEL), 1)
-		local offer = PostRules.getUpgradeOffer(catalog, self:getOwnUpgrades(), attribute, campLevel)
+		local offer = PostRules.getUpgradeOffer(catalog, self:getOwnUpgrades(), attribute)
 		local gold = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_GOLD_BARS), 0)
 		local refusal: string? = nil
-		if offer.status == Enums.StoreOffer.LOCKED then
-			refusal = string.format(PostRules.LOCKED_FORMAT, offer.requiredCampLevel or 0)
-		elseif offer.status == Enums.StoreOffer.AVAILABLE and not PostRules.canAfford(gold, offer.price or 0) then
+		if offer.status == Enums.StoreOffer.AVAILABLE and not PostRules.canAfford(gold, offer.price or 0) then
 			refusal = FEEDBACK_NOT_ENOUGH_GOLD
 		end
 		if refusal then
@@ -361,7 +348,6 @@ function ClientPostUpgradeManager:findMenu()
 		local button = frame:FindFirstChild(Constants.UPGRADE_MENU_ROW_BUTTON)
 		local priceLabel = if button then button:FindFirstChild(Constants.UPGRADE_MENU_ROW_PRICE_LABEL) else nil
 		local resourceIcon = if button then button:FindFirstChild(Constants.UPGRADE_MENU_ROW_RESOURCE_ICON) else nil
-		local lockLabel = frame:FindFirstChild(Constants.UPGRADE_MENU_ROW_LOCK_LABEL)
 		local row: Row = {
 			attribute = attribute,
 			frame = frame,
@@ -369,7 +355,6 @@ function ClientPostUpgradeManager:findMenu()
 			button = if button and button:IsA("GuiButton") then button else nil,
 			priceLabel = if priceLabel and priceLabel:IsA("TextLabel") then priceLabel else nil,
 			resourceIcon = if resourceIcon and resourceIcon:IsA("ImageLabel") then resourceIcon else nil,
-			lockLabel = if lockLabel and lockLabel:IsA("TextLabel") then lockLabel else nil,
 		}
 		if row.button then
 			row.button.Activated:Connect(
@@ -435,14 +420,6 @@ function ClientPostUpgradeManager:init()
 			end
 		)
 	end
-	ClientDataManager:subscribeGameMetadataAttribute(
-		Attributes.CAMP_LEVEL,
-		function()
-			if self.isMenuOpen then
-				self:renderMenu()
-			end
-		end
-	)
 	ClientDataManager:subscribeGameMetadataAttribute(
 		Attributes.FORTIFICATION_TIER,
 		function()

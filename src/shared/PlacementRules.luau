@@ -59,7 +59,6 @@ export type TrapData = {
 	PRICE_IRON: number,
 	MAX_HP: number,
 	FOOTPRINT_CELLS: { number },
-	REQUIRED_CAMP_LEVEL: number,
 	-- whether the Hammer can repair it, as it can any Tower
 	IS_REPAIRABLE: boolean?,
 	-- Enums.TrapBehavior and its numbers (GameData/Defenses/Traps), M27
@@ -591,15 +590,6 @@ function PlacementRules.isRepairable(catalog: Catalog, placementKind: number, ty
 	end
 	local trap = catalog.traps[typeKind]
 	return trap ~= nil and trap.IS_REPAIRABLE == true
-end
-
--- the Camp Level a build needs: a Trap's own, 1 for a Tower (the loadout gates those)
-function PlacementRules.requiredCampLevel(catalog: Catalog, placementKind: number, typeKind: number): number
-	if placementKind == Enums.PlacementKind.TRAP then
-		local trap = catalog.traps[typeKind]
-		return if trap then trap.REQUIRED_CAMP_LEVEL else 1
-	end
-	return 1
 end
 
 function PlacementRules.sellValueFor(catalog: Catalog, placementKind: number, typeKind: number, level: number): number

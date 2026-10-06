@@ -49,8 +49,10 @@ gui.Enabled = true
 local stack = Instance.new("Frame")
 stack.Name = "RightStack"
 stack.AnchorPoint = Vector2.new(1, 0.5)
--- a little above centre so a phone's jet button sits under it (2026-09-16)
-stack.Position = UDim2.fromScale(0.985, 0.4)
+-- level with the Balances rows on the left so the two sides read as a
+-- pair (designer, 2026-10-06); the night map, 0.285 of the height tall,
+-- ends above it
+stack.Position = UDim2.fromScale(0.985, 0.45)
 stack.Size = UDim2.fromScale(0.11, 0.16)
 local stackAspect = Instance.new("UIAspectRatioConstraint")
 stackAspect.AspectRatio = 1.5

@@ -1,8 +1,7 @@
 --!strict
 
--- Pure rules for the Mining Supplies Store (GDD "Mining Supplies Store",
--- "Camp Level"): what each stand offers a player given their level and the
--- crew's Camp Level, whether they can pay, and the catalogue codec the
+-- Pure rules for the Mining Supplies Store (GDD "Mining Supplies Store"):
+-- what each stand offers a player given their level, whether they can pay, and the catalogue codec the
 -- server publishes as GameMetadata so the client can draw every stand
 -- itself. Tuning is passed in from GameData so this stays unit testable.
 local HttpService = game:GetService("HttpService")
@@ -12,14 +11,11 @@ local Enums = require(script.Parent.Enums)
 
 local StoreRules = {}
 
--- an upgrade track: entry N is the price of reaching level N and the Camp
--- Level that buy needs (entry 1 is unused, everyone starts at level 1); the
--- price list's length is the top level. The camp level table comes from
--- GameData/Camp/Level (M22) and travels in the catalogue so the client
--- never needs GameData
+-- an upgrade track: entry N is the price of reaching level N (entry 1 is
+-- unused, everyone starts at level 1); the price list's length is the top
+-- level. It travels in the catalogue so the client never needs GameData
 export type UpgradeTrack = {
 	priceByLevel: { number },
-	requiredCampLevelByLevel: { number },
 	-- true when level 1 is not having the item at all (Compass, Geiger
 	-- Counter) rather than the starter everyone carries (Pick Axe): the
 	-- first buy is then the item itself, shown by its bare name, and the
@@ -47,8 +43,6 @@ export type Offer = {
 	-- consumable, or the first buy of a track that starts unowned)
 	nameLevel: number?,
 	price: number?,
-	-- the Camp Level an upgrade offer needs, met or not; nil otherwise
-	requiredCampLevel: number?,
 	-- true for a track with a single rung (the Compass): bought once, so
 	-- the stand shows no level number and reads "Owned" afterwards
 	isSinglePurchase: boolean?,
@@ -56,13 +50,6 @@ export type Offer = {
 
 StoreRules.MAXED_TEXT = "Maxed out"
 StoreRules.OWNED_TEXT = "Owned"
-StoreRules.LOCKED_FORMAT = "Camp Level %d required"
-
--- the Camp Level an upgrade offer needs, whether or not it is met; nil for
--- consumables and maxed stands, which show no requirement
-function StoreRules.requiredCampLevelForOffer(offer: Offer): number?
-	return offer.requiredCampLevel
-end
 
 -- the private CurrentPlayer attribute carrying a player's level on each track
 StoreRules.LEVEL_ATTRIBUTE_BY_ITEM = {
@@ -92,19 +79,12 @@ function StoreRules.standNameForItem(item: number): string?
 	return StoreRules.standNameFromKey(key)
 end
 
--- the track's table decides (GameData/Camp/Level); a level the table does
--- not mention is never gated, so a short table loosens rather than locks
-function StoreRules.requiredCampLevel(track: UpgradeTrack, targetLevel: number): number
-	local required = track.requiredCampLevelByLevel[targetLevel]
-	return if typeof(required) == "number" then required else 1
-end
-
 -- level 1 is owning nothing, so two entries are one buy and no upgrades
 function StoreRules.isSinglePurchase(track: UpgradeTrack): boolean
 	return track.startsUnowned == true and #track.priceByLevel == 2
 end
 
-function StoreRules.getUpgradeOffer(track: UpgradeTrack, ownedLevel: number, campLevel: number): Offer
+function StoreRules.getUpgradeOffer(track: UpgradeTrack, ownedLevel: number): Offer
 	local targetLevel = math.floor(ownedLevel) + 1
 	local price = track.priceByLevel[targetLevel]
 	local isSinglePurchase = StoreRules.isSinglePurchase(track)
@@ -114,17 +94,15 @@ function StoreRules.getUpgradeOffer(track: UpgradeTrack, ownedLevel: number, cam
 			isSinglePurchase = isSinglePurchase,
 		}
 	end
-	local required = StoreRules.requiredCampLevel(track, targetLevel)
 	local nameLevel: number? = targetLevel
 	if track.startsUnowned then
 		nameLevel = if targetLevel > 2 then targetLevel - 1 else nil
 	end
 	return {
-		status = if campLevel < required then Enums.StoreOffer.LOCKED else Enums.StoreOffer.AVAILABLE,
+		status = Enums.StoreOffer.AVAILABLE,
 		level = targetLevel,
 		nameLevel = nameLevel,
 		price = price,
-		requiredCampLevel = required,
 		isSinglePurchase = isSinglePurchase,
 	}
 end
@@ -137,10 +115,10 @@ function StoreRules.getConsumableOffer(consumable: Consumable): Offer
 end
 
 -- what a stand shows a player: nil when the catalogue has no such item
-function StoreRules.getOffer(catalog: Catalog, item: number, ownedLevel: number, campLevel: number): Offer?
+function StoreRules.getOffer(catalog: Catalog, item: number, ownedLevel: number): Offer?
 	local track = catalog.upgrades[item]
 	if track then
-		return StoreRules.getUpgradeOffer(track, ownedLevel, campLevel)
+		return StoreRules.getUpgradeOffer(track, ownedLevel)
 	end
 	local consumable = catalog.consumables[item]
 	if consumable then
@@ -200,7 +178,6 @@ function StoreRules.decodeCatalog(encoded: any): Catalog?
 		if item and typeof(track) == "table" and typeof(track.priceByLevel) == "table" then
 			catalog.upgrades[item] = {
 				priceByLevel = track.priceByLevel,
-				requiredCampLevelByLevel = if typeof(track.requiredCampLevelByLevel) == "table" then track.requiredCampLevelByLevel else {},
 				startsUnowned = track.startsUnowned == true,
 			}
 		end

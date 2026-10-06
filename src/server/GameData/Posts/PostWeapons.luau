@@ -9,8 +9,8 @@
 -- the faster rate the server refuses, so latency jitter never drops a
 -- legitimate shot. Every attribute can be upgraded four times; upgrade N
 -- adds BONUS_PER_LEVEL of the base stat (fire rate shortens the interval by
--- the same share) and costs UPGRADE_PRICE_BY_LEVEL[N] Gold Bars, gated by
--- GameData/Camp/Level; the menu opens at the Post Upgrade Table. A kind with a PROJECTILE block fires a rocket
+-- the same share) and costs UPGRADE_PRICE_BY_LEVEL[N] Gold Bars; the menu
+-- opens at the Post Upgrade Table. A kind with a PROJECTILE block fires a rocket
 -- instead of a hitscan ray: the server flies it in a straight line at
 -- SPEED and, where it first meets the world or a damageable, deals DAMAGE
 -- to everything within SPLASH_RADIUS_STUDS; RANGE_STUDS is how far it flies

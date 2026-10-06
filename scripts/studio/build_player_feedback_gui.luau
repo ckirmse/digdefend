@@ -64,6 +64,20 @@ local function makeBox(name, anchorPoint, position, backgroundColor)
 	message.TextColor3 = UiStyle.TEXT_COLOR
 	message.FontFace = UiStyle.BODY_FONT
 	message.Parent = box
+
+	-- a resource icon a message can end with ("+5 [diamond]", M33): the
+	-- client puts it right after the words and shifts them left to stay
+	-- centred as a pair; hidden for a plain message
+	local icon = Instance.new("ImageLabel")
+	icon.Name = "Icon"
+	icon.AnchorPoint = Vector2.new(0, 0.5)
+	icon.Position = UDim2.fromScale(0.5, 0.5)
+	icon.Size = UDim2.fromScale(0.8, 0.8)
+	icon.SizeConstraint = Enum.SizeConstraint.RelativeYY
+	icon.BackgroundTransparency = 1
+	icon.ScaleType = Enum.ScaleType.Fit
+	icon.Visible = false
+	icon.Parent = box
 	return box
 end
 

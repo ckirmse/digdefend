@@ -3,7 +3,7 @@
 -- Party scaling (GDD "Party scaling", decided 2026-09-12): the mine is fixed
 -- and rock HP never scales; a bigger crew digs faster and meets bigger
 -- nights (M30). Iron and Gold are per player, so their drops scale with the
--- party so each player's upgrade curve holds; Diamonds and Uranium are
+-- party so each player's upgrade curve holds; Uranium is
 -- shared and never scaled. Indexed by player count, sampled at dawn (M28)
 -- and only ever decreasing during a run. Consumers: ore drops (M19), the
 -- uranium target (M20), the waves (M30): the generator aims for the

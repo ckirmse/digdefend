@@ -33,7 +33,6 @@ local function makeRockTable()
 		RESOURCE_TIERS = {
 			[RawResource.IRON_ORE] = { RockName.IRON_1, RockName.IRON_2, RockName.IRON_3, RockName.IRON_4 },
 			[RawResource.GOLD_ORE] = { RockName.GOLD_1, RockName.GOLD_2, RockName.GOLD_3, RockName.GOLD_4 },
-			[RawResource.CRYSTAL] = { RockName.CRYSTAL_1, RockName.CRYSTAL_2, RockName.CRYSTAL_3, RockName.CRYSTAL_4 },
 			[RawResource.URANIUM_ORE] = { RockName.URANIUM },
 		},
 		ROCKS = {
@@ -50,10 +49,6 @@ local function makeRockTable()
 			[RockName.GOLD_2] = makeResource(RawResource.GOLD_ORE, 2, 40, 10, 1, 2),
 			[RockName.GOLD_3] = makeResource(RawResource.GOLD_ORE, 3, 75, 30, 1, 1),
 			[RockName.GOLD_4] = makeResource(RawResource.GOLD_ORE, 4, 140, 87, 0, 1),
-			[RockName.CRYSTAL_1] = makeResource(RawResource.CRYSTAL, 1, 30, 2, 1, 1),
-			[RockName.CRYSTAL_2] = makeResource(RawResource.CRYSTAL, 2, 60, 5, 1, 1),
-			[RockName.CRYSTAL_3] = makeResource(RawResource.CRYSTAL, 3, 110, 14, 0, 1),
-			[RockName.CRYSTAL_4] = makeResource(RawResource.CRYSTAL, 4, 200, 39, 0, 1),
 			[RockName.URANIUM] = makeResource(RawResource.URANIUM_ORE, 1, 100, 1, 0, 0),
 			[RockName.BEDROCK] = { kind = RockKind.BEDROCK },
 		},
@@ -105,16 +100,15 @@ local function makeMine()
 				tierBias = 1.0,
 				iron = 34,
 				gold = 12,
-				crystal = 2,
 				uranium = 2,
 				pockets = 2,
 				handPlaced = {
-					{ rock = RockName.CRYSTAL_3, depth = 6, height = 1, widthOffset = 2 },
+					{ rock = RockName.GOLD_3, depth = 6, height = 1, widthOffset = 2 },
 				},
 			},
-			{ depth = 24, hardness = 2.0, tierBias = 2.0, iron = 30, gold = 18, crystal = 6, uranium = 4, pockets = 3 },
-			{ depth = 24, height = 12, hardness = 3.0, tierBias = 3.0, iron = 22, gold = 22, crystal = 12, uranium = 8, pockets = 4 },
-			{ depth = 28, height = 16, hardness = 4.0, tierBias = 4.0, iron = 16, gold = 20, crystal = 18, uranium = 14, pockets = 5 },
+			{ depth = 24, hardness = 2.0, tierBias = 2.0, iron = 30, gold = 18, uranium = 4, pockets = 3 },
+			{ depth = 24, height = 12, hardness = 3.0, tierBias = 3.0, iron = 22, gold = 22, uranium = 8, pockets = 4 },
+			{ depth = 28, height = 16, hardness = 4.0, tierBias = 4.0, iron = 16, gold = 20, uranium = 14, pockets = 5 },
 		},
 	}
 end
@@ -334,7 +328,6 @@ describe(
 				for _, zone in pocketsOnly.zones do
 					zone.iron = 0
 					zone.gold = 0
-					zone.crystal = 0
 					zone.handPlaced = {}
 				end
 				pocketsOnly.uraniumTarget = 1
@@ -349,14 +342,14 @@ describe(
 		)
 
 		it(
-			"stamps the hand-placed Crystal 3 where the designer put it",
+			"stamps the hand-placed Gold 3 where the designer put it",
 			function()
 				local mine = makeMine()
 				mine.zones[1].handPlaced[1].cluster = 0
 				local result = generateOrFail(mine)
 				local zone1 = result.zones[1]
 				-- depth 6 from the front face, height 1 up from the floor, 2 right of the centreline (12)
-				expect(MineGenerator.getCell(result.grid, zone1.depthStart + 6, zone1.heightStart + 1, 14)).toBe(RockName.CRYSTAL_3)
+				expect(MineGenerator.getCell(result.grid, zone1.depthStart + 6, zone1.heightStart + 1, 14)).toBe(RockName.GOLD_3)
 			end
 		)
 
@@ -433,6 +426,8 @@ describe(
 				mine.zones[1].tierBias = 1.5
 				mine.zones[1].iron = 40
 				mine.zones[1].gold = 40
+				-- the hand-placed Gold 3 sits in the shallow rows by design; only rolled veins are measured
+				mine.zones[1].handPlaced = {}
 				local result = generateOrFail(mine, config, SEED)
 				local grid = result.grid
 				local shallowHigh = 0
@@ -521,9 +516,11 @@ describe(
 			function()
 				local mine = makeMine()
 				mine.zones[1].handPlaced[1].cluster = 1
+				-- no authored gold veins, so the zone's gold is the one hand-placed rock
+				mine.zones[1].gold = 0
 				local result = generateOrFail(mine)
-				-- 2 crystal 1 clusters (7 cells x 2) plus one 7-cell Crystal 3 at 14 yield
-				expect(result.report.zones[1].requestedOre[RawResource.CRYSTAL]).toBeCloseTo(2 * 7 * 2 + 7 * 14, 6)
+				-- one 7-cell Gold 3 cluster at 30 yield
+				expect(result.report.zones[1].requestedOre[RawResource.GOLD_ORE]).toBeCloseTo(7 * 30, 6)
 			end
 		)
 
@@ -535,7 +532,6 @@ describe(
 				expect(zone2.hardness).toBeCloseTo(2.0, 9)
 				expect(zone2.veins[RawResource.IRON_ORE]).toBe(21)
 				expect(zone2.veins[RawResource.GOLD_ORE]).toBe(13)
-				expect(zone2.veins[RawResource.CRYSTAL]).toBe(4)
 				expect(result.zones[4].veins[RawResource.URANIUM_ORE]).toBe(14)
 			end
 		)
@@ -834,7 +830,7 @@ describe(
 				expect(MineGenerator.getCell(grid, 0, grid.floorHeight, grid.centrelineWidth)).toBe(MineGenerator.AIR)
 				expect(MineGenerator.getCell(grid, 0, grid.floorHeight - 1, grid.centrelineWidth)).toBe(RockName.BEDROCK)
 				-- the hand-placed advert is measured from the floor line, not the zone bottom
-				expect(MineGenerator.getCell(grid, zones[1].depthStart + 6, grid.floorHeight + 1, 14)).toBe(RockName.CRYSTAL_3)
+				expect(MineGenerator.getCell(grid, zones[1].depthStart + 6, grid.floorHeight + 1, 14)).toBe(RockName.GOLD_3)
 			end
 		)
 		it(

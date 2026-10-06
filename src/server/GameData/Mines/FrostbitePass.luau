@@ -25,7 +25,7 @@ return {
 
 	defaultZoneHeight = 8,
 	-- vein counts are single blocks since 2026-09-28: four times the old
-	-- iron and gold counts and six times the crystal, the same ore in more,
+	-- iron and gold counts, the same ore in more,
 	-- smaller finds
 	defaultZoneWidth = 24,
 
@@ -36,7 +36,6 @@ return {
 			tierBias = 1.0,
 			iron = 240,
 			gold = 255,
-			crystal = 0,
 			uranium = 7,
 			pockets = 2,
 		},
@@ -46,7 +45,6 @@ return {
 			tierBias = 2.0,
 			iron = 240,
 			gold = 170,
-			crystal = 0,
 			uranium = 8,
 			pockets = 3,
 		},
@@ -57,7 +55,6 @@ return {
 			tierBias = 3.0,
 			iron = 221,
 			gold = 156,
-			crystal = 0,
 			uranium = 9,
 			pockets = 4,
 		},
@@ -68,7 +65,6 @@ return {
 			tierBias = 4.0,
 			iron = 166,
 			gold = 120,
-			crystal = 0,
 			uranium = 14,
 			pockets = 5,
 		},
@@ -80,7 +76,6 @@ return {
 			tierBias = 4.0,
 			iron = 166,
 			gold = 120,
-			crystal = 0,
 			uranium = 362,
 			pockets = 5,
 		},

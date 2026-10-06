@@ -22,7 +22,7 @@ export type PlayerData = typeof(setmetatable(
 		isAdmin: boolean,
 		sessionStartTime: number,
 		isSaveOnExit: boolean,
-		cash: number,
+		diamonds: number,
 		ownedUnlocks: { [string]: boolean },
 		loadout: { [string]: string },
 		completions: { [string]: boolean },
@@ -37,7 +37,7 @@ export type PlayerData = typeof(setmetatable(
 -- every persisted field copies between the save table and this object as-is;
 -- adding a field here means adding it to PlayerSaveSchema too
 local SAVE_FIELDS = {
-	"cash",
+	"diamonds",
 	"ownedUnlocks",
 	"loadout",
 	"completions",
@@ -48,7 +48,7 @@ local SAVE_FIELDS = {
 }
 
 local SCHEMA_DEFAULTS: PlayerSaveSchema.Defaults = {
-	startingCash = PlayerControlData.STARTING_CASH,
+	startingDiamonds = PlayerControlData.STARTING_DIAMONDS,
 }
 
 function PlayerData.getDefaultSaveData(): SaveData
@@ -138,27 +138,27 @@ function PlayerData:shouldSaveOnExit(): boolean
 	return self.isSaveOnExit
 end
 
-function PlayerData:getCash(): number
-	return self.cash
+function PlayerData:getDiamonds(): number
+	return self.diamonds
 end
 
-function PlayerData:setCash(cash: number)
-	self.cash = math.max(0, math.floor(cash))
+function PlayerData:setDiamonds(diamonds: number)
+	self.diamonds = math.max(0, math.floor(diamonds))
 end
 
-function PlayerData:addCash(amount: number)
-	self:setCash(self.cash + amount)
+function PlayerData:addDiamonds(amount: number)
+	self:setDiamonds(self.diamonds + amount)
 end
 
-function PlayerData:canSpendCash(amount: number): boolean
-	return amount >= 0 and self.cash >= amount
+function PlayerData:canSpendDiamonds(amount: number): boolean
+	return amount >= 0 and self.diamonds >= amount
 end
 
-function PlayerData:spendCash(amount: number): boolean
-	if not self:canSpendCash(amount) then
+function PlayerData:spendDiamonds(amount: number): boolean
+	if not self:canSpendDiamonds(amount) then
 		return false
 	end
-	self:setCash(self.cash - amount)
+	self:setDiamonds(self.diamonds - amount)
 	return true
 end
 
@@ -256,7 +256,7 @@ end
 
 -- copies the live state into the profile and asks ProfileStore to write it
 -- now, for the few changes that must survive a crash a moment later (a
--- Robux receipt, Cash paid at a dawn)
+-- Robux receipt, Diamonds paid at a dawn)
 function PlayerData:saveNow()
 	local profile = self.profile
 	if not profile or not self.isSaveOnExit then
@@ -279,7 +279,7 @@ function PlayerData.new(player: Player): PlayerData
 	self.sessionStartTime = workspace:GetServerTimeNow()
 	self.isSaveOnExit = true
 	local defaults = PlayerData.getDefaultSaveData()
-	self.cash = defaults.cash
+	self.diamonds = defaults.diamonds
 	self.ownedUnlocks = defaults.ownedUnlocks
 	self.loadout = defaults.loadout
 	self.completions = defaults.completions

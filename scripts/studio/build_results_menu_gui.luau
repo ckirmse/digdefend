@@ -1,6 +1,6 @@
 -- Rebuilds the "ResultsMenu" ScreenGui under StarterGui (GDD "Results
 -- Menu", M32): a dialog with a title ("YOU DIED", "RUN WON", "RUN LOST"),
--- six stat rows (Uranium refined, Cash earned, Gold refined, Iron refined,
+-- six stat rows (Uranium refined, Diamonds earned, Gold refined, Iron refined,
 -- enemies killed, damage given; the resource rows carry the icon after
 -- their words; nights survived is on the grave, not here), each with its
 -- number and, under a "GROUP RANK" header, the player's place in the crew
@@ -32,7 +32,7 @@ local MENU_DISPLAY_ORDER = 5
 
 local STAT_ROWS = {
 	{ name = "UraniumRefined", text = "Uranium refined", hasIcon = true },
-	{ name = "CashEarned", text = "Cash earned", hasIcon = true },
+	{ name = "DiamondsEarned", text = "Diamonds earned", hasIcon = true },
 	{ name = "GoldRefined", text = "Gold refined", hasIcon = true },
 	{ name = "IronRefined", text = "Iron refined", hasIcon = true },
 	{ name = "EnemiesKilled", text = "Enemies killed", hasIcon = false },

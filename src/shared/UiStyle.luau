@@ -4,6 +4,8 @@
 -- text size bounds (CLAUDE.md "UI standards"). Data only, shared so the
 -- Studio build scripts under scripts/studio/ and the client managers read the
 -- same values. Decided 2026-09-11 (M10); expected to change with real art.
+local Enums = require(script.Parent.Enums)
+
 local UiStyle = {}
 
 -- Poppins is a Creator Store font family; Montserrat ships with Roblox
@@ -64,9 +66,25 @@ UiStyle.LABEL_TEXT_MAX_PX = 18
 UiStyle.TOUCH_TARGET_MIN_PX = 44
 
 UiStyle.HUD_TWEEN_SEC = 0.2
+-- a HUD element sliding on or off stage (the day clock, the Refinery HP
+-- bar, the Camp Map at dusk and dawn; M33)
+UiStyle.HUD_SLIDE_SEC = 0.9
 -- how much a HUD element swells (1 = none) when a flying icon lands on it
 UiStyle.HUD_BUMP_SCALE = 1.12
 UiStyle.BALANCE_FLASH_SEC = 0.6
+
+-- the Camp Map (M33): a structure's colour by Enums.StructureHealthBand,
+-- the players' dots (each crewmate in their compass colour, the local
+-- player ringed), and the monsters' smaller red dots
+UiStyle.CAMP_MAP_BAND_COLORS = {
+	[Enums.StructureHealthBand.FULL] = Color3.fromRGB(255, 255, 255),
+	[Enums.StructureHealthBand.HIGH] = Color3.fromRGB(250, 220, 60),
+	[Enums.StructureHealthBand.MID] = Color3.fromRGB(255, 150, 40),
+	[Enums.StructureHealthBand.LOW] = Color3.fromRGB(240, 70, 60),
+	[Enums.StructureHealthBand.DESTROYED] = Color3.fromRGB(0, 0, 0),
+}
+UiStyle.CAMP_MAP_LOCAL_PLAYER_RING_COLOR = Color3.fromRGB(255, 255, 255)
+UiStyle.CAMP_MAP_MONSTER_COLOR = Color3.fromRGB(230, 40, 40)
 
 function UiStyle.formatTitle(text: string): string
 	return string.upper(text)

@@ -117,9 +117,6 @@ local TOWER_BILLBOARD_LIFT_STUDS = 1.5
 -- was a compass out of the mine. Each bar's reach is the distance from
 -- its structure to Camp.Mine.Entrance, capped here
 local STRUCTURE_BILLBOARD_MAX_DISTANCE_STUDS = 300
--- and stacks above the Camp Level sign that already floats over the Refinery
--- the Refinery's bar floats this far above the model's top, the spot the
--- Camp Level billboard had until 2026-09-29
 local TOWER_LEVEL_FORMAT = "%s %d"
 
 -- a Tower or a Trap on the grid, as against a camp structure; only the
@@ -285,8 +282,8 @@ function ClientStructureManager:billboardMaxDistance(shadow: BasePart): number
 end
 
 -- how far above its shadow the Refinery's bar sits: over the model's top
--- by the lift the Camp Level billboard used, so it reads from the whole
--- camp; the shadow's own height when the model cannot be found
+-- so it reads from the whole camp; the shadow's own height when the model
+-- cannot be found
 function ClientStructureManager:refineryLift(shadow: BasePart): number
 	local camp = workspace:FindFirstChild(Constants.CAMP_FOLDER)
 	local refinery = if camp then camp:FindFirstChild(Constants.CAMP_REFINERY_MODEL) else nil
@@ -734,23 +731,14 @@ function ClientStructureManager:onWallDestroyed(payload: any)
 	ClientSoundManager:playSfx(SoundNames.Sfx.WALL_DESTROYED)
 end
 
--- the red alert as the Refinery comes under attack; the siren follows the
--- GameMetadata flag, which also ends it once the last monster backs off
+-- the red alert as the Refinery comes under attack; the siren is played
+-- by the Refinery HP bar, once per red flash (ClientRefineryHpManager, M33)
 function ClientStructureManager:onRefineryAttacked(payload: any)
 	if not Validate.isTableShape(payload, NOTIFY_ALERT_SHAPE) then
 		warn("ClientStructureManager: malformed NotifyRefineryAttacked")
 		return
 	end
 	ClientPlayerFeedbackManager:alertLocal(payload.message, payload.displaySec)
-end
-
-function ClientStructureManager:refreshRefinerySiren()
-	local isUnderAttack = ClientDataManager:getGameMetadata(Attributes.REFINERY_UNDER_ATTACK) == true
-	if isUnderAttack then
-		ClientSoundManager:setSfxLoopLevel(SoundNames.Sfx.REFINERY_UNDER_ATTACK, 1)
-	else
-		ClientSoundManager:stopSfxLoop(SoundNames.Sfx.REFINERY_UNDER_ATTACK)
-	end
 end
 
 function ClientStructureManager:init()
@@ -767,13 +755,6 @@ function ClientStructureManager:init()
 			self:onRefineryAttacked(payload)
 		end
 	)
-	ClientDataManager:subscribeGameMetadataAttribute(
-		Attributes.REFINERY_UNDER_ATTACK,
-		function()
-			self:refreshRefinerySiren()
-		end
-	)
-	self:refreshRefinerySiren()
 	ClientDataManager:subscribeGameMetadataAttribute(
 		Attributes.IS_NIGHT,
 		function()

@@ -17,7 +17,6 @@ export type Contents = { [number]: number }
 local ATTRIBUTE_BY_RESOURCE: { [number]: string } = {
 	[Enums.RawResource.IRON_ORE] = Attributes.BACKPACK_IRON_ORE,
 	[Enums.RawResource.GOLD_ORE] = Attributes.BACKPACK_GOLD_ORE,
-	[Enums.RawResource.CRYSTAL] = Attributes.BACKPACK_CRYSTAL,
 	[Enums.RawResource.URANIUM_ORE] = Attributes.BACKPACK_URANIUM_ORE,
 }
 

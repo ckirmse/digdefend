@@ -945,6 +945,16 @@ function ClientMonsterManager:getStats(): Stats
 	return self.stats
 end
 
+-- the ground location of every monster drawn so far, for the Camp Map
+-- (M33); a monster whose first sample has not arrived is skipped
+function ClientMonsterManager:forEachRenderedLocation(callback: (x: number, z: number) -> ())
+	for _, monster in self.monstersById do
+		if monster.renderCFrame ~= nil then
+			callback(monster.renderX, monster.renderZ)
+		end
+	end
+end
+
 -- the world the aim ray stops at: every monster body and this character
 -- are see-through, and from a post so are the fortifications, the same
 -- ones a bullet flies through

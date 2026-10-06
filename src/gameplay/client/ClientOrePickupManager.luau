@@ -52,7 +52,6 @@ local FALLBACK_COLOR = Color3.fromRGB(200, 200, 200)
 local ROCK_FOR_RESOURCE: { [number]: number } = {
 	[Enums.RawResource.IRON_ORE] = Enums.RockName.IRON_1,
 	[Enums.RawResource.GOLD_ORE] = Enums.RockName.GOLD_1,
-	[Enums.RawResource.CRYSTAL] = Enums.RockName.CRYSTAL_1,
 	[Enums.RawResource.URANIUM_ORE] = Enums.RockName.URANIUM,
 }
 

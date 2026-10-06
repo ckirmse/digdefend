@@ -1,7 +1,7 @@
 --!strict
 
 -- One player's numbers for the run (GDD "Results Menu"), M32: Uranium,
--- Gold, and Iron refined, Cash earned, enemies killed, and damage given. Run state in
+-- Gold, and Iron refined, Diamonds earned, enemies killed, and damage given. Run state in
 -- Lua, published as private CurrentPlayer attributes so the Results Menu
 -- reads them like any other value; nights survived is not kept here, it
 -- is the run's day less one (it is written on the grave). Each player's
@@ -9,7 +9,7 @@
 -- second, for the menu's Group Rank column. Kills and damage arrive from the target
 -- registry (DamageableManager), which names the attacker of every hit: a
 -- player's weapon, their post, or a Tower or Trap they built. The
--- managers that pay out (RefineryManager, CashTapManager) report their own.
+-- managers that pay out (RefineryManager, DiamondTapManager) report their own.
 local Players = game:GetService("Players")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
@@ -25,7 +25,7 @@ export type Stats = {
 	-- uranium this player carried to the Refinery themselves (the run's
 	-- count is shared; this is their part in it)
 	uraniumRefined: number,
-	cashEarned: number,
+	diamondsEarned: number,
 	goldRefined: number,
 	ironRefined: number,
 	enemiesKilled: number,
@@ -56,9 +56,9 @@ local RANKED_STATS: { { attribute: string, read: (stats: Stats) -> number } } = 
 		end,
 	},
 	{
-		attribute = Attributes.RUN_STAT_RANK_CASH_EARNED,
+		attribute = Attributes.RUN_STAT_RANK_DIAMONDS_EARNED,
 		read = function(stats: Stats): number
-			return stats.cashEarned
+			return stats.diamondsEarned
 		end,
 	},
 	{
@@ -90,7 +90,7 @@ local RANKED_STATS: { { attribute: string, read: (stats: Stats) -> number } } = 
 local function newStats(): Stats
 	return {
 		uraniumRefined = 0,
-		cashEarned = 0,
+		diamondsEarned = 0,
 		goldRefined = 0,
 		ironRefined = 0,
 		enemiesKilled = 0,
@@ -109,7 +109,7 @@ function RunStatsManager:replicate(player: Player)
 		return
 	end
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.RUN_STAT_URANIUM_REFINED, stats.uraniumRefined)
-	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.RUN_STAT_CASH_EARNED, stats.cashEarned)
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.RUN_STAT_DIAMONDS_EARNED, stats.diamondsEarned)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.RUN_STAT_GOLD_REFINED, stats.goldRefined)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.RUN_STAT_IRON_REFINED, stats.ironRefined)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.RUN_STAT_ENEMIES_KILLED, stats.enemiesKilled)
@@ -117,12 +117,12 @@ function RunStatsManager:replicate(player: Player)
 	stats.isDamageDirty = false
 end
 
-function RunStatsManager:addCashEarned(player: Player, amount: number)
+function RunStatsManager:addDiamondsEarned(player: Player, amount: number)
 	local stats = self.statsByPlayer[player]
 	if not stats or amount <= 0 then
 		return
 	end
-	stats.cashEarned += amount
+	stats.diamondsEarned += amount
 	self:replicate(player)
 end
 

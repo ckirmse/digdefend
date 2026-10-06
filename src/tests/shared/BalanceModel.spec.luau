@@ -14,8 +14,7 @@ local LAND = 1
 local AIR = 2
 local IRON = 1
 local GOLD = 2
-local CRYSTAL = 3
-local URANIUM = 4
+local URANIUM = 3
 local SENTRY = 1
 local FLAME = 2
 local TESLA = 3
@@ -102,7 +101,7 @@ local function settings(overrides)
 end
 
 -- one day of 100 swings at 10 damage is 1000 HP; zone 1 holds 2000 HP
--- with 200 iron, 100 gold, 40 crystal, 10 uranium; zone 2 is richer
+-- with 200 iron, 100 gold, 10 uranium; zone 2 is richer
 local function input(overrides)
 	local value = {
 		assumptions = ASSUMPTIONS,
@@ -112,21 +111,18 @@ local function input(overrides)
 		hitIntervalSec = 1,
 		pickDamageByLevel = { 10, 20 },
 		pickPriceByLevel = { 0, 50 },
-		pickRequiredCampLevelByLevel = { 1, 2 },
-		diamondsRequiredByLevel = { 20 },
 		zones = {
-			{ ore = { [IRON] = 200, [GOLD] = 100, [CRYSTAL] = 40, [URANIUM] = 10 }, hp = 2000, depthStartBlocks = 0, depthBlocks = 10 },
-			{ ore = { [IRON] = 400, [GOLD] = 400, [CRYSTAL] = 80, [URANIUM] = 100 }, hp = 4000, depthStartBlocks = 10, depthBlocks = 10 },
+			{ ore = { [IRON] = 200, [GOLD] = 100, [URANIUM] = 10 }, hp = 2000, depthStartBlocks = 0, depthBlocks = 10 },
+			{ ore = { [IRON] = 400, [GOLD] = 400, [URANIUM] = 100 }, hp = 4000, depthStartBlocks = 10, depthBlocks = 10 },
 		},
 		-- a bottomless backpack and no walk keep the other tests' arithmetic
-		backpack = { valueByLevel = { 1000000 }, priceByLevel = { 0 }, requiredCampLevelByLevel = { 1 } },
-		boots = { valueByLevel = { 16 }, priceByLevel = { 0 }, requiredCampLevelByLevel = { 1 } },
+		backpack = { valueByLevel = { 1000000 }, priceByLevel = { 0 } },
+		boots = { valueByLevel = { 16 }, priceByLevel = { 0 } },
 		refineSec = 0,
 		refineryToEntranceStuds = 0,
 		blockSizeStuds = 4,
 		ironResource = IRON,
 		goldResource = GOLD,
-		crystalResource = CRYSTAL,
 		uraniumResource = URANIUM,
 		refineRateByRaw = {},
 		oreYieldMultiplier = 1,
@@ -284,30 +280,27 @@ describe(
 	"BalanceModel shops",
 	function()
 		it(
-			"buys pick axe levels in order, gated by the camp level",
+			"buys pick axe levels in order",
 			function()
-				local level, spent = BalanceModel.affordablePickLevel(100, { 0, 50, 80 }, { 1, 1, 2 }, 1)
+				local level, spent = BalanceModel.affordablePickLevel(100, { 0, 50, 80 })
 				expect(level).toBe(2)
 				expect(spent).toBe(50)
-				level, spent = BalanceModel.affordablePickLevel(200, { 0, 50, 80 }, { 1, 1, 2 }, 2)
+				level, spent = BalanceModel.affordablePickLevel(200, { 0, 50, 80 })
 				expect(level).toBe(3)
 				expect(spent).toBe(130)
-				level = BalanceModel.affordablePickLevel(49, { 0, 50, 80 }, { 1, 1, 2 }, 5)
+				level = BalanceModel.affordablePickLevel(49, { 0, 50, 80 })
 				expect(level).toBe(1)
 			end
 		)
 		it(
-			"buys post upgrades damage and rate in turn, gated by the camp level",
+			"buys post upgrades damage and rate in turn",
 			function()
-				local ladder = { priceByLevel = { 10, 20 }, requiredCampLevelByLevel = { 1, 2 }, damageBonusPerLevel = 0.25, fireRateBonusPerLevel = 0.2 }
-				local damageLevel, rateLevel, spent = BalanceModel.affordablePostLevels(25, ladder, 1)
+				local ladder = { priceByLevel = { 10, 20 }, damageBonusPerLevel = 0.25, fireRateBonusPerLevel = 0.2 }
+				local damageLevel, rateLevel, spent = BalanceModel.affordablePostLevels(25, ladder)
 				expect(damageLevel).toBe(1)
 				expect(rateLevel).toBe(1)
 				expect(spent).toBe(20)
-				damageLevel, rateLevel, spent = BalanceModel.affordablePostLevels(100, ladder, 1)
-				-- level 2 needs camp level 2
-				expect(damageLevel + rateLevel).toBe(2)
-				damageLevel, rateLevel, spent = BalanceModel.affordablePostLevels(100, ladder, 2)
+				damageLevel, rateLevel, spent = BalanceModel.affordablePostLevels(100, ladder)
 				expect(damageLevel).toBe(2)
 				expect(rateLevel).toBe(2)
 				expect(spent).toBe(60)
@@ -316,8 +309,8 @@ describe(
 		it(
 			"adds the cooldown rung for a gun with heat and rates its firing share",
 			function()
-				local ladder = { priceByLevel = { 10, 20 }, requiredCampLevelByLevel = { 1, 1 }, damageBonusPerLevel = 0.25, fireRateBonusPerLevel = 0.2, cooldownBonusPerLevel = 1 / 6, heatFullSec = 4, heatCoolSec = 3 }
-				local damageLevel, rateLevel, spent, cooldownLevel = BalanceModel.affordablePostLevels(35, ladder, 1)
+				local ladder = { priceByLevel = { 10, 20 }, damageBonusPerLevel = 0.25, fireRateBonusPerLevel = 0.2, cooldownBonusPerLevel = 1 / 6, heatFullSec = 4, heatCoolSec = 3 }
+				local damageLevel, rateLevel, spent, cooldownLevel = BalanceModel.affordablePostLevels(35, ladder)
 				expect(damageLevel).toBe(1)
 				expect(rateLevel).toBe(1)
 				expect(cooldownLevel).toBe(1)
@@ -326,27 +319,17 @@ describe(
 				expect(BalanceModel.cooldownFactor(ladder, 0)).toBeCloseTo(1, 5)
 				expect(BalanceModel.cooldownFactor(ladder, 2)).toBeCloseTo((4 / 6) / (4 / 7), 5)
 				-- a post without heat is untouched
-				expect(BalanceModel.cooldownFactor({ priceByLevel = {}, requiredCampLevelByLevel = {}, damageBonusPerLevel = 0, fireRateBonusPerLevel = 0 }, 3)).toBe(1)
+				expect(BalanceModel.cooldownFactor({ priceByLevel = {}, damageBonusPerLevel = 0, fireRateBonusPerLevel = 0 }, 3)).toBe(1)
 			end
 		)
 		it(
 			"mans a post over the handheld once its upgrades make it better",
 			function()
-				local ladder = { priceByLevel = { 10 }, requiredCampLevelByLevel = { 1 }, damageBonusPerLevel = 1, fireRateBonusPerLevel = 1 }
+				local ladder = { priceByLevel = { 10 }, damageBonusPerLevel = 1, fireRateBonusPerLevel = 1 }
 				-- post 8 DPS under the handheld's 10 until one damage upgrade doubles it
 				local result = BalanceModel.simulate(input({ nights = 1, postDps = 8, postUpgrades = ladder }))
 				expect(result.rows[1].postLevel).toBe(2)
 				expect(result.rows[1].freeDps).toBeCloseTo(8 * 2 * 2, 5)
-			end
-		)
-		it(
-			"steps the camp level through each threshold in turn",
-			function()
-				expect(BalanceModel.campLevelFor(0, { 20, 80, 250 })).toBe(1)
-				expect(BalanceModel.campLevelFor(20, { 20, 80, 250 })).toBe(2)
-				expect(BalanceModel.campLevelFor(99, { 20, 80, 250 })).toBe(2)
-				expect(BalanceModel.campLevelFor(100, { 20, 80, 250 })).toBe(3)
-				expect(BalanceModel.campLevelFor(1000, { 20, 80, 250 })).toBe(4)
 			end
 		)
 	end
@@ -365,8 +348,7 @@ describe(
 				expect(row.goldPerPlayer).toBeCloseTo(50, 5)
 				expect(row.uraniumTotal).toBeCloseTo(5, 5)
 				expect(row.zone).toBe(1)
-				-- 20 Diamonds is exactly camp level 2, so the 50-Gold pick is bought
-				expect(row.campLevel).toBe(2)
+				-- 50 Gold buys the 50-Gold pick
 				expect(row.pickLevel).toBe(2)
 			end
 		)
@@ -381,7 +363,7 @@ describe(
 				expect(BalanceModel.miningSeconds(0, 1, 10, 10)).toBe(0)
 				-- a 15-ore backpack and a 64-stud walk at 16 studs a second cut
 				-- day 1 against the bottomless one
-				local carried = BalanceModel.simulate(input({ nights = 1, backpack = { valueByLevel = { 15 }, priceByLevel = { 0 }, requiredCampLevelByLevel = { 1 } }, refineryToEntranceStuds = 64, refineSec = 2 }))
+				local carried = BalanceModel.simulate(input({ nights = 1, backpack = { valueByLevel = { 15 }, priceByLevel = { 0 } }, refineryToEntranceStuds = 64, refineSec = 2 }))
 				local bottomless = BalanceModel.simulate(input({ nights = 1 }))
 				expect(carried.rows[1].miningSec).toBeLessThan(bottomless.rows[1].miningSec)
 				expect(carried.rows[1].ironPerPlayer).toBeLessThan(bottomless.rows[1].ironPerPlayer)

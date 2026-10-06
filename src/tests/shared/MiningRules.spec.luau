@@ -106,7 +106,6 @@ describe(
 			function()
 				expect(MiningRules.isYieldScaledByParty(Enums.RawResource.IRON_ORE)).toBe(true)
 				expect(MiningRules.isYieldScaledByParty(Enums.RawResource.GOLD_ORE)).toBe(true)
-				expect(MiningRules.isYieldScaledByParty(Enums.RawResource.CRYSTAL)).toBe(false)
 				expect(MiningRules.isYieldScaledByParty(Enums.RawResource.URANIUM_ORE)).toBe(false)
 			end
 		)

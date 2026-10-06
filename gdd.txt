@@ -13,8 +13,8 @@ Overview
 * Players must use the ores and materials they find mining to build and upgrade their camp defenses to keep the enemy hordes at bay at night, so they can mine in the day
 * To win, players will need to extract the required amount of Uranium and survive long enough to be airlifted out by the company’s rescue helicopter
 * Players lose by dying or having their processing machine destroyed
-* In addition to in run currency, players receive Cash for reaching certain milestones during each run, which they can use outside the run to unlock new weapons, post upgrades, and defensive placements
-* Proposed 2026-10-05 (replacing the Class system of 2026-10-03), to be fleshed out: the lobby economy becomes Characters (a generic character whose weapon, post weapon, and three skills are each rerolled with Cash, with more character slots to buy) plus Contracts (endless difficulty tiers, each with its own Cash reward, and a weekly contract), which together are the reason to keep playing after a map is beaten. See "Characters", "Earning Cash", and "Contracts" near the end of this document
+* In addition to in run currency, players receive Diamonds for reaching certain milestones during each run, which they can use outside the run to unlock new weapons, post upgrades, and defensive placements
+* Proposed 2026-10-05 (replacing the Class system of 2026-10-03), to be fleshed out: the lobby economy becomes Characters (a generic character whose weapon, post weapon, and three skills are each rerolled with Diamonds, with more character slots to buy) plus Contracts (endless difficulty tiers, each with its own Diamonds reward, and a weekly contract), which together are the reason to keep playing after a map is beaten. See "Characters", "Earning Diamonds", and "Contracts" near the end of this document
 * As players level up their skills, they’ll be able to embark on more challenging missions in different locations 
 Place Structure
 * The game will have two separate places: a lobby place and a gameplay place. 
@@ -144,10 +144,10 @@ Lobby Menus
 HUD
 * The HUD will show the player state and have buttons to access the various other menus
    * Player State/Balance 
-      * Cash Balance (the game’s permanent currency)
-         * Displays the user’s current Cash balance
+      * Diamonds Balance (the game’s permanent currency; called Diamonds until 2026-10-06, M33, when it took the name players already understand and the diamond icon)
+         * Displays the user’s current Diamonds balance beside the diamond icon (a resource is its icon, never a word)
          * When pressed, opens the store menu to the currency section
-         * After the initial value is loaded, if the value increases the text should turn green and play the CoinsAdded sound and update the value. If the value decreases, the text should turn red and it should play the SaleSuccess sound before updating the value (cash was spent). 
+         * After the initial value is loaded, if the value increases the text should turn green and play the CoinsAdded sound and update the value. If the value decreases, the text should turn red and it should play the SaleSuccess sound before updating the value (diamonds were spent). 
       * Loadout Slots
          * Shows the players current load out slots 
             * 1 Weapon Slot
@@ -180,15 +180,15 @@ Store Menu
    * Inventory Panel: 
       * Shows all items in the store in one scrolling frame, that scrolls up/down vertically. 
       * The section tab for the section currently being viewed is highlighted. 
-      * Every item should display a name, an image, and a price (either Cash or Robux)
+      * Every item should display a name, an image, and a price (either Diamonds or Robux)
       * When pressed, an item appears in the Item Panel
    * Item Panel: 
       * The Item Panel is on the right side of the screen and shows item details/buy option
       * When an item is selected in the inventory panel, the Item Panel is populated with that item’s data
-      * It shows the item’s displayName, its image, a brief description, and buy button that says “BUY” along with the price in the appropriate currency (cash or Robux)
+      * It shows the item’s displayName, its image, a brief description, and buy button that says “BUY” along with the price in the appropriate currency (Diamonds or Robux)
       * If a player presses the buy button:
-         * If it is for Cash and the player has the currency, the cost should be deducted from their account and the item should be awarded
-         * If it is for Cash and they don’t have the required currency, find the minimum currency pack needed to complete the purchase, and show the Robux purchase prompt for that item along with a Feedback message “You don’t have enough Cash”
+         * If it is for Diamonds and the player has the currency, the cost should be deducted from their account and the item should be awarded
+         * If it is for Diamonds and they don’t have the required currency, find the minimum currency pack needed to complete the purchase, and show the Robux purchase prompt for that item along with a Feedback message “You don’t have enough Diamonds”
          * If it is Robux, open the marketplace purchase prompt
 * If the player owns an item and that item is not a repeatable purchase, that items should not be shown to that player, so only items they can actually buy are shown in the store.
 * Everything else can be dealt with in the Loadout Menu
@@ -287,11 +287,11 @@ Gameplay Overview
 * All gameplay in the gameplay server is in first person (lobby is default third person). Admin dev tools free the mouse while a dev window is open.
 * The core game consists of repeating the same core loop until the required uranium has been mined or until all players are dead or the mine grinder is destroyed 
 * During the day (320 seconds), players harvest resources, upgrade abilities, and place defenses
-* Players earn resources by mining raw ore and bringing it to the refinery to be refined into currency (Iron Bars, Gold Bars, Diamonds, and Uranium)
+* Players earn resources by mining raw ore and bringing it to the refinery to be refined into currency (Iron Bars, Gold Bars, and Uranium)
 * The deeper players get into the mine, the harder the rock becomes and the more valuable the ore becomes
 * After being refined, players can spend their currency on upgrading their mining abilities, upgrading their defense posts, buying/placing defenses, or repairing existing damage
-* Gold is used on personal items/upgrades, Iron is used on shared resources, and Diamonds are a collective currency used to upgrade the camp level
-* Upgrading the camp level unlocks mining upgrades and post upgrades (decided 2026-09-15: the mine itself is never locked; depth is gated by rock hardness alone)
+* Gold is used on personal items/upgrades and Iron is used on shared resources. There is no in-run collective currency since 2026-10-06 (M33): Crystal, the in-run Diamond, and the Camp Level were removed in full (see Camp Level)
+* Nothing in the stores is gated: every upgrade is a plain Gold or Iron buy, and the mine itself is never locked; depth is gated by rock hardness alone (decided 2026-09-15)
 * At night, waves of enemies spawn outside the camp, bent on destruction 
 * Players must use their weapons, posts, and defenses to kill the horde before the horde destroys the refinery or kills all the players
 * Waves get progressively harder every night, forcing players to think through their defenses and decide whether its better to improve mining speed or defense strength
@@ -346,7 +346,6 @@ These are resources harvested directly from mining. They are not useful until th
 
 * Iron Ore: Dropped from breaking an Iron Block. Refined into Iron Bars. 
 * Gold Ore: Dropped from breaking an Iron Block. Refined into Gold Bars. 
-* Crystals: Dropped from breaking a Crystal Block. Refined into Diamonds.
 * Uranium Ore: Dropped from breaking a Uranium Block. Refined into Uranium. 
 Refined Resources
 These are resources that have been refined from Raw Resources via the Refinery and can be used by the player. 
@@ -354,13 +353,13 @@ These are resources that have been refined from Raw Resources via the Refinery a
 
 * Iron Bars: Refined from Iron Ore. Goes into a private player balance, but is spent on shared items like wall repairs and defenses. Since 2026-10-05 (M32) a player can give Iron Bars to a crewmate: the "Give Currency" prompt on any other player opens a menu with a Gold row and an Iron row (plus and minus step by 1, held they repeat faster; the amount can be typed), a Send button, and a confirmation page; Confirm moves the bars, both players see them fly between the two characters (the Refinery's flight), the sender hears each bar go and the receiver hears the Refinery payout and sees the balance row bump, and both get a line ("[DisplayName] sent you 20 Gold Bars and 10 Iron Bars"). Dead players can neither send nor receive
 * Gold Bars: Refined from Gold Ore. Goes into a private player balance and is used on personal player upgrades (mining attributes, post upgrades, weapons). Can be given to a crewmate the same way as Iron Bars (M32)
-* Diamonds: Refined from Crystals. These are a shared resource between all players, used to upgrade the Camp Level. 
+* (Diamonds were refined from Crystals into a shared Camp Level pool until 2026-10-06, M33; both are gone, and Diamonds is now the name of the lobby currency below)
 * Uranium: Refine from Uranium Ore. This is the win condition. Getting X amount of Uranium allows players to call in a rescue helicopter. 
 Meta Currency
 These currencies survive a run and are used to buy permanent unlocks/upgrades/etc from the lobby store
 
 
-* Cash: Earned by reaching specific milestones in a run or by purchasing with Robux
+* Diamonds: Earned by reaching specific milestones in a run or by purchasing with Robux
 Camp Locations
 Every camp consists of a few primary structures, each with a different purpose:
 Mines
@@ -375,9 +374,9 @@ Mines
 Refinery
 * Located just outside the mine entrance is the Refinery
 * Players bring their raw materials here to get refined
-* Under attack (2026-09-25): while any live monster is within 20 studs of the Refinery (GameData/Camp/Structures REFINERY_ATTACK_RADIUS_STUDS, checked four times a second) every client loops the RefineryUnderAttack siren, and the red alert "The Refinery is under attack" shows once as the attack begins; the state clears, and the siren stops, once the last monster leaves the radius
-* It functions like a simulator game, players walk up to the refinery and, as soon as they step inside the ring drawn on the ground around it (REFINE_RADIUS_STUDS, 14, GameData/Refinery; decided 2026-10-01, replacing the "Refine Raw Resources" proximity prompt; the ring shows only while the player carries ore and fades out as the Refinery pulls the last of it, 2026-10-02), all the raw resources are sucked from the player into the Refinery, which spits out the appropriate refined materials, which go straight into the player balance for spending (unless it’s diamonds, in which case it gets added to the Camp Level progress bar). 
-* The Refinery is the focal point of the camp: its HP bar floats above it (where the camp level was shown until 2026-09-29) and if destroyed, it ends the game
+* Under attack (2026-09-25): while any live monster is within 20 studs of the Refinery (GameData/Camp/Structures REFINERY_ATTACK_RADIUS_STUDS, checked four times a second) every client hears the RefineryUnderAttack siren once per red flash of the Refinery HP bar (M33; a loop until then), and the red alert "The Refinery is under attack" shows once as the attack begins; the state clears, and the siren stops, once the last monster leaves the radius
+* It functions like a simulator game, players walk up to the refinery and, as soon as they step inside the ring drawn on the ground around it (REFINE_RADIUS_STUDS, 14, GameData/Refinery; decided 2026-10-01, replacing the "Refine Raw Resources" proximity prompt; the ring shows only while the player carries ore and fades out as the Refinery pulls the last of it, 2026-10-02), all the raw resources are sucked from the player into the Refinery, which spits out the appropriate refined materials, which go straight into the player balance for spending. 
+* The Refinery is the focal point of the camp: its HP bar floats above it and if destroyed, it ends the game
 * Players must protect the refinery at all costs
 Mining Supplies Store
 * This is where players upgrade their mining attributes and can buy consumable Mining Tools
@@ -388,7 +387,7 @@ Mining Supplies Store
 * It will also have a 3D representation of each consumable Mining Tool that can also be purchased by activating a proximity prompt:
    * Torch: Creates light for dark mining caverns
    * Dynamite: Destroys a large chunk of rock when activated
-* As built (M21, decided 2026-09-15): the store is Camp.MiningStore with a Stands folder (2026-10-01) holding one "<Item>Stand" Model per item (Pick Axe, Boots, Backpack, Jet Pack, Torch, Dynamite), each with a Base slab carrying a SurfaceGui (name, Gold price with icon, and a "Camp Level N required" line shown in red only while unmet) and an ItemSpawn part where the next level's model turns at 45 degrees per second. Every purchase is a ProximityPrompt held for one second, heard by the server directly; prices per level and consumable bundles live in GameData/Store/MiningSupplies (Pick Axe 20/90/270/800 since 2026-10-02 when level 2 came down from 30, Boots 20/60/180/540, Backpack 20/60/180/540, Jet Pack 40/120/360/1080 Gold for levels 2 to 5; Torch 5 Gold for four, Dynamite 12 Gold for one). Stands are drawn by each client from a catalogue published once as GameMetadata, because the next level differs per player, each stand bound as its parts replicate (with streaming the store arrives after the Camp folder, and a one-time lookup left every stand reading its authored placeholder on live servers, 2026-10-02); a locked stand disables its prompt locally, a maxed track reads "MAXED OUT" and keeps its top model on display. Gold Bars are spent from the refinery balance; the StorePurchase sound confirms a buy
+* As built (M21, decided 2026-09-15): the store is Camp.MiningStore with a Stands folder (2026-10-01) holding one "<Item>Stand" Model per item (Pick Axe, Boots, Backpack, Jet Pack, Torch, Dynamite), each with a Base slab carrying a SurfaceGui (name, and the Gold price with its icon; the "Camp Level N required" line went with the Camp Level on 2026-10-06) and an ItemSpawn part where the next level's model turns at 45 degrees per second. Every purchase is a ProximityPrompt held for one second, heard by the server directly; prices per level and consumable bundles live in GameData/Store/MiningSupplies (Pick Axe 20/90/270/800 since 2026-10-02 when level 2 came down from 30, Boots 20/60/180/540, Backpack 20/60/180/540, Jet Pack 40/120/360/1080 Gold for levels 2 to 5; Torch 5 Gold for four, Dynamite 12 Gold for one). Stands are drawn by each client from a catalogue published once as GameMetadata, because the next level differs per player, each stand bound as its parts replicate (with streaming the store arrives after the Camp folder, and a one-time lookup left every stand reading its authored placeholder on live servers, 2026-10-02); a locked stand disables its prompt locally, a maxed track reads "MAXED OUT" and keeps its top model on display. Gold Bars are spent from the refinery balance; the StorePurchase sound confirms a buy
 * Compass (as built 2026-09-30): a single purchase in the Mining Supplies Store (the COMPASS_2 stand; level 1 is not owning one). Owning it shows the locator bar under the day clock: the bar is the view ahead, its middle straight ahead, and every frame each marker sits by how far its target is off the camera's heading (shared CompassRules). The Refinery is the home icon, pinned to the nearer end when out of view; each crewmate is a dot in a colour they keep for the run (CompassColorIndex, public), and that colour also tints their name over their head (the PlayerName billboard replaces Roblox's overhead name). Positions travel through the replication folders because streaming hides far characters. Tuning in GameData/Mining/Compass
 * Geiger Counter (as built 2026-09-30): bought in the Mining Supplies Store and upgraded for range (GEIGER_COUNTER_2 upward; level 1 is not owning one). The dial beside the day clock shows only in mining mode; a few times a second the client asks its own mine grid how far the nearest uranium rock is, buried or not, and lights as many rings as GeigerRules says for the range the level detects at, with three click sounds (Sfx geiger1 to geiger3) rising as it nears. The server publishes the level and its range; the detecting is client-side since the dial is only a hint. Tuning in GameData/Mining/GeigerCounter
 Defense Store
@@ -507,23 +506,18 @@ These Rocks give any raw resources when destroyed. More valuable Resource Rocks 
    * Gold 2 (40 HP, 10 Gold Ore)
    * Gold 3 (75 HP, 30 Gold Ore)
    * Gold 4 (140 HP, 87 Gold Ore) 
-* Crystal
-   * Crystal 1 (30 HP, 2 Crystals)
-   * Crystal 2 (60 HP, 5 Crystals)
-   * Crystal 3 (110 HP, 14 Crystals)
-   * Crystal 4 (200 HP, 39 Crystals) 
 * Uranium (100 HP, 1 Uranium Ore)
 
 
 Bedrock
 Bedrock is a Rock that cannot be destroyed by anything, but is used to define the boundaries of the mine. Every mine will be fully surrounded by bedrock on all sides (except for the entrance), which ensures players cannot dig out into some unwanted area.  
 Mine Layout
-* The mine is one open, explorable volume. Decided 2026-09-15, replacing sealed chambers with camp-level gates: chambers made mining linear and killed the “look what I found over here, help me” moment, which needs room to split up and things to find
+* The mine is one open, explorable volume. Decided 2026-09-15, replacing sealed chambers: chambers made mining linear and killed the “look what I found over here, help me” moment, which needs room to split up and things to find
 * Depth zones: the mine file is an ordered list of zones running back into the mountain, and each zone sets how hard the rock is, which ore tiers dominate, how much ore and uranium it holds, and how many pockets it has. Rock gets harder and ore gets better the deeper a crew digs
-* Soft gating: nothing in the mine is ever locked. A starting pick axe against deep rock is a wall the crew can feel without a wall being there, and the Camp Level gates the pick axe tiers in the Mining Supplies Store, so depth is still paced by Diamonds
+* Soft gating: nothing in the mine is ever locked. A starting pick axe against deep rock is a wall the crew can feel without a wall being there, and the Gold price ladder of the pick axe is what paces depth (the Camp Level gated the pick axe tiers until it was removed, 2026-10-06)
 * Pockets: pre-carved caverns of a few blocks, with ore exposed on their walls, scattered through every zone. They are what digging discovers and what a crew talks about
 * The entrance: a short tunnel through the front bedrock into the first zone, the only opening in the shell. Past it the crew chooses its own direction
-* Clear signal without walls: rock colour and material change with tier, so deeper rock looks different, and the camp level unlocks in the stores are the goal to work toward
+* Clear signal without walls: rock colour and material change with tier, so deeper rock looks different, and the next pick axe level is the goal to work toward
 * There are 4 zones per mine, though the system needs to be built in a way that this is a customizable number
 * This is to encourage players to upgrade their mining equipment as the game progresses
 
@@ -556,7 +550,7 @@ Collecting Ore
 * Players can tap their Backpack icon to bring up a Backpack inventory menu
 * This menu shows how much of each Ore is in their backpack (only showing Ore that the player actually has) 
 * Capacity is counted in ore units, so the HUD’s taken/total is total ore over capacity (“12/15”). Contents, level, and capacity are server run state replicated as private attributes; the backpack HUD button is always shown and opens the contents menu as an overlay
-* A broken resource rock gives the breaker its yield. Iron and Gold are multiplied by the party table (PartyScaling) and rounded half up; Crystal and Uranium never are. Party size is the crew count RunCycleManager samples at run start, every dawn, and on every departure (M28; departures 2026-09-25), never the live player count
+* A broken resource rock gives the breaker its yield. Iron and Gold are multiplied by the party table (PartyScaling) and rounded half up; Uranium never is. Party size is the crew count RunCycleManager samples at run start, every dawn, and on every departure (M28; departures 2026-09-25), never the live player count
 * Ore that does not fit lands by the block as a pickup (one invisible server part carrying resource and amount; clients draw a bobbing cube in the ore’s colour), scattered up to 1.5 studs and settled onto the ground beneath (inside the mine the server walks the grid column down to the next rock; outside it raycasts the camp), so drops never hang where the block was. Ore at the player's feet still flies into the HUD backpack from the nearest screen edge. Any player with room within 5 studs collects it, partial amounts included; the server checks four times a second. A pickup nobody takes disappears after 120 s, and past 300 pickups the oldest go first (GameData/Mining/Backpack) Since 2026-09-29 the icon on each face of the plate is a SurfaceGui with LightInfluence 0 (the OrePickupFace template under GameAssets/Gui) rather than a Decal, so it reads as bright underground as the flying icons do.
 Refining Ore
 * Players refine Raw Resources by taking them to the Refinery
@@ -570,8 +564,8 @@ Refining Ore
 * The Refinery spins and grinds the resources for a few seconds and spits out icons for each of the Refined Resources it generates, which should fly into the player’s HUD to the appropriate balance bar
 * The balance bars should shake and update as each icon hits it
 * This process should all feel very satisfying, both visually and audibly – lots of particle effects, sounds, etc
-* As built (M20, decided 2026-09-14): every ore refines one to one (GameData/Refinery, adjustable per ore). The prompt is heard by the server directly, never as a client message; it empties the whole backpack, disables itself for a 2 second grind, then pays out. Iron Bars and Gold Bars are private per-player balances; Diamonds go into the shared Camp Level pool and Uranium into the shared rescue count, both shown to every player. The Uranium row reads “total / target”, the target being the mine’s solo uraniumTarget times the PartyScaling multiplier for the current crew (the crew count sampled at run start, every dawn, and on every departure, M28), rounded to the nearest 5, and turns green once reached
-* Placeholder sequence until Phase 9 polish (the Refinery legs moved into the world on 2026-09-29): resource icons (at most six per resource; the FlightIcon BillboardGui template under GameAssets/Gui, a coloured disc when a resource has no icon yet) rise from the player's hands and arc into the top of the Refinery while RefineryGrind plays, then arc back out of it to the player with RefineryPayout; each balance row bumps as its bar arrives and its value updates when the last one does, Diamonds bumping the Camp Level billboard. Because the icons fly through the world on throwaway parts, the camera can turn or move during the sequence without stranding them; before this they flew across the screen toward a point the camera had usually left, and needed the Refinery on screen to aim at all. Ore picked up in the mine still flies across the screen into the backpack button, since both ends of that flight are HUD elements Since 2026-10-05 (M32) every player sees a crewmate's icons go in and come out (the server tells everyone who is refining); only the refining player hears the sounds and sees their backpack and balance rows move
+* As built (M20, decided 2026-09-14): every ore refines one to one (GameData/Refinery, adjustable per ore). The prompt is heard by the server directly, never as a client message; it empties the whole backpack, disables itself for a 2 second grind, then pays out. Iron Bars and Gold Bars are private per-player balances; Uranium goes into the shared rescue count shown to every player (Diamonds went into the shared Camp Level pool until 2026-10-06, M33). The Uranium row reads “total / target”, the target being the mine’s solo uraniumTarget times the PartyScaling multiplier for the current crew (the crew count sampled at run start, every dawn, and on every departure, M28), rounded to the nearest 5, and turns green once reached
+* Placeholder sequence until Phase 9 polish (the Refinery legs moved into the world on 2026-09-29): resource icons (at most six per resource; the FlightIcon BillboardGui template under GameAssets/Gui, a coloured disc when a resource has no icon yet) rise from the player's hands and arc into the top of the Refinery while RefineryGrind plays, then arc back out of it to the player with RefineryPayout; each balance row bumps as its bar arrives and its value updates when the last one does. Because the icons fly through the world on throwaway parts, the camera can turn or move during the sequence without stranding them; before this they flew across the screen toward a point the camera had usually left, and needed the Refinery on screen to aim at all. Ore picked up in the mine still flies across the screen into the backpack button, since both ends of that flight are HUD elements Since 2026-10-05 (M32) every player sees a crewmate's icons go in and come out (the server tells everyone who is refining); only the refining player hears the sounds and sees their backpack and balance rows move
 * Dev tools: Fill backpack spreads all four ores evenly; Reset refinery clears every balance and the camp progress
 Randomized Mine Creation
 
@@ -628,7 +622,7 @@ Index
 	Stone 5
 	160
 	Resource rock
-Yields raw ore when destroyed. Cluster size is a property of the rock, not of the mine — Iron 3 clusters the same way everywhere. Iron and Gold tiers 1 to 3 were shrunk to radius 0 to 1 (one to seven blocks) on 2026-09-15 after play showed them clumping; the table below still shows the original radii. As of 2026-09-28 every ore vein is a single block (radius 0) and the mines hold four to six times as many veins, the same ore in more, smaller finds (a seven-block Gold II vein was a day of Gold). The mine is a simulator from the same day: rock HP triples a tier (stone 10 / 30 / 90 / 270 / 810), Gold and Diamonds per rock quadruple a tier (3 / 12 / 48 / 192 and 2 / 8 / 32 / 128), Iron per rock doubles (3 / 6 / 12 / 24) so the tower budget stays level, and uranium stays one per rock
+Yields raw ore when destroyed. Cluster size is a property of the rock, not of the mine — Iron 3 clusters the same way everywhere. Iron and Gold tiers 1 to 3 were shrunk to radius 0 to 1 (one to seven blocks) on 2026-09-15 after play showed them clumping; the table below still shows the original radii. As of 2026-09-28 every ore vein is a single block (radius 0) and the mines hold four to six times as many veins, the same ore in more, smaller finds (a seven-block Gold II vein was a day of Gold). The mine is a simulator from the same day: rock HP triples a tier (stone 10 / 30 / 90 / 270 / 810), Gold per rock quadruples a tier (3 / 12 / 48 / 192), Iron per rock doubles (3 / 6 / 12 / 24) so the tower budget stays level, and uranium stays one per rock
 Rock
 	Tier
 	HP
@@ -673,26 +667,6 @@ Rock
 	4
 	140
 	87 Gold Ore
-	0–1
-	Crystal
-	1
-	30
-	2 Crystals
-	1–1
-	Crystal
-	2
-	60
-	5 Crystals
-	1–1
-	Crystal
-	3
-	110
-	14 Crystals
-	0–1
-	Crystal
-	4
-	200
-	39 Crystals
 	0–1
 	Uranium
 	—
@@ -816,10 +790,6 @@ Parameter
 	number
 	inherited
 	Vein clusters of gold
-	crystal
-	number
-	inherited
-	Vein clusters of crystal
 	uranium
 	number
 	inherited
@@ -934,7 +904,7 @@ Optional per zone, usually empty, never inherited.
 Field
 	Notes
 	rock
-	Type and tier, e.g. Crystal 3
+	Type and tier, e.g. Gold 3
 	depth
 	Blocks from the zone’s front face
 	height
@@ -987,7 +957,7 @@ ________________
 
 
 12. Runtime
-Camp level. Reaching a camp level unlocks store tiers, not mine volume (M22). It is still the pacing beat of a run and should not happen silently — it needs an audible and visible moment for the whole crew, wherever they are.
+Camp level. Removed from the game on 2026-10-06 (M33) along with Crystal and the in-run Diamond; the pacing beat of a run is now the pick axe ladder and the fortification tier, which is announced to the whole crew the way the camp level was.
 Damage. Rock HP is tracked server-side by grid position, not on the rendered block. Blocks are pooled and streamed, so a part that showed a half-mined block may be recycled or unloaded; damage keyed to position survives both.
 Visual damage states. Three states per the GDD: untouched, 60%, 30%. Author these as a crack overlay applied on top of any rock, not as separate textures per rock type. Seventeen rock types × 3 states is 51 assets to author and maintain; a shared overlay is 2, and it works automatically on rock types added later.
 Designer tooling. A dev tool regenerates the mine in a running session, with an optional seed, without restarting the run. This is the tuning loop: edit the mine file, sync, regenerate, walk in. A pure expected-ore preview computes the report’s requested-ore and HP totals from the mine file alone, so a designer can read the balance sheet of an edit before generating anything.
@@ -1022,7 +992,7 @@ return {
             depth = 20,
             hardness = 1.0,
             tierBias = 1.0,
-            iron = 34, gold = 12, crystal = 6, uranium = 6,
+            iron = 34, gold = 12, uranium = 6,
             pockets = 2,
         },
 
@@ -1030,7 +1000,7 @@ return {
             depth = 24,
             hardness = 2.0,
             tierBias = 2.0,
-            iron = 30, gold = 18, crystal = 6, uranium = 9,
+            iron = 30, gold = 18, uranium = 9,
             pockets = 3,
         },
 
@@ -1040,7 +1010,7 @@ return {
             floorDrop = 6,
             hardness = 3.0,
             tierBias = 3.0,
-            iron = 22, gold = 22, crystal = 12, uranium = 9,
+            iron = 22, gold = 22, uranium = 9,
             pockets = 4,
         },
 
@@ -1050,36 +1020,36 @@ return {
             floorDrop = 8,
             hardness = 4.0,
             tierBias = 4.0,
-            iron = 16, gold = 20, crystal = 18, uranium = 111,
+            iron = 16, gold = 20, uranium = 111,
             pockets = 5,
         },
     },
 }
-Uranium is spread 6 / 9 / 9 / 111 against a solo target of 30, so the first three zones each hold 20%, 30%, and 30% of the solo target and the counter moves from the first zone; zone 4 holds the rest and covers the worst case (30 × 1.3 Nightmare × 3.5 six players = 136.5, rounded to the nearest 5 = 135). Zone 1 carries six crystal clusters (about 84 Diamonds) so Camp Level 2 is reachable from the first zone without clearing it. Nothing stops a crew tunnelling straight for zone 4, except that its rock is hardness 4.0 against a level 1 pick axe; that curve, and the camp level gating the pick axe tiers, is the pacing. As of 2026-09-28 the file authors 9 / 14 / 20 / 950 against a solo target of 40, iron 64 / 64 / 64 / 48 and gold 136 / 136 / 136 / 104 single-block veins, crystal 36 / 36 / 72 / 108, and pockets 4 / 6 / 8 / 10 (doubled): a player who hunts the hum takes nearly every shallow uranium rock, so the first three zones hold about one target between them for a day-10 finish, and the camp level no longer gates the pick axe (see Camp Level).
+Uranium is spread 6 / 9 / 9 / 111 against a solo target of 30, so the first three zones each hold 20%, 30%, and 30% of the solo target and the counter moves from the first zone; zone 4 holds the rest and covers the worst case (30 × 1.3 Nightmare × 3.5 six players = 136.5, rounded to the nearest 5 = 135). Nothing stops a crew tunnelling straight for zone 4, except that its rock is hardness 4.0 against a level 1 pick axe; that curve is the pacing. As of 2026-09-28 the file authors 9 / 14 / 20 / 950 against a solo target of 40, iron 64 / 64 / 64 / 48 and gold 136 / 136 / 136 / 104 single-block veins, and pockets 4 / 6 / 8 / 10 (doubled): a player who hunts the hum takes nearly every shallow uranium rock, so the first three zones hold about one target between them for a day-10 finish,; crystal was dropped from every zone on 2026-09-29 and removed from the game on 2026-10-06.
 As of 2026-09-15 the live file (GameData/Mines/DeadmansCanyon) also drops each zone below the entrance floor (floorDrop 2 / 4 / 6 / 8) and evens out zones 1 and 2 to 22 iron / 20 gold and 22 / 22, because Gold feeds the store now while Iron's sinks (walls, traps) arrive later.
 Darkness: the mine is lit by the client, not the sun. From the mouth to 100 studs in, each client blends the sun, ambient, and skybox light down to near black by how far along the mine's forward axis its character stands (ClientMineLightingManager), so torches are what light the deep mine and walking out never shows a step.
-At Nightmare (vein divisor 1.4), the same file generates zone 2 with the same rock, 21 iron, 13 gold, and 4 crystal clusters, and unchanged uranium. No second file, no overrides.
+At Nightmare (vein divisor 1.4), the same file generates zone 2 with the same rock, 21 iron and 13 gold veins, and unchanged uranium. No second file, no overrides.
 Mining Attributes
 
 
 Pick Axe
 * A player’s Pick Axe determines how much HP is removed from a Rock per hit
-* There are 5 Pick Axe Levels (though this should be easily adjustable). Level 2 is a plain Gold purchase; from there, level N+1 required Camp Level N (decided 2026-09-15) until 2026-09-28, when every camp-level gate was opened for testing (see Camp Level); the Gold price ladder is the brake
+* There are 5 Pick Axe Levels (though this should be easily adjustable). Every level is a plain Gold purchase (the Camp Level gated level N+1 behind Camp Level N from 2026-09-15 until the gates opened on 2026-09-28 and the Camp Level was removed on 2026-10-06); the Gold price ladder is the brake
 * Damage per hit by level: 5 / 15 / 45 / 135 / 400 (each level triples, decided 2026-09-28: the mine is a simulator, small numbers first, every upgrade a jump; rock HP triples a tier to meet it; was 5 / 12 / 25 / 50 / 100) (GameData/Mining/PickAxe, DAMAGE_BY_LEVEL; the list length is the level count; level 5 is a placeholder until tuned). Level 1 breaks Stone 1 in two swings and needs 22 for Iron 4, which is what sells the upgrade. Everyone is level 1 until the Mining Supplies Store (M21), where levels 2 to 5 cost 30 / 90 / 270 / 800 Gold (tripling with the effect, 2026-09-28)
 
 
 
 
 Backpack
-* Capacity by level, in ore units: 15 / 45 / 135 / 400 / 1,200 (each level triples, 2026-09-28; was 15 / 25 / 40 / 60 / 90) (GameData/Mining/Backpack, CAPACITY_BY_LEVEL; the list length is the level count; decided 2026-09-15 to start small so refining trips are frequent; tune in play). Five levels, level N+1 needing Camp Level N, like the pick axe. Everyone is level 1 until the Mining Supplies Store (M21), where levels 2 to 5 cost 20 / 60 / 180 / 540 Gold (2026-09-28)
+* Capacity by level, in ore units: 15 / 45 / 135 / 400 / 1,200 (each level triples, 2026-09-28; was 15 / 25 / 40 / 60 / 90) (GameData/Mining/Backpack, CAPACITY_BY_LEVEL; the list length is the level count; decided 2026-09-15 to start small so refining trips are frequent; tune in play). Five levels, each a plain Gold buy, like the pick axe. Everyone is level 1 until the Mining Supplies Store (M21), where levels 2 to 5 cost 20 / 60 / 180 / 540 Gold (2026-09-28)
 Boots
-* The second mining attribute, bought and upgraded in the Mining Supplies Store like the others: five levels, level 2 a plain Gold buy, level N+1 needing Camp Level N. Boots only do one thing: walk speed (decided 2026-09-15)
+* The second mining attribute, bought and upgraded in the Mining Supplies Store like the others: five levels, each a plain Gold buy. Boots only do one thing: walk speed (decided 2026-09-15)
 * Walk speed by level, in studs per second: 16 / 20 / 24 / 28 / 32 (twice the step, 2026-09-28; was 16 / 18 / 20 / 22 / 24) (GameData/Mining/Boots, WALK_SPEED_BY_LEVEL; the list length is the level count; placeholders until tuned in play). Level 1 is Roblox’s default, so a new player moves exactly as they expect
 * The level is run state like the pick axe level, held by the server and applied to the character’s Humanoid on upgrade and on every respawn, so nothing about speed is ever trusted from the client
 * Boots change no other stat: no jump, no fall damage, no carry. Those belong to the Jet Pack and the Backpack
 * Store prices for levels 2 to 5: 20 / 60 / 180 / 540 Gold (2026-09-28)
 Jet Pack
-* The fourth mining attribute (added 2026-09-15), bought and upgraded in the Mining Supplies Store like Pick Axe, Boots, and Backpack: five levels, level 2 a plain Gold buy, level N+1 needing Camp Level N. It is the climbing mechanic the mine generator has been waiting for (IS_CLIMBING_ENABLED), so mines can go taller and more vertical, and a player at the bottom of a shaft they dug has a way out
+* The fourth mining attribute (added 2026-09-15), bought and upgraded in the Mining Supplies Store like Pick Axe, Boots, and Backpack: five levels, each a plain Gold buy. It is the climbing mechanic the mine generator has been waiting for (IS_CLIMBING_ENABLED), so mines can go taller and more vertical, and a player at the bottom of a shaft they dug has a way out
 * Controls, kept to one gesture. Keyboard and gamepad: double-tap Jump and keep holding it; the jet pack burns while Jump is held and stops the moment it is released. Touch: a Jet Pack button sits directly above Roblox's jump button, the same size as it, placed against the live jump button at runtime so it can never overlap it, with the tool action button directly to the jump button's left (2026-09-16); holding it burns, releasing it stops. No hover, no descend input, no toggle state to remember: burn is up, release is down
 * Fuel is the whole design. The tank starts at 1.5 seconds of burn and each upgrade adds a second (level 5 holds 5.5 seconds; doubled from half a second on 2026-09-28, with the store prices 40 / 120 / 360 / 1,080 Gold); both numbers are tunable in GameData/Mining/JetPack (retuned 2026-09-15 from 3 s plus 1 s, which cleared the mine at level 2). Fuel drains only while burning and the pack cuts out when the tank is empty, so the player falls. It refills whenever the pack is not burning, anywhere, at half a second of fuel per second, and a tank run dry locks the pack until it is full again (decided 2026-09-15, replacing an on-the-ground rule that felt inconsistent); stopping early keeps the remaining fuel. That lock is what keeps a hop from becoming flight
 * Burning lifts the player straight up at a fixed climb speed (12 studs per second, so a level 1 burn lifts about four blocks and level 5 about ten, under the 72-stud mine) while the normal walk controls still steer, so a hop can be aimed onto a ledge
@@ -1107,7 +1077,7 @@ Aiming a Post Weapon
 * Weapons sit on a rotating base (the Spawn cylinder) that turns 360 degrees. Left and right is the base turning, no faster than the weapon's Turn Speed; up and down is the gun tilting freely within the weapon's pitch range. Both weapons look down to -70 degrees (2026-09-30, from -40 and -35: the gun sits a dozen studs up, so the foot of its own tower needs a steep look) The gunner and the weapon visibly turn with the base
 * Server authority follows the weapons rule: the client sends its yaw and pitch a few times a second, the server refuses any turn the base could not have made at its turn speed and echoes the accepted aim on the weapon model, and every client turns and tilts the weapon from that. A shot is a request carrying the muzzle ray; the server checks the gunner, the fire cooldown, and that the ray starts at the muzzle it computes itself, then decides the hit exactly like a handheld weapon
 Post Weapon Upgrades
-* Every Post Weapon can be upgraded. Every attribute can be upgraded 4 times, each upgrade costing progressively more Gold Bars (15 / 90 / 270 / 800 since 2026-09-29: a cheap first rung the player can buy on day 2, then the Pick Axe's ladder; 15 / 30 / 60 / 120 before that maxed three attributes by day 7). Upgrade N needed Camp Level N until 2026-09-28, when every camp-level gate was opened for testing (see Camp Level). The Machine Gun is the yardstick for player damage (12 damage since 2026-09-29, 4 s of fire before the overheat, about 69 DPS sustained and 120 while firing against the rifle's 55; 15 damage for a day before that made every enemy feel easy; the Rocket Launcher 200 a shot; 2026-09-28). Each Post Weapon lists its own four upgrades in GameData/Posts/PostWeapons (decided 2026-09-29): the Machine Gun has Damage (HP deducted from enemies hit), Fire Rate (how often a round fires), Turn Speed (how fast the base rotates), and Cooldown (how fast an overheated gun cools; its 350-stud Range never needed upgrading); the Rocket Launcher has Damage, Fire Rate, Turn Speed, and Range (how far a rocket flies before bursting). Each upgrade adds a share of the base stat (Damage +25%, Fire Rate +20%, Turn Speed +50%, Range +20%; Cooldown is the one attribute that steps rather than compounds, taking a sixth of the base cool time off per level so every rung is worth the same half second and the Machine Gun cools from full in 3 / 2.5 / 2 / 1.5 / 1 seconds, decided 2026-09-29). The Upgrade menu shows only the rows the weapon offers, and the server refuses an upgrade the weapon does not have. Bases start slow (Machine Gun 22 degrees per second, Rocket Launcher 12; cut to a quarter of the first numbers in play on 2026-09-18) so the Turn Speed upgrades are felt. The gun tilts up and down at the same rate as the base turns (decided 2026-09-18), so every direction feels equally heavy
+* Every Post Weapon can be upgraded. Every attribute can be upgraded 4 times, each upgrade costing progressively more Gold Bars (15 / 90 / 270 / 800 since 2026-09-29: a cheap first rung the player can buy on day 2, then the Pick Axe's ladder; 15 / 30 / 60 / 120 before that maxed three attributes by day 7). Upgrades are never gated (upgrade N needed Camp Level N until 2026-09-28; the Camp Level was removed on 2026-10-06). The Machine Gun is the yardstick for player damage (12 damage since 2026-09-29, 4 s of fire before the overheat, about 69 DPS sustained and 120 while firing against the rifle's 55; 15 damage for a day before that made every enemy feel easy; the Rocket Launcher 200 a shot; 2026-09-28). Each Post Weapon lists its own four upgrades in GameData/Posts/PostWeapons (decided 2026-09-29): the Machine Gun has Damage (HP deducted from enemies hit), Fire Rate (how often a round fires), Turn Speed (how fast the base rotates), and Cooldown (how fast an overheated gun cools; its 350-stud Range never needed upgrading); the Rocket Launcher has Damage, Fire Rate, Turn Speed, and Range (how far a rocket flies before bursting). Each upgrade adds a share of the base stat (Damage +25%, Fire Rate +20%, Turn Speed +50%, Range +20%; Cooldown is the one attribute that steps rather than compounds, taking a sixth of the base cool time off per level so every rung is worth the same half second and the Machine Gun cools from full in 3 / 2.5 / 2 / 1.5 / 1 seconds, decided 2026-09-29). The Upgrade menu shows only the rows the weapon offers, and the server refuses an upgrade the weapon does not have. Bases start slow (Machine Gun 22 degrees per second, Rocket Launcher 12; cut to a quarter of the first numbers in play on 2026-09-18) so the Turn Speed upgrades are felt. The gun tilts up and down at the same rate as the base turns (decided 2026-09-18), so every direction feels equally heavy
 Upgrading a Post Weapon
 * The Post Upgrade Table in the defense building (Camp.DefenseStore.Tables.PostUpgradeTable; decided 2026-10-01, replacing the per-post bench) carries an "Upgrade Post" prompt anyone can trigger: a player without a post is told "You must claim a Post before upgrading" with the Fail sound; the owner of a post gets the Upgrade menu. The table also shows a small display post (the designer's DisplayPost model sets its spot and size) that each client redraws as the current fortification tier's post with that player's own loadout post weapon on top, no sign, no prompts, display only. The Upgrade menu: each attribute in a row with 4 empty squares beside it and an Upgrade button showing the Gold Bar icon and the cost. Tapping the button buys the upgrade if the player has the Gold Bars, and the next square fills in (square 1 = 1st upgrade and so on). Without enough Gold the player is told with the Fail sound; a locked upgrade shows CAMP LEVEL N REQUIRED in red under its squares with a greyed button, and tapping it plays the Fail sound and repeats the requirement in the feedback box; a maxed attribute reads MAX
 Defenses
@@ -1120,7 +1090,7 @@ Defenses
 * The camp has a limit of 12 active Towers, shared out evenly among the crew sampled at dawn (MAX_ACTIVE_TOWERS_CAMP in GameData/Defenses/Towers, PlacementRules.towerAllowance is ceil(camp / crew), so a solo player builds the whole camp's worth and a crew of six two each; a leaver's share opens the next morning; decided 2026-09-28, replacing 5 per player). Build prices 20 to 45 Iron and upgrades 10 / 20 / 40 / 80 and up (two thirds of the 2026-09-25 prices)
 Unlocking Towers
 * Towers are unlocked in the lobby in the Store and Loadout menus
-* Towers cost Cash, but some premium Towers may only be purchased with Robux
+* Towers cost Diamonds, but some premium Towers may only be purchased with Robux
 Equipping Tower Loadouts
 * Players equip Towers through the Lobby Loadout Menu
 * Every player has 3 Defense loadout slots, so they can bring up to 3 Tower types into a run
@@ -1155,7 +1125,7 @@ Upgrading and Selling Towers
    * Right upper: an Upgrade button with 4 empty circles under it. The button names the upgrade (Level 2 and so on) and its price. Pressing it with enough Iron upgrades the Tower, refreshes the menu, and fills the next circle; without enough Iron the player is told with the Fail sound
    * Right lower: an Upgrade Stats panel with an icon for each stat the upgrade changes, its current value, and an arrow to the value after the upgrade
 Tower Types
-* There are multiple Tower types to unlock, each with its own visuals and behaviour. Every player starts with the Sentry Gun; the rest are Cash purchases in the lobby
+* There are multiple Tower types to unlock, each with its own visuals and behaviour. Every player starts with the Sentry Gun; the rest are Diamonds purchases in the lobby
 * All Tower stats live in GameData/Defenses/Towers so they are easy to change. Every Tower has 4 upgrade tiers, each raising specific stats
 * Like Posts, Tower models live in ReplicatedStorage.GameAssets.Towers, named by their enum key
 * Every Tower except the Tesla Coil is a stationary base with a turret on top that turns a full 360 degrees toward its target, like a tank. Each kind lists the four stats the Tower Menu shows and an upgrade may raise; every kind also has HP. Behaviour numbers that are not one of the four (cone angles, tick rates, chain jump distance, stun length) live in the same GameData entry and never change with upgrades (M27, decided 2026-09-22)
@@ -1177,7 +1147,7 @@ Traps
 * Traps cannot be upgraded
 * Every Trap has HP and can be destroyed by enemies. Some Traps despawn on their own after use (a Bear Trap, for example, despawns once triggered)
 Buying Traps
-* Traps are bought from the Tower Table's Build Mode (2026-09-30); before that the plan was a Defense Store structured like the Mining Supplies Store: a stand per Trap showing its model (the real trap template, shrunk by the DisplayScale attribute the designer sets on the standâs ItemSpawn part, since the templates are grid sized; 2026-09-25), price, and any Camp Level requirement, each with a purchase proximity prompt
+* Traps are bought from the Tower Table's Build Mode (2026-09-30); before that the plan was a Defense Store structured like the Mining Supplies Store: a stand per Trap showing its model (the real trap template, shrunk by the DisplayScale attribute the designer sets on the standâs ItemSpawn part, since the templates are grid sized; 2026-09-25), and price, each with a purchase proximity prompt
 * With enough Iron the price is deducted and the Trap is added to the player's run inventory; with too little the player is told with the Fail sound
 Placing Traps
 * Placing a Trap works exactly like building a Tower: the owned Traps appear beside the Defense loadout in Build Mode, with the count owned in place of a price, and placing one consumes it
@@ -1197,10 +1167,10 @@ Wall Repair
 * Repair works like mining (decided 2026-09-17, replacing a single full-price repair prompt): in Repair Mode every Hammer swing at a damaged structure adds 10 HP and costs the player 1 Iron Bar at fortification level 1, 20 HP for 2 Iron at level 2, and 40 HP for 4 Iron at level 3 (doubling with the wall's HP, decided 2026-09-29, so a full repair is the same number of swings and the same Iron per HP at every level; a Tower repairs at the level 1 chunk; the swing cost was 4 until 2026-09-25 and 2 until 2026-09-29, when the eighth playtest showed two rebuilt walls a night eating six Sentries' worth of Iron). The last swing pays only for the HP still missing, rounded up. Swings repeat every 0.45 seconds while held, and the Hammer reaches 17 studs, 5 more than the pick axe, because a wall is big
 * Every swing is a request the server validates (Hammer equipped, structure damaged, within reach of the structure's bounds, cooldown, enough Iron). A swing that lands plays the hammer sound for everyone nearby. With too little Iron the Hammer does not swing and the player is told once per press
 * A destroyed wall or gate is rubble and stays rubble while it is rebuilt swing by swing from zero; its bar reads "Rebuilding n / max". It stands back up only when fully rebuilt (GameData REBUILD_STAND_SHARE = 1, decided 2026-09-17: a wall that reappears after one swing could be flickered in front of the horde for 2 Iron a time). Rebuilding a level 1 wall is 30 swings and 60 Iron
-* Repair is never capped by Camp Level
+* Repair is never capped
 * Towers are repaired exactly like walls (decided 2026-09-22): in Repair Mode a Tower shows the same HP bar and swing price, anyone may swing at it, and each swing adds the same HP for the same Iron. A destroyed Tower is gone, never rubble; it is built again. Traps are consumables and are never repaired
 * Fortification level: the gate, all 6 walls, and the look of the posts share one level, 1 to 3 (decided 2026-09-17: a half-wood, half-concrete wall reads as a bug). HP by level: Wall 300 / 600 / 1200, Gate 450 / 900 / 1800 (raised 50% on 2026-09-25 after the five-player test). An upgrade keeps each structure's share of HP rather than healing it, and rubble stays rubble
-* The Walls Table in the defense building (Camp.DefenseStore.Tables.WallsTable; decided 2026-10-01, replacing the Workbench just inside the gate) with a floating sign like the Camp Level one, showing "FORTIFICATIONS LEVEL n", a bar of the crew's donated Iron ("pool / required", Iron Bar icon), and a red "Camp Level N required" line while the next level is locked. The sign is half its old size and hangs on the table's designer-placed Gui part; the small model of the wall line on the table (WallModel) redraws itself as the current tier's walls, posts, and gate on every client. Its proximity prompt, "Contribute 10 Iron" (the number is FORTIFICATION_DONATION_IRON), moves 10 of the player's Iron Bars into the shared pool per press; no Hammer needed. When the pool reaches the price (150 Iron for level 2, 400 for level 3, solo; a crew pays that times its wave multiplier, 1.6x for two up to 2.8x for six, rounded up to whole donations and recounted each dawn with the crew, since the pool is the one camp-wide Iron sink and repair swings already scale with the number of hammers; decided 2026-09-29) the fortifications upgrade by themselves, and every player gets the CampLevelUp sound and "Fortifications upgraded to level n" in the blue announcement box. Level N needs Camp Level N, and donations are refused while locked so nobody's Iron is stranded in a pool that cannot complete
+* The Walls Table in the defense building (Camp.DefenseStore.Tables.WallsTable; decided 2026-10-01, replacing the Workbench just inside the gate) with a floating sign showing "FORTIFICATIONS LEVEL n", a bar of the crew's donated Iron ("pool / required", Iron Bar icon) (the lock line went with the Camp Level on 2026-10-06). The sign is half its old size and hangs on the table's designer-placed Gui part; the small model of the wall line on the table (WallModel) redraws itself as the current tier's walls, posts, and gate on every client. Its proximity prompt, "Contribute 10 Iron" (the number is FORTIFICATION_DONATION_IRON), moves 10 of the player's Iron Bars into the shared pool per press; no Hammer needed. When the pool reaches the price (150 Iron for level 2, 400 for level 3, solo; a crew pays that times its wave multiplier, 1.6x for two up to 2.8x for six, rounded up to whole donations and recounted each dawn with the crew, since the pool is the one camp-wide Iron sink and repair swings already scale with the number of hammers; decided 2026-09-29) the fortifications upgrade by themselves, and every player gets the CampLevelUp sound and "Fortifications upgraded to level n" in the blue announcement box. Level N needs Camp Level N, and donations are refused while locked so nobody's Iron is stranded in a pool that cannot complete
 * The Refinery is repaired with the Hammer like a wall but never bought: its HP follows the fortification level with the walls and the gate (1000 / 2000 / 4000, doubling a level as they do; decided 2026-09-29, when Camp Level left the game; until then its level was the Camp Level at 1000 / 1500 / 2200 / 3000). Refinery destroyed is the loss condition hook for the run state machine (M28)
 * All numbers live in GameData/Camp/Structures and GameData/Camp/Level; placeholders until enemies exist to tune against
 Defense design notes (2026-09-16, source for M23 to M27; sections above are updated as each lands)
@@ -1209,7 +1179,7 @@ Defense design notes (2026-09-16, source for M23 to M27; sections above are upda
    * Cannon: heavy single target. Weakness: slow reload, useless vs swarms
    * Mortar: arcing, large blast radius, reaches canyon mouth. Weakness: minimum range, no air
    * Flak Cannon: airburst, hits Flyer groups. Weakness: cannot hit ground
-   * Upgrade structure: 4 stat lines (damage, rate, range, one specific), 4 tiers each; tier 1 is the base post. Then one exclusive branch fork with a capstone, gated at Camp Level 4, paid with gold
+   * Upgrade structure: 4 stat lines (damage, rate, range, one specific), 4 tiers each; tier 1 is the base post. Then one exclusive branch fork with a capstone, paid with gold (it was to be gated at Camp Level 4 before the Camp Level was removed, 2026-10-06)
    * Claiming: one player owns a post — their type, their money, their upgrades. Free to leave mid-fight. Claims release on disconnect, post retains built tier
    * Launch unlocked: Gatling, Cannon
 * S10 — Auto turrets (6). Cheap, weak, numerous. Limit 4–8 each. Loadout: pick 3 from the unlocked roster in the lobby, locked for the run
@@ -1237,19 +1207,9 @@ Defense design notes (2026-09-16, source for M23 to M27; sections above are upda
    * Shotgun: close range. Runners, breaches
    * Sniper: long range. Launchers, Brutes
    * Flamethrower: short range, wide, DoT. Packed Grunts
-   * In-run upgrades (as built 2026-10-01, GameData/Weapons/Upgrades): Damage, Ammo, and Range, four rungs each at the post ladder's prices (15 / 90 / 270 / 800 Gold), each rung adding a share of the base stat (damage +25%, magazine +20% rounded to whole rounds, range +20%), never gated by Camp Level; bought at the Weapons Table in the defense building (Camp.DefenseStore.Tables.WeaponUpgradeTable, "Upgrade Weapon" prompt), whose menu is a copy of the post upgrade menu with three rows. They last the run. Ammo is unlimited (unlimited reserve; every weapon still has a magazine and a reload, decided 2026-09-17)
+   * In-run upgrades (as built 2026-10-01, GameData/Weapons/Upgrades): Damage, Ammo, and Range, four rungs each at the post ladder's prices (15 / 90 / 270 / 800 Gold), each rung adding a share of the base stat (damage +25%, magazine +20% rounded to whole rounds, range +20%), never gated; bought at the Weapons Table in the defense building (Camp.DefenseStore.Tables.WeaponUpgradeTable, "Upgrade Weapon" prompt), whose menu is a copy of the post upgrade menu with three rows. They last the run. Ammo is unlimited (unlimited reserve; every weapon still has a magazine and a reload, decided 2026-09-17)
 Camp Level
-* Status (decided 2026-09-29): removed from the game for now. It made a round too complicated: every gate is open (GameData/Camp/Level, all 1), crystal is out of every mine zone, and the billboard is gone, so the Refinery stays at its level 1 HP and nothing below is in play. The code stays dormant so the system can return if a round ever wants it; the rest of this section describes it as designed.
-* The Camp Level is shared by the whole crew and starts at level 1. Diamonds from the Refinery fill it like an XP bar: the display shows “CAMP LEVEL n” over a bar reading “pool / needed”, and a full bar rolls over into the next level with the remainder carried, several levels at once if one payout is big enough. At the top level the pool reads MAX
-* What a level unlocks (decided 2026-09-15, table settled 2026-09-16): the next tier of every upgrade track, in both stores. Pick Axe, Boots, Backpack, and Jet Pack in the Mining Supplies Store have five levels each and level N+1 requires Camp Level N, so level 2 is always a plain Gold buy: players learn mining upgrades before the camp level ever matters. Posts have four tiers per stat line; tier 1 is the base post with no upgrades, and tier N requires Camp Level N, so the first post upgrade is a level 2 goal. A post's exclusive branch fork and its capstone need Camp Level 4, the top level. Weapon in-run tiers are Gold only and never gated. Which posts, turrets, placements, and weapons a player owns at all is a lobby Cash matter, never Camp Level. Diamonds are the only collective currency, so the collective decision of when to level the camp is what paces both halves of the loop: how deep the crew can dig by day, and how hard the posts hit by night As of 2026-09-28 every gate is open for testing (GameData/Camp/Level, all 1; the originals are kept in a comment there): a run whose first crystal clusters were out of reach left a player with Gold and nothing to buy. Recommended shape if the gates return: keep Camp Level for breadth (tower kinds, the post capstone, fortification tiers), not for upgrade rungs, and hand-place a crystal cluster near the entrance.
-* Fortifications (M23): the shared level of the walls, gate, and posts has three levels, and level N requires Camp Level N, the same rule as the posts; the table is STRUCTURE_TIER_REQUIRED_CAMP_LEVEL_BY_TIER in GameData/Camp/Level. The Refinery's own HP level is the Camp Level itself Open for testing since 2026-09-28, like every other gate.
-* Never capped: consumables (Torch, Dynamite), Traps, Defensive Units, and wall repair. Those are priced by Gold or Iron alone so the stores never feel closed
-* Nothing in the mine is ever locked by Camp Level. Depth is paced by rock hardness against the pick axe tier the camp level allows (see Mine Layout)
-* A store item above the cap still shows, with its price greyed, its prompt disabled, and a red “Camp Level N required” line under the price, so the goal is always visible; the line disappears once the level is met
-* Display: none since 2026-09-29. The Camp Level billboard above the Refinery was removed (with the camp-level gates open for testing and crystal out of the mine, it showed a pool nothing spends) and its spot, floating above the Refinery's top, now holds the Refinery's HP bar, which is always shown; the level-up notification and sound stay. Diamonds no longer fly during a payout. Until then the bar and level lived on that billboard, the camp's focal point, not in the HUD, and Diamonds flew into its bar
-* Level up is the pacing beat of a run and never happens silently (decided 2026-09-16): every player, wherever they are, hears the CampLevelUp sound and gets the notification “Camp upgraded to level n” in the blue announcement box at the top centre of the screen (the bottom feedback box is too easy to miss under the action; decided 2026-09-16); nothing to dismiss, no list of unlocks, no menu. The Refinery billboard rolls over. A payout that crosses several levels at once notifies once, for the level reached (The blue announcement box became the blue colour of the one notification box on 2026-10-05, M32.)
-* Diamonds needed per level live in GameData/Camp/Level (placeholder pacing 20, 80, 250 until tuned in play, so the top level is 4), and so does the required-camp-level table per upgrade track (M22): the stores read the table, never a formula, so lifting or loosening a cap is a one-line change
-* The Camp Level is run state: it starts at 1 every run and is never saved to a player
+* Status (decided 2026-10-06, M33): removed from the game in full, code included, so the name Diamonds could go to the lobby currency. On 2026-09-29 it had already been switched off for play (every gate open, crystal out of every mine zone, the billboard gone) because it made a round too complicated. The design, for the record: a shared level starting at 1 each run, filled like an XP bar by Diamonds refined from Crystal, each level opening the next tier of every store track (mining upgrades, post upgrades, fortification tiers; consumables, Traps, and repair never capped), with a billboard above the Refinery and a level-up beat for the whole crew. Should it ever return, the recommended shape is breadth (tower kinds, the post capstone, fortification tiers), not upgrade rungs
 Wave Cycle
 * A run is a loop of Day and Night (GDD "Gameplay Loop"; built in M28, decided 2026-09-22). The run state is one of Day, Night, Won, or Lost, held by the gameplay server (RunCycleManager) and published to every client with the day number and the time the current phase ends, so every screen shows the same clock from server time
 * A run loads in the morning look with the clock still (the Waiting state) and day 1 begins PRE_DAY_SEC (10 s) after the helicopter leaves, which is when everyone the lobby sent is Ready or the arrival timeout has given up on the missing (decided 2026-09-22)
@@ -1260,7 +1220,8 @@ Wave Cycle
 * The sky: every map has four looks, day start, day end, night start, and night end (shared LightingPresets, keyed by map, read from Studio and ported by hand; decided 2026-09-22). Day start is set outright when the run loads. Over a day the sky blends steadily from day start (8:00) to day end (17:30, the same colours); the night opens with a LIGHTING_DUSK_TRANSITION_SEC (1 s) blend to night start (19:12, the light off, just past the engine's sun-to-moon handover, which cannot be blended), then blends night start into night end (20:00, the moon at full) over the 90 s spawn window and holds night end until the wave is done. A cleared night blends night end back to day start over LIGHTING_DAWN_TRANSITION_SEC (1 s) and only then does the day clock start. A DayNightNumber card ("DAY  N" / "NIGHT  N") shows for 3 s once each blend ends, with the Rooster or NightBell sound; day 1 gets no card. Every day, as dusk begins (DUSK_SEC, 40 s before the night falls), every client starts the 2D track Music.DuskSong1 from the top (the track is 52 s, so it runs on into the night; decided 2026-09-25); a day the dev tool cuts short starts it as soon as the lead is reached. Lighting.ClockTime blends the same way between each look's hour, always turning forward round the clock
 * Every dawn, and at the first day, the server logs the day, the crew size, and the multipliers to the Output, in the words of "Adjusting for Different Player Counts"; the line no longer shows in the announcement box (2026-09-25), the DayNightNumber card and the clock carry the beat
 * The run ends as Lost when the Refinery is destroyed or every player is dead with nobody revived in time (see "Health and Revives"). The clock stops and the gate stays as it is. The Refinery falling plays the Game Over screen for everyone ("THE REFINERY HAS BEEN DESTROYED", the camera circling the Refinery), buries everyone still standing in the Cemetery, and ends on each player's grave with the Results Menu reading "RUN LOST" and a Return to Lobby button, which teleports the player to the lobby (built in M32; the end-of-run summary and its rewards are M33). A won run shows the Results Menu as "RUN WON" with the same button. Won is the rescue helicopter leaving with the crew aboard (see Gameplay Loop; M31): the Rescue state sits between, night rules in force, the phase end being the landing time and then the boarding deadline
-* Day clock: a bar top centre of the screen (the DayClock ScreenGui). A circle on its left cycles through three pictures, Day, Dusk, and Night; the bar starts full at dawn and empties from right to left until night, so players always know how long they have; "Day N" reads under the bar. At night the bar is empty and the circle shows the night picture
+* Day clock: a bar top centre of the screen (the DayClock ScreenGui). A circle on its left cycles through three pictures, Day, Dusk, and Night; the bar starts full at dawn and empties from right to left until night, so players always know how long they have; "Day N" reads under the bar. At dusk (M33, 2026-10-06) the clock slides up off the top of the screen and the Refinery HP bar (the RefineryHp ScreenGui) slides down into its place: the same box, with the compass home icon on a black square where the clock's circle was (the square flashes red every second while the Refinery is under attack, and the RefineryUnderAttack siren plays once with every flash so the sound lines up with the colour; before M33 the siren looped), a bar filled with the Refinery's HP share in the HP colours, green to red, and "REFINERY HP" under it, so the crew always knows how the thing that loses the run is holding up wherever they are. At dawn the bar goes up first and the clock comes back down after it; each slide takes 0.9 s so the swap is seen
+* Camp Map (M33, 2026-10-06): a square panel top right of the screen, its top level with the top of the Refinery HP bar's track (the CampMap ScreenGui; its side is 0.285 of the screen height, so it is the same square at every aspect) that slides in from the right edge as night falls and out again at dawn, drawing the camp from above, zoomed in so the walls and the Refinery fill the square to within a 4% margin. It is fixed north-up with the top toward the gate, where the monsters come from. Every wall, the gate, and the Refinery is drawn from its structure shadow's box, coloured by its health: white at full, yellow down to just over 60%, orange down to just over 30%, red while anything is left, and black with a red X over it once rubble (a thin wall is drawn no thinner than a readable stripe). Each crewmate is a dot in their compass colour, the player looking at the map ringed in white, and every monster the client is drawing is a smaller red dot, so the crew can see which walls are weak, where everyone stands, and where the night is coming from. The structures redraw as their HP changes and the dots move ten times a second; a dot past the edge of the square is not drawn. It hides with the rest of the HUD while a player is dead. The backpack and jet pack stack on the right edge sits level with the balance rows on the left, under the map
 Setting Up Waves
 Wave Area
 * Just like the Defensive Zones, the area that enemies are confined to is a predefined grid that fits the Defensive Zones inside of it
@@ -1809,7 +1770,7 @@ Spectate Mode
 Results Menu
 * Built 2026-10-05. At death or at the end of a run, players get the results screen. It shows, one row each with the resource icon after the words:
    * Uranium refined (the uranium this player carried to the Refinery themselves)
-   * Cash earned
+   * Diamonds earned
    * Gold refined
    * Iron refined
    * Enemies killed
@@ -1823,48 +1784,48 @@ Results Menu
 Characters
 * Status (proposed 2026-10-05, replacing the four-Class design of 2026-10-03): the direction is agreed, nothing is built, and every bullet in this section needs to be fleshed out before its milestone begins (M55 to M58). It replaces buying weapons and post weapons one by one; the Store Menu and Loadout Menu sections describe the earlier design and are redesigned with it
 * There are no Classes. A character is a generic sheet of five rows: a handheld weapon, a Post weapon, and skills 1, 2, and 3. The player builds their own class out of it by rolling: someone who wants a mining character rerolls until the skills line up for mining. A fixed Class was dropped because only a narrow band of rolled results suits a Class's purpose, so most rolls on it were misses
-* The character sheet: each row shows what the character has, with a reroll button and its Cash price beside it. There are no crates, no scrap, no inventory, and no gear levels; Cash is the one currency
+* The character sheet: each row shows what the character has, with a reroll button and its Diamonds price beside it. There are no crates, no scrap, no inventory, and no gear levels; Diamonds is the one currency
    * Weapon and Post weapon: the player picks the type; the roll is its stars, 1 to 5, a variant of the same weapon with higher stats (as in Splatoon Raiders). The new result is shown beside the current one and the player keeps either
    * Skills: a roll offers three skills, each with a rarity; the player picks one or keeps the current skill
    * A reroll can never make a character worse, or nobody holding a good roll would press the button
-* Everything rolled belongs to the character it was rolled on and never moves to another. Cash belongs to the account, so savings can bring a new character up quickly
-* Character slots: every player starts with one character. Further slots are bought with Cash, at a price that rises per slot, or with Robux. A new character starts empty: level 1, one skill slot, 1-star weapon and post. Each slot is a whole new set of rolls and the only way to hold two builds at once
-* Characters are permanent: no reset and no delete, so a mis-tap can never destroy something Cash or Robux paid for. A player who wants a different build rerolls rows or buys another slot
+* Everything rolled belongs to the character it was rolled on and never moves to another. Diamonds belongs to the account, so savings can bring a new character up quickly
+* Character slots: every player starts with one character. Further slots are bought with Diamonds, at a price that rises per slot, or with Robux. A new character starts empty: level 1, one skill slot, 1-star weapon and post. Each slot is a whole new set of rolls and the only way to hold two builds at once
+* Characters are permanent: no reset and no delete, so a mis-tap can never destroy something Diamonds or Robux paid for. A player who wants a different build rerolls rows or buys another slot
 * Character XP: earned by playing runs as that character and kept per character. Skill slot 1 is open from the start; slots 2 and 3 unlock at character levels. (Player level and XP were removed from the design on 2026-09-10; this is per character, not per player)
 * Skill families: every skill belongs to a family (first guess: Digging, Hauling, Demolition, Building, Gunnery, Marksmanship; six families of six skills, 36 in all), covering both mining and defense so a player who is not the best gunner still has a role. Skills are a new in-run system
 * Titles: skills from the same family give the character a title other players see (two Demolition skills make a Demolitionist) and three earn that family's set bonus. A mixed character is allowed and has no title. Lining up three rare skills of one family is the long chase
 * Rank: one number per character, worked out from the stars of its weapon and post, the rarity of its skills, and its level; never from what a skill does, so nobody equips a worse build to raise the number. Rank and title show in the Queue Menu and over the character's head
 * Rank recommends, it never locks: each Contract shows a recommended rank, Contracts unlock by completing the one before, and joiners are still not checked (see Helicopter Pads), so a low-rank friend can always come along
-* The 3 Defenses are unchanged: chosen in the loadout and unlocked with Cash directly
+* The 3 Defenses are unchanged: chosen in the loadout and unlocked with Diamonds directly
 * Balance rule: Normal is tuned for a new character (1-star gear, one skill). Stars multiply with the in-run Gold upgrades, so a star's bonus must stay modest; everything a built character adds is absorbed by the harder Contracts
 * Roll rules: every reroll shows its odds; where Roblox reports paid random items as restricted for a player (PolicyService, ArePaidRandomItemsRestricted) that player gets a direct-purchase path instead
 * Mastery: a character at max level earns rewards other players can see (a gold pick axe, a helicopter skin)
 * Run-end awards: the end screen names the top miner, top gunner, and top repairer of the run (with the run summary, M33)
 * Robux products at launch (they sell speed, luck, and convenience, never the win):
-   * Character slot: the same slot Cash buys, as a shortcut
-   * 2x Cash and 2x Character XP: gamepasses
+   * Character slot: the same slot Diamonds buys, as a shortcut
+   * 2x Diamonds and 2x Character XP: gamepasses
    * Revive, Friend Revive, and Team Revive: three repeatable products, one bought by a dead player from the Results Menu, one bought by a living player at a tombstone, and one offered when the whole crew is dead that restarts the day, once per run (see "Health and Revives", M32)
    * Fourth skill option: a gamepass that offers four skills per roll instead of three
-   * Cosmetics come from a random box (decided 2026-10-03, replacing direct purchase): skins for the handheld weapon, the post weapon, the mining gear (pick axe and the rest), the helicopter, and the character. A box is opened for a random skin with rarity tiers; no balance cost and no ceiling. The box screen shows the odds, and the paid random items rule above applies to it as it does to rerolls. To be fleshed out: what a box costs and whether it is bought with Cash, Robux, or both; the rarity tiers and odds; what a duplicate becomes; whether boxes are also earned (Weekly Contract, Daily Rewards, mastery); the launch skin list; and whether a character skin is a uniform worn over the player's avatar or a full character
-   * Starter pack: a one-time offer of a second character slot plus Cash to roll on it, shown after the first run
-   * Cash packs, as in the Store Menu
-* Post launch: a season pass tied to the Weekly Contract, rolled powers on high-star gear, and a Cash upgrade on 5-star gear if players run out of things to spend on
+   * Cosmetics come from a random box (decided 2026-10-03, replacing direct purchase): skins for the handheld weapon, the post weapon, the mining gear (pick axe and the rest), the helicopter, and the character. A box is opened for a random skin with rarity tiers; no balance cost and no ceiling. The box screen shows the odds, and the paid random items rule above applies to it as it does to rerolls. To be fleshed out: what a box costs and whether it is bought with Diamonds, Robux, or both; the rarity tiers and odds; what a duplicate becomes; whether boxes are also earned (Weekly Contract, Daily Rewards, mastery); the launch skin list; and whether a character skin is a uniform worn over the player's avatar or a full character
+   * Starter pack: a one-time offer of a second character slot plus Diamonds to roll on it, shown after the first run
+   * Diamonds packs, as in the Store Menu
+* Post launch: a season pass tied to the Weekly Contract, rolled powers on high-star gear, and a Diamonds upgrade on 5-star gear if players run out of things to spend on
 * Set aside: collectible artifacts in the mine and rich ore veins (2026-10-03); four deep Classes with graded skills, twelve shallow Classes with a rolled talent (the 99 Nights in the Forest model), gear crates and scrap, gear bound to named Classes, and a character reset (2026-10-05)
-* To be fleshed out: the 36 skills, their families, rarities, and set bonuses; how much each star adds to each weapon and post; the odds of each star and each skill rarity; reroll prices and whether they rise with what the row already holds; the rank formula; the XP curve, max level, and the levels that unlock slots 2 and 3; slot prices in Cash and Robux and whether slots are capped; the mastery rewards; the save shape (a character is the first per-player record with its own level, gear, and skills); and the price of every Robux product
-Earning Cash
-* Status (proposed 2026-10-05): the taps are chosen, every amount needs to be fleshed out (M38). The structure is copied from 99 Nights in the Forest: small, frequent payouts through a run, generous one-time payouts early, and a larger payout for finishing Decided 2026-10-05: Cash is to be renamed Diamonds, which players will understand better, and the in-run Diamond (Crystal refined into the Camp Level pool) retired to make the name free (M33). 99 Nights pays Diamonds very sparingly (2 for day 50, 3 for day 99, 1 per chest on a cooldown, about 15 an hour from its stronghold, 100+ from one-time badges) and the pacing is to be copied once the amounts are set
-* Night milestones: Cash for reaching set nights in a run, paid at that dawn to every player alive at it (a player dead at dawn is paid nothing for that night, then or later) and saved at once, so a lost run keeps what it earned. Built in M32 with placeholder amounts (GameData/Run/CashTaps: 5, 10, 15, 25, 40, 60, 100 for nights 1, 3, 5, 8, 10, 12, 15); a day started over by the Team Revive pays nothing twice
-* Chests: Cash chests found in the world, better the deeper or more dangerous the spot (the mine's pre-carved pockets are the first candidate)
+* To be fleshed out: the 36 skills, their families, rarities, and set bonuses; how much each star adds to each weapon and post; the odds of each star and each skill rarity; reroll prices and whether they rise with what the row already holds; the rank formula; the XP curve, max level, and the levels that unlock slots 2 and 3; slot prices in Diamonds and Robux and whether slots are capped; the mastery rewards; the save shape (a character is the first per-player record with its own level, gear, and skills); and the price of every Robux product
+Earning Diamonds
+* Status (proposed 2026-10-05): the taps are chosen, every amount needs to be fleshed out (M38). The structure is copied from 99 Nights in the Forest: small, frequent payouts through a run, generous one-time payouts early, and a larger payout for finishing Done 2026-10-06 (M33): Diamonds was renamed Diamonds, which players understand better, and the in-run Diamond (Crystal refined into the Camp Level pool) was removed to make the name free; an older save's cash is carried across as diamonds the first time it loads. 99 Nights pays Diamonds very sparingly (2 for day 50, 3 for day 99, 1 per chest on a cooldown, about 15 an hour from its stronghold, 100+ from one-time badges) and the pacing is to be copied once the amounts are set
+* Night milestones: Diamonds for reaching set nights in a run, paid at that dawn to every player alive at it (a player dead at dawn is paid nothing for that night, then or later) and saved at once, so a lost run keeps what it earned. The line reads "Day N Milestone Reached: +N" followed by the diamond icon (N the day whose dawn pays it; designer's wording, 2026-10-06); the feedback box can end any message with a resource icon since then. Built in M32 with placeholder amounts (GameData/Run/DiamondTaps: 5, 10, 15, 25, 40, 60, 100 for nights 1, 3, 5, 8, 10, 12, 15); a day started over by the Team Revive pays nothing twice
+* Chests: Diamonds chests found in the world, better the deeper or more dangerous the spot (the mine's pre-carved pockets are the first candidate)
 * Badges: one-time payouts for achievements (first rescue, each map and difficulty, blocks broken, monsters killed). A badge for a completion follows the completion rule: it pays only a player who had met the prerequisite themselves
-* Rescue: Cash for winning the run. Every Contract has its own authored completion reward (decided 2026-10-05, replacing a Cash multiplier per tier). Built in M32 with placeholder amounts (150 / 300 / 500 for Normal / Hard / Nightmare), paid to everyone aboard when the helicopter leaves
+* Rescue: Diamonds for winning the run. Every Contract has its own authored completion reward (decided 2026-10-05, replacing a Diamonds multiplier per tier). Built in M32 with placeholder amounts (150 / 300 / 500 for Normal / Hard / Nightmare), paid to everyone aboard when the helicopter leaves
 * Daily Rewards (M39) sit alongside these
-* Not for now: a repeatable in-run challenge (99 Nights' Stronghold), 2x Cash weekends, and codes
-* Cash is the one currency for rerolls and slots, so the earn rate is the most important number in the economy: too generous and nothing sells, too tight and rank feels bought. Set it in rerolls per run, not in Cash
+* Not for now: a repeatable in-run challenge (99 Nights' Stronghold), 2x Diamonds weekends, and codes
+* Diamonds is the one currency for rerolls and slots, so the earn rate is the most important number in the economy: too generous and nothing sells, too tight and rank feels bought. Set it in rerolls per run, not in Diamonds
 * To be fleshed out: the night milestone table; where chests are, what they hold, and whether the finder or the whole crew is paid; the badge list and amounts; each Contract's reward and whether a first completion pays more than a repeat
 Contracts
 * Status (proposed 2026-10-03, revised 2026-10-05): the direction is agreed, nothing is built, and every bullet in this section needs to be fleshed out before its milestone begins (M59, M60)
 * Contracts are what a built character is for. A map is never simply beaten: past Nightmare each map has an endless ladder of Contract tiers
-* A Contract tier is one more set of wave generator parameters, harder than the last (difficulty is parameters, never a stat multiplier, as in "Difficulty"). Each Contract has a fixed Cash reward for completing it and a recommended rank; Normal is winnable with a new character, high tiers assume a built one and a crew that works together
+* A Contract tier is one more set of wave generator parameters, harder than the last (difficulty is parameters, never a stat multiplier, as in "Difficulty"). Each Contract has a fixed Diamonds reward for completing it and a recommended rank; Normal is winnable with a new character, high tiers assume a built one and a crew that works together
 * Weekly Contract: one featured map and tier each week with a modifier (heavy air waves, a dark mine) that changes which build is the best pick, so a second character matters. Modifiers share their framework with Random Events (M45)
 * Leaderboards: highest Contract tier cleared and fastest rescue, reset weekly and shown in the lobby
 * To be fleshed out: how the parameters climb per tier and whether the ladder is per map; each tier's reward and recommended rank; how tiers unlock and how they appear in the Create Party Menu; the modifier list; weekly rewards; where the leaderboards stand in the lobby (the Event Area is the candidate); and how the balance sheet audits a tier against a rank

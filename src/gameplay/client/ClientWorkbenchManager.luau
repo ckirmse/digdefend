@@ -1,11 +1,9 @@
 --!strict
 
 -- The Walls Table on this client (GDD "Wall Repair"; in the defense
--- building since 2026-10-01): the Fortifications sign floated above it, as
--- the Camp Level sign floats above the Refinery. It shows the shared tier,
--- the crew's Iron pool as a bar reading "pool / required", and a red "Camp
--- Level N required" line while the next tier is locked, all read from
--- GameMetadata. Contributing is the table's ProximityPrompt, which the
+-- building since 2026-10-01): the Fortifications sign floated above it.
+-- It shows the shared tier and the crew's Iron pool as a bar reading
+-- "pool / required", read from GameMetadata. Contributing is the table's ProximityPrompt, which the
 -- server hears directly; this client only plays the donor's sound and,
 -- when the pool fills, the announcement everyone gets.
 local Players = game:GetService("Players")
@@ -16,7 +14,6 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
-local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
@@ -45,7 +42,6 @@ export type ClientWorkbenchManager = typeof(setmetatable(
 		titleLabel: TextLabel?,
 		fill: Frame?,
 		progressLabel: TextLabel?,
-		lockLabel: TextLabel?,
 	},
 	ClientWorkbenchManager
 ))
@@ -73,8 +69,6 @@ function ClientWorkbenchManager:render()
 	local tier = readNumber(ClientDataManager:getGameMetadata(Attributes.FORTIFICATION_TIER))
 	local pool = readNumber(ClientDataManager:getGameMetadata(Attributes.FORTIFICATION_POOL))
 	local required = readNumber(ClientDataManager:getGameMetadata(Attributes.FORTIFICATION_POOL_REQUIRED))
-	local requiredCampLevel = readNumber(ClientDataManager:getGameMetadata(Attributes.FORTIFICATION_REQUIRED_CAMP_LEVEL))
-	local campLevel = readNumber(ClientDataManager:getGameMetadata(Attributes.CAMP_LEVEL))
 	-- no next tier: the bar reads full and says so
 	local isMaxed = required <= 0
 	if self.titleLabel then
@@ -86,10 +80,6 @@ function ClientWorkbenchManager:render()
 	if self.fill then
 		local share = if isMaxed then 1 else math.clamp(pool / required, 0, 1)
 		TweenService:Create(self.fill, TweenInfo.new(FILL_TWEEN_SEC), { Size = UDim2.fromScale(share, 1) }):Play()
-	end
-	if self.lockLabel then
-		self.lockLabel.Visible = not isMaxed and campLevel < requiredCampLevel
-		self.lockLabel.Text = string.format(StoreRules.LOCKED_FORMAT, requiredCampLevel)
 	end
 end
 
@@ -223,8 +213,6 @@ function ClientWorkbenchManager:attachBillboard()
 	self.fill = if fill and fill:IsA("Frame") then fill else nil
 	local progress = if bar then bar:FindFirstChild(Constants.FORTIFICATION_PROGRESS_LABEL) else nil
 	self.progressLabel = if progress and progress:IsA("TextLabel") then progress else nil
-	local lock = root:FindFirstChild(Constants.FORTIFICATION_LOCK_LABEL)
-	self.lockLabel = if lock and lock:IsA("TextLabel") then lock else nil
 	self:render()
 end
 
@@ -235,7 +223,7 @@ function ClientWorkbenchManager:init()
 			self:attachBillboard()
 		end
 	)
-	for _, key in { Attributes.FORTIFICATION_TIER, Attributes.FORTIFICATION_POOL, Attributes.FORTIFICATION_POOL_REQUIRED, Attributes.FORTIFICATION_REQUIRED_CAMP_LEVEL, Attributes.CAMP_LEVEL } do
+	for _, key in { Attributes.FORTIFICATION_TIER, Attributes.FORTIFICATION_POOL, Attributes.FORTIFICATION_POOL_REQUIRED } do
 		ClientDataManager:subscribeGameMetadataAttribute(
 			key,
 			function()
@@ -259,7 +247,7 @@ function ClientWorkbenchManager:init()
 			ClientSoundManager:playSfx(SoundNames.Sfx.COINS_ADDED)
 		end
 	)
-	-- a tier is a beat for the whole crew, announced like a Camp Level
+	-- a tier is a beat for the whole crew: an announcement and a sound
 	ClientNetManager:registerHandler(
 		NetEventNames.NOTIFY_FORTIFICATION_UPGRADED,
 		function(payload: any)
@@ -268,7 +256,7 @@ function ClientWorkbenchManager:init()
 				return
 			end
 			ClientPlayerFeedbackManager:announceLocal(string.format(UPGRADED_FORMAT, payload.tier))
-			ClientSoundManager:playSfx(SoundNames.Sfx.CAMP_LEVEL_UP)
+			ClientSoundManager:playSfx(SoundNames.Sfx.FORTIFICATION_TIER_UP)
 		end
 	)
 end
@@ -281,7 +269,6 @@ function ClientWorkbenchManager.new(): ClientWorkbenchManager
 	self.titleLabel = nil
 	self.fill = nil
 	self.progressLabel = nil
-	self.lockLabel = nil
 	return self
 end
 

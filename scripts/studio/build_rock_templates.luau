@@ -44,10 +44,6 @@ local LOOKS = {
 	GOLD_2 = { color = Color3.fromRGB(230, 195, 70), material = Enum.Material.Rock },
 	GOLD_3 = { color = Color3.fromRGB(220, 170, 30), material = Enum.Material.Metal },
 	GOLD_4 = { color = Color3.fromRGB(200, 140, 0), material = Enum.Material.Metal },
-	CRYSTAL_1 = { color = Color3.fromRGB(170, 230, 240), material = Enum.Material.Glass },
-	CRYSTAL_2 = { color = Color3.fromRGB(120, 210, 235), material = Enum.Material.Glass },
-	CRYSTAL_3 = { color = Color3.fromRGB(70, 180, 230), material = Enum.Material.Glass },
-	CRYSTAL_4 = { color = Color3.fromRGB(30, 140, 220), material = Enum.Material.Glass },
 	URANIUM = { color = Color3.fromRGB(110, 255, 90), material = Enum.Material.Neon },
 	BEDROCK = { color = Color3.fromRGB(28, 28, 32), material = Enum.Material.Basalt },
 }

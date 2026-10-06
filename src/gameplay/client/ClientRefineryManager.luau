@@ -1,8 +1,7 @@
 --!strict
 
 -- The Refinery on this client (GDD "Refining Ore"): the balance rows in the
--- gameplay HUD, the Camp Level billboard this client clones onto the
--- Refinery model (GDD "Camp Level"), and the placeholder payout sequence. On NotifyRefineStarted ore icons fly from the backpack button
+-- gameplay HUD and the placeholder payout sequence. On NotifyRefineStarted ore icons fly from the backpack button
 -- into the Refinery on screen while the grind sound plays; on
 -- NotifyRefineCompleted refined icons fly from the Refinery to their HUD row,
 -- which bumps and updates as each one lands. Numbers come from the
@@ -21,7 +20,6 @@ local TweenService = game:GetService("TweenService")
 
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
-local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
 local ClientIconFlightManager = require(script.Parent.ClientIconFlightManager)
@@ -43,11 +41,6 @@ export type ClientRefineryManager = typeof(setmetatable(
 		-- the refining ring drawn around the camp's Refinery, local only
 		ring: Model?,
 		rowByResource: { [number]: Row },
-		-- the pool shown while diamonds are in flight, and the last pool
-		-- rendered, which is where a payout's icons start counting from
-		campHeldPool: number?,
-		campFlightsInProgress: number,
-		displayedCampPool: number,
 	},
 	ClientRefineryManager
 ))
@@ -60,10 +53,6 @@ local REFINED_ENTRY_SHAPE = {
 	resource = { type = "enum", name = "RefinedResource" },
 	amount = "positiveInteger",
 }
-local NOTIFY_CAMP_LEVEL_UP_SHAPE = {
-	level = "positiveInteger",
-}
-local CAMP_LEVEL_UP_FORMAT = "Camp upgraded to level %d"
 
 -- a user id is any whole number (Studio's local test players have negative ones)
 local NOTIFY_REFINE_STARTED_SHAPE = {
@@ -80,13 +69,11 @@ local NOTIFY_REFINE_COMPLETED_SHAPE = {
 local COLOR_BY_RAW: { [number]: Color3 } = {
 	[Enums.RawResource.IRON_ORE] = Color3.fromRGB(120, 125, 135),
 	[Enums.RawResource.GOLD_ORE] = Color3.fromRGB(200, 160, 40),
-	[Enums.RawResource.CRYSTAL] = Color3.fromRGB(150, 220, 255),
 	[Enums.RawResource.URANIUM_ORE] = Color3.fromRGB(90, 200, 70),
 }
 local COLOR_BY_REFINED: { [number]: Color3 } = {
 	[Enums.RefinedResource.IRON_BAR] = Color3.fromRGB(160, 165, 175),
 	[Enums.RefinedResource.GOLD_BAR] = Color3.fromRGB(240, 200, 60),
-	[Enums.RefinedResource.DIAMOND] = Color3.fromRGB(120, 200, 255),
 	[Enums.RefinedResource.URANIUM] = Color3.fromRGB(120, 240, 90),
 }
 -- the refining ring: flat Neon segments on the ground around the Refinery
@@ -102,7 +89,6 @@ local RING_FADE_SEC = 0.6
 local BACKPACK_ORE_ATTRIBUTES = {
 	Attributes.BACKPACK_IRON_ORE,
 	Attributes.BACKPACK_GOLD_ORE,
-	Attributes.BACKPACK_CRYSTAL,
 	Attributes.BACKPACK_URANIUM_ORE,
 }
 local RING_COLOR = Color3.fromRGB(245, 200, 80)
@@ -151,20 +137,8 @@ function ClientRefineryManager:renderRow(resource: number)
 	end
 end
 
--- the camp's Diamond pool has no display since 2026-09-29 (the Camp Level
--- billboard above the Refinery was removed and its spot given to the
--- Refinery's HP bar); the pool is still tracked so a payout counts right
-function ClientRefineryManager:renderCampLevel()
-	local pool = self.campHeldPool or readNumber(ClientDataManager:getGameMetadata(Attributes.CAMP_DIAMONDS))
-	self.displayedCampPool = pool
-end
-
 function ClientRefineryManager:render(resource: number)
-	if resource == Enums.RefinedResource.DIAMOND then
-		self:renderCampLevel()
-	else
-		self:renderRow(resource)
-	end
+	self:renderRow(resource)
 end
 
 -- attribute changes render one step later, so a NotifyRefineCompleted in
@@ -177,61 +151,37 @@ function ClientRefineryManager:onValueChanged(resource: number)
 	)
 end
 
--- where a refined resource lands: its row, or the camp billboard for Diamonds
--- nil for Diamonds, which have nowhere on screen to land since the Camp
--- Level billboard went (2026-09-29); their payout skips the flight
+-- where a refined resource lands: its HUD row
 function ClientRefineryManager:landingTarget(resource: number): GuiObject?
-	if resource == Enums.RefinedResource.DIAMOND then
-		return nil
-	end
 	local row = self.rowByResource[resource]
 	return if row then row.frame else nil
 end
 
 -- freezes a resource's shown value while iconCount icons are in flight
 function ClientRefineryManager:holdValue(resource: number, value: number, iconCount: number)
-	if resource == Enums.RefinedResource.DIAMOND then
-		if self.campHeldPool == nil then
-			self.campHeldPool = value
-		end
-		self.campFlightsInProgress += iconCount
-	else
-		local row = self.rowByResource[resource]
-		if not row then
-			return
-		end
-		if row.heldValue == nil then
-			row.heldValue = value
-		end
-		row.flightsInProgress += iconCount
+	local row = self.rowByResource[resource]
+	if not row then
+		return
 	end
+	if row.heldValue == nil then
+		row.heldValue = value
+	end
+	row.flightsInProgress += iconCount
 	self:render(resource)
 end
 
 -- one icon landed: the shown value moves by its share; the last landing
 -- releases the hold so the attributes show again
 function ClientRefineryManager:stepHeldValue(resource: number, delta: number)
-	if resource == Enums.RefinedResource.DIAMOND then
-		local held = self.campHeldPool
-		if held == nil then
-			return
-		end
-		self.campHeldPool = held + delta
-		self.campFlightsInProgress = math.max(self.campFlightsInProgress - 1, 0)
-		if self.campFlightsInProgress == 0 then
-			self.campHeldPool = nil
-		end
-	else
-		local row = self.rowByResource[resource]
-		local held = if row then row.heldValue else nil
-		if not row or held == nil then
-			return
-		end
-		row.heldValue = held + delta
-		row.flightsInProgress = math.max(row.flightsInProgress - 1, 0)
-		if row.flightsInProgress == 0 then
-			row.heldValue = nil
-		end
+	local row = self.rowByResource[resource]
+	local held = if row then row.heldValue else nil
+	if not row or held == nil then
+		return
+	end
+	row.heldValue = held + delta
+	row.flightsInProgress = math.max(row.flightsInProgress - 1, 0)
+	if row.flightsInProgress == 0 then
+		row.heldValue = nil
 	end
 	self:render(resource)
 end
@@ -245,8 +195,7 @@ function ClientRefineryManager:valueBeforePayout(resource: number, amount: numbe
 	elseif resource == Enums.RefinedResource.URANIUM then
 		return readNumber(ClientDataManager:getGameMetadata(Attributes.URANIUM_TOTAL)) - amount
 	end
-	-- diamonds may have rolled the level over, so count on from what was shown
-	return self.displayedCampPool
+	return 0
 end
 
 -- the top of the Refinery, where ore is tipped in and bars come out; nil
@@ -425,19 +374,6 @@ function ClientRefineryManager:findHud()
 	end
 end
 
--- the level-up beat (GDD "Camp Level", decided 2026-09-16): a notification
--- and a sound, nothing to dismiss; the billboard rolls over on its own
--- from the attributes
-function ClientRefineryManager:onCampLevelUp(payload: any)
-	local isValid = Validate.isTableShape(payload, NOTIFY_CAMP_LEVEL_UP_SHAPE)
-	if not isValid then
-		warn("ClientRefineryManager: malformed NotifyCampLevelUp")
-		return
-	end
-	ClientPlayerFeedbackManager:announceLocal(string.format(CAMP_LEVEL_UP_FORMAT, payload.level))
-	ClientSoundManager:playSfx(SoundNames.Sfx.CAMP_LEVEL_UP)
-end
-
 -- the refining ring on the ground around the Refinery (2026-10-01): a
 -- circle of flat segments at the radius the server published, drawn once
 -- the camp's Refinery streams in, redrawn for a new camp
@@ -577,24 +513,10 @@ function ClientRefineryManager:init()
 			end
 		)
 	end
-	for _, key in { Attributes.CAMP_LEVEL, Attributes.CAMP_DIAMONDS, Attributes.CAMP_DIAMONDS_REQUIRED } do
-		ClientDataManager:subscribeGameMetadataAttribute(
-			key,
-			function()
-				self:onValueChanged(Enums.RefinedResource.DIAMOND)
-			end
-		)
-	end
 	for _, resource in Enums.getAllValues(Enums.RefinedResource) do
 		self:onValueChanged(resource)
 	end
 
-	ClientNetManager:registerHandler(
-		NetEventNames.NOTIFY_CAMP_LEVEL_UP,
-		function(payload: any)
-			self:onCampLevelUp(payload)
-		end
-	)
 	ClientNetManager:registerHandler(
 		NetEventNames.NOTIFY_REFINE_STARTED,
 		function(payload: any)
@@ -614,9 +536,6 @@ function ClientRefineryManager.new(): ClientRefineryManager
 	self.gui = nil
 	self.ring = nil
 	self.rowByResource = {}
-	self.campHeldPool = nil
-	self.campFlightsInProgress = 0
-	self.displayedCampPool = 0
 	return self
 end
 

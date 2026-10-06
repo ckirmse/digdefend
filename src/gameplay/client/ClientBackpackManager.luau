@@ -63,7 +63,6 @@ local ICON_STAGGER_SEC = 0.08
 local COLOR_BY_RAW: { [number]: Color3 } = {
 	[Enums.RawResource.IRON_ORE] = Color3.fromRGB(120, 125, 135),
 	[Enums.RawResource.GOLD_ORE] = Color3.fromRGB(200, 160, 40),
-	[Enums.RawResource.CRYSTAL] = Color3.fromRGB(150, 220, 255),
 	[Enums.RawResource.URANIUM_ORE] = Color3.fromRGB(90, 200, 70),
 }
 
@@ -72,7 +71,6 @@ local COUNT_FORMAT = "%d/%d"
 local RESOURCE_ORDER = {
 	Enums.RawResource.IRON_ORE,
 	Enums.RawResource.GOLD_ORE,
-	Enums.RawResource.CRYSTAL,
 	Enums.RawResource.URANIUM_ORE,
 }
 

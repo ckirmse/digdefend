@@ -33,7 +33,7 @@ export type ClientDevTools = typeof(setmetatable(
 		playersSize: any,
 		iconFramingSize: any,
 		confirmReset: any,
-		cashInput: any,
+		diamondsInput: any,
 		framingAssetOption: any,
 		framingAssetOptions: { string },
 		framingYaw: any,
@@ -378,7 +378,7 @@ end
 function ClientDevTools:renderMenuWindow()
 	Iris.Window({ "Dev Tools" }, { size = self.menuSize, isOpened = self.showMenu })
 
-	Iris.Text({ "Cash: " .. tostring(ClientDataManager:getCash()) })
+	Iris.Text({ "Diamonds: " .. tostring(ClientDataManager:getDiamonds()) })
 	Iris.Text({ "Owned unlocks: " .. tostring(#ClientDataManager:getOwnedUnlockNames()) })
 	if Iris.Button({ "Players in Server" }).clicked() then
 		self:toggleWindow(self.showPlayers, self.playersSize)
@@ -410,14 +410,14 @@ function ClientDevTools:renderMenuWindow()
 	end
 
 	Iris.Separator()
-	Iris.InputNum({ "Cash", 100, 0 }, { number = self.cashInput })
-	if Iris.Button({ "Set Cash" }).clicked() then
+	Iris.InputNum({ "Diamonds", 100, 0 }, { number = self.diamondsInput })
+	if Iris.Button({ "Set Diamonds" }).clicked() then
 		ClientNetManager:fireServer(
 			NetEventNames.TRY_DEV_TOOL,
 			{
-				command = "setCash",
+				command = "setDiamonds",
 				args = {
-					cash = math.max(0, math.floor(self.cashInput:get())),
+					diamonds = math.max(0, math.floor(self.diamondsInput:get())),
 				},
 			}
 		)
@@ -518,7 +518,7 @@ function ClientDevTools:init()
 	self.playersSize = Iris.State(Vector2.new(400, 250))
 	self.iconFramingSize = Iris.State(Vector2.new(350, 400))
 	self.confirmReset = Iris.State(false)
-	self.cashInput = Iris.State(1000)
+	self.diamondsInput = Iris.State(1000)
 	self.framingAssetOptions = BakedIconUtil.getAllBakeableAssetPaths()
 	self.framingAssetOption = Iris.State(self.framingAssetOptions[1])
 	self.framingYaw = Iris.State(180)
@@ -562,7 +562,7 @@ function ClientDevTools.new(): ClientDevTools
 	self.playersSize = nil
 	self.iconFramingSize = nil
 	self.confirmReset = nil
-	self.cashInput = nil
+	self.diamondsInput = nil
 	self.framingAssetOption = nil
 	self.framingAssetOptions = {}
 	self.framingYaw = nil

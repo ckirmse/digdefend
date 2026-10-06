@@ -35,8 +35,8 @@ local SEND_TEST_FEEDBACK_ARGS_SHAPE = {
 	displaySec = "positiveNumber",
 }
 
-local SET_CASH_ARGS_SHAPE = {
-	cash = "nonnegativeInteger",
+local SET_DIAMONDS_ARGS_SHAPE = {
+	diamonds = "nonnegativeInteger",
 }
 
 -- a method is client-callable only if named in DevToolCommands.NAMES; init()
@@ -102,19 +102,19 @@ function DevTools:sendTestFeedback(player: Player, args: { [string]: any })
 	PlayerFeedbackManager:give(player, args.message, args.displaySec)
 end
 
-function DevTools:setCash(player: Player, args: { [string]: any })
-	local isValid, err = Validate.isTableShape(args, SET_CASH_ARGS_SHAPE)
+function DevTools:setDiamonds(player: Player, args: { [string]: any })
+	local isValid, err = Validate.isTableShape(args, SET_DIAMONDS_ARGS_SHAPE)
 	if not isValid then
-		warn("DevTools: setCash with invalid args:", err)
+		warn("DevTools: setDiamonds with invalid args:", err)
 		return
 	end
 	local playerData = gameController:getPlayerData(player)
 	if not playerData then
 		return
 	end
-	playerData:setCash(args.cash)
-	splendidReplicationManager:replicateCash(player)
-	PlayerFeedbackManager:give(player, "Cash set to " .. tostring(playerData:getCash()))
+	playerData:setDiamonds(args.diamonds)
+	splendidReplicationManager:replicateDiamonds(player)
+	PlayerFeedbackManager:give(player, "Diamonds set to " .. tostring(playerData:getDiamonds()))
 end
 
 function DevTools:init(gameControllerIn: any, splendidReplicationManagerIn: any)

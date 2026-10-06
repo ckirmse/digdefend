@@ -78,7 +78,7 @@ function ClientSoundManager:playSfx(name: string, playbackSpeed: number?)
 		self:warnOnce(name, `{Constants.SFX_FOLDER}.{name} has no asset yet`)
 		return
 	end
-	-- restart so rapid repeats (cash ticking up, a pick axe swinging) each
+	-- restart so rapid repeats (diamonds ticking up, a pick axe swinging) each
 	-- make a sound: a Play on a player that has just finished is dropped
 	-- unless it is stopped first (seen in play, 2026-09-29: rock hits went
 	-- silent until the pick paused)
