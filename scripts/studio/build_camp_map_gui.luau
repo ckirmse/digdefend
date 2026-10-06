@@ -18,9 +18,10 @@ local Enums = require(game.ReplicatedStorage.Shared.Enums)
 -- a width-sized map); it ends well above the right-edge stack
 local ROOT_SIZE_SHARE = 0.285
 local ROOT_MAX_PX = 320
--- the dots, as a share of the canvas height
-local PLAYER_DOT_SHARE = 0.07
-local MONSTER_DOT_SHARE = 0.035
+-- the dots, as a share of the canvas height; raised 2026-10-06 so a
+-- monster dot is 5 px on a phone's 106 px map, not 3
+local PLAYER_DOT_SHARE = 0.09
+local MONSTER_DOT_SHARE = 0.05
 
 ChangeHistoryService:SetWaypoint("Before CampMap gui")
 
