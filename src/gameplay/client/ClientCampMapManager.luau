@@ -47,6 +47,8 @@ export type ClientCampMapManager = typeof(setmetatable(
 		canvas: GuiObject?,
 		structureTemplate: GuiObject?,
 		destroyedMarkTemplate: GuiObject?,
+		-- the authored REFINERY word, placed under the Refinery's box
+		refineryLabel: TextLabel?,
 		playerDotTemplate: GuiObject?,
 		monsterDotTemplate: GuiObject?,
 		viewsByShadow: { [BasePart]: StructureView },
@@ -110,6 +112,11 @@ function ClientCampMapManager:findGui()
 	end
 	self.structureTemplate = findTemplate(Constants.CAMP_MAP_STRUCTURE_TEMPLATE)
 	self.destroyedMarkTemplate = findTemplate(Constants.CAMP_MAP_DESTROYED_MARK_TEMPLATE)
+	local refineryLabel = if canvas then canvas:FindFirstChild(Constants.CAMP_MAP_REFINERY_LABEL) else nil
+	self.refineryLabel = if refineryLabel and refineryLabel:IsA("TextLabel") then refineryLabel else nil
+	if not self.refineryLabel then
+		warn("ClientCampMapManager: the CampMap canvas has no RefineryLabel; rerun scripts/studio/build_camp_map_gui.luau")
+	end
 	self.playerDotTemplate = findTemplate(Constants.CAMP_MAP_PLAYER_DOT_TEMPLATE)
 	self.monsterDotTemplate = findTemplate(Constants.CAMP_MAP_MONSTER_DOT_TEMPLATE)
 end
@@ -197,6 +204,13 @@ function ClientCampMapManager:placeStructure(view: StructureView)
 	local destroyedMark = view.destroyedMark
 	if destroyedMark then
 		destroyedMark.Position = UDim2.fromScale(x, y)
+	end
+	local refineryLabel = self.refineryLabel
+	if refineryLabel and view.shadow:GetAttribute(Attributes.STRUCTURE_KIND) == Enums.StructureKind.REFINERY then
+		-- just under the box's bottom edge, whichever way the box is turned
+		local halfHeight = math.max(view.frame.Size.X.Scale, view.frame.Size.Y.Scale) / 2
+		refineryLabel.Position = UDim2.fromScale(x, y + halfHeight)
+		refineryLabel.Visible = true
 	end
 end
 
@@ -461,6 +475,7 @@ function ClientCampMapManager.new(): ClientCampMapManager
 	self.canvas = nil
 	self.structureTemplate = nil
 	self.destroyedMarkTemplate = nil
+	self.refineryLabel = nil
 	self.playerDotTemplate = nil
 	self.monsterDotTemplate = nil
 	self.viewsByShadow = {}

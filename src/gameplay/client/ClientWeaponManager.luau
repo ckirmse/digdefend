@@ -4,8 +4,11 @@
 -- the weapon shows the reticle and the ammo readout; a press fires once and
 -- holding repeats on the weapon's interval (ClientHoldInput, the same input
 -- on every device as the pick axe and the Hammer, the touch action button
--- included). A shot is a request: TryFireWeapon carries only the camera ray,
--- and the server decides what it hit. The gun on screen is the viewmodel
+-- included). A shot is a request: TryFireWeapon carries only the aim ray
+-- (the camera's look in first person; in third person a ray from the head
+-- toward whatever the mouse or the tapped finger is over, ClientCameraView,
+-- 2026-10-07, when a quick tap also fires once), and the server decides what
+-- it hit. The gun on screen is the viewmodel
 -- (ClientViewModelManager), locked to the camera so it follows the reticle;
 -- this manager shows it, kicks it on a shot, and lowers it for a reload.
 -- What is drawn here at once (tracer, the 3D shot sound, a predicted round
@@ -31,6 +34,7 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
+local ClientCameraView = require(script.Parent.ClientCameraView)
 local ClientDamageableManager = require(script.Parent.ClientDamageableManager)
 local ClientHoldInput = require(script.Parent.ClientHoldInput)
 local ClientImpactManager = require(script.Parent.ClientImpactManager)
@@ -268,6 +272,22 @@ function ClientWeaponManager:fire(isFreshPress: boolean): boolean
 	end
 	local origin = camera.CFrame.Position
 	local unitDirection = camera.CFrame.LookVector
+	if ClientCameraView:isThirdPerson() then
+		-- the shot leaves the head (the server checks the origin sits near
+		-- it) toward the point the pointer's ray reaches, so the bullet goes
+		-- where the player clicked or tapped, not where the camera looks
+		local character = Players.LocalPlayer.Character
+		local head = if character then character:FindFirstChild("Head") else nil
+		if head and head:IsA("BasePart") then
+			local rayOrigin, rayDirection = ClientCameraView:getPointerRay(if self.holdInput then self.holdInput:getTouchPosition() else nil)
+			local aimPoint = self:findLocalEnd(rayOrigin, rayDirection, self.rangeStuds + (head.Position - rayOrigin).Magnitude)
+			origin = head.Position
+			local toAimPoint = aimPoint - origin
+			if toAimPoint.Magnitude > 0 then
+				unitDirection = toAimPoint.Unit
+			end
+		end
+	end
 	self.predictedAmmo -= 1
 	self:renderAmmo()
 	ClientNetManager:fireServer(
@@ -485,6 +505,9 @@ function ClientWeaponManager:init()
 		end,
 		swing = function(isFreshPress: boolean): boolean
 			return self:fire(isFreshPress)
+		end,
+		isTapEnabled = function(): boolean
+			return ClientCameraView:isThirdPerson()
 		end,
 	})
 	holdInput:connect()

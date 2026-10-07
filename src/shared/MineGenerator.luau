@@ -79,6 +79,11 @@ export type MineDefinition = {
 	entranceHeight: number,
 	entranceDepth: number,
 	veinEntranceClearance: number,
+	-- within this many blocks of the entrance tunnel only gold veins are
+	-- placed (iron and uranium wait beyond it), so a new crew's first Gold
+	-- goes to mining upgrades before it sees a tower's Iron (designer,
+	-- 2026-10-07); nil or 0 places every ore anywhere outside the clearance
+	goldOnlyEntranceRadius: number?,
 	pocketRadiusMin: number,
 	pocketRadiusMax: number,
 	uraniumTarget: number,
@@ -461,6 +466,9 @@ local function validateMine(definition: MineDefinition, zones: { ResolvedZone },
 	if typeof(definition.veinEntranceClearance) ~= "number" or definition.veinEntranceClearance < 0 then
 		table.insert(errors, "veinEntranceClearance must be a non-negative number")
 	end
+	if definition.goldOnlyEntranceRadius ~= nil and (typeof(definition.goldOnlyEntranceRadius) ~= "number" or definition.goldOnlyEntranceRadius < 0) then
+		table.insert(errors, "goldOnlyEntranceRadius must be nil or a non-negative number")
+	end
 	if typeof(definition.pocketRadiusMin) ~= "number" or definition.pocketRadiusMin < 0 then
 		table.insert(errors, "pocketRadiusMin must be a non-negative number")
 	end
@@ -604,18 +612,71 @@ local function stampCluster(grid: MineGrid, bounds: Box, exclude: Box?, centerDe
 	end
 end
 
+local function isSphereClearOfBox(box: Box, centerDepth: number, centerHeight: number, centerWidth: number, radius: number): boolean
+	return centerDepth + radius < box.depthStart
+		or centerDepth - radius > box.depthEnd
+		or centerHeight + radius < box.heightStart
+		or centerHeight - radius > box.heightEnd
+		or centerWidth + radius < box.widthStart
+		or centerWidth - radius > box.widthEnd
+end
+
+-- true when no carved cell lies within `radius` of the centre, anywhere in
+-- the grid, so a sphere stamped there touches no other pocket
+local function isSphereSolid(grid: MineGrid, centerDepth: number, centerHeight: number, centerWidth: number, radius: number): boolean
+	for depth = math.max(0, centerDepth - radius), math.min(grid.depth - 1, centerDepth + radius) do
+		for height = math.max(0, centerHeight - radius), math.min(grid.height - 1, centerHeight + radius) do
+			for width = math.max(0, centerWidth - radius), math.min(grid.width - 1, centerWidth + radius) do
+				local dd = depth - centerDepth
+				local dh = height - centerHeight
+				local dw = width - centerWidth
+				if dd * dd + dh * dh + dw * dw > radius * radius then
+					continue
+				end
+				if MineGenerator.getCell(grid, depth, height, width) == MineGenerator.AIR then
+					return false
+				end
+			end
+		end
+	end
+	return true
+end
+
 -- Step 7: pockets are carved before veins so ore lands around them, never
--- inside them, and every pocket wall is a discovery
-local function carvePockets(grid: MineGrid, definition: MineDefinition, zones: { ResolvedZone }, zoneRandoms: { Random })
+-- inside them, and every pocket wall is a discovery. No pocket may open
+-- into the entrance clearance (designer, 2026-10-07: the start area is
+-- always solid rock) and no two pockets may touch (same day: overlapping
+-- pockets merged into giant rooms that exposed too much rock and made it
+-- easy to get lost), so a centre whose sphere would reach the clearance or
+-- come within a block of carved air is re-rolled; a pocket with no room
+-- after the tries is dropped with a warning rather than joined to a
+-- neighbour.
+local function carvePockets(grid: MineGrid, definition: MineDefinition, zones: { ResolvedZone }, zoneRandoms: { Random }, exclude: Box, warnings: { string })
 	for _, zone in zones do
 		local random = zoneRandoms[zone.index]
 		local bounds = zoneBox(zone)
+		local dropped = 0
 		for _ = 1, zone.pockets do
 			local radius = random:NextInteger(zone.pocketRadiusMin, zone.pocketRadiusMax)
-			local centerDepth = random:NextInteger(bounds.depthStart, bounds.depthEnd)
-			local centerHeight = random:NextInteger(bounds.heightStart, bounds.heightEnd)
-			local centerWidth = random:NextInteger(bounds.widthStart, bounds.widthEnd)
-			stampCluster(grid, bounds, nil, centerDepth, centerHeight, centerWidth, radius, MineGenerator.AIR, false)
+			local isPlaced = false
+			for _ = 1, MAX_CENTER_TRIES do
+				local centerDepth = random:NextInteger(bounds.depthStart, bounds.depthEnd)
+				local centerHeight = random:NextInteger(bounds.heightStart, bounds.heightEnd)
+				local centerWidth = random:NextInteger(bounds.widthStart, bounds.widthEnd)
+				if isSphereClearOfBox(exclude, centerDepth, centerHeight, centerWidth, radius)
+					and isSphereSolid(grid, centerDepth, centerHeight, centerWidth, radius + 1)
+				then
+					stampCluster(grid, bounds, exclude, centerDepth, centerHeight, centerWidth, radius, MineGenerator.AIR, false)
+					isPlaced = true
+					break
+				end
+			end
+			if not isPlaced then
+				dropped += 1
+			end
+		end
+		if dropped > 0 then
+			table.insert(warnings, zoneLabel(zone.index) .. ": no room for " .. dropped .. " of " .. zone.pockets .. " pockets without touching another; author fewer or smaller pockets")
 		end
 	end
 end
@@ -653,32 +714,37 @@ local function tierDepthRange(tier: number, zone: ResolvedZone, bounds: Box, tie
 	return minDepth, math.max(maxDepth, minDepth)
 end
 
+local function hasRockOutside(grid: MineGrid, bounds: Box, exclude: Box, minDepth: number, maxDepth: number, maxHeight: number): boolean
+	for depth = minDepth, maxDepth do
+		for height = bounds.heightStart, maxHeight do
+			for width = bounds.widthStart, bounds.widthEnd do
+				if not isInBox(exclude, depth, height, width) and MineGenerator.getCell(grid, depth, height, width) ~= MineGenerator.AIR then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
 -- Step 8: per zone, per resource, split the count across tiers and drop
--- each cluster at a random rock position outside the entrance clearance,
--- higher tiers deeper in the zone and never shallower than their floor.
-local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: GeneratorConfig, zoneRandoms: { Random }, exclude: Box, warnings: { string })
+-- each cluster at a random rock position outside the entrance clearance
+-- (gold) or the wider gold-only band (every other ore), higher tiers deeper
+-- in the zone and never shallower than their floor.
+local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: GeneratorConfig, zoneRandoms: { Random }, goldExclude: Box, otherExclude: Box, warnings: { string })
 	local rocks = config.rockTable.ROCKS
 	for _, zone in zones do
 		local random = zoneRandoms[zone.index]
 		local bounds = zoneBox(zone)
-		local hasFreeCell = false
-		for depth = bounds.depthStart, bounds.depthEnd do
-			for height = bounds.heightStart, bounds.heightEnd do
-				for width = bounds.widthStart, bounds.widthEnd do
-					if not isInBox(exclude, depth, height, width) and MineGenerator.getCell(grid, depth, height, width) ~= MineGenerator.AIR then
-						hasFreeCell = true
-					end
-				end
-			end
-		end
 		for _, entry in RESOURCE_FIELDS do
 			local count = zone.veins[entry.resource]
 			if count == 0 then
 				continue
 			end
-			if not hasFreeCell then
-				table.insert(warnings, zoneLabel(zone.index) .. ": entrance clearance and pockets leave no rock for " .. entry.field .. " veins; none placed")
-				break
+			local exclude = if entry.resource == Enums.RawResource.GOLD_ORE then goldExclude else otherExclude
+			if not hasRockOutside(grid, bounds, exclude, bounds.depthStart, bounds.depthEnd, bounds.heightEnd) then
+				table.insert(warnings, zoneLabel(zone.index) .. ": the entrance band and pockets leave no rock for " .. entry.field .. " veins; none placed")
+				continue
 			end
 			local tiers = config.rockTable.RESOURCE_TIERS[entry.resource]
 			local tierCounts
@@ -699,17 +765,7 @@ local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: Gener
 				local rock = tiers[tier]
 				local definitionOfRock = rocks[rock]
 				local minDepth, maxDepth = tierDepthRange(tier, zone, bounds, if #tiers > 1 then config.tierMinDepthBlocks else nil)
-				local hasFreeCellInRange = false
-				for depth = minDepth, maxDepth do
-					for height = bounds.heightStart, maxCenterHeight do
-						for width = bounds.widthStart, bounds.widthEnd do
-							if not isInBox(exclude, depth, height, width) and MineGenerator.getCell(grid, depth, height, width) ~= MineGenerator.AIR then
-								hasFreeCellInRange = true
-							end
-						end
-					end
-				end
-				if not hasFreeCellInRange then
+				if not hasRockOutside(grid, bounds, exclude, minDepth, maxDepth, maxCenterHeight) then
 					minDepth, maxDepth = bounds.depthStart, bounds.depthEnd
 				end
 				local skipped = 0
@@ -938,8 +994,10 @@ function MineGenerator.generate(definition: MineDefinition, config: GeneratorCon
 	local grid = layoutGrid(zones, bedrock)
 	local entrance = entranceBox(grid, definition, bedrock)
 	fillBedrockAndRock(grid, zones, config, zoneRandoms)
-	carvePockets(grid, definition, zones, zoneRandoms)
-	stampVeins(grid, zones, config, zoneRandoms, expandBox(entrance, definition.veinEntranceClearance), warnings)
+	local goldExclude = expandBox(entrance, definition.veinEntranceClearance)
+	carvePockets(grid, definition, zones, zoneRandoms, goldExclude, warnings)
+	local otherExclude = expandBox(entrance, math.max(definition.veinEntranceClearance, definition.goldOnlyEntranceRadius or 0))
+	stampVeins(grid, zones, config, zoneRandoms, goldExclude, otherExclude, warnings)
 	stampHandPlaced(grid, zones, config, zoneRandoms, entrance, warnings)
 	carveEntrance(grid, entrance)
 	local report = buildReport(grid, zones, config, resolvedSeed :: number)

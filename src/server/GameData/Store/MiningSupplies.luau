@@ -16,12 +16,22 @@ return {
 		-- simulator curve): the price is the brake now that no camp level
 		-- gates a rung, and Gold per rock climbs deeper so the last rung is
 		-- as reachable on day 9 as the first was on day 2
-		-- level 2 is 20 since 2026-10-02 (was 30), so the first pick is a day-1 buy
+		-- the first rungs are cheap on purpose (designer, 2026-10-07): day 1
+		-- should feel good, gold easy to find in the gold-only first zone and
+		-- the first upgrade an easy buy; the second rungs are dearer to pay for it
+		-- level 2 is 30 again (2026-10-07, after 15 and 20 the same day: two backpack
+		-- trips, not one; 20 from 2026-10-02, 30 before that), so a new
+		-- player's first run buys a pick before anything else
 		-- level 6 (2026-10-06): the ladder's next step, the Gold sink a run
 		-- past day 10 was missing
-		[Enums.StoreItem.PICK_AXE] = { priceByLevel = { 0, 20, 90, 270, 800, 2400 } },
-		[Enums.StoreItem.BOOTS] = { priceByLevel = { 0, 20, 60, 180, 540 } },
-		[Enums.StoreItem.BACKPACK] = { priceByLevel = { 0, 20, 60, 180, 540 } },
+		[Enums.StoreItem.PICK_AXE] = { priceByLevel = { 0, 30, 100, 270, 800, 2400 } },
+		-- boots and backpack first rungs 40 (2026-10-07; 20, then 25 earlier that
+		-- day): day 1 gold is capped by the 15-ore pack times about 5 trips, near
+		-- 75, so pick 30 + backpack 40 is a full excellent day and the three first
+		-- rungs can never all land on day 1; the backpack's second rung 80 (75
+		-- then 60 before; pick 100 and boots 70 the same day)
+		[Enums.StoreItem.BOOTS] = { priceByLevel = { 0, 40, 70, 180, 540 } },
+		[Enums.StoreItem.BACKPACK] = { priceByLevel = { 0, 40, 80, 225, 675 } },
 		[Enums.StoreItem.JET_PACK] = { priceByLevel = { 0, 40, 120, 360, 1080 } },
 		-- bought once, never upgraded: a track with a single rung, priced
 		-- like the level 2 pick axe (2026-09-30)

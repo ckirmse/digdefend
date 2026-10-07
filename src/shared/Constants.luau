@@ -465,6 +465,14 @@ Constants.DAY_CLOCK_DAY_LABEL = "DayLabel"
 -- the Refinery HP bar (scripts/studio/build_refinery_hp_gui.luau, M33):
 -- the day clock's box top centre, taken over at night; the home icon, a
 -- bar whose Fill is the Refinery's HP share, and "REFINERY HP" under it
+-- the big PAUSED word across the screen while the dev tool holds the run
+-- (2026-10-07; build_run_paused_gui.luau, ClientRunCycleManager)
+Constants.RUN_PAUSED_GUI_NAME = "RunPaused"
+Constants.RUN_PAUSED_LABEL = "Label"
+-- the rescue countdown in the day clock's spot (2026-10-07;
+-- build_rescue_countdown_gui.luau, ClientRescueManager)
+Constants.RESCUE_COUNTDOWN_GUI_NAME = "RescueCountdown"
+Constants.RESCUE_COUNTDOWN_LABEL = "Label"
 Constants.REFINERY_HP_GUI_NAME = "RefineryHp"
 Constants.REFINERY_HP_ROOT_FRAME = "Root"
 Constants.REFINERY_HP_ICON = "Icon"
@@ -481,6 +489,9 @@ Constants.CAMP_MAP_ROOT_FRAME = "Root"
 Constants.CAMP_MAP_CANVAS = "Canvas"
 Constants.CAMP_MAP_STRUCTURE_TEMPLATE = "StructureTemplate"
 Constants.CAMP_MAP_DESTROYED_MARK_TEMPLATE = "DestroyedMarkTemplate"
+-- "REFINERY" under the Refinery's box so the map reads north-up at a
+-- glance (designer, 2026-10-07)
+Constants.CAMP_MAP_REFINERY_LABEL = "RefineryLabel"
 Constants.CAMP_MAP_PLAYER_DOT_TEMPLATE = "PlayerDotTemplate"
 Constants.CAMP_MAP_MONSTER_DOT_TEMPLATE = "MonsterDotTemplate"
 -- the compass (scripts/studio/build_compass_gui.luau): a locator bar hung
@@ -528,6 +539,8 @@ Constants.HUD_JET_PACK_ICON = "Icon"
 Constants.HUD_JET_PACK_TRACK = "Track"
 Constants.HUD_JET_PACK_FILL = "Fill"
 Constants.HUD_JET_PACK_BUTTON = "JetPackButton"
+-- the Start Night button under the jet pack bar (ClientStartNightManager, 2026-10-07)
+Constants.HUD_START_NIGHT_BUTTON = "StartNightButton"
 -- touch-only action button beside the jump button: one button that does
 -- whatever the equipped tool does (swing, throw, place), so moving the
 -- camera never swings the pick axe (decided 2026-09-16)

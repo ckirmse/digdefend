@@ -60,7 +60,10 @@ local TOGGLE_KEY = Enum.KeyCode.RightShift
 local MOUSE_RELEASE_STEP = "DevToolsMouseRelease"
 local MOUSE_RELEASE_PRIORITY = Enum.RenderPriority.Camera.Value + 1
 -- touch has no RightShift: tapping the bottom-right screen quadrant three
--- times in quick succession is the pointer equivalent
+-- times in quick succession is the touch equivalent. Touch only: a mouse
+-- has the key, and counting clicks opened the panel while mining in third
+-- person, where the pointer is free to click rock in that quadrant
+-- (2026-10-07)
 local TOGGLE_TAP_COUNT = 3
 local TOGGLE_TAP_WINDOW_SEC = 0.6
 
@@ -534,9 +537,7 @@ function ClientDevTools:init()
 			end
 			if input.KeyCode == TOGGLE_KEY then
 				self:toggleWindow(self.showMenu, self.menuSize)
-			elseif input.UserInputType == Enum.UserInputType.MouseButton1
-				or input.UserInputType == Enum.UserInputType.Touch
-			then
+			elseif input.UserInputType == Enum.UserInputType.Touch then
 				self:onToggleTap(input.Position)
 			end
 		end

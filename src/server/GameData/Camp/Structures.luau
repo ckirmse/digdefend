@@ -63,6 +63,8 @@ return {
 	-- monster stands a stud further back while it beats on the wall
 	MONSTER_ATTACK_PADDING_STUDS = 1,
 	WALL_DESTROYED_MESSAGE_FORMAT = "Wall %d destroyed",
+	-- the gate falls like a wall and is announced like one (2026-10-07)
+	GATE_DESTROYED_MESSAGE = "Gate destroyed",
 	REFINERY_ATTACKED_MESSAGE = "The Refinery is under attack",
 	ALERT_DISPLAY_SEC = 4,
 	REFINERY_ATTACK_RADIUS_STUDS = 20,

@@ -96,6 +96,31 @@ structureStroke.Color = UiStyle.BACKGROUND_COLOR
 structureStroke.Parent = structure
 structure.Parent = canvas
 
+-- "REFINERY" under the Refinery's box (designer, 2026-10-07): the one word
+-- on the map, so which end is the camp is clear; the client places it
+-- under the Refinery's box and shows it
+local refineryLabel = Instance.new("TextLabel")
+refineryLabel.Name = "RefineryLabel"
+refineryLabel.AnchorPoint = Vector2.new(0.5, 0)
+refineryLabel.Position = UDim2.fromScale(0.5, 0.9)
+refineryLabel.Size = UDim2.fromScale(0.5, 0.075)
+refineryLabel.BackgroundTransparency = 1
+refineryLabel.FontFace = UiStyle.TITLE_FONT
+refineryLabel.Text = UiStyle.formatTitle("Refinery")
+refineryLabel.TextColor3 = UiStyle.TEXT_COLOR
+refineryLabel.TextScaled = true
+refineryLabel.ZIndex = 4
+refineryLabel.Visible = false
+local refineryTextSize = Instance.new("UITextSizeConstraint")
+refineryTextSize.MinTextSize = UiStyle.LABEL_TEXT_MIN_PX
+refineryTextSize.MaxTextSize = UiStyle.LABEL_TEXT_MAX_PX
+refineryTextSize.Parent = refineryLabel
+local refineryStroke = Instance.new("UIStroke")
+refineryStroke.Thickness = UiStyle.STROKE_PX
+refineryStroke.Color = UiStyle.BACKGROUND_COLOR
+refineryStroke.Parent = refineryLabel
+refineryLabel.Parent = canvas
+
 -- the red X laid over a destroyed structure, unturned; the client clones
 -- one per structure and shows it only then
 local destroyed = Instance.new("TextLabel")

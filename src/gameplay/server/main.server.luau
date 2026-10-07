@@ -43,6 +43,7 @@ local RunPauseManager = require(script.Parent.RunPauseManager)
 local RunManager = require(script.Parent.RunManager)
 local RunReportDevTools = require(script.Parent.RunReportDevTools)
 local RunReportManager = require(script.Parent.RunReportManager)
+local StartNightManager = require(script.Parent.StartNightManager)
 local RunStatsManager = require(script.Parent.RunStatsManager)
 local StructureDevTools = require(script.Parent.StructureDevTools)
 local StructureManager = require(script.Parent.StructureManager)
@@ -256,6 +257,8 @@ RunManager:subscribeRunStarted(
 )
 -- after the refinery, whose balances it moves between players
 GiveCurrencyManager:init()
+-- the Start Night vote: after the revive manager it counts the living from
+StartNightManager:init()
 
 -- the run report (M34): after every manager whose events it listens to
 RunReportManager:init()

@@ -487,6 +487,10 @@ module = {
 		-- the helicopter is called (M31): night look, the final wave, then
 		-- boarding, until it leaves (Won)
 		RESCUE = 6,
+		-- the helicopter is called but the final wave is not here yet
+		-- (2026-10-07): the clock stops and the sky holds while a countdown
+		-- runs; RESCUE follows when the wave arrives
+		RESCUE_WAIT = 7,
 
 		PublicNames = {
 			DAY = "Day",
@@ -494,6 +498,8 @@ module = {
 			WON = "Rescued",
 			LOST = "Lost",
 			WAITING = "Landing",
+			RESCUE = "Rescue",
+			RESCUE_WAIT = "Final wave coming",
 		},
 	},
 	-- why a run ended, for the screen that says so

@@ -19,7 +19,9 @@ local MineGridCodec = require("@game/ReplicatedStorage/Shared/MineGridCodec")
 local MineGridQuery = require("@game/ReplicatedStorage/Shared/MineGridQuery")
 local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
+local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientTicker = require(script.Parent.Parent.Client.ClientTicker)
 
 local ClientMineManager = {}
@@ -91,11 +93,16 @@ export type ClientMineManager = typeof(setmetatable(
 		-- every uranium cell still in the rock, buried or exposed, so the
 		-- Geiger Counter can lead a player to one they cannot see
 		uraniumCells: { [number]: boolean },
+		-- the one looping hum every rendered uranium block is a voice of
+		humPlayer: AudioPlayer?,
 	},
 	ClientMineManager
 ))
 
 local FALLBACK_COLOR = Color3.fromRGB(120, 120, 120)
+-- how far the uranium hum carries from a block (designer, 2026-10-07)
+local HUM_FULL_VOLUME_STUDS = 4
+local HUM_SILENT_STUDS = 15
 
 function ClientMineManager:getStats(): Stats
 	local header = self.header
@@ -264,9 +271,28 @@ function ClientMineManager:acquirePart(rock: number): BasePart
 	return self:createPart(rock)
 end
 
+-- an exposed uranium block hums: a voice of the shared loop rides the part
+-- while it is rendered and goes back to the pool silent
+function ClientMineManager:attachHum(part: BasePart)
+	if not self.humPlayer then
+		self.humPlayer = ClientSoundManager:createSharedLoop(SoundNames.Sfx.URANIUM_HUM)
+	end
+	local humPlayer = self.humPlayer
+	if humPlayer then
+		ClientSoundManager:attachEmitter(humPlayer, part, HUM_FULL_VOLUME_STUDS, HUM_SILENT_STUDS)
+	end
+end
+
 function ClientMineManager:releasePart(rock: number, part: BasePart)
 	part.Parent = nil
 	part:SetAttribute(Attributes.MINE_CELL_INDEX, nil)
+	if rock == Enums.RockName.URANIUM then
+		for _, child in part:GetChildren() do
+			if child:IsA("AudioEmitter") then
+				child:Destroy()
+			end
+		end
+	end
 	local pool = self.poolByRock[rock]
 	if not pool then
 		pool = {}
@@ -427,6 +453,9 @@ function ClientMineManager:refresh(playerDepth: number, playerHeight: number, pl
 		part.CFrame = CFrame.new(MineSpace.cellToWorld(space, cellDepth, cellHeight, cellWidth))
 		part:SetAttribute(Attributes.MINE_CELL_INDEX, cellIndex)
 		self:applyCrackLook(part, rock, self.crackStageByCell[cellIndex] or 0)
+		if rock == Enums.RockName.URANIUM then
+			self:attachHum(part)
+		end
 		part.Parent = folder
 		self.rendered[cellIndex] = part
 		self.renderedCount += 1
@@ -590,6 +619,7 @@ function ClientMineManager.new(): ClientMineManager
 	self.stopPolling = nil
 	self.uraniumCells = {}
 	self.warnedMissingTemplates = {}
+	self.humPlayer = nil
 	return self
 end
 

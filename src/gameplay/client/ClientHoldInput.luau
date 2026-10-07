@@ -9,7 +9,10 @@
 -- The owner says when it is enabled, how long the interval is, and what a
 -- swing does; returning false from the swing (nothing to hit) leaves the
 -- interval unspent, so the next frame tries again. The Hammer uses this; the
--- pick axe still carries its own copy with its pause-after-break rule.
+-- pick axe still carries its own copy with its pause-after-break rule. An
+-- owner that says taps are enabled (the weapon in third person, 2026-10-07)
+-- also gets one swing from a finger that lifts before the dwell, and can ask
+-- where the finger is so the swing aims there.
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -23,6 +26,8 @@ export type Config = {
 	getIntervalSec: () -> number,
 	-- isFreshPress: the swing comes straight from a press, not a repeat
 	swing: (isFreshPress: boolean) -> boolean,
+	-- when true, a quick touch is one swing rather than nothing
+	isTapEnabled: (() -> boolean)?,
 }
 
 export type ClientHoldInput = typeof(setmetatable(
@@ -33,6 +38,8 @@ export type ClientHoldInput = typeof(setmetatable(
 		holdTouch: InputObject?,
 		holdTouchStartTime: number,
 		holdTouchStartPosition: Vector3,
+		-- the current touch's screen position, for an owner aiming at the finger
+		touchPosition: Vector2?,
 	},
 	ClientHoldInput
 ))
@@ -49,6 +56,10 @@ end
 
 function ClientHoldInput:getIsHolding(): boolean
 	return self.isHolding
+end
+
+function ClientHoldInput:getTouchPosition(): Vector2?
+	return self.touchPosition
 end
 
 function ClientHoldInput:trySwing(isFreshPress: boolean)
@@ -77,6 +88,7 @@ end
 function ClientHoldInput:cancel()
 	self.isHolding = false
 	self.holdTouch = nil
+	self.touchPosition = nil
 end
 
 function ClientHoldInput:onStep()
@@ -113,23 +125,43 @@ function ClientHoldInput:connect()
 			self.holdTouch = touch
 			self.holdTouchStartTime = workspace:GetServerTimeNow()
 			self.holdTouchStartPosition = touch.Position
+			self.touchPosition = Vector2.new(touch.Position.X, touch.Position.Y)
 		end
 	)
 	UserInputService.TouchMoved:Connect(
 		function(touch: InputObject)
+			if touch ~= self.holdTouch then
+				return
+			end
+			self.touchPosition = Vector2.new(touch.Position.X, touch.Position.Y)
 			-- moving before the dwell is a look; moving after the hold began
 			-- is a look that keeps swinging
-			if touch == self.holdTouch and not self.isHolding and (touch.Position - self.holdTouchStartPosition).Magnitude > TOUCH_HOLD_MAX_MOVE_PX then
+			if not self.isHolding and (touch.Position - self.holdTouchStartPosition).Magnitude > TOUCH_HOLD_MAX_MOVE_PX then
 				self.holdTouch = nil
+				self.touchPosition = nil
 			end
 		end
 	)
 	UserInputService.TouchEnded:Connect(
 		function(touch: InputObject)
-			if touch == self.holdTouch then
-				self.holdTouch = nil
-				self:endHold()
+			if touch ~= self.holdTouch then
+				return
 			end
+			self.holdTouch = nil
+			local wasHolding = self.isHolding
+			self:endHold()
+			local isTapEnabled = self.config.isTapEnabled
+			if not wasHolding
+				and isTapEnabled ~= nil
+				and isTapEnabled()
+				and self.config.isEnabled()
+				and not ClientOverlayManager:isOverlayActive()
+				and workspace:GetServerTimeNow() - self.holdTouchStartTime < TOUCH_HOLD_DWELL_SEC
+			then
+				self.touchPosition = Vector2.new(touch.Position.X, touch.Position.Y)
+				self:trySwing(true)
+			end
+			self.touchPosition = nil
 		end
 	)
 	RunService.Heartbeat:Connect(
@@ -147,6 +179,7 @@ function ClientHoldInput.new(config: Config): ClientHoldInput
 	self.holdTouch = nil
 	self.holdTouchStartTime = 0
 	self.holdTouchStartPosition = Vector3.zero
+	self.touchPosition = nil
 	return self
 end
 

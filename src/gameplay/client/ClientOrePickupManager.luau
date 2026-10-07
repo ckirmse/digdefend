@@ -16,7 +16,9 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local Icons = require("@game/ReplicatedStorage/Shared/Icons")
+local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
+local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 
 local ClientOrePickupManager = {}
 ClientOrePickupManager.__index = ClientOrePickupManager
@@ -34,6 +36,7 @@ export type ClientOrePickupManager = typeof(setmetatable(
 		heartbeat: RBXScriptConnection?,
 		elapsed: number,
 		random: Random,
+		humPlayer: AudioPlayer?,
 	},
 	ClientOrePickupManager
 ))
@@ -47,6 +50,9 @@ local BOB_STUDS = 0.25
 local BOB_PER_SEC = 2
 local TURN_RAD_PER_SEC = 1.5
 local FALLBACK_COLOR = Color3.fromRGB(200, 200, 200)
+-- dropped uranium hums like the rock it came from (designer, 2026-10-07)
+local HUM_FULL_VOLUME_STUDS = 4
+local HUM_SILENT_STUDS = 15
 
 -- the rock whose template colour stands in for an ore with no icon
 local ROCK_FOR_RESOURCE: { [number]: number } = {
@@ -199,6 +205,15 @@ function ClientOrePickupManager:addCaster(shadow: Instance)
 		then makeToolCasterPart(tool)
 		else makeCasterPart(if typeof(resource) == "number" then resource else 0)
 	part.CFrame = shadow.CFrame
+	if resource == Enums.RawResource.URANIUM_ORE then
+		if not self.humPlayer then
+			self.humPlayer = ClientSoundManager:createSharedLoop(SoundNames.Sfx.URANIUM_HUM)
+		end
+		local humPlayer = self.humPlayer
+		if humPlayer then
+			ClientSoundManager:attachEmitter(humPlayer, part, HUM_FULL_VOLUME_STUDS, HUM_SILENT_STUDS)
+		end
+	end
 	part.Parent = self:getFolder()
 	self.casters[shadow] = { shadow = shadow, part = part, phase = self.random:NextNumber(0, math.pi * 2) }
 	self:ensureHeartbeat()
@@ -237,6 +252,7 @@ function ClientOrePickupManager.new(): ClientOrePickupManager
 	self.heartbeat = nil
 	self.elapsed = 0
 	self.random = Random.new()
+	self.humPlayer = nil
 	return self
 end
 

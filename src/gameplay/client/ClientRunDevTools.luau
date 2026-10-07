@@ -2,6 +2,8 @@
 
 -- Gameplay-only dev tool buttons, added as a section of the common admin
 -- panel so common code never has to know the place.
+local Players = game:GetService("Players")
+
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
@@ -20,9 +22,17 @@ export type ClientRunDevTools = typeof(setmetatable(
 		mapOption: any,
 		difficultyOption: any,
 		dayInput: any,
+		isThirdPerson: any,
 	},
 	ClientRunDevTools
 ))
+
+-- the gameplay place locks the camera to first person in StarterPlayer; the
+-- panel's toggle swaps this player alone to the classic third-person camera
+-- so the view can be compared in play (asked 2026-10-07 to settle a design
+-- argument), and puts the lock back when unticked
+local THIRD_PERSON_CAMERA_MODE = Enum.CameraMode.Classic
+local FIRST_PERSON_CAMERA_MODE = Enum.CameraMode.LockFirstPerson
 
 -- must match RunDevTools.*_COMMAND on the server
 local RETURN_TO_LOBBY_COMMAND = "returnToLobby"
@@ -63,7 +73,16 @@ function ClientRunDevTools:send(command: string, args: { [string]: any })
 	)
 end
 
+function ClientRunDevTools:applyCameraMode()
+	local player = Players.LocalPlayer
+	player.CameraMode = if self.isThirdPerson:get() then THIRD_PERSON_CAMERA_MODE else FIRST_PERSON_CAMERA_MODE
+end
+
 function ClientRunDevTools:renderSection()
+	local thirdPersonCheckbox = Iris.Checkbox({ "Third-person camera (this client only)" }, { isChecked = self.isThirdPerson })
+	if thirdPersonCheckbox.checked() or thirdPersonCheckbox.unchecked() then
+		self:applyCameraMode()
+	end
 	local runState = ClientDataManager:getGameMetadata(Attributes.RUN_STATE)
 	Iris.Text({ `Run: {Enums.getPublicName(Enums.RunState, if typeof(runState) == "number" then runState else 0) or "?"}, day {tostring(ClientDataManager:getGameMetadata(Attributes.RUN_DAY))}, crew {tostring(ClientDataManager:getGameMetadata(Attributes.RUN_SCALING_COUNT))}` })
 	local pauseStartTime = ClientDataManager:getGameMetadata(Attributes.RUN_PAUSE_START_TIME)
@@ -145,6 +164,7 @@ function ClientRunDevTools:init()
 	self.mapOption = Iris.State(self.mapOptions[1])
 	self.difficultyOption = Iris.State(self.difficultyOptions[1])
 	self.dayInput = Iris.State(1)
+	self.isThirdPerson = Iris.State(false)
 	ClientDevTools:addMenuSection(
 		function()
 			self:renderSection()
@@ -159,6 +179,7 @@ function ClientRunDevTools.new(): ClientRunDevTools
 	self.mapOption = nil
 	self.difficultyOption = nil
 	self.dayInput = nil
+	self.isThirdPerson = nil
 	return self
 end
 

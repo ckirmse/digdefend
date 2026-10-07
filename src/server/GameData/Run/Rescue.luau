@@ -2,13 +2,16 @@
 
 -- The rescue (GDD "Gameplay Loop", "Helicopter Pad"), M31. Once the crew
 -- has refined the uranium target, the designer's radio (Camp.Radio, its
--- own prompt) calls the rescue helicopter: the run enters its Rescue
--- state (night look, gate shut), the final wave spawns while the
--- helicopter flies in,
--- it lands RESCUE_FLIGHT_SEC after the call, and it leaves once everyone
--- standing is aboard or BOARDING_TIMEOUT_SEC after landing with someone
--- aboard. Everyone aboard wins (decided 2026-09-24).
+-- own prompt) calls the rescue helicopter: the clock stops and a countdown
+-- runs for FINAL_WAVE_DELAY_SEC (the Rescue Wait state, 2026-10-07), then
+-- the run enters its Rescue state (night look, gate shut) and the final
+-- wave spawns while the helicopter flies in; it lands RESCUE_FLIGHT_SEC
+-- after the wave arrives, and it leaves once everyone standing is aboard
+-- or BOARDING_TIMEOUT_SEC after landing with someone aboard. Everyone
+-- aboard wins (decided 2026-09-24).
 return {
+	-- the breather between the radio call and the final wave
+	FINAL_WAVE_DELAY_SEC = 30,
 	RESCUE_FLIGHT_SEC = 60,
 	BOARDING_TIMEOUT_SEC = 30,
 	-- the final wave is the next night's wave, this many times over
@@ -22,9 +25,9 @@ return {
 
 	-- green (good news) when the target is first reached and when the
 	-- rescue is called (2026-10-06); the rest stay blue announcements
-	READY_MESSAGE = "The uranium target is reached. Call the rescue on the Radio",
+	READY_MESSAGE = "Uranium target reached! Call in the rescue helicopter on the radio",
 	CALLED_MESSAGE = "The rescue helicopter is on its way. Hold out",
-	LANDED_MESSAGE = "The helicopter has landed. Get aboard",
+	LANDED_MESSAGE = "The helicopter has arrived. Board it now!",
 	WON_ALL_MESSAGE = "The whole crew made it out. The run is won",
 	WON_SOME_FORMAT = "%s made it out. The run is won",
 	ANNOUNCEMENT_DISPLAY_SEC = 6,

@@ -165,7 +165,7 @@ return {
 		-- slow, huge, melee
 		[Enums.MonsterKind.BRUTE_1] = {
 			DIFFICULTY_VALUE = 10,
-			MAX_HP = 500,
+			MAX_HP = 600,
 			DAMAGE = 40,
 			SPEED_STUDS_PER_SEC = 10,
 			TARGET_PRIORITIES = { WALLS, PLAYERS },
@@ -183,7 +183,7 @@ return {
 		},
 		[Enums.MonsterKind.BRUTE_2] = {
 			DIFFICULTY_VALUE = 20,
-			MAX_HP = 1000,
+			MAX_HP = 1200,
 			DAMAGE = 80,
 			SPEED_STUDS_PER_SEC = 10,
 			TARGET_PRIORITIES = { WALLS, PLAYERS },
@@ -201,7 +201,7 @@ return {
 		},
 		[Enums.MonsterKind.BRUTE_3] = {
 			DIFFICULTY_VALUE = 30,
-			MAX_HP = 1500,
+			MAX_HP = 1800,
 			DAMAGE = 120,
 			SPEED_STUDS_PER_SEC = 10,
 			TARGET_PRIORITIES = { WALLS, PLAYERS },
@@ -306,7 +306,7 @@ return {
 		[Enums.MonsterKind.FLYER_1] = {
 			DIFFICULTY_VALUE = 16,
 			MAX_HP = 350,
-			DAMAGE = 100,
+			DAMAGE = 50,
 			SPEED_STUDS_PER_SEC = 15,
 			TARGET_PRIORITIES = {},
 			TARGET_DAMAGE_TYPES = { PLAYERS },
@@ -328,7 +328,7 @@ return {
 		[Enums.MonsterKind.FLYER_2] = {
 			DIFFICULTY_VALUE = 32,
 			MAX_HP = 700,
-			DAMAGE = 200,
+			DAMAGE = 100,
 			SPEED_STUDS_PER_SEC = 15,
 			TARGET_PRIORITIES = {},
 			TARGET_DAMAGE_TYPES = { PLAYERS },
@@ -350,7 +350,7 @@ return {
 		[Enums.MonsterKind.FLYER_3] = {
 			DIFFICULTY_VALUE = 47,
 			MAX_HP = 1050,
-			DAMAGE = 300,
+			DAMAGE = 150,
 			SPEED_STUDS_PER_SEC = 15,
 			TARGET_PRIORITIES = {},
 			TARGET_DAMAGE_TYPES = { PLAYERS },
@@ -383,7 +383,7 @@ return {
 			TARGET_DAMAGE_TYPES = {},
 			ATTACK_TYPE = MELEE,
 			DETECTION_RANGE_STUDS = 20,
-			ATTACK_RANGE_STUDS = 30,
+			ATTACK_RANGE_STUDS = 15,
 			ATTACK_RADIUS_STUDS = 0,
 			DIE_ON_ATTACK = false,
 			DAMAGE_ON_DEATH = false,
@@ -402,7 +402,7 @@ return {
 			TARGET_DAMAGE_TYPES = {},
 			ATTACK_TYPE = MELEE,
 			DETECTION_RANGE_STUDS = 20,
-			ATTACK_RANGE_STUDS = 30,
+			ATTACK_RANGE_STUDS = 15,
 			ATTACK_RADIUS_STUDS = 0,
 			DIE_ON_ATTACK = false,
 			DAMAGE_ON_DEATH = false,

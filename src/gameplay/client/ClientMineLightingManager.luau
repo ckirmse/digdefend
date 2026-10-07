@@ -1,5 +1,8 @@
 --!strict
 
+-- Not started since 2026-10-07 (designer: the back of the mine got too dark
+-- in the third M34 run); kept so the dimming can come back by adding its
+-- init to main.client when torches matter again.
 -- Darkness inside the mine (decided 2026-09-15): Roblox's sky light reaches
 -- into a one-block-thick shell of client blocks through its coarse lighting
 -- voxels, so tunnels stay lit whatever Lighting.Ambient says. Lighting is

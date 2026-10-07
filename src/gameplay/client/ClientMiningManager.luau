@@ -12,7 +12,10 @@
 -- After a break the hold waits until the reticle has rested on the next
 -- block for one interval, so every first hit is intended. Swings are only
 -- ever requests (TryHitRock); the crack state and the removal every client
--- shows come back from the server.
+-- shows come back from the server. In third person (ClientCameraView, the
+-- dev panel's toggle, 2026-10-07) the reticle is hidden and the target is
+-- the block under the mouse or the finger instead, within reach of the
+-- character; a quick tap swings once at the tapped block.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -29,6 +32,7 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
+local ClientCameraView = require(script.Parent.ClientCameraView)
 local ClientHeldToolManager = require(script.Parent.ClientHeldToolManager)
 local ClientMineManager = require(script.Parent.ClientMineManager)
 
@@ -67,6 +71,8 @@ export type ClientMiningManager = typeof(setmetatable(
 		holdTouch: InputObject?,
 		holdTouchStartTime: number,
 		holdTouchStartPosition: Vector3,
+		-- where the current touch is, so a third-person aim follows the finger
+		pointerPosition: Vector2?,
 		lastSwingTime: number,
 		hitIntervalSec: number,
 		reachStuds: number,
@@ -162,21 +168,33 @@ function ClientMiningManager:renderTargetLabel()
 	end
 end
 
--- what the camera centre is looking at, within reach, among rendered blocks
+-- what the aim is on, within reach, among rendered blocks: the camera centre
+-- in first person, the pointer in third person (where the ray starts behind
+-- the character, so it runs the extra distance and the block itself must be
+-- within reach of the root, as the server measures it)
 function ClientMiningManager:aim()
-	local camera = workspace.CurrentCamera
 	local blocksFolder = workspace:FindFirstChild(Constants.MINE_BLOCKS_FOLDER)
-	if not camera or not blocksFolder then
+	if not blocksFolder then
 		self:setTarget(nil)
 		return
 	end
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = { blocksFolder }
-	local origin = camera.CFrame.Position
-	local result = workspace:Raycast(origin, camera.CFrame.LookVector * self.reachStuds, params)
+	local origin, unitDirection = ClientCameraView:getPointerRay(self.pointerPosition)
+	local isThirdPerson = ClientCameraView:isThirdPerson()
+	local rootPosition = ClientCameraView:getRootPosition()
+	local length = self.reachStuds
+	if isThirdPerson and rootPosition then
+		length += (rootPosition - origin).Magnitude
+	end
+	local result = workspace:Raycast(origin, unitDirection * length, params)
 	local part = if result then result.Instance else nil
 	if not part or not part:IsA("BasePart") then
+		self:setTarget(nil)
+		return
+	end
+	if isThirdPerson and (not rootPosition or not MiningRules.isWithinReach(rootPosition, part.Position, self.reachStuds, 0)) then
 		self:setTarget(nil)
 		return
 	end
@@ -254,6 +272,7 @@ function ClientMiningManager:onTouchStarted(touch: InputObject, isGameProcessed:
 	self.holdTouch = touch
 	self.holdTouchStartTime = workspace:GetServerTimeNow()
 	self.holdTouchStartPosition = touch.Position
+	self.pointerPosition = Vector2.new(touch.Position.X, touch.Position.Y)
 end
 
 -- moving before the dwell is a look, and the touch stops being a candidate;
@@ -264,15 +283,26 @@ function ClientMiningManager:onTouchMoved(touch: InputObject)
 	end
 	if (touch.Position - self.holdTouchStartPosition).Magnitude > TOUCH_HOLD_MAX_MOVE_PX then
 		self.holdTouch = nil
+		self.pointerPosition = nil
 	end
 end
 
+-- a finger that lifts before the dwell is a tap: nothing in first person,
+-- one swing at the tapped block in third person
 function ClientMiningManager:onTouchEnded(touch: InputObject)
 	if touch ~= self.holdTouch then
 		return
 	end
 	self.holdTouch = nil
+	local wasHolding = self.isHolding
 	self:endHold()
+	if not wasHolding and ClientCameraView:isThirdPerson() and workspace:GetServerTimeNow() - self.holdTouchStartTime < TOUCH_HOLD_DWELL_SEC then
+		self.pointerPosition = Vector2.new(touch.Position.X, touch.Position.Y)
+		self:aim()
+		self:beginHold()
+		self:endHold()
+	end
+	self.pointerPosition = nil
 end
 
 function ClientMiningManager:promoteHoldTouchIfNeeded(now: number)
@@ -433,6 +463,7 @@ function ClientMiningManager:setActive(isActive: boolean)
 		self.isHolding = false
 		self.isPausedAfterBreak = false
 		self.holdTouch = nil
+		self.pointerPosition = nil
 		self:setTarget(nil)
 		if self.aimConnection then
 			self.aimConnection:Disconnect()
@@ -480,6 +511,17 @@ function ClientMiningManager:init()
 	highlight.Enabled = false
 	highlight.Parent = workspace
 	self.highlight = highlight
+
+	-- the centre reticle means nothing from behind the character: hidden in
+	-- third person for every mode that shows it, the weapon included
+	RunService.RenderStepped:Connect(
+		function()
+			local reticle = self.reticle
+			if reticle then
+				reticle.Visible = not ClientCameraView:isThirdPerson()
+			end
+		end
+	)
 
 	self:readTuning()
 	for _, key in { Attributes.PICK_AXE_HIT_INTERVAL_SEC, Attributes.PICK_AXE_REACH_STUDS } do
@@ -554,6 +596,7 @@ function ClientMiningManager.new(): ClientMiningManager
 	self.holdTouch = nil
 	self.holdTouchStartTime = 0
 	self.holdTouchStartPosition = Vector3.zero
+	self.pointerPosition = nil
 	self.lastSwingTime = 0
 	self.hitIntervalSec = DEFAULT_HIT_INTERVAL_SEC
 	self.reachStuds = DEFAULT_REACH_STUDS

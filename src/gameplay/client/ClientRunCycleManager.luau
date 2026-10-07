@@ -47,6 +47,7 @@ ClientRunCycleManager.__index = ClientRunCycleManager
 export type ClientRunCycleManager = typeof(setmetatable(
 	{} :: {
 		gui: ScreenGui?,
+		pausedGui: ScreenGui?,
 		clockGroup: CanvasGroup?,
 		-- the clock on stage by day and off the top of the screen by night
 		slide: ClientHudSlide.ClientHudSlide?,
@@ -125,6 +126,13 @@ end
 
 function ClientRunCycleManager:findGui()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local pausedGui = playerGui:WaitForChild(Constants.RUN_PAUSED_GUI_NAME, 10)
+	if pausedGui and pausedGui:IsA("ScreenGui") then
+		pausedGui.Enabled = false
+		self.pausedGui = pausedGui
+	else
+		warn("ClientRunCycleManager: no RunPaused ScreenGui; run scripts/studio/build_run_paused_gui.luau")
+	end
 	local gui = playerGui:WaitForChild(Constants.DAY_CLOCK_GUI_NAME, 10)
 	if not gui or not gui:IsA("ScreenGui") then
 		warn("ClientRunCycleManager: no DayClock ScreenGui; run scripts/studio/build_day_clock_gui.luau")
@@ -245,7 +253,8 @@ function ClientRunCycleManager:stepSky(runState: number, startTime: number, endT
 	local dawnTransitionSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_LIGHTING_DAWN_TRANSITION_SEC), DEFAULT_DAWN_TRANSITION_SEC)
 	local duskTransitionSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_LIGHTING_DUSK_TRANSITION_SEC), DEFAULT_DUSK_TRANSITION_SEC)
 	local spawnSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_NIGHT_SPAWN_SEC), DEFAULT_NIGHT_SPAWN_SEC)
-	local stage, share = RunCycleRules.skyStage(runState, startTime, endTime, now, dawnTransitionSec, duskTransitionSec, spawnSec)
+	local heldDayShare = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_RESCUE_HELD_DAY_SHARE), -1)
+	local stage, share = RunCycleRules.skyStage(runState, startTime, endTime, now, dawnTransitionSec, duskTransitionSec, spawnSec, heldDayShare)
 	local from, to = LightingPresets.stageEnds(presets, stage)
 	self:applyBlend(Lighting, from.LIGHTING, to.LIGHTING, share)
 	for childName, fromChild in from.CHILDREN do
@@ -308,6 +317,10 @@ function ClientRunCycleManager:step()
 	local pauseStartTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_PAUSE_START_TIME), 0)
 	if pauseStartTime > 0 then
 		now = pauseStartTime
+	end
+	local pausedGui = self.pausedGui
+	if pausedGui and pausedGui.Enabled ~= (pauseStartTime > 0) then
+		pausedGui.Enabled = pauseStartTime > 0
 	end
 	local shareLeft = if runState == Enums.RunState.DAY then RunCycleRules.dayShareLeft(startTime, endTime, now) elseif runState == Enums.RunState.WAITING then 1 else 0
 	local fill = self.fill
@@ -419,6 +432,7 @@ end
 function ClientRunCycleManager.new(): ClientRunCycleManager
 	local self = setmetatable({}, ClientRunCycleManager) :: ClientRunCycleManager
 	self.gui = nil
+	self.pausedGui = nil
 	self.clockGroup = nil
 	self.slide = nil
 	self.numberGui = nil

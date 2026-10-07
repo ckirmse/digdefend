@@ -6,8 +6,10 @@
 -- the radio is doing (waiting for the target, ready to call, the
 -- helicopter's countdown, boarding), the radio's own screen and lamp
 -- turning green with QUOTA COMPLETE once the target is met, all from
--- GameMetadata the server publishes; and the rescue announcements in the
--- announcement box. The prompts themselves are the server's.
+-- GameMetadata the server publishes; the rescue announcements in the
+-- announcement box; and the countdown in the day clock's spot once the
+-- radio is used (2026-10-07): to the final wave, then to the helicopter,
+-- then the call to board. The prompts themselves are the server's.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -18,6 +20,7 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
+local ClientHudSlide = require(script.Parent.Parent.Client.ClientHudSlide)
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
@@ -38,6 +41,11 @@ export type ClientRescueManager = typeof(setmetatable(
 		shownUranium: string,
 		shownStatus: string,
 		lastStepTime: number,
+		countdownGui: ScreenGui?,
+		countdownLabel: TextLabel?,
+		countdownSlide: ClientHudSlide.ClientHudSlide?,
+		isCountdownShown: boolean,
+		shownCountdown: string,
 	},
 	ClientRescueManager
 ))
@@ -59,6 +67,12 @@ local STATUS_BOARDING_FORMAT = "Boarding  %d / %d aboard, leaving in %d s"
 local STATUS_BOARDING_WAITING_FORMAT = "Boarding  %d / %d aboard"
 local STATUS_WON = "Rescued"
 local STATUS_LOST = "No rescue is coming"
+-- the countdown where the day clock was: it follows the clock up the
+-- screen and comes down in its place (designer, 2026-10-07)
+local COUNTDOWN_WAVE_FORMAT = "Final Wave Arrives In: %s"
+local COUNTDOWN_HELICOPTER_FORMAT = "Helicopter Arrives In: %s"
+local COUNTDOWN_LANDED_TEXT = "The helicopter has arrived. Board it now!"
+local COUNTDOWN_HIDDEN_POSITION_Y_SCALE = -0.3
 -- the radio's screen once the quota is met (the designer's colour)
 local QUOTA_COMPLETE_TEXT = "QUOTA COMPLETE"
 local QUOTA_COMPLETE_COLOR = Color3.fromRGB(76, 229, 112)
@@ -167,8 +181,72 @@ function ClientRescueManager:statusText(now: number): string
 	return if target > 0 and total >= target then STATUS_READY else STATUS_WAITING
 end
 
+local function formatClock(seconds: number): string
+	local whole = math.max(0, math.ceil(seconds))
+	return string.format("%02d:%02d", whole // 60, whole % 60)
+end
+
+-- what the countdown reads, or nil while it has nothing to say
+function ClientRescueManager:countdownText(now: number): string?
+	local runState = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_STATE), Enums.RunState.DAY)
+	local endTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_PHASE_END_TIME), 0)
+	local pauseStartTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_PAUSE_START_TIME), 0)
+	if pauseStartTime > 0 then
+		now = pauseStartTime
+	end
+	if runState == Enums.RunState.RESCUE_WAIT then
+		return UiStyle.formatTitle(string.format(COUNTDOWN_WAVE_FORMAT, formatClock(endTime - now)))
+	end
+	if runState == Enums.RunState.RESCUE then
+		if ClientDataManager:getGameMetadata(Attributes.RESCUE_IS_LANDED) == true then
+			return UiStyle.formatTitle(COUNTDOWN_LANDED_TEXT)
+		end
+		return UiStyle.formatTitle(string.format(COUNTDOWN_HELICOPTER_FORMAT, formatClock(endTime - now)))
+	end
+	return nil
+end
+
+function ClientRescueManager:renderCountdown(now: number)
+	local label = self.countdownLabel
+	local slide = self.countdownSlide
+	if not label or not slide then
+		return
+	end
+	local text = self:countdownText(now)
+	local isShown = text ~= nil
+	if isShown ~= self.isCountdownShown then
+		self.isCountdownShown = isShown
+		-- down once the day clock has slid away, like the Refinery HP bar
+		slide:setShown(isShown, if isShown then UiStyle.HUD_SLIDE_SEC else 0)
+	end
+	if text and text ~= self.shownCountdown then
+		self.shownCountdown = text
+		label.Text = text
+	end
+end
+
+function ClientRescueManager:findCountdownGui()
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local gui = playerGui:WaitForChild(Constants.RESCUE_COUNTDOWN_GUI_NAME, 10)
+	if not gui or not gui:IsA("ScreenGui") then
+		warn("ClientRescueManager: no RescueCountdown ScreenGui; run scripts/studio/build_rescue_countdown_gui.luau")
+		return
+	end
+	local label = gui:FindFirstChild(Constants.RESCUE_COUNTDOWN_LABEL)
+	if not label or not label:IsA("TextLabel") then
+		warn("ClientRescueManager: the RescueCountdown gui has no Label; rebuild it")
+		return
+	end
+	self.countdownGui = gui
+	self.countdownLabel = label
+	self.countdownSlide = ClientHudSlide.new(label, UDim2.new(label.Position.X.Scale, label.Position.X.Offset, COUNTDOWN_HIDDEN_POSITION_Y_SCALE, 0))
+	self.countdownSlide:snap(false)
+	gui.Enabled = true
+end
+
 function ClientRescueManager:render()
 	local now = workspace:GetServerTimeNow()
+	self:renderCountdown(now)
 	local total = readNumber(ClientDataManager:getGameMetadata(Attributes.URANIUM_TOTAL), 0)
 	local target = readNumber(ClientDataManager:getGameMetadata(Attributes.URANIUM_TARGET), 0)
 	local uraniumText = string.format(URANIUM_FORMAT, total, target)
@@ -224,6 +302,11 @@ function ClientRescueManager:init()
 			self:attachBillboard()
 		end
 	)
+	task.spawn(
+		function()
+			self:findCountdownGui()
+		end
+	)
 	RunService.Heartbeat:Connect(
 		function()
 			self:step()
@@ -243,6 +326,11 @@ function ClientRescueManager.new(): ClientRescueManager
 	self.shownUranium = ""
 	self.shownStatus = ""
 	self.lastStepTime = 0
+	self.countdownGui = nil
+	self.countdownLabel = nil
+	self.countdownSlide = nil
+	self.isCountdownShown = false
+	self.shownCountdown = ""
 	return self
 end
 

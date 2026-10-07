@@ -138,6 +138,61 @@ The sixth playtest (solo Normal, the log read from the Output: pick 2 and backpa
 
 Read from the Output. Economy on pace or ahead: four Sentries by day 3 (the iron fix took), fortifications to tier 2 on day 4, pick 4 on day 7, backpack 4 on day 8, nine post rungs by day 7 at the new prices. Walls: wall 4 fell on nights 2, 4, 6 and 8, wall 3 on nights 6 and 8, a Sentry to Bombers on night 3, the Refinery on night 8 to a two-group wave (109 and 120 points, ten seconds apart, Brute II and Zombie III in both). No tower was added or upgraded after day 3; every later Iron went to fortifications and repairs, so the tower plan the sheet assumes (five by night 8) was three. Changes: the spawn window and group gap above; the stuck-monster slide and the post tool lock (bugs found the same run). Open: walls 3 and 4 fall every other night from night 2, so the leak lands on the same segments, and the sheet spreads it over three; the model does not see that the Refinery sits behind those two.
 
+## The third M34 run (2026-10-07, solo Normal, lost on the final wave, day 13)
+
+The first run on the day-1 economy decided that day (gold-only band 16, zone 1 gold 230 in 24 radius-1 rooms, pick 30 / 100, backpack 40 / 80, boots 40 / 70, rooms never touching) and the first logged by the run report end to end. Three nights were forced early with the dev tool (7, 8, 11), and the run was paused for breaks, so those days' mining lines read low.
+
+| Day | Gold refined | Trips | Iron refined | Bought | Night | Walls lost | Refinery dmg |
+|---|---|---|---|---|---|---|---|
+| 1 | 72 | 5 (45 s) | 0 | pick 2, backpack 2 | 23 s | 0 | 0 |
+| 2 | 117 | 4 | 63 | compass, backpack 3; 5 walls | 22 s | 0 | 0 |
+| 3 | 141 | 4 | 15 | pick 3; 7 walls, Sentry | 23 s | 0 | 0 |
+| 4 | 123 | 2 | 141 | Geiger; walls, Sentry, 3 Goo Pits | 43 s | 0 | 0 |
+| 5 | 185 | 3 | 186 | pick 4 (270); 2 Sentries, 2 upgrades | 39 s | 0 | 0 |
+| 6 | 111 | 2 | 153 | boots 3, post Damage 2 | 42 s | 0 | 100 |
+| 7 (forced) | 167 | 2 | 102 | backpack 4 and 5 (900), jet pack, boots 4; fortifications to tier 3 | 29 s | 1 | 0 |
+| 8 (forced) | 1,465 | 5 | 555 | Geiger 2, pick 5 (800), Sentry, 3 tower upgrades, 3 post rungs | 64 s | 0 | 695 |
+| 9 | 1,017 | 1 | 183 | boots 5 (540), 2 walls, 2 upgrades | 48 s | 1 | 0 |
+| 10 | 1,063 | 1 | 132 | four post rungs at 270 | 80 s | 3 + gate | 2,600 |
+| 11 (forced) | 576 | 1 | 108 | two post rungs at 800 | 61 s | 0 | 0 |
+| 12 | 1,912 | 2 | 48 | post rung 800, torches; rescue called | 70 s | 2 | 0 |
+| 13 | 576 | 1 | 48 | final wave (781 points, 5 groups): the Refinery fell | | | lost |
+
+Totals: 7,525 gold, 1,734 iron (888 on 32 placements and 7 upgrades, 295 on 8,810 HP of repairs), uranium 40 on day 13, 248 kills, 155 Diamonds.
+
+What it says:
+
+- **Day 1 landed where the day-1 design put it.** 72 gold from 5 full packs is the ceiling the pack sets (15 ore a trip), and it bought the pick and the backpack with 2 left: the "excellent day buys both" case. The 95th-percentile question is still open because every log is the designer's.
+- **Gold runs away from day 8.** Backpack 4 and 5 bought the same day (day 7) took trips from 4 a day to 1 and gold from about 150 a day to 1,000 to 1,900. Everything Gold buys was maxed by day 12 (pick 5, backpack 5, boots 5, four post rungs at 800). Pick Axe 6 (2,400) was never bought. The late Gold sink is still missing or too cheap; the run ended holding 369 then 125.
+- **Iron is the binding constraint all run.** Iron held closed at 0 to 8 on nine of thirteen days. From night 9 the Launchers and Flyer IIs shred the line: night 9 took 2,305 wall HP and a wall, night 10 took 3,295, three walls, the gate, and 2,600 Refinery HP in one night at tier 3 (4,000). Repairs cost 108 Iron on day 11 alone. The sheet's "walls hold once towers come online" never happened: placements were destroyed every night from 7 on (Placement destroyed lines), so the Iron went to rebuilding the same Sentries and Goo Pits.
+- **The final wave lost the run.** The rescue was called on day 13 at 40 uranium, two days ahead of the day-15 target, and the final wave (781 points, five groups 8 s apart, Titan and Brute III in night 12 already) broke Wall3 and the Refinery before the helicopter landed and boarded (60 s landing plus the boarding window). With the second M34 run won on day 14 and this one lost on day 13, the final wave's scale and the landing time are the first things to look at, before any mining number.
+- **Uranium pacing is right.** 40 on day 13 against a day-15 target with three forced nights is on the curve the 2026-09-29 pass asked for (about three a day, no jumps).
+
+Changes made from it the same day: gold and iron yields both to 3 / 9 / 27 / 81 / 243 a rock (gold was quadrupling, iron doubling), flyer damage halved (50 / 100 / 150), Brute HP 600 / 1,200 / 1,800, the Titans' reach 15 studs, and a 30 s breather between the radio call and the final wave (the Rescue Wait state with its countdown). The sheet after: 33 misses (29 before), with solo Normal's uranium landing on day 18 in the model against day 13 in play: the model buys the pick and backpack rungs from gold per pack, so the gold cut slows its advance far more than it slowed the designer, who reached the deep zones on upgrades bought by day 8 either way. The model's advance assumptions are the next thing to refit, from this run's pick and backpack dates (pick 3 day 3, pick 4 day 5, backpack 4 and 5 day 7, pick 5 day 8). Later the same day, for feel only: yields to 2 / 6 / 18 / 54 / 162 with iron and gold counts times 1.5 and resource HP times two thirds, so ore per zone, swings per ore, and every sheet number stay put while finds come half again as often; and a zone 0 starter band (8 blocks, gold only, 90 rocks) so day 1 pays the first pack on any seed.
+
+## Crew scaling of the mine (discussed 2026-10-07, undecided)
+
+The designer wants crew scaling to keep the solo balance, so solo is what gets tuned and crews inherit it. Today the grid is identical for every crew and ORE_YIELD_MULTIPLIER_BY_PLAYER_COUNT (1.0 to 1.75) pays more ore per rock: that leaves day 1 alone (a pack pays 15 whatever the yield) but a crew of four shares one mine's supply, so zone 1 empties in a quarter of the time and nothing tuned solo holds. The designer prefers more resource rocks over more ore per rock. Three approaches were compared:
+
+1. **Rock count scaling** (vein counts times a crew table, yield 1.0): per-player supply over the run matches solo, but density rises, so each player finds ore faster and delivers more packs a day (digging is about half a trip, so a crew of four runs about 1.6x solo early). Cheap, keeps the footprint, needs the multiplier set below the crew size by hand.
+2. **Width scaling** (zone width times the crew, density unchanged, yield 1.0, uranium counts scaling with the width, target table linear): each player is in a solo-sized mine side by side, so everything carries across exactly. Costs: the hill must hold the widest mine (96 wide solo, 384 for four, 576 for six studs; a sublinear table of 1 / 1.8 / 2.5 / 3.1 / 3.6 / 4.0 keeps the shape), a one-time client rebuild of about half a second for six, and about 200 KB per client at run start. Drawing, the server, and digging are unchanged at any size.
+3. **Leave yield scaling** until a crew can play; the one thing it affects, how fast a crew empties the mine, cannot be judged without one.
+
+Decision deferred to the group playtest. The designer also feels the mine is close to balanced solo and reads as too much stone, but does not want density touched now.
+
+Scanned in the model the same day (BalanceAudit:buildInput with the yield at 1.0 and every zone's ore times a rock multiplier; Normal, Deadman's Canyon, per player), against solo's gold per player 477 / 1,760 / 3,894 at nights 5 / 10 / 15, iron 239 / 1,149, uranium on night 18, slack 2.7 / 4.0:
+
+| Crew | Today (yield) | Rocks x1.0 | Rocks x1.5 | Rocks x2.0 | Rocks linear |
+|---|---|---|---|---|---|
+| 2 | gold 534 / 1,949, uranium 16 | 358 / 1,172, 18 | 811 / 3,005, 13 | 1,007 / 4,430, 12 | same as x2 |
+| 3 | 570 / 2,236, 14 | 332 / 1,083, 19 | 583 / 2,383, 14 | 887 / 3,538, 13 | 1,472 / 9,073, 10 |
+| 4 | 768 / 2,774, 13 | 318 / 995, 19 | 530 / 2,225, 14 | 817 / 3,283, 12 | 2,955 / 15,717, 9 |
+| 5 | 809 / 2,935, 12 | 306 / 898, 19 | 494 / 1,884, 14 | 767 / 3,097, 12 | 3,289 / 17,443, 7 |
+| 6 | 854 / 3,134, 12 | 270 / 799, 19 | 468 / 1,619, 15 | 730 / 2,977, 12 | 3,519 / 19,800, 7 |
+
+Reading: a linear rock count makes a crew five to ten times richer per head than solo in the model, because a crew strips a zone rather than tunnelling (CREW_ADVANCE_EXPONENT 0.6) and denser rock pays for every swing. No scaling at all (x1.0) leaves crews poorer than solo and lands uranium late. The multiplier that keeps each player on solo's curve is about 1.5 for two to four players and 1.5 to 2.0 for five and six, which is also about where today's yield table sits (1.15 to 1.75). So the two approaches land in the same place in the model; the rock-count version is preferred by the designer because it keeps ore per rock honest and the frontier on solo's pace. Candidate table: 1.0 / 1.5 / 1.5 / 1.5 / 1.7 / 2.0, to be checked on the first crew run (the model's crew advance exponent is a guess). The nights are easier for crews at every setting (slack 5 to 12 against solo's 3 to 4), which is the wave multiplier and the posts, not the ore.
+
+
 ## Open items
 
 1. **Gold visibility.** The third playtest broke about two gold rocks to twenty iron in a mine that holds gold at 60% of iron near the floor. Check the gold rock template reads as ore at mining distance before trusting the Gold numbers.

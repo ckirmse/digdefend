@@ -678,12 +678,16 @@ function MonsterManager:moveToward(monster: Monster, destination: Vector3, delta
 	monster.tickDestination = flatTo
 	local flatNew = MonsterRules.stepToward(flatFrom, flatTo, speed, deltaSec)
 	self:face(monster, Vector3.new(destination.X, monster.position.Y, destination.Z))
-	-- a ground monster's step never ends inside a wall; it stops at the face
-	-- and the route's barrier rule takes over (attack it, or go round)
+	-- a ground monster's step never ends inside a wall. When the wall is
+	-- where it is going (the route's barrier rule sent it there to attack),
+	-- it stops at the face; when its line merely clips a wall's corner on
+	-- the way somewhere else, it slides along the edge like it does for
+	-- unwalkable ground (2026-10-07: without the slide the step into the
+	-- corner was refused every tick and the monster walked in place)
 	local grid = MonsterPathManager:getGrid()
 	if not monster.isAir and grid and not self:isGroundClear(grid, flatNew.X, flatNew.Z) then
 		local blockedIndex = FlowField.indexAt(grid, flatNew.X, flatNew.Z)
-		if blockedIndex and grid.barriers[blockedIndex] then
+		if blockedIndex and grid.barriers[blockedIndex] and FlowField.indexAt(grid, flatTo.X, flatTo.Z) == blockedIndex then
 			return
 		end
 		-- one already standing off the walkable ground (a spawn the scan

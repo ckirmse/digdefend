@@ -298,7 +298,7 @@ Gameplay Overview
 * Waves spawn over 90 seconds whenever a day ends and lasts until all enemies have been killed, at which point a new day begins
 * To win, players must collect the specified amount of Uranium they’ll be able to call the Apocalyptic Mining Co. rescue helicopter
 * The monsters will give one final, climatic wave as the rescue helicopter arrives.
-* Once safely inside the helicopter, the player has “won”. As built (M31, decided 2026-09-24): reaching the target wakes the radio on the table beside the helicopter pad (Camp.Radio); any crew member uses its prompt to call the helicopter, so a crew can shore up first. The run enters its Rescue state: the sky goes to night, the gate shuts, the day clock hides, and the final wave spawns (the next night’s wave times FINAL_WAVE_MULTIPLIER, 1.25 since 2026-09-28 so the last night's crew can hold it at the shared 12-tower cap; was 1.5) while the helicopter flies in for RESCUE_FLIGHT_SEC (60). It lands on the pad with a Board prompt that seats a player, and leaves once everyone still standing is aboard or BOARDING_TIMEOUT_SEC (30) after landing with someone aboard; with nobody aboard it waits. Everyone aboard wins; the announcement names who made it. A run lost during the flight gets no landing. Tuning is GameData/Run/Rescue; the return to the lobby is M33
+* Once safely inside the helicopter, the player has “won”. As built (M31, decided 2026-09-24): reaching the target wakes the radio on the table beside the helicopter pad (Camp.Radio); any crew member uses its prompt to call the helicopter, so a crew can shore up first. Since 2026-10-07 the call starts a breather first (the Rescue Wait state, FINAL_WAVE_DELAY_SEC, 30 s): the day clock stops and slides off the top of the screen, the sky holds where the day was (or stays night), and a countdown takes the clock's spot reading "FINAL WAVE ARRIVES IN: 00:30" (the RescueCountdown ScreenGui, ClientRescueManager). When it runs out the run enters its Rescue state: the sky goes to night, the gate shuts, the countdown reads "HELICOPTER ARRIVES IN: 01:00", and the final wave spawns (the next night’s wave times FINAL_WAVE_MULTIPLIER, 1.25 since 2026-09-28 so the last night's crew can hold it at the shared 12-tower cap; was 1.5) while the helicopter flies in for RESCUE_FLIGHT_SEC (60). At landing the countdown reads "THE HELICOPTER HAS ARRIVED. BOARD IT NOW!" and the blue announcement says the same. The dev tool's pause holds the wave and the landing as far off as they were. The green line when the target is first reached reads "Uranium target reached! Call in the rescue helicopter on the radio" (2026-10-07). It lands on the pad with a Board prompt that seats a player, and leaves once everyone still standing is aboard or BOARDING_TIMEOUT_SEC (30) after landing with someone aboard; with nobody aboard it waits. Everyone aboard wins; the announcement names who made it. A run lost during the flight gets no landing. Tuning is GameData/Run/Rescue; the return to the lobby is M33
 
 
 Maps
@@ -551,7 +551,7 @@ Collecting Ore
 * This menu shows how much of each Ore is in their backpack (only showing Ore that the player actually has) 
 * Capacity is counted in ore units, so the HUD’s taken/total is total ore over capacity (“12/15”). Contents, level, and capacity are server run state replicated as private attributes; the backpack HUD button is always shown and opens the contents menu as an overlay
 * A broken resource rock gives the breaker its yield. Iron and Gold are multiplied by the party table (PartyScaling) and rounded half up; Uranium never is. Party size is the crew count RunCycleManager samples at run start, every dawn, and on every departure (M28; departures 2026-09-25), never the live player count
-* Ore that does not fit lands by the block as a pickup (one invisible server part carrying resource and amount; clients draw a bobbing cube in the ore’s colour), scattered up to 1.5 studs and settled onto the ground beneath (inside the mine the server walks the grid column down to the next rock; outside it raycasts the camp), so drops never hang where the block was. Ore at the player's feet still flies into the HUD backpack from the nearest screen edge. Any player with room within 5 studs collects it, partial amounts included; the server checks four times a second. A pickup nobody takes disappears after 120 s, and past 300 pickups the oldest go first (GameData/Mining/Backpack) Since 2026-09-29 the icon on each face of the plate is a SurfaceGui with LightInfluence 0 (the OrePickupFace template under GameAssets/Gui) rather than a Decal, so it reads as bright underground as the flying icons do.
+* Ore that does not fit lands by the block as a pickup (one invisible server part carrying resource and amount; clients draw a bobbing cube in the ore’s colour; a dropped uranium pickup hums the UraniumHum loop within 15 studs, like exposed uranium rock, 2026-10-07), scattered up to 1.5 studs and settled onto the ground beneath (inside the mine the server walks the grid column down to the next rock; outside it raycasts the camp), so drops never hang where the block was. Ore at the player's feet still flies into the HUD backpack from the nearest screen edge. Any player with room within 5 studs collects it, partial amounts included; the server checks four times a second. A pickup nobody takes disappears after 120 s, and past 300 pickups the oldest go first (GameData/Mining/Backpack) Since 2026-09-29 the icon on each face of the plate is a SurfaceGui with LightInfluence 0 (the OrePickupFace template under GameAssets/Gui) rather than a Decal, so it reads as bright underground as the flying icons do.
 Refining Ore
 * Players refine Raw Resources by taking them to the Refinery
 * The Refinery is the main camp building, located just outside the Mine Entrance
@@ -622,7 +622,7 @@ Index
 	Stone 5
 	160
 	Resource rock
-Yields raw ore when destroyed. Cluster size is a property of the rock, not of the mine — Iron 3 clusters the same way everywhere. Iron and Gold tiers 1 to 3 were shrunk to radius 0 to 1 (one to seven blocks) on 2026-09-15 after play showed them clumping; the table below still shows the original radii. As of 2026-09-28 every ore vein is a single block (radius 0) and the mines hold four to six times as many veins, the same ore in more, smaller finds (a seven-block Gold II vein was a day of Gold). Tier 5 ore (Iron 5 at 1215 HP for 72, Gold 5 at 1620 HP for 768) was added on 2026-10-06 so zone 5, which leans on it (tierBias 5), pays for its harder rock; Iron per rock triples at that step rather than doubling, since Iron is what starves a crew by day 10. The mine is a simulator from the same day: rock HP triples a tier (stone 10 / 30 / 90 / 270 / 810), Gold per rock quadruples a tier (3 / 12 / 48 / 192), Iron per rock doubles (3 / 6 / 12 / 24) so the tower budget stays level, and uranium stays one per rock
+Yields raw ore when destroyed. Since 2026-10-07 both iron and gold yield 2 / 6 / 18 / 54 / 162 a rock by tier, with iron and gold counts half again what they were, so every zone holds the same ore in half again as many finds, about one rock in eleven near the mouth. The fourth M34 run (2026-10-07, to day 7) then refined two and a half times the third run's iron on days 3 to 6, with four Sentries at level 3 and 4 by day 6: the old first zone's iron had been pushed behind the gold-only band into the next zone and then multiplied, one iron rock in nine. The designer chose fewer iron rocks over less ore a rock, so that zone went 720 to 360 and the next 332 to 221 (the old first-44-block supply, and half again the old tier 3), while the two deepest zones keep 2.25x the old iron for the late-run drought (the designer wanted more finds without touching the balance; earlier that day the curve was 3 / 9 / 27 / 81 / 243; before it gold was 3 / 12 / 48 / 192 / 768, quadrupling, and iron 3 / 6 / 12 / 24 / 72). Resource rock HP came down with the yield to two thirds (iron 10 / 30 / 90 / 270 / 810, the same as the stone of its tier; gold 14 / 40 / 120 / 360 / 1,080) so swings per ore are unchanged: the third M34 run refined 7,525 gold against 1,734 iron, with Gold out of things to buy from day 8 while Iron sat at zero on nine of thirteen days, so both now triple with the prices. Cluster size is a property of the rock, not of the mine — Iron 3 clusters the same way everywhere. Iron and Gold tiers 1 to 3 were shrunk to radius 0 to 1 (one to seven blocks) on 2026-09-15 after play showed them clumping; the table below still shows the original radii. As of 2026-09-28 every ore vein is a single block (radius 0) and the mines hold four to six times as many veins, the same ore in more, smaller finds (a seven-block Gold II vein was a day of Gold). Tier 5 ore (Iron 5 at 1215 HP for 72, Gold 5 at 1620 HP for 768) was added on 2026-10-06 so zone 5, which leans on it (tierBias 5), pays for its harder rock; Iron per rock triples at that step rather than doubling, since Iron is what starves a crew by day 10. The mine is a simulator from the same day: rock HP triples a tier (stone 10 / 30 / 90 / 270 / 810), Gold per rock quadruples a tier (3 / 12 / 48 / 192), Iron per rock doubles (3 / 6 / 12 / 24) so the tower budget stays level, and uranium stays one per rock
 Rock
 	Tier
 	HP
@@ -631,52 +631,52 @@ Rock
 	Iron
 	1
 	15
-	3 Iron Ore
+	2 Iron Ore
 	1–2
 	Iron
 	2
 	30
-	10 Iron Ore
+	6 Iron Ore
 	1–2
 	Iron
 	3
 	60
-	29 Iron Ore
+	18 Iron Ore
 	1–2
 	Iron
 	4
 	110
-	78 Iron Ore
+	54 Iron Ore
 	0–1
 	Iron
 	5
 	1215
-	72 Iron Ore
+	162 Iron Ore
 	0
 	Gold
 	1
 	20
-	3 Gold Ore
+	2 Gold Ore
 	1–2
 	Gold
 	2
 	40
-	10 Gold Ore
+	6 Gold Ore
 	1–2
 	Gold
 	3
 	75
-	30 Gold Ore
+	18 Gold Ore
 	1–1
 	Gold
 	4
 	140
-	87 Gold Ore
+	54 Gold Ore
 	0–1
 	Gold
 	5
 	1620
-	768 Gold Ore
+	162 Gold Ore
 	0
 	Uranium
 	—
@@ -758,7 +758,7 @@ Parameter
 	number
 	—
 	Same
-	veinEntranceClearance is a real design decision, not a technicality. At 0, resource rock can break the tunnel surface and a player reads the first zone’s worth the moment they walk in. Above 0, everything is discovery. Hand-placed veins (§9) ignore this. Deadman's Canyon uses 4 since 2026-09-28: the faces seen from the entrance are plain stone.
+	veinEntranceClearance is a real design decision, not a technicality. At 0, resource rock can break the tunnel surface and a player reads the first zone’s worth the moment they walk in. Above 0, everything is discovery. Pockets respect it too since 2026-10-07 (a pocket whose sphere would reach the clearance is re-rolled), so the start area is always solid rock and no cavern opens into the tunnel. The same day: no two pockets may touch (a centre within a block of carved air is re-rolled, and a pocket with no room is dropped with a warning), and the pocket radius is 1 in zones 1 and 2 and 2 from zone 3 down, so a room is 12 studs across early and never more than 20 (3 to 5 blocks) and never merges into a bigger one; overlapping pockets had been making giant rooms near the entrance that exposed too much rock and made it easy to get lost, which the designer does not want early. Hand-placed veins (§9) ignore this. Deadman's Canyon uses 4 since 2026-09-28: the faces seen from the entrance are plain stone. goldOnlyEntranceRadius (added 2026-10-07) is the same kind of box, larger, that only gold may be placed inside: iron and uranium wait beyond it, so a new crew's first Gold goes to mining upgrades before Iron tempts a tower. Deadman's Canyon uses 16 (20 the same day covered all of zone 1 and put the first iron 24 blocks in, too far; 12 had iron crowding the gold out), so the first iron is about 17 blocks from the mouth; the band reaches depth 19 and the first two zones end at depth 20, so they author no iron and the old zone 1's 240 sits in the zone after (480), which starts one row later. Since 2026-10-07 the mine opens with a starter band, zone 0 in the designer's words (the first entry in the zones list, so the Output numbers it zone 1 and every deeper zone one higher than before): the first 8 blocks past the mouth, gold-only, 60 gold rocks at about four times the next zone's density, so whichever way a new player tunnels the first pack is paid and the pick axe is bought on day 1 on any seed. The old zone 1 keeps the remaining 12 blocks with 170 gold, so the first 20 blocks hold the same 230. Zone 1 gold is 230 with 24 radius-1 pockets (255 and 383 both bought all three first rungs on day 1 with the old merged rooms, 170 felt starved, and 200 with 12 small rooms gave only 2 Refinery trips and 30 gold on day 1, so the small rooms were doubled; the aim is the pick bought on day 1 and the backpack nearly, about 45 gold refined on the designer's day 1).
 ________________
 
 
@@ -991,6 +991,7 @@ return {
     entranceHeight = 3,
     entranceDepth = 3,
     veinEntranceClearance = 4,
+    goldOnlyEntranceRadius = 16,
     pocketRadiusMin = 1,
     pocketRadiusMax = 2,
     uraniumTarget = 40,
@@ -1046,7 +1047,7 @@ Mining Attributes
 Pick Axe
 * A player’s Pick Axe determines how much HP is removed from a Rock per hit
 * There are 6 Pick Axe Levels since 2026-10-06 (5 before; the sixth is the late Gold sink the first M34 run was missing, and it one-shots tier 5 stone). Every level is a plain Gold purchase (the Camp Level gated level N+1 behind Camp Level N from 2026-09-15 until the gates opened on 2026-09-28 and the Camp Level was removed on 2026-10-06); the Gold price ladder is the brake
-* Damage per hit by level: 5 / 15 / 45 / 135 / 400 / 1200 (each level triples, decided 2026-09-28: the mine is a simulator, small numbers first, every upgrade a jump; rock HP triples a tier to meet it; was 5 / 12 / 25 / 50 / 100) (GameData/Mining/PickAxe, DAMAGE_BY_LEVEL; the list length is the level count; level 5 is a placeholder until tuned). Level 1 breaks Stone 1 in two swings and needs 22 for Iron 4, which is what sells the upgrade. Everyone is level 1 until the Mining Supplies Store (M21), where levels 2 to 5 cost 30 / 90 / 270 / 800 Gold (tripling with the effect, 2026-09-28)
+* Damage per hit by level: 5 / 15 / 45 / 135 / 400 / 1200 (each level triples, decided 2026-09-28: the mine is a simulator, small numbers first, every upgrade a jump; rock HP triples a tier to meet it; was 5 / 12 / 25 / 50 / 100) (GameData/Mining/PickAxe, DAMAGE_BY_LEVEL; the list length is the level count; level 5 is a placeholder until tuned). Level 1 breaks Stone 1 in two swings and needs 22 for Iron 4, which is what sells the upgrade. Everyone is level 1 until the Mining Supplies Store (M21), where levels 2 to 6 cost 30 / 100 / 270 / 800 / 2,400 Gold (level 3 was 90 until 2026-10-07; level 2 was 20 from 2026-10-02, tried at 15 and 20 on 2026-10-07, and settled at 30: two backpack trips, so the first buy is earned, not immediate) (tripling with the effect, 2026-09-28; level 2 was 30, then 20 from 2026-10-02, then 15 from 2026-10-07 so a new player's first run buys a pick before anything else)
 
 
 
@@ -1055,10 +1056,10 @@ Backpack
 * Capacity by level, in ore units: 15 / 45 / 135 / 400 / 1,200 (each level triples, 2026-09-28; was 15 / 25 / 40 / 60 / 90) (GameData/Mining/Backpack, CAPACITY_BY_LEVEL; the list length is the level count; decided 2026-09-15 to start small so refining trips are frequent; tune in play). Five levels, each a plain Gold buy, like the pick axe. Everyone is level 1 until the Mining Supplies Store (M21), where levels 2 to 5 cost 20 / 60 / 180 / 540 Gold (2026-09-28)
 Boots
 * The second mining attribute, bought and upgraded in the Mining Supplies Store like the others: five levels, each a plain Gold buy. Boots only do one thing: walk speed (decided 2026-09-15)
-* Walk speed by level, in studs per second: 16 / 20 / 24 / 28 / 32 (twice the step, 2026-09-28; was 16 / 18 / 20 / 22 / 24) (GameData/Mining/Boots, WALK_SPEED_BY_LEVEL; the list length is the level count; placeholders until tuned in play). Level 1 is Roblox’s default, so a new player moves exactly as they expect
+* Walk speed by level, in studs per second: 16 / 20 / 24 / 28 / 32 (twice the step, 2026-09-28; was 16 / 18 / 20 / 22 / 24) (GameData/Mining/Boots, WALK_SPEED_BY_LEVEL; the list length is the level count; placeholders until tuned in play). Level 1 is Roblox’s default, so a new player moves exactly as they expect. Store prices for levels 2 to 5: 40 / 70 / 180 / 540 Gold (the first rung 40 and the second 70 since 2026-10-07, from 20 and 60, priced with the backpack so the pick is bought first, so the 15 pick is bought first)
 * The level is run state like the pick axe level, held by the server and applied to the character’s Humanoid on upgrade and on every respawn, so nothing about speed is ever trusted from the client
 * Boots change no other stat: no jump, no fall damage, no carry. Those belong to the Jet Pack and the Backpack
-* Store prices for levels 2 to 5: 20 / 60 / 180 / 540 Gold (2026-09-28)
+* Store prices for levels 2 to 5: 40 / 80 / 225 / 675 Gold (2026-10-07; the first rung 25 and the second 75 earlier that day. Day 1 gold is capped by the 15-ore pack times about five Refinery trips, near 75, so pick 30 plus backpack 40 is a full excellent day and the three first rungs can never all land on day 1; 20 / 60 / 180 / 540 from 2026-09-28: the first rung went above the 15 pick so the pick is the natural first buy, the second rung to 75 and the rest tripling from it)
 Jet Pack
 * The fourth mining attribute (added 2026-09-15), bought and upgraded in the Mining Supplies Store like Pick Axe, Boots, and Backpack: five levels, each a plain Gold buy. It is the climbing mechanic the mine generator has been waiting for (IS_CLIMBING_ENABLED), so mines can go taller and more vertical, and a player at the bottom of a shaft they dug has a way out
 * Controls, kept to one gesture. Keyboard and gamepad: double-tap Jump and keep holding it; the jet pack burns while Jump is held and stops the moment it is released. Touch: a Jet Pack button sits directly above Roblox's jump button, the same size as it, placed against the live jump button at runtime so it can never overlap it, with the tool action button directly to the jump button's left (2026-09-16); holding it burns, releasing it stops. No hover, no descend input, no toggle state to remember: burn is up, release is down
@@ -1225,7 +1226,7 @@ Wave Cycle
 * A run is a loop of Day and Night (GDD "Gameplay Loop"; built in M28, decided 2026-09-22). The run state is one of Day, Night, Won, or Lost, held by the gameplay server (RunCycleManager) and published to every client with the day number and the time the current phase ends, so every screen shows the same clock from server time
 * A run loads in the morning look with the clock still (the Waiting state) and day 1 begins PRE_DAY_SEC (10 s) after the helicopter leaves, which is when everyone the lobby sent is Ready or the arrival timeout has given up on the missing (decided 2026-09-22)
 * Day lasts 320 seconds (GameData/Control/RunCycle DAY_SEC; 5 minutes until 2026-09-29, when 20 seconds were added to the sunset so a crew has time to set up defenses). The gate stands open, players mine, refine, build, and place defenses
-* Dusk is the last stretch of the day (RunCycleRules.duskSecForDay: 60 s on day 1 and 5 s more each day to a cap of 90, since 2026-10-02, DUSK_START_SEC / DUSK_STEP_SEC / DUSK_MAX_SEC; a fixed 80 s from 2026-10-01, out of the same 320 s day; the final 60 s from 2026-09-29, 40 s before that, and the final 20% until 2026-09-25): nothing changes in play, only the clock icon turns to dusk, the label under the clock reads SUNSET N instead of DAY N (2026-09-29), and the dusk song starts, so a crew heads home in time. The song fades out over DUSK_SONG_FADE_SEC (10 s) from DUSK_SONG_FADE_LEAD_SEC (5 s) before night falls, so it is silent 5 s into the night (2026-10-02). Dev tool: Pause the run (RunPauseManager, 2026-10-02) holds the clock, the monsters, the waves, Towers, Traps, status effects, and the rescue where they are and moves every deadline on by the pause when it lifts, the clients' clocks holding at the paused moment; players themselves keep moving, so a tester called away mid-run can come back to it
+* Dusk is the last stretch of the day (RunCycleRules.duskSecForDay: 60 s on day 1 and 5 s more each day to a cap of 90, since 2026-10-02, DUSK_START_SEC / DUSK_STEP_SEC / DUSK_MAX_SEC; a fixed 80 s from 2026-10-01, out of the same 320 s day; the final 60 s from 2026-09-29, 40 s before that, and the final 20% until 2026-09-25): nothing changes in play, only the clock icon turns to dusk, the label under the clock reads SUNSET N instead of DAY N (2026-09-29), and the dusk song starts, so a crew heads home in time. The song fades out over DUSK_SONG_FADE_SEC (10 s) from DUSK_SONG_FADE_LEAD_SEC (5 s) before night falls, so it is silent 5 s into the night (2026-10-02). Dev tool: Pause the run (RunPauseManager, 2026-10-02) holds the clock, the monsters, the waves, Towers, Traps, status effects, and the rescue where they are and moves every deadline on by the pause when it lifts, the clients' clocks holding at the paused moment; players themselves keep moving, so a tester called away mid-run can come back to it The Start Night button (designer, 2026-10-07): in the last 30 s of a day (START_NIGHT_WINDOW_SEC in GameData/Control/RunCycle) a button under the jet pack bar reads START NIGHT; once every living player has pressed it the rest of the day is skipped and the night falls over the dev tool's 3 s dusk blend. The count shows on the button (START NIGHT 1 / 3), a pressed button greys, votes clear at dawn, and a player who leaves or dies drops out of the count (StartNightManager, ClientStartNightManager, TryStartNight).
 * Night begins when the day clock runs out. The gate shuts, the night's wave spawns (GDD "Creating Waves"), and the night lasts until every group has spawned and every monster is dead, at which point the next day begins (M29). NIGHT_PLACEHOLDER_SEC (GameData/Control/RunCycle) is 0; above 0 it also ends a night that long after the 90 second spawn window, as a test switch
 * The day counter starts at 1 and each dawn adds one; the night’s wave is generated from it (Creating Waves, M30)
 * The sky: every map has four looks, day start, day end, night start, and night end (shared LightingPresets, keyed by map, read from Studio and ported by hand; decided 2026-09-22). Day start is set outright when the run loads. Over a day the sky blends steadily from day start (8:00) to day end (17:30, the same colours); the night opens with a LIGHTING_DUSK_TRANSITION_SEC (1 s) blend to night start (19:12, the light off, just past the engine's sun-to-moon handover, which cannot be blended), then blends night start into night end (20:00, the moon at full) over the 90 s spawn window and holds night end until the wave is done. A cleared night blends night end back to day start over LIGHTING_DAWN_TRANSITION_SEC (1 s) and only then does the day clock start. A DayNightNumber card ("DAY  N" / "NIGHT  N") shows for 3 s once each blend ends, with the Rooster or NightBell sound; day 1 gets no card. Every day, as dusk begins (DUSK_SEC, 40 s before the night falls), every client starts the 2D track Music.DuskSong1 from the top (the track is 52 s, so it runs on into the night; decided 2026-09-25); a day the dev tool cuts short starts it as soon as the lead is reached. Lighting.ClockTime blends the same way between each look's hour, always turning forward round the clock
@@ -1481,7 +1482,7 @@ Brute
    * Name: Brute_1
    * DisplayName: Brute
    * DifficultyValue: 10
-   * HP: 500
+   * HP: 600 (500 until 2026-10-07)
    * Damage: 40
    * Speed: 10
    * TargetPriorities: {“Walls”, “Players”}
@@ -1503,7 +1504,7 @@ Brute II
    * Name: Brute_2
    * DisplayName: Brute II
    * DifficultyValue: 20
-   * HP: 1000
+   * HP: 1200 (1000 until 2026-10-07, raised a fifth with Brute I)
    * Damage: 80
    * Speed: 10
    * TargetPriorities: {“Walls”, “Players”}
@@ -1525,7 +1526,7 @@ Brute III
    * Name: Brute_3
    * DisplayName: Brute III
    * DifficultyValue: 30
-   * HP: 1500
+   * HP: 1800 (1500 until 2026-10-07, raised a fifth with Brute I)
    * Damage: 120
    * Speed: 10
    * TargetPriorities: {“Walls”, “Players”}
@@ -1637,7 +1638,7 @@ Flyer
    * DisplayName: Flyer
    * DifficultyValue: 16
    * HP: 350
-   * Damage: 100
+   * Damage: 50 (100 until 2026-10-07: flyers fly over the walls to the Refinery, and three Flyer IIs took a tier 3 Refinery apart in about 13 s on night 10 of the third M34 run; halved so a group is a threat the crew can answer, not a ten-second loss)
    * Speed: 15
    * TargetPriorities: {} (goes straight to the Refinery)
    * TargetDamageTypes: {“Players”}
@@ -1661,7 +1662,7 @@ Flyer II
    * DisplayName: Flyer II
    * DifficultyValue: 32
    * HP: 700
-   * Damage: 200
+   * Damage: 100 (200 until 2026-10-07: flyers fly over the walls to the Refinery, and three Flyer IIs took a tier 3 Refinery apart in about 13 s on night 10 of the third M34 run; halved so a group is a threat the crew can answer, not a ten-second loss)
    * Speed: 15
    * TargetPriorities: {} (goes straight to the Refinery)
    * TargetDamageTypes: {“Players”}
@@ -1685,7 +1686,7 @@ Flyer III
    * DisplayName: Flyer III
    * DifficultyValue: 47
    * HP: 1050
-   * Damage: 300
+   * Damage: 150 (300 until 2026-10-07: flyers fly over the walls to the Refinery, and three Flyer IIs took a tier 3 Refinery apart in about 13 s on night 10 of the third M34 run; halved so a group is a threat the crew can answer, not a ten-second loss)
    * Speed: 15
    * TargetPriorities: {} (goes straight to the Refinery)
    * TargetDamageTypes: {“Players”}
@@ -1715,7 +1716,7 @@ Titan
    * TargetDamageTypes: {}
    * AttackType: Melee
    * DetectionRange: 20
-   * AttackRange: 30
+   * AttackRange: 15 (30 until 2026-10-07: it swung at the air well short of the wall)
    * AttackRadius: 0
    * DieOnAttack: false
    * DamageOnDeath: false
@@ -1737,7 +1738,7 @@ Titan II
    * TargetDamageTypes: {}
    * AttackType: Melee
    * DetectionRange: 20
-   * AttackRange: 30
+   * AttackRange: 15 (30 until 2026-10-07: it swung at the air well short of the wall)
    * AttackRadius: 0
    * DieOnAttack: false
    * DamageOnDeath: false

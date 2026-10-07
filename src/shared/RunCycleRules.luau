@@ -83,9 +83,17 @@ end
 -- runs night start into night end over the spawn window and holds the
 -- end until the wave is done (and after the run); the DAWN stage, the
 -- stretch before a day's start, runs night end back to day start
-function RunCycleRules.skyStage(runState: number, phaseStartTime: number, phaseEndTime: number, now: number, dawnTransitionSec: number, duskTransitionSec: number, spawnSec: number): (number, number)
+-- heldDayShareLeft: in the rescue wait (2026-10-07) the sky stands where
+-- the day was when the radio was used, or stays night if it was night
+function RunCycleRules.skyStage(runState: number, phaseStartTime: number, phaseEndTime: number, now: number, dawnTransitionSec: number, duskTransitionSec: number, spawnSec: number, heldDayShareLeft: number?): (number, number)
 	if runState == Enums.RunState.WAITING then
 		return Enums.SkyStage.DAY, 0
+	end
+	if runState == Enums.RunState.RESCUE_WAIT then
+		if heldDayShareLeft ~= nil and heldDayShareLeft >= 0 then
+			return Enums.SkyStage.DAY, 1 - math.clamp(heldDayShareLeft, 0, 1)
+		end
+		return Enums.SkyStage.NIGHT, 1
 	end
 	if runState ~= Enums.RunState.DAY then
 		local elapsed = now - phaseStartTime

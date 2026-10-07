@@ -418,6 +418,121 @@ describe(
 		)
 
 		it(
+			"keeps pockets out of the entrance clearance so the start area is solid",
+			function()
+				local mine = makeMine()
+				mine.veinEntranceClearance = 2
+				mine.zones[1].handPlaced = {}
+				-- many big pockets so a careless roll would surely reach the tunnel
+				mine.zones[1].pockets = 40
+				mine.zones[1].pocketRadiusMin = 2
+				mine.zones[1].pocketRadiusMax = 2
+				local result = generateOrFail(mine)
+				-- every cell within 2 blocks of the tunnel volume, outside the tunnel itself, is rock
+				for depth = 1, 3 + 2 do
+					for height = 1, 3 + 2 do
+						for width = 11 - 2, 13 + 2 do
+							local isTunnel = depth <= 3 and height <= 3 and width >= 11 and width <= 13
+							if not isTunnel then
+								expect(MineGenerator.getCell(result.grid, depth, height, width)).never.toBe(AIR)
+							end
+						end
+					end
+				end
+			end
+		)
+
+		it(
+			"never lets two pockets touch, so no room is wider than one pocket",
+			function()
+				local mine = makeMine()
+				mine.zones[1].handPlaced = {}
+				mine.zones[1].pockets = 25
+				mine.zones[1].pocketRadiusMin = 2
+				mine.zones[1].pocketRadiusMax = 2
+				local result, warnings = generateOrFail(mine)
+				expect(warnings).toEqual({})
+				local grid = result.grid
+				local zone = boxOf(result.zones[1])
+				-- flood-fill every air region in zone 1 (the tunnel is clear of them by the
+				-- clearance) and check its extent never exceeds one pocket's diameter
+				local seen = {}
+				local rooms = 0
+				for depth = zone.depthStart, zone.depthEnd do
+					for height = zone.heightStart, zone.heightEnd do
+						for width = zone.widthStart, zone.widthEnd do
+							local startIndex = MineGenerator.cellIndex(grid, depth, height, width)
+							if seen[startIndex] or MineGenerator.getCell(grid, depth, height, width) ~= AIR then
+								continue
+							end
+							rooms += 1
+							local minD, maxD, minH, maxH, minW, maxW = depth, depth, height, height, width, width
+							local stack = { { depth, height, width } }
+							seen[startIndex] = true
+							while #stack > 0 do
+								local cell = table.remove(stack)
+								local d, h, w = cell[1], cell[2], cell[3]
+								minD, maxD = math.min(minD, d), math.max(maxD, d)
+								minH, maxH = math.min(minH, h), math.max(maxH, h)
+								minW, maxW = math.min(minW, w), math.max(maxW, w)
+								for _, step in { { 1, 0, 0 }, { -1, 0, 0 }, { 0, 1, 0 }, { 0, -1, 0 }, { 0, 0, 1 }, { 0, 0, -1 } } do
+									local nd, nh, nw = d + step[1], h + step[2], w + step[3]
+									if nd < 0 or nh < 0 or nw < 0 or nd >= grid.depth or nh >= grid.height or nw >= grid.width then
+										continue
+									end
+									local index = MineGenerator.cellIndex(grid, nd, nh, nw)
+									if not seen[index] and MineGenerator.getCell(grid, nd, nh, nw) == AIR then
+										seen[index] = true
+										table.insert(stack, { nd, nh, nw })
+									end
+								end
+							end
+							expect(maxD - minD + 1).toBeLessThanOrEqual(5)
+							expect(maxH - minH + 1).toBeLessThanOrEqual(5)
+							expect(maxW - minW + 1).toBeLessThanOrEqual(5)
+						end
+					end
+				end
+				-- the tunnel is one region; every other region is one of the 25 pockets
+				expect(rooms).toBe(26)
+			end
+		)
+
+		it(
+			"places only gold inside the gold-only entrance band",
+			function()
+				local mine = makeMine()
+				mine.goldOnlyEntranceRadius = 10
+				mine.zones[1].handPlaced = {}
+				mine.zones[1].pockets = 0
+				local result = generateOrFail(mine)
+				local rocks = makeRockTable().ROCKS
+				local goldInBand = 0
+				-- the tunnel runs depth 1 to 3 and width 11 to 13; the band reaches 10 further
+				for depth = 1, 3 + 10 do
+					for height = 0, result.grid.height - 1 do
+						for width = 11 - 10, 13 + 10 do
+							local cell = MineGenerator.getCell(result.grid, depth, height, width)
+							if cell == AIR or rocks[cell].kind ~= RockKind.RESOURCE then
+								continue
+							end
+							expect(rocks[cell].resource).toBe(RawResource.GOLD_ORE)
+							goldInBand += 1
+						end
+					end
+				end
+				expect(goldInBand).toBeGreaterThan(0)
+				-- iron still lands in zone 1, past the band
+				local zone = boxOf(result.zones[1])
+				local ironInZone = 0
+				for _, rock in { RockName.IRON_1, RockName.IRON_2, RockName.IRON_3 } do
+					ironInZone += countRock(result.grid, zone, rock)
+				end
+				expect(ironInZone).toBeGreaterThan(0)
+			end
+		)
+
+		it(
 			"keeps higher ore tiers away from the mine mouth and deeper within a zone",
 			function()
 				local config = makeConfig({ tierMinDepthBlocks = { 0, 14, 44, 68 } })

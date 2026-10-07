@@ -3,10 +3,12 @@
 -- The rescue (GDD "Gameplay Loop", "Helicopter Pad"), M31: the way a run
 -- is won. Once the crew has refined the uranium target (RefineryManager),
 -- the designer's radio (Camp.Radio; its authored ProximityPrompt on
--- PromptPart is enabled only then) calls the rescue helicopter: the
--- run enters its Rescue state (RunCycleManager: night look, gate shut, a
--- countdown to landing), and MonsterWaveManager spawns the final wave
--- while it flies in. At landing the company helicopter (HelicopterManager)
+-- PromptPart is enabled only then) calls the rescue helicopter: the run
+-- holds in its Rescue Wait for FINAL_WAVE_DELAY_SEC (the clock stops, a
+-- countdown to the final wave; 2026-10-07), then enters its Rescue state
+-- (RunCycleManager: night look, gate shut, a countdown to landing) as
+-- MonsterWaveManager spawns the final wave while the helicopter flies in.
+-- At landing the company helicopter (HelicopterManager)
 -- appears on the pad with a Board prompt that seats a player. It leaves
 -- once everyone standing is aboard, or BOARDING_TIMEOUT_SEC after landing
 -- with someone aboard (pure RescueRules): the run ends Won, and every
@@ -54,6 +56,9 @@ export type RescueManager = typeof(setmetatable(
 		boardConnection: RBXScriptConnection?,
 		helicopter: Model?,
 		isCalled: boolean,
+		-- the final wave has been started (the wait is over)
+		isWaveStarted: boolean,
+		waveStartTime: number,
 		isLanded: boolean,
 		-- the green ready line goes out once per run
 		isReadyAnnounced: boolean?,
@@ -153,14 +158,23 @@ function RescueManager:call(player: Player)
 		return
 	end
 	self.isCalled = true
+	self.isWaveStarted = false
 	local now = workspace:GetServerTimeNow()
-	self.landingTime = now + RescueData.RESCUE_FLIGHT_SEC
+	self.waveStartTime = now + RescueData.FINAL_WAVE_DELAY_SEC
+	self.landingTime = self.waveStartTime + RescueData.RESCUE_FLIGHT_SEC
 	self:refreshRadio()
-	print(`[RescueManager] {player.Name} called the rescue helicopter; landing in {RescueData.RESCUE_FLIGHT_SEC} s`)
-	RunCycleManager:startRescue(self.landingTime)
-	MonsterWaveManager:startFinalWave(RescueRules.finalWaveNight(RunCycleManager:getDay()), RescueData.FINAL_WAVE_MULTIPLIER)
+	print(`[RescueManager] {player.Name} called the rescue helicopter; the final wave in {RescueData.FINAL_WAVE_DELAY_SEC} s, landing {RescueData.RESCUE_FLIGHT_SEC} s after`)
+	RunCycleManager:startRescueWait(self.waveStartTime)
 	self:replicate()
 	self:announce(RescueData.CALLED_MESSAGE, true)
+end
+
+-- the wait is up: night falls, the final wave spawns, the helicopter is
+-- in the air with the landing as the phase end
+function RescueManager:startWave()
+	self.isWaveStarted = true
+	RunCycleManager:startRescue(self.landingTime)
+	MonsterWaveManager:startFinalWave(RescueRules.finalWaveNight(RunCycleManager:getDay()), RescueData.FINAL_WAVE_MULTIPLIER)
 end
 
 function RescueManager:land()
@@ -316,6 +330,12 @@ function RescueManager:step()
 		return
 	end
 	local now = workspace:GetServerTimeNow()
+	if not self.isWaveStarted then
+		if now >= self.waveStartTime then
+			self:startWave()
+		end
+		return
+	end
 	if not self.isLanded then
 		if now >= self.landingTime then
 			self:land()
@@ -323,6 +343,20 @@ function RescueManager:step()
 		return
 	end
 	self:departIfNeeded(now)
+end
+
+-- the dev tool's pause lifted: the wave and the landing are as far off as
+-- they were, like the run's own phase end
+function RescueManager:onResumed(pausedSec: number)
+	if not self.isCalled or self.hasDeparted then
+		return
+	end
+	if not self.isWaveStarted then
+		self.waveStartTime += pausedSec
+	end
+	if not self.isLanded then
+		self.landingTime += pausedSec
+	end
 end
 
 -- the Team Revive (M32) starts the day over: a rescue under way is called
@@ -348,6 +382,8 @@ function RescueManager:cancel()
 		self.helicopter = nil
 	end
 	self.isCalled = false
+	self.isWaveStarted = false
+	self.waveStartTime = 0
 	self.isLanded = false
 	self.landingTime = 0
 	self.landedTime = 0
@@ -392,6 +428,8 @@ function RescueManager:onRunStarted()
 	self.boardPrompt = nil
 	self.helicopter = nil
 	self.isCalled = false
+	self.isWaveStarted = false
+	self.waveStartTime = 0
 	self.isLanded = false
 	self.landingTime = 0
 	self.landedTime = 0
@@ -410,6 +448,11 @@ function RescueManager:onPlayerRemoved(player: Player)
 end
 
 function RescueManager:init()
+	RunPauseManager:subscribeResumed(
+		function(pausedSec: number)
+			self:onResumed(pausedSec)
+		end
+	)
 	RefineryManager:subscribeUraniumChanged(
 		function()
 			self:refreshRadio()
@@ -456,6 +499,8 @@ function RescueManager.new(): RescueManager
 	self.boardConnection = nil
 	self.helicopter = nil
 	self.isCalled = false
+	self.isWaveStarted = false
+	self.waveStartTime = 0
 	self.isLanded = false
 	self.landingTime = 0
 	self.landedTime = 0

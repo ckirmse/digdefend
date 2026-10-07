@@ -455,13 +455,17 @@ function StructureManager:syncModel(structure: Structure)
 	end
 end
 
--- everyone hears a wall go: the red alert naming it, and its collapse
--- from where it stood (2026-09-25)
+-- everyone hears a wall or the gate go: the red alert naming it, and its
+-- collapse from where it stood (2026-09-25; the gate since 2026-10-07)
 function StructureManager:announceWallDestroyed(structure: Structure)
 	local number = StructureRules.numberFromId(structure.id)
-	if number then
+	local message = if structure.kind == Enums.StructureKind.GATE
+		then StructuresData.GATE_DESTROYED_MESSAGE
+		elseif number then string.format(StructuresData.WALL_DESTROYED_MESSAGE_FORMAT, number)
+		else nil
+	if message then
 		NetManager:notifyAllClients(NetEventNames.NOTIFY_WALL_DESTROYED, {
-			message = string.format(StructuresData.WALL_DESTROYED_MESSAGE_FORMAT, number),
+			message = message,
 			displaySec = StructuresData.ALERT_DISPLAY_SEC,
 		})
 	end

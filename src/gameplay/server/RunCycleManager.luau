@@ -45,6 +45,8 @@ export type ScalingCountChangedHandler = (count: number) -> ()
 export type RunCycleManager = typeof(setmetatable(
 	{} :: {
 		runState: number,
+		-- the day share the sky holds through a rescue wait, -1 when none
+		rescueHeldDayShare: number,
 		day: number,
 		phaseStartTime: number,
 		-- 0 while a night's end is unknown
@@ -64,6 +66,10 @@ local MAX_SCALING_COUNT = #PartyScalingData.ORE_YIELD_MULTIPLIER_BY_PLAYER_COUNT
 
 function RunCycleManager:getRunState(): number
 	return self.runState
+end
+
+function RunCycleManager:getPhaseEndTime(): number
+	return self.phaseEndTime
 end
 
 function RunCycleManager:getDay(): number
@@ -145,8 +151,7 @@ function RunCycleManager:onPlayerRemoved(player: Player)
 	if self.scalingCount == nil then
 		return
 	end
-	local state = self.runState
-	if state ~= Enums.RunState.DAY and state ~= Enums.RunState.NIGHT and state ~= Enums.RunState.RESCUE then
+	if not self:isRunOn() then
 		return
 	end
 	local before = self.scalingCount
@@ -173,8 +178,7 @@ end
 -- the Team Revive (M32): the same day number begins again from dawn, from
 -- a day, a night, or the rescue, so the same night comes a second time
 function RunCycleManager:restartDay()
-	local state = self.runState
-	if state ~= Enums.RunState.DAY and state ~= Enums.RunState.NIGHT and state ~= Enums.RunState.RESCUE then
+	if not self:isRunOn() then
 		return
 	end
 	print(`[RunCycleManager] day {self.day} starts over`)
@@ -183,9 +187,12 @@ end
 
 function RunCycleManager:beginDay(day: number)
 	local now = workspace:GetServerTimeNow()
-	local wasNight = self.runState == Enums.RunState.NIGHT or self.runState == Enums.RunState.RESCUE
+	local wasNight = self.runState == Enums.RunState.NIGHT
+		or self.runState == Enums.RunState.RESCUE
+		or (self.runState == Enums.RunState.RESCUE_WAIT and self.rescueHeldDayShare < 0)
 	self.day = day
 	self.runState = Enums.RunState.DAY
+	self:setRescueHeldDayShare(-1)
 	self.phaseStartTime = if wasNight then now + RunCycleData.LIGHTING_DAWN_TRANSITION_SEC else now
 	self.phaseEndTime = self.phaseStartTime + RunCycleData.DAY_SEC
 	self:sampleScalingCount()
@@ -227,21 +234,49 @@ function RunCycleManager:startNight()
 	})
 end
 
--- the rescue is called (M31): the run holds in its Rescue state until the
--- helicopter leaves. From a day this is a dusk (the gate shuts, the night
--- look comes in); from a night the night simply goes on. The phase end is
--- the landing time, so every clock counts down to it
-function RunCycleManager:startRescue(landingTime: number)
+-- the share of the day the sky holds through the rescue wait; -1 is none
+-- (the call came at night, or no wait is on)
+function RunCycleManager:setRescueHeldDayShare(share: number)
+	self.rescueHeldDayShare = share
+	SplendidReplicationManager:setGameMetadata(Attributes.RUN_RESCUE_HELD_DAY_SHARE, share)
+end
+
+-- the rescue is called (M31, the wait added 2026-10-07): the clock stops
+-- where it is and the run holds in Rescue Wait until the final wave is
+-- due (the phase end), the sky standing where the day was, or night going
+-- on if it was night
+function RunCycleManager:startRescueWait(waveStartTime: number)
 	local state = self.runState
 	if state ~= Enums.RunState.DAY and state ~= Enums.RunState.NIGHT then
 		return
 	end
-	local wasDay = state == Enums.RunState.DAY
+	local now = workspace:GetServerTimeNow()
+	local heldShare = if state == Enums.RunState.DAY then RunCycleRules.dayShareLeft(self.phaseStartTime, self.phaseEndTime, now) else -1
+	self:setRescueHeldDayShare(heldShare)
+	self.runState = Enums.RunState.RESCUE_WAIT
+	self.phaseStartTime = now
+	self.phaseEndTime = waveStartTime
+	self:replicate()
+	print("[RunCycleManager] the rescue is called; the final wave is due in " .. string.format("%.0f", waveStartTime - now) .. " s")
+end
+
+-- the final wave is here: the run holds in its Rescue state until the
+-- helicopter leaves. From a day (or a wait that began by day) this is a
+-- dusk (the gate shuts, the night look comes in); from a night the night
+-- simply goes on. The phase end is the landing time, so every clock
+-- counts down to it
+function RunCycleManager:startRescue(landingTime: number)
+	local state = self.runState
+	if state ~= Enums.RunState.DAY and state ~= Enums.RunState.NIGHT and state ~= Enums.RunState.RESCUE_WAIT then
+		return
+	end
+	local wasDay = state == Enums.RunState.DAY or (state == Enums.RunState.RESCUE_WAIT and self.rescueHeldDayShare >= 0)
+	self:setRescueHeldDayShare(-1)
 	self.runState = Enums.RunState.RESCUE
 	self.phaseStartTime = workspace:GetServerTimeNow()
 	self.phaseEndTime = landingTime
 	self:replicate()
-	print("[RunCycleManager] the rescue is called")
+	print("[RunCycleManager] the final wave arrives")
 	if wasDay then
 		self:fireNightChanged(true)
 		NetManager:notifyAllClients(NetEventNames.NOTIFY_RUN_NIGHT_STARTED, {
@@ -329,10 +364,14 @@ function RunCycleManager:loseAllDead()
 	self:endRun(false, RunCycleData.LOST_ALL_DEAD_MESSAGE, Enums.RunEndReason.CREW_DEAD)
 end
 
--- a day, a night, or the rescue: the states a player can die and be revived in
+-- a day, a night, or the rescue (its wait included): the states a player
+-- can die and be revived in
 function RunCycleManager:isRunOn(): boolean
 	local state = self.runState
-	return state == Enums.RunState.DAY or state == Enums.RunState.NIGHT or state == Enums.RunState.RESCUE
+	return state == Enums.RunState.DAY
+		or state == Enums.RunState.NIGHT
+		or state == Enums.RunState.RESCUE
+		or state == Enums.RunState.RESCUE_WAIT
 end
 
 function RunCycleManager:step()
@@ -361,6 +400,7 @@ function RunCycleManager:onRunStarted()
 	self.scalingCount = nil
 	self.firstDayTime = nil
 	self.runState = Enums.RunState.WAITING
+	self.rescueHeldDayShare = -1
 	local now = workspace:GetServerTimeNow()
 	self.phaseStartTime = now
 	self.phaseEndTime = 0
@@ -420,6 +460,7 @@ end
 function RunCycleManager.new(): RunCycleManager
 	local self = setmetatable({}, RunCycleManager) :: RunCycleManager
 	self.runState = Enums.RunState.WAITING
+	self.rescueHeldDayShare = -1
 	self.day = 0
 	self.phaseStartTime = 0
 	self.phaseEndTime = 0

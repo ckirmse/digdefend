@@ -63,6 +63,10 @@ local sfx = {
 	PLACEMENT_SELL = "PlacementSell",
 	-- 3D loop on every helicopter while its rotor turns (ClientHelicopterManager)
 	HELICOPTER = "Helicopter",
+	-- the pulsing hum of exposed uranium rock and dropped uranium ore, one
+	-- shared loop with an emitter per block or pickup, heard within 15
+	-- studs (designer, 2026-10-07; ClientMineManager, ClientOrePickupManager)
+	URANIUM_HUM = "UraniumHum",
 	-- 2D: something just stopped working for you (backpack full, tank dry)
 	FAIL = "Fail",
 	-- 2D: the Game Over screen (this player died, or the Refinery fell; M32)

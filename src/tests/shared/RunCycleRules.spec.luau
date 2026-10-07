@@ -75,6 +75,12 @@ describe(
 		it(
 			"runs day start into day end over the day",
 			function()
+				local waitStage, waitShare = RunCycleRules.skyStage(Enums.RunState.RESCUE_WAIT, 100, 130, 110, 2, 2, 90, 0.25)
+				expect(waitStage).toBe(Enums.SkyStage.DAY)
+				expect(waitShare).toBeCloseTo(0.75, 5)
+				waitStage, waitShare = RunCycleRules.skyStage(Enums.RunState.RESCUE_WAIT, 100, 130, 110, 2, 2, 90, -1)
+				expect(waitStage).toBe(Enums.SkyStage.NIGHT)
+				expect(waitShare).toBe(1)
 				local stage, share = RunCycleRules.skyStage(Enums.RunState.WAITING, 100, 400, 50, 2, 2, 90)
 				expect(stage).toBe(Enums.SkyStage.DAY)
 				expect(share).toBe(0)
