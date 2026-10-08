@@ -26,7 +26,11 @@ return {
 	-- no vein may centre in or spill into the rock within this many blocks
 	-- of the entrance tunnel, so the faces a crew sees before its first
 	-- swing are plain stone (decided 2026-09-28; was 0)
-	veinEntranceClearance = 4,
+	-- 1 since 2026-10-08: at 4 the box round the 3-deep tunnel kept every
+	-- vein out of the first 7 blocks of the corridor a player digs, so the
+	-- 8-block starter band read as empty; one block still keeps the mouth's
+	-- faces plain
+	veinEntranceClearance = 1,
 	-- only gold within 16 blocks of the entrance (designer, 2026-10-07; 20
 	-- put the first iron 24 blocks in, too far, and 12 had iron crowding out
 	-- the gold): a new player's first Gold goes to mining upgrades before
@@ -62,11 +66,18 @@ return {
 			-- came out of the old zone 1 (230 over the first 20 blocks is
 			-- unchanged); iron and uranium wait beyond the gold-only band
 			depth = 8,
-			floorDrop = 5,
+			-- 2 since 2026-10-08 (was 5): a zone is its height plus its drop, so
+			-- the band was 10 rows and half its gold sat below the floor where
+			-- nobody digs on day 1; now 7 rows round the floor line
+			floorDrop = 2,
 			hardness = 1.0,
 			tierBias = 1.0,
 			iron = 0,
-			gold = 90,
+			-- 120 (2026-10-08): 30 more moved out of zone 1 so day 1 pays sooner
+			-- 60 later that day: with the clearance at 1 and the band 7 rows the
+			-- corridor is full of gold, and day 1 refined 92 against an aim of
+			-- 50 (designer); about half the finds in the first 14 blocks
+			gold = 60,
 			uranium = 0,
 			pockets = 4,
 			pocketRadiusMin = 1,
@@ -99,7 +110,9 @@ return {
 			-- the pick on day 1 and the backpack nearly, about 45 gold refined on
 			-- the designer's day 1 (the report line)
 			-- 170 since 2026-10-07: 60 of the 230 moved into zone 0
-			gold = 255,
+			-- 225 (2026-10-08): 30 more moved into zone 0
+			-- 140 later that day, with zone 0's cut, for the 50-Gold day 1
+			gold = 140,
 			-- thinner since the third playtest: it hums, so it is found fast
 			uranium = 7,
 			-- pockets doubled on 2026-09-28 (third playtest: more open

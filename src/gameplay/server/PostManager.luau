@@ -675,7 +675,7 @@ function PostManager:upgrade(player: Player, attribute: number)
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_GOLD)
 		return
 	end
-	if not RefineryManager:spendGoldBars(player, price) then
+	if not RefineryManager:spendGoldBars(player, price, `post {Enums.getPublicName(Enums.PostAttribute, attribute)} {offer.level or 1}`) then
 		return
 	end
 	state.upgrades[attribute] = offer.level or 1
@@ -705,7 +705,7 @@ function PostManager:claim(player: Player, post: Post)
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_GOLD)
 		return
 	end
-	if not RefineryManager:spendGoldBars(player, price) then
+	if not RefineryManager:spendGoldBars(player, price, `post {post.index} claim`) then
 		return
 	end
 	post.owner = player

@@ -170,6 +170,10 @@ export type ZoneReport = {
 	pocketVolume: number,
 	requestedOre: { [number]: number },
 	placedOre: { [number]: number },
+	-- resource rocks that landed, per resource, so the density a player
+	-- meets (one in N diggable blocks) is read from the grid, not worked
+	-- out by hand from counts that forget the floor drop (2026-10-08)
+	placedRocks: { [number]: number },
 	placedHp: number,
 	-- uranium rocks in this and every shallower zone, so the designer can
 	-- see the progression toward uraniumTarget
@@ -921,6 +925,7 @@ local function buildReport(grid: MineGrid, zones: { ResolvedZone }, config: Gene
 		local pocketVolume = 0
 		local placedHp = 0
 		local placed = emptyOreTotals()
+		local placedRocks = emptyOreTotals()
 		for depth = box.depthStart, box.depthEnd do
 			for height = box.heightStart, box.heightEnd do
 				for width = box.widthStart, box.widthEnd do
@@ -940,6 +945,7 @@ local function buildReport(grid: MineGrid, zones: { ResolvedZone }, config: Gene
 					placedHp += definitionOfRock.hp :: number
 					if definitionOfRock.kind == Enums.RockKind.RESOURCE then
 						placed[definitionOfRock.resource :: number] += definitionOfRock.yield :: number
+						placedRocks[definitionOfRock.resource :: number] += 1
 					end
 				end
 			end
@@ -952,6 +958,7 @@ local function buildReport(grid: MineGrid, zones: { ResolvedZone }, config: Gene
 			pocketVolume = pocketVolume,
 			requestedOre = requestedOre(zone, config),
 			placedOre = placed,
+			placedRocks = placedRocks,
 			placedHp = placedHp,
 			uraniumSoFar = uraniumSoFar,
 		})
@@ -1086,17 +1093,21 @@ function MineGenerator.formatReport(report: Report): string
 	}
 	for _, zone in report.zones do
 		local parts = {}
+		local densities = {}
 		for _, entry in RESOURCE_FIELDS do
 			table.insert(parts, string.format("%s %d/%d", entry.field, zone.placedOre[entry.resource], math.floor(zone.requestedOre[entry.resource] + 0.5)))
+			local rocks = zone.placedRocks[entry.resource]
+			table.insert(densities, string.format("%s %s", entry.field, if rocks > 0 then string.format("1 in %d", math.floor(zone.diggableVolume / rocks + 0.5)) else "none"))
 		end
 		table.insert(lines, string.format(
-			"  zone %d: diggable %d blocks, %d%% within reach, %d pocket cells, hp %d, ore placed/requested: %s, uranium so far %d",
+			"  zone %d: diggable %d blocks, %d%% within reach, %d pocket cells, hp %d, ore placed/requested: %s, rock density: %s, uranium so far %d",
 			zone.index,
 			zone.diggableVolume,
 			math.floor(zone.reachableShare * 100 + 0.5),
 			zone.pocketVolume,
 			zone.placedHp,
 			table.concat(parts, ", "),
+			table.concat(densities, ", "),
 			zone.uraniumSoFar
 		))
 	end

@@ -18,6 +18,9 @@ export type DevTools = typeof(setmetatable(
 		-- commands a place manager registered (registerPlaceCommand); the
 		-- common allowlist stays in DevToolCommands
 		placeCommands: { [string]: PlaceCommandHandler },
+		-- told of every command that ran, by name (the run record counts
+		-- them so a run with forced nights is not averaged as a clean one)
+		commandExecutedHandlers: { (command: string) -> () },
 	},
 	DevTools
 ))
@@ -66,6 +69,7 @@ function DevTools:handleTryDevTool(player: Player, payload: { [string]: any })
 	local placeHandler: PlaceCommandHandler? = self.placeCommands[command]
 	if placeHandler then
 		print("DevTools: executing", command, "for", player.Name)
+		self:fireCommandExecuted(command)
 		placeHandler(player, payload.args or {})
 		return
 	end
@@ -75,8 +79,19 @@ function DevTools:handleTryDevTool(player: Player, payload: { [string]: any })
 	end
 
 	print("DevTools: executing", command, "for", player.Name)
+	self:fireCommandExecuted(command)
 	local method = (DevTools :: any)[command]
 	method(self, player, payload.args or {})
+end
+
+function DevTools:subscribeCommandExecuted(handler: (command: string) -> ())
+	table.insert(self.commandExecutedHandlers, handler)
+end
+
+function DevTools:fireCommandExecuted(command: string)
+	for _, handler in self.commandExecutedHandlers do
+		handler(command)
+	end
 end
 
 -- lobby- and gameplay-only commands plug in here so common code never
@@ -130,6 +145,7 @@ end
 function DevTools.new(): DevTools
 	local self = setmetatable({}, DevTools) :: DevTools
 	self.placeCommands = {}
+	self.commandExecutedHandlers = {}
 	return self
 end
 

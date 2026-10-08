@@ -110,7 +110,7 @@ export type StructureManager = typeof(setmetatable(
 		barriersChangedHandlers: { () -> () },
 		-- damage landed on a structure, and a Hammer swing that put HP back
 		-- (the run report, M34)
-		structureDamagedHandlers: { (id: string, kind: number, amount: number, isDestroyed: boolean) -> () },
+		structureDamagedHandlers: { (id: string, kind: number, amount: number, isDestroyed: boolean, attackerKind: number?) -> () },
 		structureRepairedHandlers: { (player: Player, id: string, gained: number, cost: number) -> () },
 		warnedTemplates: { [string]: boolean },
 		-- a live monster is within the attack radius of the Refinery
@@ -166,7 +166,7 @@ function StructureManager:subscribeRefineryDestroyed(handler: () -> ())
 	table.insert(self.refineryDestroyedHandlers, handler)
 end
 
-function StructureManager:subscribeStructureDamaged(handler: (id: string, kind: number, amount: number, isDestroyed: boolean) -> ())
+function StructureManager:subscribeStructureDamaged(handler: (id: string, kind: number, amount: number, isDestroyed: boolean, attackerKind: number?) -> ())
 	table.insert(self.structureDamagedHandlers, handler)
 end
 
@@ -489,8 +489,10 @@ function StructureManager:setRefineryUnderAttack(isUnderAttack: boolean)
 	end
 end
 
--- the one way HP goes down; enemies (M29) and the dev tool both come through here
-function StructureManager:damageStructure(id: string, amount: number)
+-- the one way HP goes down; enemies (M29) and the dev tool both come
+-- through here. attackerKind is the Enums.MonsterKind that dealt it, nil
+-- from the dev tool
+function StructureManager:damageStructure(id: string, amount: number, attackerKind: number?)
 	local structure = self.structuresById[id]
 	if not structure or amount <= 0 or structure.hp <= 0 then
 		return
@@ -499,7 +501,7 @@ function StructureManager:damageStructure(id: string, amount: number)
 	structure.hp = math.max(0, structure.hp - amount)
 	local isNewlyDestroyed = structure.hp <= 0 and not structure.isDestroyed
 	for _, handler in self.structureDamagedHandlers do
-		handler(id, structure.kind, applied, isNewlyDestroyed)
+		handler(id, structure.kind, applied, isNewlyDestroyed, attackerKind)
 	end
 	if isNewlyDestroyed then
 		structure.isDestroyed = true
@@ -580,7 +582,7 @@ function StructureManager:donate(player: Player)
 	if amount <= 0 then
 		return
 	end
-	if not RefineryManager:spendIronBars(player, amount) then
+	if not RefineryManager:spendIronBars(player, amount, "fortifications") then
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_IRON)
 		return
 	end

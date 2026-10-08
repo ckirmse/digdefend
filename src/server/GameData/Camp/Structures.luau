@@ -53,8 +53,11 @@ return {
 	-- The Refinery is under attack while any live monster is within
 	-- REFINERY_ATTACK_RADIUS_STUDS of its box, a flyer measured at the
 	-- box's height (MonsterManager checks every
-	-- REFINERY_ATTACK_POLL_SEC); the alert fires once per attack, and the
-	-- siren every client loops runs until the last one leaves the radius.
+	-- REFINERY_ATTACK_POLL_SEC), or for REFINERY_ATTACK_HOLD_SEC after any
+	-- monster's hit lands on it (2026-10-08: a Flyer shelled it from 50
+	-- studs up and out, past the radius, and the run was lost in silence);
+	-- the alert fires once per attack, and the siren every client loops
+	-- runs until the last one leaves the radius and the hold runs out.
 	-- A wall that falls also plays its 3D collapse from where it stood,
 	-- full out to WALL_COLLAPSE_FULL_VOLUME_STUDS and gone past
 	-- WALL_COLLAPSE_SILENT_STUDS
@@ -69,6 +72,9 @@ return {
 	ALERT_DISPLAY_SEC = 4,
 	REFINERY_ATTACK_RADIUS_STUDS = 20,
 	REFINERY_ATTACK_POLL_SEC = 0.25,
+	-- longer than any ranged monster's attack interval (Launcher 3 s), so
+	-- a siege keeps the siren on between shots
+	REFINERY_ATTACK_HOLD_SEC = 5,
 	WALL_COLLAPSE_FULL_VOLUME_STUDS = 30,
 	WALL_COLLAPSE_SILENT_STUDS = 250,
 	-- what one Hammer swing adds and costs, by the structure's tier: both

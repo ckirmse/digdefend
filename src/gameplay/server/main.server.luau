@@ -43,6 +43,7 @@ local RunPauseManager = require(script.Parent.RunPauseManager)
 local RunManager = require(script.Parent.RunManager)
 local RunReportDevTools = require(script.Parent.RunReportDevTools)
 local RunReportManager = require(script.Parent.RunReportManager)
+local RunRecordManager = require(script.Parent.RunRecordManager)
 local StartNightManager = require(script.Parent.StartNightManager)
 local RunStatsManager = require(script.Parent.RunStatsManager)
 local StructureDevTools = require(script.Parent.StructureDevTools)
@@ -265,6 +266,14 @@ RunReportManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
 		RunReportManager:onRunStarted()
+	end
+)
+-- the run record (M34): after the report, whose rows it saves at every
+-- dawn and at the run's end
+RunRecordManager:init()
+RunManager:subscribeRunStarted(
+	function(map: number, difficulty: number)
+		RunRecordManager:onRunStarted(map, difficulty)
 	end
 )
 

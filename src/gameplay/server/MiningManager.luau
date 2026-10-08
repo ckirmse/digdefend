@@ -30,6 +30,9 @@ MiningManager.__index = MiningManager
 export type MiningManager = typeof(setmetatable(
 	{} :: {
 		lastHitTimeByPlayer: { [Player]: number },
+		-- every swing that landed: the rock it hit and whether it broke
+		-- (the run report, M34)
+		hitHandlers: { (player: Player, depth: number, height: number, width: number, rock: number, isBroken: boolean) -> () },
 	},
 	MiningManager
 ))
@@ -39,6 +42,10 @@ local TRY_HIT_ROCK_SHAPE = {
 	height = "nonnegativeInteger",
 	width = "nonnegativeInteger",
 }
+
+function MiningManager:subscribeHit(handler: (player: Player, depth: number, height: number, width: number, rock: number, isBroken: boolean) -> ())
+	table.insert(self.hitHandlers, handler)
+end
 
 function MiningManager:getPlayerPosition(player: Player): Vector3?
 	local character = player.Character
@@ -79,6 +86,9 @@ function MiningManager:handleHit(player: Player, depth: number, height: number, 
 
 	local damage = MiningRules.damageForLevel(PickAxeData.DAMAGE_BY_LEVEL, ToolManager:getPickAxeLevel(player))
 	local isBroken, remainingHp = MineManager:applyDamage(depth, height, width, damage)
+	for _, handler in self.hitHandlers do
+		handler(player, depth, height, width, rock, isBroken)
+	end
 	if isBroken then
 		NetManager:notifyAllClients(NetEventNames.NOTIFY_ROCK_BROKEN, {
 			depth = depth,
@@ -141,6 +151,7 @@ end
 function MiningManager.new(): MiningManager
 	local self = setmetatable({}, MiningManager) :: MiningManager
 	self.lastHitTimeByPlayer = {}
+	self.hitHandlers = {}
 	return self
 end
 

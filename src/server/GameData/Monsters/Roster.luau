@@ -312,7 +312,9 @@ return {
 			TARGET_DAMAGE_TYPES = { PLAYERS },
 			ATTACK_TYPE = RANGED,
 			DETECTION_RANGE_STUDS = 20,
-			ATTACK_RANGE_STUDS = 100,
+			-- 50 since 2026-10-08 (was 100): at 100 it hovered over the wall
+			-- line, hard to see and shoot; it must come in over the camp
+			ATTACK_RANGE_STUDS = 50,
 			ATTACK_RADIUS_STUDS = 5,
 			DIE_ON_ATTACK = false,
 			DAMAGE_ON_DEATH = false,
@@ -334,7 +336,9 @@ return {
 			TARGET_DAMAGE_TYPES = { PLAYERS },
 			ATTACK_TYPE = RANGED,
 			DETECTION_RANGE_STUDS = 20,
-			ATTACK_RANGE_STUDS = 100,
+			-- 50 since 2026-10-08 (was 100): at 100 it hovered over the wall
+			-- line, hard to see and shoot; it must come in over the camp
+			ATTACK_RANGE_STUDS = 50,
 			ATTACK_RADIUS_STUDS = 5,
 			DIE_ON_ATTACK = false,
 			DAMAGE_ON_DEATH = false,
@@ -356,7 +360,9 @@ return {
 			TARGET_DAMAGE_TYPES = { PLAYERS },
 			ATTACK_TYPE = RANGED,
 			DETECTION_RANGE_STUDS = 20,
-			ATTACK_RANGE_STUDS = 100,
+			-- 50 since 2026-10-08 (was 100): at 100 it hovered over the wall
+			-- line, hard to see and shoot; it must come in over the camp
+			ATTACK_RANGE_STUDS = 50,
 			ATTACK_RADIUS_STUDS = 5,
 			DIE_ON_ATTACK = false,
 			DAMAGE_ON_DEATH = false,

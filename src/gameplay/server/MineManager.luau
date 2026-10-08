@@ -65,6 +65,12 @@ function MineManager:getSpace(): MineSpace.MineSpace?
 	return self.space
 end
 
+-- the seed the mine was generated from, nil before a mine exists
+function MineManager:getSeed(): number?
+	local result = self.result
+	return if result then result.report.seed else nil
+end
+
 function MineManager:getDefinition(): MineGenerator.MineDefinition?
 	return self.definition
 end
@@ -230,6 +236,21 @@ function MineManager:getNetHandlers()
 			end,
 		},
 	}
+end
+
+-- the 1-based zone a depth row lies in (the mine report's numbering), nil
+-- outside every zone or before a mine exists
+function MineManager:getZoneIndexAt(depth: number): number?
+	local result = self.result
+	if not result then
+		return nil
+	end
+	for index, zone in result.zones do
+		if depth >= zone.depthStart and depth < zone.depthStart + zone.depth then
+			return index
+		end
+	end
+	return nil
 end
 
 function MineManager:getRockAt(depth: number, height: number, width: number): number?

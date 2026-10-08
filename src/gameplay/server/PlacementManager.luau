@@ -104,6 +104,9 @@ export type PlacementManager = typeof(setmetatable(
 		placementsChangedHandlers: { () -> () },
 		-- a build, upgrade, or sale and the Iron it moved (the run report, M34)
 		placementSpentHandlers: { (player: Player, action: number, placementKind: number, typeKind: number, iron: number) -> () },
+		-- damage landed on a Tower or Trap, with the Enums.MonsterKind that
+		-- dealt it when a monster did (the run report, M34)
+		placementDamagedHandlers: { (id: string, placementKind: number, typeKind: number, amount: number, isDestroyed: boolean, attackerKind: number?) -> () },
 	},
 	PlacementManager
 ))
@@ -240,6 +243,10 @@ function PlacementManager:firePlacementSpent(player: Player, action: number, pla
 	for _, handler in self.placementSpentHandlers do
 		handler(player, action, placementKind, typeKind, iron)
 	end
+end
+
+function PlacementManager:subscribePlacementDamaged(handler: (id: string, placementKind: number, typeKind: number, amount: number, isDestroyed: boolean, attackerKind: number?) -> ())
+	table.insert(self.placementDamagedHandlers, handler)
 end
 
 function PlacementManager:subscribePlacementsChanged(handler: () -> ())
@@ -537,12 +544,16 @@ function PlacementManager:repairPlacement(player: Player, id: string)
 end
 
 -- the one way HP goes down; enemies (M27, M29) and the dev tool come through here
-function PlacementManager:damagePlacement(id: string, amount: number)
+function PlacementManager:damagePlacement(id: string, amount: number, attackerKind: number?)
 	local placement = self.placementsById[id]
 	if not placement or amount <= 0 then
 		return
 	end
+	local applied = math.min(amount, placement.hp)
 	placement.hp = math.max(0, placement.hp - amount)
+	for _, handler in self.placementDamagedHandlers do
+		handler(id, placement.placementKind, placement.typeKind, applied, placement.hp <= 0, attackerKind)
+	end
 	if placement.hp <= 0 then
 		print(`[PlacementManager] {id} destroyed`)
 		self:remove(placement)
@@ -728,6 +739,7 @@ function PlacementManager.new(): PlacementManager
 	self.shadowFolder = nil
 	self.placementsChangedHandlers = {}
 	self.placementSpentHandlers = {}
+	self.placementDamagedHandlers = {}
 	return self
 end
 

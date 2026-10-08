@@ -105,6 +105,7 @@ type Monster = {
 }
 
 type Projectile = {
+	kind: number,
 	data: MonsterRules.MonsterData,
 	targetId: string,
 	targetType: number,
@@ -122,6 +123,8 @@ export type MonsterManager = typeof(setmetatable(
 		tickAccumulatorSec: number,
 		tickCount: number,
 		lastRefineryPollTime: number,
+		-- when a monster last hurt the Refinery; the alarm holds after it
+		lastRefineryHitTime: number,
 		-- batched for the next tick's notifies
 		pendingSpawnIds: { number },
 		pendingDeathIds: { number },
@@ -355,7 +358,7 @@ function MonsterManager:onMonsterKilled(monster: Monster)
 	end
 	local data = monster.data
 	if data.DAMAGE_ON_DEATH and data.ATTACK_RADIUS_STUDS > 0 then
-		self:blast(data, monster.position, nil)
+		self:blast(monster.kind, data, monster.position, nil)
 	end
 	self:removeMonster(monster)
 	for _, handler in self.killedHandlers do
@@ -450,8 +453,9 @@ function MonsterManager:buildCandidates()
 	self.playerByCandidateId = playerByCandidateId
 end
 
--- hurts one candidate by whatever owns it
-function MonsterManager:hurt(candidate: MonsterRules.Candidate, amount: number)
+-- hurts one candidate by whatever owns it; kind is the attacker's
+-- Enums.MonsterKind, for the run report
+function MonsterManager:hurt(candidate: MonsterRules.Candidate, amount: number, kind: number)
 	if amount <= 0 then
 		return
 	end
@@ -459,23 +463,23 @@ function MonsterManager:hurt(candidate: MonsterRules.Candidate, amount: number)
 	if targetType == Enums.MonsterTargetType.PLAYERS then
 		local player = self.playerByCandidateId[candidate.id]
 		if player then
-			ReviveManager:damagePlayer(player, amount)
+			ReviveManager:damagePlayer(player, amount, kind)
 		end
 	elseif targetType == Enums.MonsterTargetType.TOWERS or targetType == Enums.MonsterTargetType.TRAPS then
-		PlacementManager:damagePlacement(candidate.id, amount)
+		PlacementManager:damagePlacement(candidate.id, amount, kind)
 	else
-		StructureManager:damageStructure(candidate.id, amount)
+		StructureManager:damageStructure(candidate.id, amount, kind)
 	end
 end
 
 -- a blast at a point: everything of the kind's damage types in its radius
-function MonsterManager:blast(data: MonsterRules.MonsterData, center: Vector3, primaryId: string?)
+function MonsterManager:blast(kind: number, data: MonsterRules.MonsterData, center: Vector3, primaryId: string?)
 	local radius = data.ATTACK_RADIUS_STUDS
 	if radius <= 0 then
 		return
 	end
 	for _, victim in MonsterRules.blastVictims(center, radius, data.TARGET_DAMAGE_TYPES, self.candidatesByType, primaryId) do
-		self:hurt(victim, data.DAMAGE)
+		self:hurt(victim, data.DAMAGE, kind)
 	end
 	NetManager:notifyAllClients(NetEventNames.NOTIFY_MONSTER_BLAST, {
 		position = center,
@@ -492,6 +496,7 @@ function MonsterManager:attack(monster: Monster, target: MonsterRules.Candidate,
 		local to = target.position
 		local flightSec = MonsterRules.flightSec(from, to, BehaviorData.PROJECTILE_SPEED_STUDS_PER_SEC)
 		table.insert(self.projectiles, {
+			kind = monster.kind,
 			data = data,
 			targetId = target.id,
 			targetType = target.targetType,
@@ -507,9 +512,9 @@ function MonsterManager:attack(monster: Monster, target: MonsterRules.Candidate,
 		})
 		return
 	end
-	self:hurt(target, data.DAMAGE)
+	self:hurt(target, data.DAMAGE, monster.kind)
 	if data.ATTACK_RADIUS_STUDS > 0 then
-		self:blast(data, monster.position, target.id)
+		self:blast(monster.kind, data, monster.position, target.id)
 	end
 	if data.DIE_ON_ATTACK then
 		self:expire(monster)
@@ -536,10 +541,10 @@ function MonsterManager:landProjectiles(now: number)
 				isHit = (target.position - projectile.landPosition).Magnitude <= reach
 			end
 			if isHit then
-				self:hurt(target, projectile.data.DAMAGE)
+				self:hurt(target, projectile.data.DAMAGE, projectile.kind)
 			end
 		end
-		self:blast(projectile.data, projectile.landPosition, projectile.targetId)
+		self:blast(projectile.kind, projectile.data, projectile.landPosition, projectile.targetId)
 	end
 	self.projectiles = flying
 end
@@ -1048,8 +1053,8 @@ function MonsterManager:pollRefineryAttack(now: number)
 			break
 		end
 	end
-	local isUnderAttack = false
-	if refineryBox and not refineryBox.isDestroyed then
+	local isUnderAttack = now - self.lastRefineryHitTime < StructuresData.REFINERY_ATTACK_HOLD_SEC
+	if refineryBox and not refineryBox.isDestroyed and not isUnderAttack then
 		for _, monster in self.monsters do
 			if monster.isDead then
 				continue
@@ -1116,6 +1121,7 @@ end
 function MonsterManager:onRunStarted()
 	self:killAll()
 	self:flushNotifies()
+	self.lastRefineryHitTime = -math.huge
 end
 
 function MonsterManager:init()
@@ -1129,6 +1135,15 @@ function MonsterManager:init()
 	snapshotEvent.Name = Constants.MONSTER_SNAPSHOT_EVENT_NAME
 	snapshotEvent.Parent = ReplicatedStorage
 	self.snapshotEvent = snapshotEvent
+	-- a ranged monster can hurt the Refinery from outside the alarm's
+	-- radius, so a landed hit holds the alarm on by itself
+	StructureManager:subscribeStructureDamaged(
+		function(_id: string, kind: number, _amount: number, _isDestroyed: boolean, attackerKind: number?)
+			if kind == Enums.StructureKind.REFINERY and attackerKind ~= nil then
+				self.lastRefineryHitTime = workspace:GetServerTimeNow()
+			end
+		end
+	)
 	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_VISUAL_CATALOG, MonsterRules.encodeVisualCatalog(ROSTER_BY_KIND))
 	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_INTERPOLATION_DELAY_SEC, BehaviorData.INTERPOLATION_DELAY_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.MONSTER_DRAW_BUDGETS, MonsterRules.encodeDrawBudgets(BehaviorData.DRAW_BUDGETS, BehaviorData.LOW_BUDGET_MAX_QUALITY_LEVEL))
@@ -1166,6 +1181,7 @@ function MonsterManager.new(): MonsterManager
 	self.tickAccumulatorSec = 0
 	self.tickCount = 0
 	self.lastRefineryPollTime = 0
+	self.lastRefineryHitTime = -math.huge
 	self.pendingSpawnIds = {}
 	self.pendingDeathIds = {}
 	self.metricsByModel = {}

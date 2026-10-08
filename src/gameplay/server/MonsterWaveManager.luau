@@ -52,6 +52,11 @@ export type MonsterWaveManager = typeof(setmetatable(
 		random: Random,
 		-- GameData/Monsters/Roster DIFFICULTY_VALUE by kind, for the generator
 		difficultyValueByKind: { [number]: number },
+		-- the generator's target for the wave being fought, 0 for an authored one
+		targetDifficulty: number,
+		-- a group just arrived: which of how many, and the wave's target
+		-- (the run report, M34)
+		groupQueuedHandlers: { (groupIndex: number, groupCount: number, targetDifficulty: number) -> () },
 	},
 	MonsterWaveManager
 ))
@@ -63,6 +68,10 @@ end
 
 function MonsterWaveManager:isRunning(): boolean
 	return self.isActive
+end
+
+function MonsterWaveManager:subscribeGroupQueued(handler: (groupIndex: number, groupCount: number, targetDifficulty: number) -> ())
+	table.insert(self.groupQueuedHandlers, handler)
 end
 
 -- queues every monster of a group, scattered round its spawn
@@ -196,6 +205,7 @@ function MonsterWaveManager:startNight(night: number)
 	local result, reason = self:buildWave(night)
 	self.isActive = true
 	self.groups = if result then WaveRules.orderedGroups(result.wave) else {}
+	self.targetDifficulty = if result then result.targetDifficulty else 0
 	self.nextGroupIndex = 1
 	self.nightStartTime = workspace:GetServerTimeNow()
 	self.shiftSec = 0
@@ -217,6 +227,7 @@ function MonsterWaveManager:startFinalWave(night: number, scale: number)
 	local result, reason = self:buildWave(night, scale)
 	self.isActive = true
 	self.groups = if result then WaveRules.orderedGroups(result.wave) else {}
+	self.targetDifficulty = if result then result.targetDifficulty else 0
 	self.nextGroupIndex = 1
 	self.nightStartTime = workspace:GetServerTimeNow()
 	self.shiftSec = 0
@@ -244,6 +255,9 @@ function MonsterWaveManager:step()
 	end
 	while nextGroup and now >= WaveRules.dueTime(nextGroup, self.nightStartTime, self.shiftSec) do
 		self:queueGroup(nextGroup)
+		for _, handler in self.groupQueuedHandlers do
+			handler(self.nextGroupIndex, #self.groups, self.targetDifficulty)
+		end
 		self.nextGroupIndex += 1
 		nextGroup = self.groups[self.nextGroupIndex]
 	end
@@ -301,6 +315,8 @@ function MonsterWaveManager.new(): MonsterWaveManager
 	self.shiftSec = 0
 	self.pending = {}
 	self.random = Random.new()
+	self.targetDifficulty = 0
+	self.groupQueuedHandlers = {}
 	self.difficultyValueByKind = {}
 	for kind, data in RosterData.BY_KIND :: { [number]: { DIFFICULTY_VALUE: number } } do
 		self.difficultyValueByKind[kind] = data.DIFFICULTY_VALUE

@@ -56,8 +56,8 @@ function GiveCurrencyManager:handleTryGiveCurrency(sender: Player, payload: { [s
 		return
 	end
 	-- both spends were just checked against the balances, so neither can fail
-	RefineryManager:spendGoldBars(sender, goldBars)
-	RefineryManager:spendIronBars(sender, ironBars)
+	RefineryManager:spendGoldBars(sender, goldBars, `gift to {target.Name}`)
+	RefineryManager:spendIronBars(sender, ironBars, `gift to {target.Name}`)
 	RefineryManager:addGoldBars(target, goldBars)
 	RefineryManager:addIronBars(target, ironBars)
 	local amounts = GiveCurrencyRules.describeAmounts(

@@ -100,7 +100,7 @@ function MiningStoreManager:buy(player: Player, item: number)
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_GOLD)
 		return
 	end
-	if not RefineryManager:spendGoldBars(player, price) then
+	if not RefineryManager:spendGoldBars(player, price, StoreRules.nameText(item, offer)) then
 		return
 	end
 	local consumable = self.catalog.consumables[item]

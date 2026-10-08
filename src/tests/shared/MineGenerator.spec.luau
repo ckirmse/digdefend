@@ -610,6 +610,10 @@ describe(
 				expect(zone1.placedOre[RawResource.IRON_ORE]).toBeGreaterThan(0)
 				expect(zone1.requestedOre[RawResource.IRON_ORE]).toBeGreaterThan(0)
 				expect(zone1.placedOre[RawResource.URANIUM_ORE]).toBe(2)
+				-- uranium rocks are single blocks yielding one, so rocks equal ore
+				expect(zone1.placedRocks[RawResource.URANIUM_ORE]).toBe(2)
+				expect(zone1.placedRocks[RawResource.IRON_ORE]).toBeGreaterThan(0)
+				expect(zone1.placedRocks[RawResource.IRON_ORE]).toBeLessThanOrEqual(zone1.placedOre[RawResource.IRON_ORE])
 				expect(zone1.placedHp).toBeGreaterThan(0)
 				-- uranium clusters are single blocks that yield one, so placed matches requested
 				local zone4 = report.zones[4]
@@ -623,6 +627,7 @@ describe(
 				-- the cathedral is mostly out of reach from a standing start
 				expect(zone4.reachableShare).toBeLessThan(0.25)
 				expect(MineGenerator.formatReport(report)).toContain("zone 4")
+				expect(MineGenerator.formatReport(report)).toContain("rock density: iron 1 in ")
 			end
 		)
 

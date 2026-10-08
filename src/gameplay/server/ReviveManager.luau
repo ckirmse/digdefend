@@ -80,6 +80,10 @@ type LeaverGrave = {
 
 export type DiedHandler = (player: Player) -> ()
 export type TeamRevivedHandler = () -> ()
+-- a hit a monster landed, with its Enums.MonsterKind; and a player back
+-- on their feet by any Revive (the run report, M34)
+export type DamagedHandler = (player: Player, amount: number, attackerKind: number?) -> ()
+export type RevivedHandler = (player: Player, reviveKind: number) -> ()
 
 export type ReviveManager = typeof(setmetatable(
 	{} :: {
@@ -96,6 +100,8 @@ export type ReviveManager = typeof(setmetatable(
 		leaverGraves: { LeaverGrave },
 		diedHandlers: { DiedHandler },
 		teamRevivedHandlers: { TeamRevivedHandler },
+		damagedHandlers: { DamagedHandler },
+		revivedHandlers: { RevivedHandler },
 		shadowFolder: Folder?,
 		hasWarnedNoDeathRoom: boolean,
 		stepAccumulatorSec: number,
@@ -201,6 +207,14 @@ end
 -- clears them before the day starts over (wired in main.server)
 function ReviveManager:subscribeTeamRevived(handler: TeamRevivedHandler)
 	table.insert(self.teamRevivedHandlers, handler)
+end
+
+function ReviveManager:subscribeDamaged(handler: DamagedHandler)
+	table.insert(self.damagedHandlers, handler)
+end
+
+function ReviveManager:subscribeRevived(handler: RevivedHandler)
+	table.insert(self.revivedHandlers, handler)
 end
 
 function ReviveManager:getShadowFolder(): Folder
@@ -491,8 +505,9 @@ function ReviveManager:buryTheLiving()
 	self:replicateOffers()
 end
 
--- every hit a monster lands on a player comes through here
-function ReviveManager:damagePlayer(player: Player, amount: number)
+-- every hit a monster lands on a player comes through here; attackerKind
+-- is its Enums.MonsterKind, nil from the dev tool
+function ReviveManager:damagePlayer(player: Player, amount: number, attackerKind: number?)
 	if self.deadByPlayer[player] or not RunCycleManager:isRunOn() then
 		return
 	end
@@ -503,6 +518,11 @@ function ReviveManager:damagePlayer(player: Player, amount: number)
 	local now = workspace:GetServerTimeNow()
 	local isInvulnerable = now < (self.invulnerableUntilByPlayer[player] or 0)
 	local health, isKilled = ReviveRules.applyDamage(humanoid.Health, amount, isInvulnerable)
+	if not isInvulnerable then
+		for _, handler in self.damagedHandlers do
+			handler(player, amount, attackerKind)
+		end
+	end
 	if isKilled then
 		self:kill(player)
 		return
@@ -604,6 +624,9 @@ function ReviveManager:revive(player: Player, reviveKind: number, reviver: Playe
 	ToolManager:setToolsLocked(player, false)
 	self:replicateAlive(player)
 	print(`[ReviveManager] {player.Name} revived ({Enums.getPublicName(Enums.ReviveKind, reviveKind)})`)
+	for _, handler in self.revivedHandlers do
+		handler(player, reviveKind)
+	end
 	NetManager:notifyAllClients(NetEventNames.NOTIFY_PLAYER_REVIVED, {
 		userId = player.UserId,
 		reviveKind = reviveKind,
@@ -1003,6 +1026,8 @@ function ReviveManager.new(): ReviveManager
 	self.leaverGraves = {}
 	self.diedHandlers = {}
 	self.teamRevivedHandlers = {}
+	self.damagedHandlers = {}
+	self.revivedHandlers = {}
 	self.shadowFolder = nil
 	self.hasWarnedNoDeathRoom = false
 	self.stepAccumulatorSec = 0

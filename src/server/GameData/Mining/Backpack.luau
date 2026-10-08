@@ -7,7 +7,9 @@
 return {
 	-- each level triples the last and costs three times as much
 	-- (2026-09-28, the simulator curve; ore per rock climbs to match)
-	CAPACITY_BY_LEVEL = { 15, 45, 135, 400, 1200 },
+	-- level 1 is 16 since 2026-10-08 (designer): a full pack of 2-ore rocks
+	-- divides evenly, eight rocks a trip
+	CAPACITY_BY_LEVEL = { 16, 45, 135, 400, 1200 },
 	-- ore that did not fit lands on the ground near the broken block and is
 	-- collected by any player walking within this distance with room
 	PICKUP_RADIUS_STUDS = 5,

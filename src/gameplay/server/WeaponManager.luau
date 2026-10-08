@@ -234,7 +234,7 @@ function WeaponManager:upgrade(player: Player, attribute: number)
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_GOLD)
 		return
 	end
-	if not RefineryManager:spendGoldBars(player, price) then
+	if not RefineryManager:spendGoldBars(player, price, `weapon {Enums.getPublicName(Enums.WeaponAttribute, attribute)} {offer.level}`) then
 		return
 	end
 	state.upgrades[attribute] = offer.level

@@ -46,6 +46,9 @@ export type RefineryManager = typeof(setmetatable(
 		uraniumChangedHandlers: { () -> () },
 		-- every payout, with what it paid (the run report, M34)
 		creditedHandlers: { (player: Player, refined: { [number]: number }) -> () },
+		-- every spend, with what it bought when the caller said (the run
+		-- report, M34); resource is an Enums.RefinedResource
+		spentHandlers: { (player: Player, resource: number, amount: number, reason: string?) -> () },
 		-- the loaded camp's Refinery, flat, for the radius check; nil until a run
 		refineryPosition: Vector3?,
 		pollAccumulatorSec: number,
@@ -73,14 +76,17 @@ function RefineryManager:getGoldBars(player: Player): number
 	return if balances then balances.goldBars else 0
 end
 
--- the Mining Supplies Store pays from here; false leaves the balance untouched
-function RefineryManager:spendGoldBars(player: Player, amount: number): boolean
+-- the Mining Supplies Store pays from here; false leaves the balance
+-- untouched. reason names the purchase for the run report; a caller the
+-- report already counts another way (repairs, placements) passes nothing
+function RefineryManager:spendGoldBars(player: Player, amount: number, reason: string?): boolean
 	local balances = self.balancesByPlayer[player]
 	if not balances or amount < 0 or balances.goldBars < amount then
 		return false
 	end
 	balances.goldBars -= amount
 	self:replicatePlayer(player)
+	self:fireSpent(player, Enums.RefinedResource.GOLD_BAR, amount, reason)
 	return true
 end
 
@@ -90,14 +96,24 @@ function RefineryManager:getIronBars(player: Player): number
 end
 
 -- structure repairs and the fortification upgrade pay from here
-function RefineryManager:spendIronBars(player: Player, amount: number): boolean
+function RefineryManager:spendIronBars(player: Player, amount: number, reason: string?): boolean
 	local balances = self.balancesByPlayer[player]
 	if not balances or amount < 0 or balances.ironBars < amount then
 		return false
 	end
 	balances.ironBars -= amount
 	self:replicatePlayer(player)
+	self:fireSpent(player, Enums.RefinedResource.IRON_BAR, amount, reason)
 	return true
+end
+
+function RefineryManager:fireSpent(player: Player, resource: number, amount: number, reason: string?)
+	if amount <= 0 then
+		return
+	end
+	for _, handler in self.spentHandlers do
+		handler(player, resource, amount, reason)
+	end
 end
 
 function RefineryManager:addIronBars(player: Player, amount: number)
@@ -137,6 +153,10 @@ end
 -- the rescue (M31) listens for the target being reached
 function RefineryManager:subscribeCredited(handler: (player: Player, refined: { [number]: number }) -> ())
 	table.insert(self.creditedHandlers, handler)
+end
+
+function RefineryManager:subscribeSpent(handler: (player: Player, resource: number, amount: number, reason: string?) -> ())
+	table.insert(self.spentHandlers, handler)
 end
 
 function RefineryManager:subscribeUraniumChanged(handler: () -> ())
@@ -343,6 +363,7 @@ function RefineryManager.new(): RefineryManager
 	self.isBusy = false
 	self.uraniumChangedHandlers = {}
 	self.creditedHandlers = {}
+	self.spentHandlers = {}
 	self.refineryPosition = nil
 	self.pollAccumulatorSec = 0
 	return self
