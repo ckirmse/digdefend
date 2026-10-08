@@ -39,6 +39,32 @@ export type MonsterData = {
 	DEATH_ANIMATION_ID: string,
 	PROJECTILE: string?,
 	ATTACK_INTERVAL_SEC: number?,
+	-- 3D sounds the client plays from the monster, by SoundNames.Sfx name
+	-- (M62); each has the distance it is full at and the distance it is
+	-- gone by, and WALK repeats every INTERVAL_SEC while it moves
+	SOUNDS: MonsterSounds?,
+}
+
+export type MonsterSoundData = {
+	NAME: string,
+	FULL_VOLUME_STUDS: number,
+	SILENT_STUDS: number,
+	INTERVAL_SEC: number?,
+}
+
+export type MonsterSounds = {
+	WALK: MonsterSoundData?,
+	ALERT: MonsterSoundData?,
+	ATTACK: MonsterSoundData?,
+	DEATH: MonsterSoundData?,
+}
+
+-- the client's copy of one sound
+export type MonsterSound = {
+	name: string,
+	fullVolumeStuds: number,
+	silentStuds: number,
+	intervalSec: number?,
 }
 
 -- something a monster could attack. A box target (a wall, a Tower) is
@@ -64,11 +90,17 @@ export type Visual = {
 	-- for the HP bar's numbers; the snapshot carries only the share
 	maxHp: number,
 	isAir: boolean,
+	-- clings to the mine's surfaces; the client orients it to its face
+	isCrawler: boolean,
 	walkAnimationId: string,
 	idleAnimationId: string?,
 	attackAnimationId: string,
 	deathAnimationId: string,
 	projectile: string?,
+	walkSound: MonsterSound?,
+	alertSound: MonsterSound?,
+	attackSound: MonsterSound?,
+	deathSound: MonsterSound?,
 }
 
 export type VisualCatalog = { [number]: Visual }
@@ -103,6 +135,10 @@ end
 
 function MonsterRules.isRanged(data: MonsterData): boolean
 	return data.ATTACK_TYPE == Enums.MonsterAttackType.RANGED
+end
+
+function MonsterRules.isCrawler(data: MonsterData): boolean
+	return data.TRAVERSAL == Enums.MonsterTraversal.CRAWL
 end
 
 function MonsterRules.isAir(data: MonsterData): boolean
@@ -263,16 +299,34 @@ function MonsterRules.modelNameFor(kind: number): string
 	return Enums.getName(Enums.MonsterKind, kind) or ""
 end
 
+local function soundFor(sound: MonsterSoundData?): MonsterSound?
+	if not sound then
+		return nil
+	end
+	return {
+		name = sound.NAME,
+		fullVolumeStuds = sound.FULL_VOLUME_STUDS,
+		silentStuds = sound.SILENT_STUDS,
+		intervalSec = sound.INTERVAL_SEC,
+	}
+end
+
 function MonsterRules.visualFor(kind: number, data: MonsterData): Visual
+	local sounds = data.SOUNDS
 	return {
 		model = MonsterRules.modelNameFor(kind),
 		maxHp = data.MAX_HP,
 		isAir = MonsterRules.isAir(data),
+		isCrawler = MonsterRules.isCrawler(data),
 		walkAnimationId = data.WALK_ANIMATION_ID,
 		idleAnimationId = data.IDLE_ANIMATION_ID,
 		attackAnimationId = data.ATTACK_ANIMATION_ID,
 		deathAnimationId = data.DEATH_ANIMATION_ID,
 		projectile = data.PROJECTILE,
+		walkSound = if sounds then soundFor(sounds.WALK) else nil,
+		alertSound = if sounds then soundFor(sounds.ALERT) else nil,
+		attackSound = if sounds then soundFor(sounds.ATTACK) else nil,
+		deathSound = if sounds then soundFor(sounds.DEATH) else nil,
 	}
 end
 

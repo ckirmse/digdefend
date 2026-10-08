@@ -208,6 +208,21 @@ describe(
 )
 
 describe(
+	"StructureRules.donationForTier",
+	function()
+		it(
+			"doubles the donation a tier above the first",
+			function()
+				expect(StructureRules.donationForTier(10, 1)).toBe(10)
+				expect(StructureRules.donationForTier(10, 2)).toBe(20)
+				expect(StructureRules.donationForTier(10, 3)).toBe(40)
+				expect(StructureRules.donationForTier(10, 0)).toBe(10)
+			end
+		)
+	end
+)
+
+describe(
 	"StructureRules.donate",
 	function()
 		it(

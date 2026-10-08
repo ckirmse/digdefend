@@ -38,6 +38,14 @@ function StructureRules.repairChunkForTier(chunkHpByTier: { number }, chunkIronB
 	return chunkHpByTier[index] or 0, chunkIronByTier[math.min(index, #chunkIronByTier)] or 0
 end
 
+-- what one press at the Walls Table moves at this tier: the base donation
+-- doubled per tier above the first, so a level 2 camp contributes 20 and a
+-- level 3 camp 40 (designer, 2026-10-08: the same number of presses buys
+-- each level as the prices climb)
+function StructureRules.donationForTier(baseDonationIron: number, tier: number): number
+	return baseDonationIron * 2 ^ math.max(math.floor(tier) - 1, 0)
+end
+
 -- a crew's price for the next tier: the solo price times the crew's
 -- multiplier, rounded up to whole donations so the pool fills exactly
 function StructureRules.scaledUpgradeCost(cost: number?, multiplier: number, donationIron: number): number?

@@ -36,7 +36,13 @@ return {
 	-- the gold): a new player's first Gold goes to mining upgrades before
 	-- Iron tempts a tower
 	goldOnlyEntranceRadius = 16,
-	pocketRadiusMin = 1,
+	-- a pocket is a room with a floor 4 by 4 blocks (radius 2) since
+	-- 2026-10-08 (designer: the radius 1 rooms were so small a spider woke
+	-- right in the player's face and never read as a cave; 4 by 4 the same
+	-- day was too big), so every zone's count is a fraction of what it was:
+	-- a room is 36 cells against 6, and the counts below keep each zone
+	-- about 3% air
+	pocketRadiusMin = 2,
 	pocketRadiusMax = 2,
 	-- uranium rocks needed to call the rescue helicopter, solo. The fifth
 	-- playtest (2026-09-28) found 40 by day 4 at 26 / 40 / 56: a player who
@@ -79,9 +85,9 @@ return {
 			-- 50 (designer); about half the finds in the first 14 blocks
 			gold = 60,
 			uranium = 0,
-			pockets = 4,
-			pocketRadiusMin = 1,
-			pocketRadiusMax = 1,
+			-- 1 since 2026-10-08 (was 4 radius 1 holes): one 4 by 4 room in the
+			-- 8 by 7 by 24 band
+			pockets = 1,
 		},
 		{
 			-- 1: soft, generous, everything reachable; a shallow dip below the floor
@@ -122,10 +128,9 @@ return {
 			-- 24 (2026-10-07): small rooms (radius 1) expose a third of the ore the
 			-- old merged rooms did, and the day 1 report fell to 2 Refinery trips;
 			-- twice as many small rooms restores the discovery without the size
-			pockets = 20,
-			-- radius 1 only in zones 1 and 2 (designer, 2026-10-07): small rooms early so a new player cannot get lost; rooms scale up from zone 3
-			pocketRadiusMin = 1,
-			pocketRadiusMax = 1,
+			-- 3 since 2026-10-08 (was 20 radius 1 holes): three 4 by 4 rooms in
+			-- 2880 cells is 6% air, a little over what the 20 small ones were
+			pockets = 3,
 		},
 		{
 			-- 2: mixed rock, better ore
@@ -142,9 +147,8 @@ return {
 			iron = 360,
 			gold = 255,
 			uranium = 8,
-			pockets = 18,
-			pocketRadiusMin = 1,
-			pocketRadiusMax = 1,
+			-- 5 since 2026-10-08 (was 18 radius 1 holes): 5% of 6912 cells
+			pockets = 5,
 		},
 		{
 			-- 3: taller, harder
@@ -158,9 +162,9 @@ return {
 			iron = 221,
 			gold = 234,
 			uranium = 9,
-			pockets = 24,
-			pocketRadiusMin = 2,
-			pocketRadiusMax = 2,
+			-- 9 since 2026-10-08 (was 24 radius 2 spheres of 32 cells): 5% of
+			-- 10368 cells
+			pockets = 9,
 		},
 		{
 			-- 4: cathedral, deep and rich; a modest uranium reserve so a solo
@@ -173,10 +177,9 @@ return {
 			iron = 249,
 			gold = 180,
 			uranium = 14,
-			pockets = 30,
 			-- radius 2 at most in every zone (designer, 2026-10-07: rooms 12 to 20 studs across, never touching; a radius 3 room was 28 studs)
-			pocketRadiusMin = 2,
-			pocketRadiusMax = 2,
+			-- 13 since 2026-10-08 (was 30 spheres): 5% of 16128 cells
+			pockets = 13,
 		},
 		{
 			-- 5: the abyss (added 2026-09-29 for the 15-night run): the
@@ -197,9 +200,8 @@ return {
 			iron = 249,
 			gold = 180,
 			uranium = 362,
-			pockets = 30,
-			pocketRadiusMin = 2,
-			pocketRadiusMax = 2,
+			-- 15 since 2026-10-08 (was 30 spheres): 3.5% of 24960 cells
+			pockets = 15,
 		},
 	},
 }

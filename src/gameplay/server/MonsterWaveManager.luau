@@ -283,9 +283,10 @@ function MonsterWaveManager:init()
 				end
 				return
 			end
-			-- a dawn forced early (the dev tool) sweeps what is left
+			-- a dawn forced early (the dev tool) sweeps what is left of the
+			-- wave; a lurker in the mine stays
 			self:stop()
-			MonsterManager:killAll()
+			MonsterManager:killWave()
 		end
 	)
 	RunCycleManager:subscribeRunEnded(

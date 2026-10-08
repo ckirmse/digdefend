@@ -20,6 +20,7 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientTicker = require(script.Parent.Parent.Client.ClientTicker)
 local ClientMineManager = require(script.Parent.ClientMineManager)
+local ClientOrePickupManager = require(script.Parent.ClientOrePickupManager)
 
 local ClientGeigerCounterManager = {}
 ClientGeigerCounterManager.__index = ClientGeigerCounterManager
@@ -113,6 +114,11 @@ function ClientGeigerCounterManager:scan()
 	end
 	local ringStuds = GeigerRules.decodeRingStuds(ClientDataManager:getCurrentPlayerAttribute(Attributes.GEIGER_COUNTER_RING_STUDS)) or DEFAULT_RING_STUDS
 	local distance = ClientMineManager:getNearestUraniumDistance(position, rangeStuds)
+	-- uranium ore lying on the ground counts too (designer, 2026-10-08)
+	local pickupDistance = ClientOrePickupManager:getNearestResourceDistance(Enums.RawResource.URANIUM_ORE, position, rangeStuds)
+	if pickupDistance and (not distance or pickupDistance < distance) then
+		distance = pickupDistance
+	end
 	self:setLitRingCount(GeigerRules.litRingCount(distance, ringStuds))
 end
 

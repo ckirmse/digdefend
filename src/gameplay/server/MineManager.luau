@@ -65,6 +65,12 @@ function MineManager:getSpace(): MineSpace.MineSpace?
 	return self.space
 end
 
+-- every carved pocket as placed, for the lurkers (M62); empty before a mine
+function MineManager:getPockets(): { MineGenerator.Pocket }
+	local result = self.result
+	return if result then result.pockets else {}
+end
+
 -- the seed the mine was generated from, nil before a mine exists
 function MineManager:getSeed(): number?
 	local result = self.result

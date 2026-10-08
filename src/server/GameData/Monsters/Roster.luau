@@ -32,6 +32,7 @@
 -- Every AIR monster has FLIGHT_HEIGHT_STUDS: how high above the ground its
 -- feet cruise (decided 2026-09-23).
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 
 local PLAYERS = Enums.MonsterTargetType.PLAYERS
 local TOWERS = Enums.MonsterTargetType.TOWERS
@@ -41,6 +42,7 @@ local MELEE = Enums.MonsterAttackType.MELEE
 local RANGED = Enums.MonsterAttackType.RANGED
 local LAND = Enums.MonsterTraversal.LAND
 local AIR = Enums.MonsterTraversal.AIR
+local CRAWL = Enums.MonsterTraversal.CRAWL
 
 local WALK_ANIMATION_ID = "rbxassetid://180426354"
 local IDLE_ANIMATION_ID = "rbxassetid://180435571"
@@ -417,6 +419,51 @@ return {
 			ATTACK_ANIMATION_ID = ATTACK_ANIMATION_ID,
 			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
 			ATTACK_INTERVAL_SEC = 2.5,
+		},
+		-- the pocket lurker (M62, 2026-10-08): never in a wave (no map lists
+		-- it), it sleeps in one pocket in five and wakes when its wall is
+		-- opened. It crawls any surface of the mine and hunts players only;
+		-- lethal to a fresh player (three hits), beaten by anyone with a
+		-- weapon rung or two, so the right move early is to run and come
+		-- back armed (designer's pick). Lurker tuning is Monsters/Lurkers
+		[Enums.MonsterKind.CAVE_SPIDER] = {
+			DIFFICULTY_VALUE = 3,
+			MAX_HP = 120,
+			-- 20 every 3 s since 2026-10-08 (35 every 1.2 s for a day: three
+			-- bites in 2.4 s gave no time to answer; designer)
+			DAMAGE = 20,
+			-- 9 since 2026-10-08 (was 14: too fast to read, designer); a
+			-- player walks 16, so it is outrun on open ground and caught
+			-- only in a dead end or by surprise
+			SPEED_STUDS_PER_SEC = 9,
+			TARGET_PRIORITIES = { PLAYERS },
+			TARGET_DAMAGE_TYPES = {},
+			ATTACK_TYPE = MELEE,
+			DETECTION_RANGE_STUDS = 40,
+			ATTACK_RANGE_STUDS = 5,
+			ATTACK_RADIUS_STUDS = 0,
+			DIE_ON_ATTACK = false,
+			DAMAGE_ON_DEATH = false,
+			TRAVERSAL = CRAWL,
+			-- the designer's clips on the rigged CaveSpider model (2026-10-08):
+			-- the walk loops while it moves, the attack plays once a bite; no
+			-- idle clip yet, so it holds still between moves; the death is
+			-- the placeholder until one is made (its parts match nothing on
+			-- this rig, so it plays as nothing)
+			WALK_ANIMATION_ID = "rbxassetid://81777837025761",
+			IDLE_ANIMATION_ID = nil,
+			ATTACK_ANIMATION_ID = "rbxassetid://108544416135987",
+			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
+			ATTACK_INTERVAL_SEC = 3,
+			-- the designer's four sounds (2026-10-08): a skitter every 10 s
+			-- heard from 20 studs, a cry when it takes a new player, the bite,
+			-- and the death
+			SOUNDS = {
+				WALK = { NAME = SoundNames.Sfx.CAVE_SPIDER_WALK, FULL_VOLUME_STUDS = 6, SILENT_STUDS = 20, INTERVAL_SEC = 10 },
+				ALERT = { NAME = SoundNames.Sfx.CAVE_SPIDER_ALERT, FULL_VOLUME_STUDS = 15, SILENT_STUDS = 60 },
+				ATTACK = { NAME = SoundNames.Sfx.CAVE_SPIDER_ATTACK, FULL_VOLUME_STUDS = 8, SILENT_STUDS = 30 },
+				DEATH = { NAME = SoundNames.Sfx.CAVE_SPIDER_DIE, FULL_VOLUME_STUDS = 10, SILENT_STUDS = 40 },
+			},
 		},
 	},
 }

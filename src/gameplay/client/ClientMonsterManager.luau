@@ -32,6 +32,7 @@
 -- short by the world first so nothing behind a wall lights up. The bar is
 -- the StructureHp billboard every HP bar shares, and it lingers a moment
 -- after the reticle moves off so sweeping a crowd does not flicker.
+local ContentProvider = game:GetService("ContentProvider")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -40,6 +41,8 @@ local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local LurkerRules = require("@game/ReplicatedStorage/Shared/LurkerRules")
+local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local MonsterRules = require("@game/ReplicatedStorage/Shared/MonsterRules")
 local MonsterSnapshotCodec = require("@game/ReplicatedStorage/Shared/MonsterSnapshotCodec")
@@ -49,7 +52,9 @@ local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
+local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientDamageableManager = require(script.Parent.ClientDamageableManager)
+local ClientMineManager = require(script.Parent.ClientMineManager)
 local ClientPostManager = require(script.Parent.ClientPostManager)
 
 local ClientMonsterManager = {}
@@ -81,6 +86,9 @@ local NOTIFY_MONSTER_PROJECTILE_SHAPE = {
 	from = "vector3",
 	to = "vector3",
 	flightSec = "number",
+}
+local NOTIFY_MONSTER_ALERT_SHAPE = {
+	id = "positiveInteger",
 }
 local NOTIFY_MONSTER_BLAST_SHAPE = {
 	position = "vector3",
@@ -148,6 +156,11 @@ type ClientMonster = {
 	isBodyDirty: boolean,
 	distance: number,
 	speedStudsPerSec: number,
+	-- when its walk sound may play again (a kind with one)
+	nextWalkSoundTime: number,
+	-- an alert cry arrived before the monster was ever drawn (the same
+	-- tick as its spawn); it plays on the first frame it has a place
+	isAlertPending: boolean,
 }
 
 type Dying = {
@@ -286,6 +299,7 @@ local DEFAULT_VISUAL: MonsterRules.Visual = {
 	model = "",
 	maxHp = 1,
 	isAir = false,
+	isCrawler = false,
 	walkAnimationId = "",
 	idleAnimationId = nil,
 	attackAnimationId = "",
@@ -572,6 +586,53 @@ function ClientMonsterManager:playAttackIfNeeded(monster: ClientMonster, rig: Ri
 		attack.Looped = false
 		attack:Play(0.05)
 	end
+	self:playSound(monster, monster.visual.attackSound)
+end
+
+-- one of the kind's 3D sounds from where the monster is drawn; a kind
+-- without it is silent, and nothing plays past its silent distance. A
+-- monster not yet ranked measures from the camera here
+function ClientMonsterManager:playSound(monster: ClientMonster, sound: MonsterRules.MonsterSound?)
+	if not sound then
+		return
+	end
+	local position = Vector3.new(monster.renderX, monster.renderY, monster.renderZ)
+	local distance = monster.distance
+	if distance == math.huge then
+		local camera = workspace.CurrentCamera
+		distance = if camera then (camera.CFrame.Position - position).Magnitude else 0
+	end
+	if distance > sound.silentStuds then
+		return
+	end
+	ClientSoundManager:playSfxAt(position, sound.name, sound.fullVolumeStuds, sound.silentStuds)
+end
+
+-- the walk sound repeats on its own interval while the monster moves
+function ClientMonsterManager:playWalkSoundIfNeeded(monster: ClientMonster, now: number)
+	local sound = monster.visual.walkSound
+	if not sound or monster.action ~= Enums.MonsterAction.MOVING or now < monster.nextWalkSoundTime then
+		return
+	end
+	monster.nextWalkSoundTime = now + (sound.intervalSec or 0)
+	self:playSound(monster, sound)
+end
+
+function ClientMonsterManager:onAlert(payload: any)
+	local isValid, errorMessage = Validate.isTableShape(payload, NOTIFY_MONSTER_ALERT_SHAPE)
+	if not isValid then
+		warn("ClientMonsterManager: malformed NotifyMonsterAlert:", errorMessage)
+		return
+	end
+	local monster = self.monstersById[payload.id]
+	if not monster then
+		return
+	end
+	if monster.renderCFrame then
+		self:playSound(monster, monster.visual.alertSound)
+	else
+		monster.isAlertPending = true
+	end
 end
 
 -- gives the monster the body its mode wants: the rig when animated, else
@@ -781,6 +842,8 @@ function ClientMonsterManager:onSpawned(payload: any)
 			isBodyDirty = true,
 			distance = math.huge,
 			speedStudsPerSec = 0,
+			nextWalkSoundTime = 0,
+			isAlertPending = false,
 		}
 		self.monstersById[id] = monster
 		self.monsterByDamageableId[damageableId] = monster
@@ -831,6 +894,7 @@ function ClientMonsterManager:onDied(payload: any)
 	for _, id in payload.ids do
 		local monster = self.monstersById[id]
 		if monster then
+			self:playSound(monster, monster.visual.deathSound)
 			self:removeMonster(monster, true)
 		end
 	end
@@ -1259,6 +1323,41 @@ function ClientMonsterManager:stepDying(now: number)
 	end
 end
 
+-- a crawler's placement: its feet on the face its cell clings to (the
+-- grid is the client's own copy, so this costs six cell reads), its up
+-- along that face's normal, its facing the server's yaw laid flat on the
+-- face; a cell touching no rock is drawn upright where it is. Only the
+-- height off the face is taken from the cell; along the face the smooth
+-- interpolated position is kept, or it would hop from cell centre to
+-- cell centre (seen 2026-10-08)
+function ClientMonsterManager:clingCFrame(monster: ClientMonster, upright: CFrame): CFrame
+	local grid = ClientMineManager:getGrid()
+	local space = ClientMineManager:getSpace()
+	if not grid or not space then
+		return upright
+	end
+	local position = upright.Position
+	local depth, height, width = MineSpace.worldToCell(space, position)
+	local intoDepth, intoHeight, intoWidth = LurkerRules.clingDirection(grid, depth, height, width)
+	if intoDepth == nil then
+		return upright
+	end
+	local into = space.forward * intoDepth + Vector3.new(0, intoHeight :: number, 0) + space.widthAxis * intoWidth :: number
+	local up = -into
+	local look = upright.LookVector
+	if math.abs(look:Dot(up)) > 0.99 then
+		look = upright.RightVector
+	end
+	local right = look:Cross(up).Unit
+	local body = monster.body
+	local rootHeight = body.boxSize.Y / 2 - body.boxOffsetY
+	local centre = MineSpace.cellToWorld(space, depth, height, width)
+	-- the face sits half a cell from the centre, opposite the normal
+	local faceOffset = (position - centre):Dot(up)
+	local placed = position - up * faceOffset + up * (rootHeight - space.blockSize / 2)
+	return CFrame.fromMatrix(placed, right, up)
+end
+
 function ClientMonsterManager:render()
 	local startTime = workspace:GetServerTimeNow()
 	local camera = workspace.CurrentCamera
@@ -1300,10 +1399,18 @@ function ClientMonsterManager:render()
 			or previousY ~= monster.renderY
 			or previousZ ~= monster.renderZ
 			or previousYaw ~= monster.renderYaw
+		if monster.isAlertPending then
+			monster.isAlertPending = false
+			self:playSound(monster, monster.visual.alertSound)
+		end
+		self:playWalkSoundIfNeeded(monster, startTime)
 		if not isMoved and not monster.isBodyDirty then
 			continue
 		end
 		local cframe: CFrame = if isMoved or monster.renderCFrame == nil then yawCFrame(monster.renderX, monster.renderY, monster.renderZ, monster.renderYaw) else monster.renderCFrame :: CFrame
+		if monster.visual.isCrawler and (isMoved or monster.renderCFrame == nil) then
+			cframe = self:clingCFrame(monster, cframe)
+		end
 		monster.renderCFrame = cframe
 		monster.isBodyDirty = false
 		local rig = monster.rig
@@ -1359,10 +1466,42 @@ function ClientMonsterManager:applyBudget()
 	end
 end
 
+-- every clip in the catalogue is fetched once up front, so the first
+-- monster of a kind animates from its first frame instead of standing in
+-- its bind pose while the clip loads (a short chase was over before the
+-- spider's walk began, 2026-10-08)
+function ClientMonsterManager:preloadClips(catalog: MonsterRules.VisualCatalog)
+	local animations = {}
+	local seen = {}
+	for _, visual in catalog do
+		for _, id in { visual.walkAnimationId, visual.idleAnimationId, visual.attackAnimationId, visual.deathAnimationId } do
+			if id and id ~= "" and not seen[id] then
+				seen[id] = true
+				local animation = Instance.new("Animation")
+				animation.AnimationId = id
+				table.insert(animations, animation)
+			end
+		end
+	end
+	if #animations == 0 then
+		return
+	end
+	task.spawn(
+		function()
+			pcall(
+				function()
+					ContentProvider:PreloadAsync(animations)
+				end
+			)
+		end
+	)
+end
+
 function ClientMonsterManager:readTuning()
 	local catalog = MonsterRules.decodeVisualCatalog(ClientDataManager:getGameMetadata(Attributes.MONSTER_VISUAL_CATALOG))
 	if catalog then
 		self.catalog = catalog
+		self:preloadClips(catalog)
 	end
 	local delay = ClientDataManager:getGameMetadata(Attributes.MONSTER_INTERPOLATION_DELAY_SEC)
 	if typeof(delay) == "number" then
@@ -1425,6 +1564,12 @@ function ClientMonsterManager:init()
 		NetEventNames.NOTIFY_MONSTER_BLAST,
 		function(payload: any)
 			self:onBlast(payload)
+		end
+	)
+	ClientNetManager:registerHandler(
+		NetEventNames.NOTIFY_MONSTER_ALERT,
+		function(payload: any)
+			self:onAlert(payload)
 		end
 	)
 	task.spawn(

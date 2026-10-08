@@ -605,6 +605,10 @@ Constants.HUD_FLY_ICON_TEMPLATE = "FlyIconTemplate"
 -- strand them (2026-09-29). The clones ride throwaway parts in a
 -- workspace folder of this name
 Constants.FLIGHT_ICON_BILLBOARD = "FlightIcon"
+-- the dev tool's marker over a sleeping lurker pocket (M62); the folder
+-- the markers live in while they are shown
+Constants.SPIDER_SPAWN_BILLBOARD = "SpiderSpawn"
+Constants.SPIDER_SPAWN_MARKERS_FOLDER = "SpiderSpawnMarkers"
 Constants.FLIGHT_ICON_IMAGE = "Icon"
 Constants.FLIGHT_ICON_FOLDER = "FlightIcons"
 -- the ore icon on each face of a ground pickup's plate (GameAssets/Gui/

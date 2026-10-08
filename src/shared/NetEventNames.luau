@@ -147,6 +147,8 @@ module = {
 	NOTIFY_MONSTERS_DIED = "NotifyMonstersDied",
 	NOTIFY_MONSTER_PROJECTILE = "NotifyMonsterProjectile",
 	NOTIFY_MONSTER_BLAST = "NotifyMonsterBlast",
+	-- a monster took a new target it announces (a lurker's alert cry, M62)
+	NOTIFY_MONSTER_ALERT = "NotifyMonsterAlert",
 	-- death and revives (M32). A dead player asks for the revive their
 	-- Results Menu offers ({ reviveKind }: their own or the crew's); the
 	-- server spends a saved credit or opens Roblox's purchase prompt. A

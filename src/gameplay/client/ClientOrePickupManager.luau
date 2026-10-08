@@ -195,6 +195,23 @@ function ClientOrePickupManager:step(deltaSec: number)
 	end
 end
 
+-- how far the nearest pickup of a resource lies within maxStuds, or nil:
+-- the Geiger Counter hears dropped uranium as it hears the rock (designer,
+-- 2026-10-08)
+function ClientOrePickupManager:getNearestResourceDistance(resource: number, position: Vector3, maxStuds: number): number?
+	local nearest: number? = nil
+	for shadow in self.casters do
+		if shadow:GetAttribute(Attributes.PICKUP_RESOURCE) ~= resource then
+			continue
+		end
+		local distance = (shadow.Position - position).Magnitude
+		if distance <= maxStuds and (not nearest or distance < nearest) then
+			nearest = distance
+		end
+	end
+	return nearest
+end
+
 function ClientOrePickupManager:addCaster(shadow: Instance)
 	if not shadow:IsA("BasePart") or self.casters[shadow] then
 		return

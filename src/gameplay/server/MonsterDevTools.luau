@@ -10,6 +10,7 @@ local BehaviorData = require("@game/ServerScriptService/GameData/Monsters/Behavi
 local DevTools = require(script.Parent.Parent.Server.DevTools)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
 local BalanceAudit = require(script.Parent.BalanceAudit)
+local LurkerManager = require(script.Parent.LurkerManager)
 local MonsterManager = require(script.Parent.MonsterManager)
 local MonsterPathManager = require(script.Parent.MonsterPathManager)
 local MonsterWaveManager = require(script.Parent.MonsterWaveManager)
@@ -28,6 +29,8 @@ MonsterDevTools.SET_MONSTER_PATHS_VISIBLE_COMMAND = "setMonsterPathsVisible"
 MonsterDevTools.PREVIEW_WAVE_COMMAND = "previewWave"
 MonsterDevTools.PREVIEW_CURVE_COMMAND = "previewWaveCurve"
 MonsterDevTools.BALANCE_REPORT_COMMAND = "balanceReport"
+MonsterDevTools.SPAWN_LURKER_COMMAND = "spawnLurker"
+MonsterDevTools.SET_LURKER_SPAWNS_VISIBLE_COMMAND = "setLurkerSpawnsVisible"
 
 local SPAWN_MONSTERS_ARGS_SHAPE = {
 	kind = { type = "enum", name = "MonsterKind" },
@@ -73,6 +76,26 @@ function MonsterDevTools:init()
 		NO_ARGS_SHAPE,
 		function(_player: Player, _args: { [string]: any })
 			MonsterManager:killAll()
+		end
+	)
+	-- a "Spider Spawn" billboard over every sleeping pocket, seen through
+	-- the rock, so a tester can walk straight to one
+	register(
+		MonsterDevTools.SET_LURKER_SPAWNS_VISIBLE_COMMAND,
+		SET_VISIBLE_ARGS_SHAPE,
+		function(_player: Player, args: { [string]: any })
+			LurkerManager:setSpawnsVisible(args.isVisible)
+		end
+	)
+	-- a woken lurker in the air cell the player stands in, for testing the
+	-- hunt without opening a pocket
+	register(
+		MonsterDevTools.SPAWN_LURKER_COMMAND,
+		NO_ARGS_SHAPE,
+		function(player: Player, _args: { [string]: any })
+			if not LurkerManager:spawnAtPlayer(player) then
+				PlayerFeedbackManager:give(player, "Stand inside the mine to spawn a lurker")
+			end
 		end
 	)
 	-- spread over every spawn so the crowd walks in as a wide front

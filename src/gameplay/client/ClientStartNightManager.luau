@@ -30,8 +30,9 @@ export type ClientStartNightManager = typeof(setmetatable(
 ))
 
 local STEP_INTERVAL_SEC = 0.25
-local LABEL = "Start Night"
-local LABEL_WITH_VOTES_FORMAT = "Start Night %d / %d"
+-- the votes always show, on their own line under the label (designer,
+-- 2026-10-08; before, the count appeared only once someone had pressed)
+local LABEL_FORMAT = "Start Night\n%d / %d"
 local DEFAULT_WINDOW_SEC = 30
 
 local function readNumber(value: any, default: number): number
@@ -70,7 +71,7 @@ function ClientStartNightManager:render()
 	end
 	local votes = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_START_NIGHT_VOTES), 0)
 	local needed = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_START_NIGHT_NEEDED), 0)
-	local text = UiStyle.formatTitle(if votes > 0 then string.format(LABEL_WITH_VOTES_FORMAT, votes, needed) else LABEL)
+	local text = UiStyle.formatTitle(string.format(LABEL_FORMAT, votes, needed))
 	if text ~= self.shownText then
 		self.shownText = text
 		button.Text = text

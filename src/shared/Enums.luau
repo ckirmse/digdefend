@@ -332,6 +332,8 @@ module = {
 		FLYER_3 = 16,
 		TITAN_1 = 17,
 		TITAN_2 = 18,
+		-- the pocket lurker (M62): lives in the mine, never in a wave
+		CAVE_SPIDER = 19,
 
 		PublicNames = {
 			ZOMBIE_1 = "Zombie",
@@ -352,6 +354,7 @@ module = {
 			FLYER_3 = "Flyer III",
 			TITAN_1 = "Titan",
 			TITAN_2 = "Titan II",
+			CAVE_SPIDER = "Cave Spider",
 		},
 	},
 	-- what a monster can attack (GDD "Monster Creation & Behavior"); every
@@ -370,6 +373,8 @@ module = {
 	MonsterTraversal = {
 		LAND = 1,
 		AIR = 2,
+		-- walks any surface of the mine, cell to cell, with no gravity (M62)
+		CRAWL = 3,
 	},
 	-- what a monster is doing, in its snapshot for the client's animation:
 	-- moving (walk), or standing at a target (idle, with an attack clip on

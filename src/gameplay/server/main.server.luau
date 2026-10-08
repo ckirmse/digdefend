@@ -19,6 +19,7 @@ local GiveCurrencyManager = require(script.Parent.GiveCurrencyManager)
 local JetPackManager = require(script.Parent.JetPackManager)
 local MapManager = require(script.Parent.MapManager)
 local MineDevTools = require(script.Parent.MineDevTools)
+local LurkerManager = require(script.Parent.LurkerManager)
 local MineManager = require(script.Parent.MineManager)
 local MonsterDevTools = require(script.Parent.MonsterDevTools)
 local MonsterManager = require(script.Parent.MonsterManager)
@@ -184,6 +185,14 @@ MonsterManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
 		MonsterManager:onRunStarted()
+	end
+)
+-- the pocket lurkers (M62): after the mine (generated above, so its
+-- pockets exist) and the monsters (whose crawl stepper it is)
+LurkerManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		LurkerManager:onRunStarted()
 	end
 )
 -- the day and night loop: last, so every manager that reacts to a dawn or

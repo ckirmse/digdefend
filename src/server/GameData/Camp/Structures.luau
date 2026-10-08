@@ -41,6 +41,9 @@ return {
 	-- pool is the one camp-wide Iron sink and a crew of six earns about
 	-- ten times solo's Iron for the same walls (decided 2026-09-29)
 	FORTIFICATION_UPGRADE_IRON_TO_TIER = { 0, 150, 400 },
+	-- the level 1 donation; it doubles a level (10 / 20 / 40, designer
+	-- 2026-10-08, StructureRules.donationForTier), so each level takes
+	-- about the same number of presses as its price climbs
 	FORTIFICATION_DONATION_IRON = 10,
 	-- the Walls Table in the defense building (2026-10-01, replacing the
 	-- Workbench by the gate); the action text names the donation so players

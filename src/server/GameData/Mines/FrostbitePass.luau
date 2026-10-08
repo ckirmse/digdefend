@@ -23,7 +23,9 @@ return {
 	-- the gold): a new player's first Gold goes to mining upgrades before
 	-- Iron tempts a tower
 	goldOnlyEntranceRadius = 16,
-	pocketRadiusMin = 1,
+	-- rooms with 4 by 4 floors since 2026-10-08, counts cut to match (see
+	-- DeadmansCanyon)
+	pocketRadiusMin = 2,
 	pocketRadiusMax = 2,
 	-- mirrors Deadman's Canyon (6 / 9 / 9 / 111 against 30) until this map is designed
 	uraniumTarget = 40,
@@ -51,9 +53,8 @@ return {
 			iron = 0,
 			gold = 90,
 			uranium = 0,
-			pockets = 4,
-			pocketRadiusMin = 1,
-			pocketRadiusMax = 1,
+			-- 1 since 2026-10-08 (was 4): 4 by 4 rooms, see DeadmansCanyon
+			pockets = 1,
 		},
 		{
 			depth = 12,
@@ -68,10 +69,9 @@ return {
 			gold = 255,
 			uranium = 7,
 			-- doubled with Deadman's Canyon's (2026-10-07): small rooms expose less ore
-			pockets = 10,
+			-- 2 since 2026-10-08 (was 10): 4 by 4 rooms, see DeadmansCanyon
+			pockets = 2,
 			-- radius 1 only in zones 1 and 2 (designer, 2026-10-07): small rooms early so a new player cannot get lost; rooms scale up from zone 3
-			pocketRadiusMin = 1,
-			pocketRadiusMax = 1,
 		},
 		{
 			depth = 24,
@@ -86,9 +86,8 @@ return {
 			iron = 360,
 			gold = 255,
 			uranium = 8,
-			pockets = 9,
-			pocketRadiusMin = 1,
-			pocketRadiusMax = 1,
+			-- 4 since 2026-10-08 (was 9): 4 by 4 rooms, see DeadmansCanyon
+			pockets = 4,
 		},
 		{
 			depth = 24,
@@ -101,9 +100,8 @@ return {
 			iron = 221,
 			gold = 234,
 			uranium = 9,
-			pockets = 12,
-			pocketRadiusMin = 2,
-			pocketRadiusMax = 2,
+			-- 6 since 2026-10-08 (was 12): 4 by 4 rooms, see DeadmansCanyon
+			pockets = 6,
 		},
 		{
 			depth = 28,
@@ -114,10 +112,9 @@ return {
 			iron = 249,
 			gold = 180,
 			uranium = 14,
-			pockets = 15,
+			-- 9 since 2026-10-08 (was 15): 4 by 4 rooms, see DeadmansCanyon
+			pockets = 9,
 			-- radius 2 at most in every zone (designer, 2026-10-07: rooms 12 to 20 studs across, never touching; a radius 3 room was 28 studs)
-			pocketRadiusMin = 2,
-			pocketRadiusMax = 2,
 		},
 		{
 			-- Deadman's Canyon's fifth zone (2026-09-29), copied as a placeholder
@@ -130,9 +127,8 @@ return {
 			iron = 249,
 			gold = 180,
 			uranium = 362,
-			pockets = 15,
-			pocketRadiusMin = 2,
-			pocketRadiusMax = 2,
+			-- 10 since 2026-10-08 (was 15): 4 by 4 rooms, see DeadmansCanyon
+			pockets = 10,
 		},
 	},
 }

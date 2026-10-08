@@ -188,13 +188,26 @@ export type Report = {
 	zones: { ZoneReport },
 }
 
+-- a carved pocket as placed: its centre cell, radius, and zone, so a
+-- lurker (M62) can be given a pocket and woken when its wall is opened
+-- a carved room; depth, height, and width are its centre cell (the middle
+-- row), radius its half-width. Its cells are MineGenerator.isCellInPocket
+export type Pocket = {
+	zoneIndex: number,
+	depth: number,
+	height: number,
+	width: number,
+	radius: number,
+}
+
 export type GenerateResult = {
 	grid: MineGrid,
 	zones: { ResolvedZone },
 	report: Report,
+	pockets: { Pocket },
 }
 
-type Box = {
+export type Box = {
 	depthStart: number,
 	depthEnd: number,
 	heightStart: number,
@@ -293,6 +306,52 @@ function MineGenerator.clusterCellCount(radius: number): number
 		end
 	end
 	return count
+end
+
+-- A pocket is a room, not a sphere (designer, 2026-10-08: a floor of at
+-- least 4 by 4 blocks, so a room reads as a cavern and a sleeping lurker is
+-- never right in the face of whoever opens it; 5 by 5 earlier that day was
+-- too big): a square footprint 2r blocks on a side, 2r - 1 rows tall (one
+-- row at radius 1) on a flat floor, with the top row stepped in by one
+-- block so the ceiling domes rather than boxes. Radius 2 is the 4 by 4
+-- floor, three rows tall, 36 cells. The footprint is even, so the centre
+-- cell sits one short of the middle on the low side
+function MineGenerator.pocketRows(radius: number): number
+	return math.max(1, 2 * radius - 1)
+end
+
+function MineGenerator.pocketBounds(pocket: Pocket): Box
+	local rows = MineGenerator.pocketRows(pocket.radius)
+	local floor = pocket.height - (rows - 1) // 2
+	return {
+		depthStart = pocket.depth - pocket.radius + 1,
+		depthEnd = pocket.depth + pocket.radius,
+		heightStart = floor,
+		heightEnd = floor + rows - 1,
+		widthStart = pocket.width - pocket.radius + 1,
+		widthEnd = pocket.width + pocket.radius,
+	}
+end
+
+function MineGenerator.isCellInPocket(pocket: Pocket, depth: number, height: number, width: number): boolean
+	local bounds = MineGenerator.pocketBounds(pocket)
+	if not isInBox(bounds, depth, height, width) then
+		return false
+	end
+	if height == bounds.heightEnd and bounds.heightEnd > bounds.heightStart then
+		return depth > bounds.depthStart and depth < bounds.depthEnd and width > bounds.widthStart and width < bounds.widthEnd
+	end
+	return true
+end
+
+-- number of cells in a room of the given radius, unclipped
+function MineGenerator.pocketCellCount(radius: number): number
+	local side = 2 * radius
+	local rows = MineGenerator.pocketRows(radius)
+	if rows == 1 then
+		return side * side
+	end
+	return (rows - 1) * side * side + (side - 2) * (side - 2)
 end
 
 local function resolveBedrock(definition: MineDefinition): Bedrock
@@ -616,27 +675,32 @@ local function stampCluster(grid: MineGrid, bounds: Box, exclude: Box?, centerDe
 	end
 end
 
-local function isSphereClearOfBox(box: Box, centerDepth: number, centerHeight: number, centerWidth: number, radius: number): boolean
-	return centerDepth + radius < box.depthStart
-		or centerDepth - radius > box.depthEnd
-		or centerHeight + radius < box.heightStart
-		or centerHeight - radius > box.heightEnd
-		or centerWidth + radius < box.widthStart
-		or centerWidth - radius > box.widthEnd
+local function grownBox(box: Box, by: number): Box
+	return {
+		depthStart = box.depthStart - by,
+		depthEnd = box.depthEnd + by,
+		heightStart = box.heightStart - by,
+		heightEnd = box.heightEnd + by,
+		widthStart = box.widthStart - by,
+		widthEnd = box.widthEnd + by,
+	}
 end
 
--- true when no carved cell lies within `radius` of the centre, anywhere in
--- the grid, so a sphere stamped there touches no other pocket
-local function isSphereSolid(grid: MineGrid, centerDepth: number, centerHeight: number, centerWidth: number, radius: number): boolean
-	for depth = math.max(0, centerDepth - radius), math.min(grid.depth - 1, centerDepth + radius) do
-		for height = math.max(0, centerHeight - radius), math.min(grid.height - 1, centerHeight + radius) do
-			for width = math.max(0, centerWidth - radius), math.min(grid.width - 1, centerWidth + radius) do
-				local dd = depth - centerDepth
-				local dh = height - centerHeight
-				local dw = width - centerWidth
-				if dd * dd + dh * dh + dw * dw > radius * radius then
-					continue
-				end
+local function isBoxClearOfBox(box: Box, other: Box): boolean
+	return other.depthEnd < box.depthStart
+		or other.depthStart > box.depthEnd
+		or other.heightEnd < box.heightStart
+		or other.heightStart > box.heightEnd
+		or other.widthEnd < box.widthStart
+		or other.widthStart > box.widthEnd
+end
+
+-- true when no carved cell lies inside the box, clipped to the grid, so a
+-- room stamped inside it touches no other pocket
+local function isBoxSolid(grid: MineGrid, box: Box): boolean
+	for depth = math.max(0, box.depthStart), math.min(grid.depth - 1, box.depthEnd) do
+		for height = math.max(0, box.heightStart), math.min(grid.height - 1, box.heightEnd) do
+			for width = math.max(0, box.widthStart), math.min(grid.width - 1, box.widthEnd) do
 				if MineGenerator.getCell(grid, depth, height, width) == MineGenerator.AIR then
 					return false
 				end
@@ -646,31 +710,78 @@ local function isSphereSolid(grid: MineGrid, centerDepth: number, centerHeight: 
 	return true
 end
 
+-- carves one room (MineGenerator.isCellInPocket) inside `bounds`, skipping
+-- `exclude`
+local function stampPocket(grid: MineGrid, bounds: Box, exclude: Box?, pocket: Pocket)
+	local box = MineGenerator.pocketBounds(pocket)
+	for depth = box.depthStart, box.depthEnd do
+		for height = box.heightStart, box.heightEnd do
+			for width = box.widthStart, box.widthEnd do
+				if not MineGenerator.isCellInPocket(pocket, depth, height, width) then
+					continue
+				end
+				if not isInBox(bounds, depth, height, width) then
+					continue
+				end
+				if exclude ~= nil and isInBox(exclude, depth, height, width) then
+					continue
+				end
+				setCell(grid, depth, height, width, MineGenerator.AIR)
+			end
+		end
+	end
+end
+
 -- Step 7: pockets are carved before veins so ore lands around them, never
 -- inside them, and every pocket wall is a discovery. No pocket may open
 -- into the entrance clearance (designer, 2026-10-07: the start area is
 -- always solid rock) and no two pockets may touch (same day: overlapping
 -- pockets merged into giant rooms that exposed too much rock and made it
--- easy to get lost), so a centre whose sphere would reach the clearance or
+-- easy to get lost), so a centre whose room would reach the clearance or
 -- come within a block of carved air is re-rolled; a pocket with no room
 -- after the tries is dropped with a warning rather than joined to a
--- neighbour.
-local function carvePockets(grid: MineGrid, definition: MineDefinition, zones: { ResolvedZone }, zoneRandoms: { Random }, exclude: Box, warnings: { string })
+-- neighbour. Rooms are big since 2026-10-08 (4 by 4 floors), so counts are
+-- a fraction of what they were.
+local function innerRange(low: number, high: number, marginLow: number, marginHigh: number): (number, number)
+	if low + marginLow <= high - marginHigh then
+		return low + marginLow, high - marginHigh
+	end
+	return low, high
+end
+
+local function carvePockets(grid: MineGrid, definition: MineDefinition, zones: { ResolvedZone }, zoneRandoms: { Random }, exclude: Box, warnings: { string }): { Pocket }
+	local pockets: { Pocket } = {}
 	for _, zone in zones do
 		local random = zoneRandoms[zone.index]
 		local bounds = zoneBox(zone)
 		local dropped = 0
 		for _ = 1, zone.pockets do
 			local radius = random:NextInteger(zone.pocketRadiusMin, zone.pocketRadiusMax)
+			-- the centre is drawn so the whole room lies inside the zone (a room
+			-- clipped at the zone's lowest row lost its floor); a zone too small
+			-- for the room in some direction draws from the full range there
+			local rows = MineGenerator.pocketRows(radius)
+			local rowsBelow = (rows - 1) // 2
+			local rowsAbove = rows - 1 - rowsBelow
+			local depthLow, depthHigh = innerRange(bounds.depthStart, bounds.depthEnd, radius - 1, radius)
+			local heightLow, heightHigh = innerRange(bounds.heightStart, bounds.heightEnd, rowsBelow, rowsAbove)
+			local widthLow, widthHigh = innerRange(bounds.widthStart, bounds.widthEnd, radius - 1, radius)
 			local isPlaced = false
 			for _ = 1, MAX_CENTER_TRIES do
-				local centerDepth = random:NextInteger(bounds.depthStart, bounds.depthEnd)
-				local centerHeight = random:NextInteger(bounds.heightStart, bounds.heightEnd)
-				local centerWidth = random:NextInteger(bounds.widthStart, bounds.widthEnd)
-				if isSphereClearOfBox(exclude, centerDepth, centerHeight, centerWidth, radius)
-					and isSphereSolid(grid, centerDepth, centerHeight, centerWidth, radius + 1)
-				then
-					stampCluster(grid, bounds, exclude, centerDepth, centerHeight, centerWidth, radius, MineGenerator.AIR, false)
+				local centerDepth = random:NextInteger(depthLow, depthHigh)
+				local centerHeight = random:NextInteger(heightLow, heightHigh)
+				local centerWidth = random:NextInteger(widthLow, widthHigh)
+				local pocket: Pocket = {
+					zoneIndex = zone.index,
+					depth = centerDepth,
+					height = centerHeight,
+					width = centerWidth,
+					radius = radius,
+				}
+				local box = MineGenerator.pocketBounds(pocket)
+				if isBoxClearOfBox(exclude, box) and isBoxSolid(grid, grownBox(box, 1)) then
+					stampPocket(grid, bounds, exclude, pocket)
+					table.insert(pockets, pocket)
 					isPlaced = true
 					break
 				end
@@ -683,6 +794,7 @@ local function carvePockets(grid: MineGrid, definition: MineDefinition, zones: {
 			table.insert(warnings, zoneLabel(zone.index) .. ": no room for " .. dropped .. " of " .. zone.pockets .. " pockets without touching another; author fewer or smaller pockets")
 		end
 	end
+	return pockets
 end
 
 -- the deepest tier the floors allow at a depth, 1 when none is listed
@@ -870,6 +982,14 @@ local function meanClusterCells(radiusMin: number, radiusMax: number): number
 	return total / (radiusMax - radiusMin + 1)
 end
 
+local function meanPocketCells(radiusMin: number, radiusMax: number): number
+	local total = 0
+	for radius = radiusMin, radiusMax do
+		total += MineGenerator.pocketCellCount(radius)
+	end
+	return total / (radiusMax - radiusMin + 1)
+end
+
 -- expected ore from the authored counts alone: clusters x tier split x mean
 -- cluster cells x yield, plus hand-placed rock, before overlap or carving
 local function requestedOre(zone: ResolvedZone, config: GeneratorConfig): { [number]: number }
@@ -1002,7 +1122,7 @@ function MineGenerator.generate(definition: MineDefinition, config: GeneratorCon
 	local entrance = entranceBox(grid, definition, bedrock)
 	fillBedrockAndRock(grid, zones, config, zoneRandoms)
 	local goldExclude = expandBox(entrance, definition.veinEntranceClearance)
-	carvePockets(grid, definition, zones, zoneRandoms, goldExclude, warnings)
+	local pockets = carvePockets(grid, definition, zones, zoneRandoms, goldExclude, warnings)
 	local otherExclude = expandBox(entrance, math.max(definition.veinEntranceClearance, definition.goldOnlyEntranceRadius or 0))
 	stampVeins(grid, zones, config, zoneRandoms, goldExclude, otherExclude, warnings)
 	stampHandPlaced(grid, zones, config, zoneRandoms, entrance, warnings)
@@ -1022,7 +1142,7 @@ function MineGenerator.generate(definition: MineDefinition, config: GeneratorCon
 		return nil, { "uranium: only " .. placedUranium .. " rocks survived generation with seed " .. (resolvedSeed :: number) .. ", but the largest party needs " .. requiredUranium .. "; the run is unwinnable" }, warnings
 	end
 
-	return { grid = grid, zones = zones, report = report }, errors, warnings
+	return { grid = grid, zones = zones, report = report, pockets = pockets }, errors, warnings
 end
 
 export type PreviewZone = {
@@ -1052,7 +1172,6 @@ function MineGenerator.preview(definition: MineDefinition, config: GeneratorConf
 
 	local rocks = config.rockTable.ROCKS
 	local fillerOrder = config.rockTable.FILLER_ORDER
-	local meanPocketCells = meanClusterCells(definition.pocketRadiusMin, definition.pocketRadiusMax)
 	local previews: { PreviewZone } = {}
 	for _, zone in zones do
 		local weights = RockRules.weights(zone.hardness, #fillerOrder, config.spread)
@@ -1060,7 +1179,7 @@ function MineGenerator.preview(definition: MineDefinition, config: GeneratorConf
 		for index, rock in fillerOrder do
 			meanFillerHp += weights[index] * (rocks[rock].hp :: number)
 		end
-		local volume = math.max(zone.depth * zone.height * zone.width - zone.pockets * meanPocketCells, 0)
+		local volume = math.max(zone.depth * zone.height * zone.width - zone.pockets * meanPocketCells(zone.pocketRadiusMin, zone.pocketRadiusMax), 0)
 		local expectedHp = volume * meanFillerHp
 		for _, entry in RESOURCE_FIELDS do
 			local count = zone.veins[entry.resource]

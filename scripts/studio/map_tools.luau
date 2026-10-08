@@ -171,26 +171,11 @@ local function previewMine(mapFolder: Folder)
 			addPreviewBox(folder, "HandPlaced" .. zone.index .. "_" .. entryIndex, space, zone.depthStart + entry.depth, 1, grid.floorHeight + entry.height, 1, grid.centrelineWidth + entry.widthOffset, 1, Color3.fromRGB(255, 80, 200), 0.2, rockName)
 		end
 	end
-	-- pockets: every air cell inside a zone that is not the entrance tunnel
-	local entranceDepthEnd = result.zones[1].depthStart + definition.entranceDepth - 1
-	local entranceWidthEnd = entranceWidthStart + definition.entranceWidth - 1
-	local pocketCells = 0
-	for _, zone in result.zones do
-		for depth = zone.depthStart, zone.depthStart + zone.depth - 1 do
-			for height = zone.heightStart, zone.heightStart + zone.height - 1 do
-				for width = zone.widthStart, zone.widthStart + zone.width - 1 do
-					if MineGenerator.getCell(grid, depth, height, width) ~= MineGenerator.AIR then
-						continue
-					end
-					local isEntrance = depth <= entranceDepthEnd and height < grid.floorHeight + definition.entranceHeight and width >= entranceWidthStart and width <= entranceWidthEnd
-					if isEntrance then
-						continue
-					end
-					pocketCells += 1
-					addPreviewBox(folder, "Pocket" .. pocketCells, space, depth, 1, height, 1, width, 1, Color3.fromRGB(90, 230, 200), 0.4, nil)
-				end
-			end
-		end
+	-- pockets: one box per room (its bounds, since 2026-10-08 when pockets
+	-- became 4 by 4 rooms; a part per air cell was thousands of parts)
+	for index, pocket in result.pockets do
+		local bounds = MineGenerator.pocketBounds(pocket)
+		addPreviewBox(folder, "Pocket" .. index, space, bounds.depthStart, bounds.depthEnd - bounds.depthStart + 1, bounds.heightStart, bounds.heightEnd - bounds.heightStart + 1, bounds.widthStart, bounds.widthEnd - bounds.widthStart + 1, Color3.fromRGB(90, 230, 200), 0.4, nil)
 	end
 	folder.Parent = workspace
 	print(MineGenerator.formatReport(result.report))

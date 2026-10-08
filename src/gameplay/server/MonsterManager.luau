@@ -59,13 +59,16 @@ type ModelMetrics = {
 	boxOffsetY: number,
 }
 
-type Monster = {
+export type Monster = {
 	-- the network id in every snapshot (1 to 65535, reused after death)
 	id: number,
 	damageableId: string,
 	kind: number,
 	data: MonsterRules.MonsterData,
 	isAir: boolean,
+	-- a pocket lurker (M62): in the mine, stepped by the crawl stepper,
+	-- never part of a wave's count, never pushed apart or jam-checked
+	isCrawler: boolean,
 	-- the root part's position, as the client places the model
 	position: Vector3,
 	groundY: number,
@@ -128,6 +131,9 @@ export type MonsterManager = typeof(setmetatable(
 		-- batched for the next tick's notifies
 		pendingSpawnIds: { number },
 		pendingDeathIds: { number },
+		-- monsters that took a new target they announce (a lurker's cry);
+		-- sent after the spawns so a client never hears an id it has not met
+		pendingAlertIds: { number },
 		metricsByModel: { [string]: ModelMetrics },
 		warnedModels: { [string]: boolean },
 		snapshotEvent: UnreliableRemoteEvent?,
@@ -147,6 +153,8 @@ export type MonsterManager = typeof(setmetatable(
 		-- the push-apart buckets, kept between ticks and cleared, not rebuilt
 		separationBuckets: { [number]: { Monster } },
 		separationUsedKeys: { number },
+		-- steps every crawler each tick (LurkerManager, M62)
+		crawlStepper: ((monster: Monster, now: number, deltaSec: number) -> ())?,
 	},
 	MonsterManager
 ))
@@ -178,14 +186,34 @@ local LANE_SHRINK_TRIES = 3
 -- a slide along a blocked cell's edge shorter than this is not a step
 local SLIDE_MIN_STUDS = 0.05
 
+-- the wave's live monsters; a lurker in the mine never holds a night open
 function MonsterManager:getAliveCount(): number
 	local count = 0
 	for _, monster in self.monsters do
-		if not monster.isDead then
+		if not monster.isDead and not monster.isCrawler then
 			count += 1
 		end
 	end
 	return count
+end
+
+function MonsterManager:getCrawlerCount(): number
+	local count = 0
+	for _, monster in self.monsters do
+		if not monster.isDead and monster.isCrawler then
+			count += 1
+		end
+	end
+	return count
+end
+
+function MonsterManager:setCrawlStepper(stepper: (monster: Monster, now: number, deltaSec: number) -> ())
+	self.crawlStepper = stepper
+end
+
+-- the tick's player candidates, for a stepper that hunts players only
+function MonsterManager:getPlayerCandidates(): { MonsterRules.Candidate }
+	return self.candidatesByType[Enums.MonsterTargetType.PLAYERS]
 end
 
 -- every monster spawned from now on has this many times its roster HP
@@ -259,8 +287,26 @@ function MonsterManager:spawnMonster(kind: number, flatPosition: Vector3): numbe
 		warn("MonsterManager: no Roster entry for monster kind", kind)
 		return nil
 	end
+	local groundY = MonsterPathManager:getGroundHeight(flatPosition.X, flatPosition.Z) or flatPosition.Y
+	local refinery = MonsterPathManager:getRefineryPosition()
+	local facing = if refinery then refinery - flatPosition else Vector3.new(-1, 0, 0)
+	return self:createMonster(kind, data, flatPosition, groundY, facing, false)
+end
+
+-- a crawler at an exact position (a mine cell's centre), facing where it
+-- is told; it stands on no ground, so no height is added
+function MonsterManager:spawnCrawler(kind: number, position: Vector3, facing: Vector3): number?
+	local data = self:getRosterData(kind)
+	if not data then
+		warn("MonsterManager: no Roster entry for monster kind", kind)
+		return nil
+	end
+	return self:createMonster(kind, data, position, position.Y, facing, true)
+end
+
+function MonsterManager:createMonster(kind: number, data: MonsterRules.MonsterData, position: Vector3, groundY: number, facing: Vector3, isCrawler: boolean): number?
 	-- the alive count, not the list: the dead stay listed until the sweep
-	if self:getAliveCount() >= BehaviorData.MAX_ALIVE then
+	if self:getAliveCount() + self:getCrawlerCount() >= BehaviorData.MAX_ALIVE then
 		return nil
 	end
 	local networkId = self:allocateNetworkId()
@@ -268,16 +314,14 @@ function MonsterManager:spawnMonster(kind: number, flatPosition: Vector3): numbe
 		return nil
 	end
 	local metrics = self:getModelMetrics(MonsterRules.modelNameFor(kind))
-	local groundY = MonsterPathManager:getGroundHeight(flatPosition.X, flatPosition.Z) or flatPosition.Y
-	local refinery = MonsterPathManager:getRefineryPosition()
-	local facing = if refinery then refinery - flatPosition else Vector3.new(-1, 0, 0)
 	local monster: Monster = {
 		id = networkId,
 		damageableId = "",
 		kind = kind,
 		data = data,
 		isAir = MonsterRules.isAir(data),
-		position = flatPosition,
+		isCrawler = isCrawler,
+		position = position,
 		groundY = groundY,
 		yawDegrees = math.deg(math.atan2(-facing.X, -facing.Z)),
 		rootHeightStuds = metrics.rootHeightStuds,
@@ -310,7 +354,9 @@ function MonsterManager:spawnMonster(kind: number, flatPosition: Vector3): numbe
 		waypointCellIndex = nil,
 		waypointPathVersion = -1,
 	}
-	monster.position = Vector3.new(flatPosition.X, self:rootY(monster, groundY), flatPosition.Z)
+	if not isCrawler then
+		monster.position = Vector3.new(position.X, self:rootY(monster, groundY), position.Z)
+	end
 	monster.damageableId = DamageableManager:register({
 		name = Enums.getPublicName(Enums.MonsterKind, kind) or "Monster",
 		cframe = self:hitBoxCFrame(monster),
@@ -370,6 +416,19 @@ end
 function MonsterManager:expire(monster: Monster)
 	DamageableManager:unregister(monster.damageableId)
 	self:removeMonster(monster)
+end
+
+-- the wave's monsters only; the mine's lurkers live on
+function MonsterManager:killWave()
+	for _, monster in self.monsters do
+		if monster.isCrawler then
+			continue
+		end
+		DamageableManager:unregister(monster.damageableId)
+		self:removeMonster(monster)
+	end
+	self.projectiles = {}
+	self:sweepDead()
 end
 
 function MonsterManager:killAll()
@@ -755,6 +814,13 @@ end
 -- with no target, follow its lane of the route, attacking any barrier
 -- that stands in the way
 function MonsterManager:stepMonster(monster: Monster, now: number, deltaSec: number)
+	if monster.isCrawler then
+		local stepper = self.crawlStepper
+		if stepper then
+			stepper(monster, now, deltaSec)
+		end
+		return
+	end
 	local data = monster.data
 	local priorityOrder = self.priorityOrderByKind[monster.kind]
 	if not priorityOrder then
@@ -807,7 +873,7 @@ function MonsterManager:separate()
 	end
 	table.clear(usedKeys)
 	for _, monster in self.monsters do
-		if monster.isDead or monster.isAir then
+		if monster.isDead or monster.isAir or monster.isCrawler then
 			continue
 		end
 		local bucketKey = separationKey(monster.position.X, monster.position.Z, spacing)
@@ -824,7 +890,7 @@ function MonsterManager:separate()
 	local grid = MonsterPathManager:getGrid()
 	for _, monster in self.monsters do
 		-- a monster at its target holds its ground; the crowd behind it gives
-		if monster.isDead or monster.isAir or monster.action == Enums.MonsterAction.ENGAGED then
+		if monster.isDead or monster.isAir or monster.isCrawler or monster.action == Enums.MonsterAction.ENGAGED then
 			continue
 		end
 		local x = monster.position.X
@@ -883,7 +949,7 @@ end
 -- a while, so a crowd stalled at a wall is walked round, not into
 function MonsterManager:holdJammed(now: number, deltaSec: number)
 	for _, monster in self.monsters do
-		if monster.action ~= Enums.MonsterAction.MOVING or monster.isAir then
+		if monster.action ~= Enums.MonsterAction.MOVING or monster.isAir or monster.isCrawler then
 			monster.jammedSec = 0
 			continue
 		end
@@ -1021,6 +1087,19 @@ function MonsterManager:flushNotifies()
 		})
 		self.pendingDeathIds = {}
 	end
+	if #self.pendingAlertIds > 0 then
+		for _, id in self.pendingAlertIds do
+			if self.monsterById[id] then
+				NetManager:notifyAllClients(NetEventNames.NOTIFY_MONSTER_ALERT, { id = id })
+			end
+		end
+		self.pendingAlertIds = {}
+	end
+end
+
+-- a monster's alert cry, sent with this tick's notifies
+function MonsterManager:queueAlert(id: number)
+	table.insert(self.pendingAlertIds, id)
 end
 
 function MonsterManager:publishStats(now: number, stepSec: number)
@@ -1056,7 +1135,7 @@ function MonsterManager:pollRefineryAttack(now: number)
 	local isUnderAttack = now - self.lastRefineryHitTime < StructuresData.REFINERY_ATTACK_HOLD_SEC
 	if refineryBox and not refineryBox.isDestroyed and not isUnderAttack then
 		for _, monster in self.monsters do
-			if monster.isDead then
+			if monster.isDead or monster.isCrawler then
 				continue
 			end
 			local position = monster.position
@@ -1184,6 +1263,7 @@ function MonsterManager.new(): MonsterManager
 	self.lastRefineryHitTime = -math.huge
 	self.pendingSpawnIds = {}
 	self.pendingDeathIds = {}
+	self.pendingAlertIds = {}
 	self.metricsByModel = {}
 	self.warnedModels = {}
 	self.snapshotEvent = nil
@@ -1199,6 +1279,7 @@ function MonsterManager.new(): MonsterManager
 	self.hpMultiplier = 1
 	self.separationBuckets = {}
 	self.separationUsedKeys = {}
+	self.crawlStepper = nil
 	return self
 end
 

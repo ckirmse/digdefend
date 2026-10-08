@@ -294,10 +294,25 @@ describe(
 						end
 					end
 				end
-				-- three pockets of radius 1 to 2: at least 3 cells, at most 3 x 33
+				-- three rooms of radius 1 to 2: at least 3 cells, at most 3 x 36
 				expect(air).toBeGreaterThan(2)
-				expect(air).toBeLessThan(100)
+				expect(air).toBeLessThan(110)
 				expect(result.report.zones[2].pocketVolume).toBe(air)
+				-- every carved pocket is recorded with its centre on air, and
+				-- stands on a flat floor with rock under it (the room's floor row,
+				-- or the zone's lowest row where the room is clipped)
+				local zone2Pockets = 0
+				for _, pocket in result.pockets do
+					expect(MineGenerator.getCell(result.grid, pocket.depth, pocket.height, pocket.width)).toBe(MineGenerator.AIR)
+					expect(pocket.radius).toBeGreaterThanOrEqual(1)
+					local floorRow = math.max(MineGenerator.pocketBounds(pocket).heightStart, boxOf(result.zones[pocket.zoneIndex]).heightStart)
+					expect(MineGenerator.getCell(result.grid, pocket.depth, floorRow, pocket.width)).toBe(MineGenerator.AIR)
+					expect(MineGenerator.getCell(result.grid, pocket.depth, floorRow - 1, pocket.width)).never.toBe(MineGenerator.AIR)
+					if pocket.zoneIndex == 2 then
+						zone2Pockets += 1
+					end
+				end
+				expect(zone2Pockets).toBe(3)
 				-- hardness 2.0 never reaches stone 4 or 5 at spread 1.2
 				expect(seenHardStone).toBe(false)
 			end
@@ -447,9 +462,14 @@ describe(
 			function()
 				local mine = makeMine()
 				mine.zones[1].handPlaced = {}
-				mine.zones[1].pockets = 25
+				-- eight 4 by 4 rooms in a 20 by 8 by 24 zone: room for all, so the
+				-- generator must warn about none
+				mine.zones[1].pockets = 8
 				mine.zones[1].pocketRadiusMin = 2
 				mine.zones[1].pocketRadiusMax = 2
+				-- the seed is random, and at clearance 0 a pocket can be carved flush
+				-- against the tunnel and flood-fill into one region with it
+				mine.veinEntranceClearance = 1
 				local result, warnings = generateOrFail(mine)
 				expect(warnings).toEqual({})
 				local grid = result.grid
@@ -493,8 +513,8 @@ describe(
 						end
 					end
 				end
-				-- the tunnel is one region; every other region is one of the 25 pockets
-				expect(rooms).toBe(26)
+				-- the tunnel is one region; every other region is one of the 8 pockets
+				expect(rooms).toBe(9)
 			end
 		)
 

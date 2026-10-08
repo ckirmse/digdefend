@@ -37,6 +37,11 @@ local sfx = {
 	TORCH_PLACE = "TorchPlace",
 	-- every Hammer swing that lands a repair (M23)
 	HAMMER_HIT = "HammerHit",
+	-- the pocket lurker (M62): 3D, from where the spider is
+	CAVE_SPIDER_WALK = "CaveSpiderWalk",
+	CAVE_SPIDER_ALERT = "CaveSpiderAlert",
+	CAVE_SPIDER_ATTACK = "CaveSpiderAttack",
+	CAVE_SPIDER_DIE = "CaveSpiderDie",
 	-- M24: every weapon has its own four sounds, never shared ones
 	-- (decided 2026-09-17). Fire is 3D from the muzzle; reload, the dry
 	-- click, and the hit confirm are the shooter's own

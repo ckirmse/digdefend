@@ -33,6 +33,8 @@ local STARTING_SCALE_BY_KEY = {
 	FLYER_3 = 1.4,
 	TITAN_1 = 3.5,
 	TITAN_2 = 4,
+	-- the pocket lurker (M62): small, so it reads as a crawler on a 4-stud face
+	CAVE_SPIDER = 0.7,
 }
 
 local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)

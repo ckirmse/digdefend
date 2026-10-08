@@ -327,12 +327,37 @@ describe(
 				local catalog = MonsterRules.decodeVisualCatalog(MonsterRules.encodeVisualCatalog(roster))
 				local visual = catalog and catalog[Enums.MonsterKind.FLYER_1]
 				expect(visual and visual.isAir).toBe(true)
+				expect(visual and visual.isCrawler).toBe(false)
+				expect(visual and visual.walkSound).toBeNil()
 				expect(visual and visual.projectile).toBe("Fireball")
 				expect(visual and visual.idleAnimationId).toBe("rbxassetid://4")
 				expect(visual and visual.model).toBe("FLYER_1")
 				expect(visual and visual.maxHp).toBe(100)
 				expect(MonsterRules.decodeVisualCatalog("not json")).toBe(nil)
 				expect(MonsterRules.decodeVisualCatalog(5)).toBe(nil)
+			end
+		)
+		it(
+			"carries a monster's sounds to the client",
+			function()
+				local roster = {
+					[Enums.MonsterKind.CAVE_SPIDER] = monster({
+						TRAVERSAL = Enums.MonsterTraversal.CRAWL,
+						SOUNDS = {
+							WALK = { NAME = "Walk", FULL_VOLUME_STUDS = 6, SILENT_STUDS = 20, INTERVAL_SEC = 10 },
+							DEATH = { NAME = "Die", FULL_VOLUME_STUDS = 10, SILENT_STUDS = 40 },
+						},
+					}),
+				}
+				local catalog = MonsterRules.decodeVisualCatalog(MonsterRules.encodeVisualCatalog(roster))
+				local visual = catalog and catalog[Enums.MonsterKind.CAVE_SPIDER]
+				expect(visual and visual.isCrawler).toBe(true)
+				local walk = visual and visual.walkSound
+				expect(walk and walk.name).toBe("Walk")
+				expect(walk and walk.intervalSec).toBe(10)
+				expect(walk and walk.silentStuds).toBe(20)
+				expect(visual and visual.deathSound and visual.deathSound.name).toBe("Die")
+				expect(visual and visual.attackSound).toBeNil()
 			end
 		)
 	end

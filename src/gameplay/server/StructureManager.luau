@@ -264,7 +264,12 @@ end
 function StructureManager:getNextTierCost(): number?
 	local soloCost = StructureRules.upgradeCost(StructuresData.FORTIFICATION_UPGRADE_IRON_TO_TIER, self.fortificationTier)
 	local multiplier = RunCycleRules.multiplierFor(PartyScalingData.WAVE_DIFFICULTY_MULTIPLIER_BY_PLAYER_COUNT, RunCycleManager:getScalingCount())
-	return StructureRules.scaledUpgradeCost(soloCost, multiplier, StructuresData.FORTIFICATION_DONATION_IRON)
+	return StructureRules.scaledUpgradeCost(soloCost, multiplier, self:getDonationIron())
+end
+
+-- what one press moves at the current tier (doubles a tier, 2026-10-08)
+function StructureManager:getDonationIron(): number
+	return StructureRules.donationForTier(StructuresData.FORTIFICATION_DONATION_IRON, self.fortificationTier)
 end
 
 -- what one swing adds and costs on this structure, by its tier
@@ -432,6 +437,7 @@ function StructureManager:replicateFortification()
 	local prompt = self.workbenchPrompt
 	if prompt then
 		prompt.Enabled = nextTierCost ~= nil
+		prompt.ActionText = string.format(StructuresData.WALLS_TABLE_PROMPT_ACTION_FORMAT, self:getDonationIron())
 	end
 end
 
@@ -578,7 +584,7 @@ function StructureManager:donate(player: Player)
 		PlayerFeedbackManager:give(player, FEEDBACK_MAXED)
 		return
 	end
-	local amount, isFilled = StructureRules.donate(self.fortificationPool, nextTierCost, StructuresData.FORTIFICATION_DONATION_IRON)
+	local amount, isFilled = StructureRules.donate(self.fortificationPool, nextTierCost, self:getDonationIron())
 	if amount <= 0 then
 		return
 	end
@@ -649,7 +655,7 @@ function StructureManager:bindWallsTable()
 		prompt.Parent = promptPart
 	end
 	local livePrompt = prompt :: ProximityPrompt
-	livePrompt.ActionText = string.format(StructuresData.WALLS_TABLE_PROMPT_ACTION_FORMAT, StructuresData.FORTIFICATION_DONATION_IRON)
+	livePrompt.ActionText = string.format(StructuresData.WALLS_TABLE_PROMPT_ACTION_FORMAT, self:getDonationIron())
 	livePrompt.ObjectText = StructuresData.WALLS_TABLE_PROMPT_OBJECT_TEXT
 	livePrompt.MaxActivationDistance = StructuresData.WALLS_TABLE_PROMPT_MAX_DISTANCE_STUDS
 	livePrompt.HoldDuration = 0

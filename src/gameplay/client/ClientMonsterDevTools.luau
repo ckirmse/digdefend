@@ -25,6 +25,7 @@ export type ClientMonsterDevTools = typeof(setmetatable(
 		spawnInput: any,
 		stressCountInput: any,
 		isPathVisible: boolean,
+		isLurkerSpawnsVisible: boolean,
 		previewNightInput: any,
 	},
 	ClientMonsterDevTools
@@ -38,6 +39,8 @@ local SET_MONSTER_PATHS_VISIBLE_COMMAND = "setMonsterPathsVisible"
 local PREVIEW_WAVE_COMMAND = "previewWave"
 local PREVIEW_CURVE_COMMAND = "previewWaveCurve"
 local BALANCE_REPORT_COMMAND = "balanceReport"
+local SPAWN_LURKER_COMMAND = "spawnLurker"
+local SET_LURKER_SPAWNS_VISIBLE_COMMAND = "setLurkerSpawnsVisible"
 
 function ClientMonsterDevTools:send(command: string, args: { [string]: any })
 	ClientNetManager:fireServer(
@@ -63,6 +66,15 @@ function ClientMonsterDevTools:renderSection()
 	end
 	if Iris.Button({ "Kill all monsters" }).clicked() then
 		self:send(KILL_ALL_MONSTERS_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Spawn lurker here (in the mine)" }).clicked() then
+		self:send(SPAWN_LURKER_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ if self.isLurkerSpawnsVisible then "Hide Cave Spider spawns" else "Show Cave Spider spawns" }).clicked() then
+		self.isLurkerSpawnsVisible = not self.isLurkerSpawnsVisible
+		self:send(SET_LURKER_SPAWNS_VISIBLE_COMMAND, {
+			isVisible = self.isLurkerSpawnsVisible,
+		})
 	end
 	Iris.InputNum({ "Stress count", 50, 1, 500 }, { number = self.stressCountInput })
 	if Iris.Button({ "Stress test (zombies at every spawn)" }).clicked() then
@@ -121,6 +133,7 @@ function ClientMonsterDevTools.new(): ClientMonsterDevTools
 	self.spawnInput = nil
 	self.stressCountInput = nil
 	self.isPathVisible = false
+	self.isLurkerSpawnsVisible = false
 	self.previewNightInput = Iris.State(1)
 	return self
 end
