@@ -539,8 +539,6 @@ Constants.HUD_JET_PACK_ICON = "Icon"
 Constants.HUD_JET_PACK_TRACK = "Track"
 Constants.HUD_JET_PACK_FILL = "Fill"
 Constants.HUD_JET_PACK_BUTTON = "JetPackButton"
--- the Start Night button under the jet pack bar (ClientStartNightManager, 2026-10-07)
-Constants.HUD_START_NIGHT_BUTTON = "StartNightButton"
 -- touch-only action button beside the jump button: one button that does
 -- whatever the equipped tool does (swing, throw, place), so moving the
 -- camera never swings the pick axe (decided 2026-09-16)

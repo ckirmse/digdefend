@@ -262,37 +262,6 @@ jetFill.BorderSizePixel = 0
 jetFill.Parent = jetTrack
 addCorner(jetFill)
 
--- the Start Night button under the jet pack bar (designer, 2026-10-07):
--- hidden until the day's last window; ClientStartNightManager shows it,
--- writes the vote count into its second line, and greys it once pressed.
--- Bigger since 2026-10-08 (half the stack, two lines of text; was 0.3 of
--- it at 4.4 : 1 and one line)
-local startNight = Instance.new("TextButton")
-startNight.Name = "StartNightButton"
-startNight.LayoutOrder = 3
-startNight.Size = UDim2.fromScale(1, 0.5)
-local startNightAspect = Instance.new("UIAspectRatioConstraint")
-startNightAspect.AspectRatio = 2.4
-startNightAspect.Parent = startNight
-local startNightSize = Instance.new("UISizeConstraint")
-startNightSize.MaxSize = Vector2.new(300, 125)
-startNightSize.Parent = startNight
-startNight.BackgroundColor3 = UiStyle.ACCENT_COLOR
-startNight.BorderSizePixel = 0
-startNight.Text = UiStyle.formatTitle("Start Night\n0 / 1")
-startNight.TextColor3 = UiStyle.TEXT_COLOR
-startNight.TextScaled = true
-startNight.FontFace = UiStyle.TITLE_FONT
-startNight.AutoButtonColor = true
-startNight.Visible = false
-addTextSizeBounds(startNight, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.BODY_TEXT_MAX_PX)
-local startNightStroke = Instance.new("UIStroke")
-startNightStroke.Thickness = UiStyle.STROKE_PX
-startNightStroke.Color = UiStyle.ACCENT_STROKE_COLOR
-startNightStroke.Parent = startNight
-startNight.Parent = stack
-addCorner(startNight)
-
 -- touch-only jet pack button just above Roblox's jump button (bottom
 -- right); this position is only the fallback, ClientTouchLayoutManager
 -- re-places it against the live jump button. Keyboard and gamepad players

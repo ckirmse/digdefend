@@ -31,7 +31,6 @@ local ClientPlacementManager = require(script.Parent.ClientPlacementManager)
 local ClientRescueManager = require(script.Parent.ClientRescueManager)
 local ClientReviveManager = require(script.Parent.ClientReviveManager)
 local ClientRunCycleManager = require(script.Parent.ClientRunCycleManager)
-local ClientStartNightManager = require(script.Parent.ClientStartNightManager)
 local ClientTowerBehaviorManager = require(script.Parent.ClientTowerBehaviorManager)
 local ClientTrapBehaviorManager = require(script.Parent.ClientTrapBehaviorManager)
 local ClientPostDevTools = require(script.Parent.ClientPostDevTools)
@@ -95,7 +94,6 @@ ClientTowerBehaviorManager:init()
 ClientTrapBehaviorManager:init()
 -- the day clock reads GameMetadata the server set before anyone was Ready
 ClientRunCycleManager:init()
-ClientStartNightManager:init()
 -- the Refinery HP bar that takes the clock's place at night
 ClientRefineryHpManager:init()
 -- the locator bar that hangs under the day clock

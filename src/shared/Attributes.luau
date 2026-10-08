@@ -245,11 +245,6 @@ module = {
 	GIVE_CURRENCY_PROMPT_ACTION_TEXT = "GiveCurrencyPromptActionText",
 	GIVE_CURRENCY_PROMPT_MAX_DISTANCE_STUDS = "GiveCurrencyPromptMaxDistanceStuds",
 	RUN_DUSK_SHARE = "RunDuskShare",
-	-- GameMetadata: the Start Night button (StartNightManager, 2026-10-07):
-	-- how long before day end it shows, votes so far, and votes needed
-	RUN_START_NIGHT_WINDOW_SEC = "RunStartNightWindowSec",
-	RUN_START_NIGHT_VOTES = "RunStartNightVotes",
-	RUN_START_NIGHT_NEEDED = "RunStartNightNeeded",
 	RUN_DUSK_SONG_LEAD_SEC = "RunDuskSongLeadSec",
 	-- the dusk song's fade: how long it takes and how long before night
 	-- falls it begins (2026-10-02)

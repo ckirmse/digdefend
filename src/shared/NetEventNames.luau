@@ -174,8 +174,6 @@ module = {
 	-- a dead player, or anyone once the run is over, asks to go back to
 	-- the lobby (the Results Menu's and the Spectate bar's button)
 	TRY_RETURN_TO_LOBBY = "TryReturnToLobby",
-	-- the Start Night button (2026-10-07): one vote to skip the rest of the day
-	TRY_START_NIGHT = "TryStartNight",
 	-- to one client: Diamonds was earned ({ amount, reason }), for the toast;
 	-- the balance itself is the Diamonds attribute
 	NOTIFY_DIAMONDS_EARNED = "NotifyDiamondsEarned",
