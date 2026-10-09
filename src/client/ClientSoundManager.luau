@@ -12,6 +12,7 @@ local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 
 local ClientSoundManager = {}
@@ -318,12 +319,17 @@ function ClientSoundManager:checkAuthoredSounds()
 	if not output then
 		warn("ClientSoundManager: SoundService has no AudioDeviceOutput; 2D audio will be silent")
 	end
-	for _, name in SoundNames.Sfx do
+	-- the lobby authors only the few sounds it plays (SoundNames lists
+	-- them); the gameplay place is expected to author every name
+	local isLobby = Constants.getPlaceKind() == Enums.PlaceKind.LOBBY
+	local expectedSfx: { string } = if isLobby then SoundNames.LobbySfxNames else SoundNames.Sfx
+	local expectedMusic: { string } = if isLobby then SoundNames.LobbyMusicNames else SoundNames.Music
+	for _, name in expectedSfx do
 		if not self:findPlayer(self.sfxFolder, name) then
 			warn(`ClientSoundManager: SoundNames.Sfx names {name} but {Constants.SFX_FOLDER} has no such AudioPlayer`)
 		end
 	end
-	for _, name in SoundNames.Music do
+	for _, name in expectedMusic do
 		if not self:findPlayer(self.musicFolder, name) then
 			warn(`ClientSoundManager: SoundNames.Music names {name} but {Constants.MUSIC_FOLDER} has no such AudioPlayer`)
 		end

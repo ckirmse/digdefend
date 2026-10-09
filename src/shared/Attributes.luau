@@ -176,6 +176,10 @@ module = {
 	-- the server time the dev tool paused the run, 0 while it runs: a
 	-- client clock holds at that moment (2026-10-02)
 	RUN_PAUSE_START_TIME = "RunPauseStartTime",
+	-- GameMetadata: true while the dev tool itself holds the run; a crew
+	-- wipe holds the run through the same pause but shows no PAUSED word,
+	-- since the Game Over screen is already up (2026-10-09)
+	RUN_PAUSED_BY_DEV_TOOL = "RunPausedByDevTool",
 	-- GameMetadata: while the rescue is called by day and the final wave is
 	-- not here yet (RunState RESCUE_WAIT), the share of the day that was left
 	-- when the call was made, so every client holds the sky there; below 0

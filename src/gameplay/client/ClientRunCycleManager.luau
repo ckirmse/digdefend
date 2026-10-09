@@ -313,14 +313,17 @@ function ClientRunCycleManager:step()
 	local endTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_PHASE_END_TIME), 0)
 	local duskShare = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_DUSK_SHARE), DEFAULT_DUSK_SHARE)
 	local now = workspace:GetServerTimeNow()
-	-- the dev tool's pause holds the clock at the moment it was pressed
+	-- any hold on the run (the dev tool's pause, a crew wipe) keeps the
+	-- clock at the moment it began; only the dev tool's shows the PAUSED
+	-- word, since a wipe already has the Game Over screen up
 	local pauseStartTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_PAUSE_START_TIME), 0)
 	if pauseStartTime > 0 then
 		now = pauseStartTime
 	end
+	local isPausedByDevTool = pauseStartTime > 0 and ClientDataManager:getGameMetadata(Attributes.RUN_PAUSED_BY_DEV_TOOL) == true
 	local pausedGui = self.pausedGui
-	if pausedGui and pausedGui.Enabled ~= (pauseStartTime > 0) then
-		pausedGui.Enabled = pauseStartTime > 0
+	if pausedGui and pausedGui.Enabled ~= isPausedByDevTool then
+		pausedGui.Enabled = isPausedByDevTool
 	end
 	local shareLeft = if runState == Enums.RunState.DAY then RunCycleRules.dayShareLeft(startTime, endTime, now) elseif runState == Enums.RunState.WAITING then 1 else 0
 	local fill = self.fill

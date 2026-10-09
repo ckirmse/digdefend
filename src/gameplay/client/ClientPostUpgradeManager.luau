@@ -252,6 +252,13 @@ function ClientPostUpgradeManager:renderDisplay()
 	end
 	local weapon = weaponTemplate:Clone()
 	weapon.Name = DISPLAY_WEAPON_NAME
+	-- the template carries the authored Use prompt (on its Prompt part since
+	-- 2026-10-09); a display model is only to look at
+	for _, descendant in weapon:GetDescendants() do
+		if descendant:IsA("ProximityPrompt") then
+			descendant:Destroy()
+		end
+	end
 	weapon:ScaleTo(weapon:GetScale() * self.displayScale)
 	weapon:PivotTo(spawn.CFrame)
 	spawn.Transparency = 1

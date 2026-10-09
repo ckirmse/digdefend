@@ -383,14 +383,16 @@ function PostManager:spawnWeapon(post: Post)
 	post.weaponModel = model
 	self:replicateFireState(post)
 
-	local characterSpawn = model:FindFirstChild(Constants.POST_WEAPON_CHARACTER_SPAWN_PART)
-	if characterSpawn then
-		local prompt = characterSpawn:FindFirstChildWhichIsA("ProximityPrompt")
+	local promptPart = model:FindFirstChild(Constants.POST_WEAPON_PROMPT_PART)
+	if not promptPart then
+		warn(`PostManager: {model:GetFullName()} has no {Constants.POST_WEAPON_PROMPT_PART} part; the weapon cannot be mounted`)
+	else
+		local prompt = promptPart:FindFirstChildWhichIsA("ProximityPrompt")
 		if not prompt then
 			prompt = Instance.new("ProximityPrompt")
 			-- a clickable prompt frees the mouse when hovered, which sticks the cursor in first person (2026-09-29)
 			prompt.ClickablePrompt = false
-			prompt.Parent = characterSpawn
+			prompt.Parent = promptPart
 		end
 		local livePrompt = prompt :: ProximityPrompt
 		self:configurePrompt(livePrompt, PostWeaponsData.USE_PROMPT_ACTION_TEXT, 0, PostWeaponsData.PROMPT_MAX_DISTANCE_STUDS)

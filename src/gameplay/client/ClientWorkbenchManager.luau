@@ -244,7 +244,8 @@ function ClientWorkbenchManager:init()
 				warn("ClientWorkbenchManager: malformed NotifyFortificationDonated")
 				return
 			end
-			ClientSoundManager:playSfx(SoundNames.Sfx.COINS_ADDED)
+			-- a donation is a purchase, so it rings up like one (2026-10-09; was CoinsAdded)
+			ClientSoundManager:playSfx(SoundNames.Sfx.SALE_SUCCESS)
 		end
 	)
 	-- a tier is a beat for the whole crew: an announcement and a sound

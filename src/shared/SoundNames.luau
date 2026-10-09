@@ -132,9 +132,21 @@ local music = {
 	GAME_OVER = "GameOver",
 }
 
+-- the names the lobby place plays (2026-10-09): its SoundService carries
+-- only these, so the startup audit expects only these there; the gameplay
+-- place is expected to author every name above
+local lobbySfxNames: { string } = {
+	sfx.COINS_ADDED,
+	sfx.SALE_SUCCESS,
+	sfx.HELICOPTER,
+}
+local lobbyMusicNames: { string } = {}
+
 local module = {
 	Sfx = sfx,
 	Music = music,
+	LobbySfxNames = lobbySfxNames,
+	LobbyMusicNames = lobbyMusicNames,
 	WeaponSfxByKindName = weaponSfxByKindName,
 	PostWeaponSfxByKindName = postWeaponSfxByKindName,
 }

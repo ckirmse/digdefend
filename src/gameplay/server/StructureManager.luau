@@ -9,10 +9,11 @@
 -- TryRepairStructure request validated here (equipped, damaged, reach,
 -- cooldown, Iron) that adds one chunk of HP.
 --
--- The map's Wall / Gate / Post models are placement markers: at run start
--- each is swapped for the tier's template from GameAssets/Structures at the
--- marker's pivot, and swapped again on an upgrade, on destruction (rubble),
--- and on a rebuild. A wall named "Wall0" is decoration that joins the line
+-- The map's Wall / Gate / Post / Refinery models are placement markers: at
+-- run start each is swapped for the tier's template from
+-- GameAssets/Structures at the marker's pivot, and swapped again on an
+-- upgrade, on destruction (rubble; the Refinery has none), and on a
+-- rebuild. A wall named "Wall0" is decoration that joins the line
 -- to the terrain (StructureRules.isDecorativeWall, 2026-09-30): filled and
 -- upgraded like a wall, but it has no HP, no shadow, no repair, and the
 -- monsters never target it; it only blocks their way. The gate, the walls,
@@ -126,6 +127,7 @@ local SHADOW_HEIGHT_ABOVE_FLOOR_STUDS = 4
 local STARTING_TIER = 1
 local WALL_TEMPLATE_KEY = Constants.WALL_TEMPLATE_PREFIX
 local GATE_TEMPLATE_KEY = Constants.GATE_TEMPLATE_PREFIX
+local REFINERY_TEMPLATE_KEY = Constants.REFINERY_TEMPLATE_PREFIX
 local GATE_ID = Constants.CAMP_GATE_MODEL
 local REFINERY_ID = Constants.CAMP_REFINERY_MODEL
 
@@ -336,7 +338,9 @@ function StructureManager:fillPostSlot(slot: Slot)
 end
 
 function StructureManager:templateNameFor(structure: Structure, slot: Slot): string
-	if structure.isDestroyed then
+	-- the Refinery has no rubble: its fall is the run's end, so the tier's
+	-- model stands through the loss
+	if structure.isDestroyed and structure.kind ~= Enums.StructureKind.REFINERY then
 		return `{slot.templateKey}_{Constants.STRUCTURE_RUBBLE_SUFFIX}`
 	end
 	return `{slot.templateKey}_{self.fortificationTier}`
@@ -619,7 +623,8 @@ function StructureManager:setFortificationTier(tier: number)
 	-- a donation pool belongs to the tier it was filling
 	self.fortificationPool = 0
 	for _, structure in self.structuresById do
-		-- the Refinery has no template slot but keeps its share of HP too
+		-- every structure, the Refinery included since 2026-10-09, swaps to
+		-- the tier's model and keeps its share of HP
 		self:rescaleHp(structure)
 		if structure.slot then
 			self:syncModel(structure)
@@ -786,9 +791,12 @@ function StructureManager:onRunStarted()
 		self:addStructure(GATE_ID, Enums.StructureKind.GATE, slot.model :: Model, shadowFolder, slot)
 		self:bindGateDoor(slot.model)
 	end
+	-- the map's Refinery is a marker like the walls: its pivot and name
+	-- stay, the tier's template from GameAssets stands there (2026-10-09)
 	local refinery = camp:FindFirstChild(Constants.CAMP_REFINERY_MODEL)
 	if refinery and refinery:IsA("Model") then
-		self:addStructure(REFINERY_ID, Enums.StructureKind.REFINERY, refinery, shadowFolder, nil)
+		local slot = self:claimSlot(refinery, REFINERY_TEMPLATE_KEY)
+		self:addStructure(REFINERY_ID, Enums.StructureKind.REFINERY, slot.model :: Model, shadowFolder, slot)
 	end
 
 	self:bindWallsTable()

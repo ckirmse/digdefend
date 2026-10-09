@@ -313,7 +313,7 @@ function ClientPostManager:bindWeapon(model: Instance)
 	end
 	-- with StreamingEnabled the Model can arrive before its parts
 	local spawn = model:WaitForChild(Constants.POST_SPAWN_PART, 10)
-	local characterSpawn = model:WaitForChild(Constants.POST_WEAPON_CHARACTER_SPAWN_PART, 10)
+	local promptPart = model:WaitForChild(Constants.POST_WEAPON_PROMPT_PART, 10)
 	local rig, reason = PostRules.measureRig(model)
 	if not rig or not spawn or not spawn:IsA("BasePart") then
 		warn(`ClientPostManager: {model:GetFullName()}: {reason or "no Spawn"}; not drawn`)
@@ -341,11 +341,11 @@ function ClientPostManager:bindWeapon(model: Instance)
 			self:renderWeaponPrompt(view)
 		end
 	end
-	local prompt = if characterSpawn then characterSpawn:FindFirstChildWhichIsA("ProximityPrompt") else nil
+	local prompt = if promptPart then promptPart:FindFirstChildWhichIsA("ProximityPrompt") else nil
 	if prompt then
 		bindPrompt(prompt)
-	elseif characterSpawn then
-		characterSpawn.ChildAdded:Connect(bindPrompt)
+	elseif promptPart then
+		promptPart.ChildAdded:Connect(bindPrompt)
 	end
 	self:renderWeaponPrompt(view)
 	if self.isMounted then

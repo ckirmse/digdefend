@@ -71,8 +71,10 @@ export type ClientPlacementManager = typeof(setmetatable(
 	ClientPlacementManager
 ))
 
+-- price is the Iron charged: above 0 for a fresh build, 0 for a move
 local NOTIFY_PLACEMENT_BUILT_SHAPE = {
 	id = "string",
+	price = "nonnegativeInteger",
 }
 local NOTIFY_PLACEMENT_SOLD_SHAPE = {
 	id = "string",
@@ -607,6 +609,10 @@ function ClientPlacementManager:onBuilt(payload: any)
 		return
 	end
 	ClientSoundManager:playSfx(SoundNames.Sfx.PLACEMENT_BUILD)
+	-- a purchase rings up as well; a move of something already owned does not
+	if payload.price > 0 then
+		ClientSoundManager:playSfx(SoundNames.Sfx.SALE_SUCCESS)
+	end
 end
 
 function ClientPlacementManager:onSold(payload: any)

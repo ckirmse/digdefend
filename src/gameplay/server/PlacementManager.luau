@@ -402,8 +402,11 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 	end
 	self:firePlacementSpent(player, Enums.PlacementAction.BUILT, placementKind, typeKind, price)
 	self:replicatePlayer(player)
+	-- the price rides along so the client can mark a purchase (a move
+	-- sends 0 and gets only the build sound, 2026-10-09)
 	NetManager:notifyClient(player, NetEventNames.NOTIFY_PLACEMENT_BUILT, {
 		id = placement.id,
+		price = price,
 	})
 	print(`[PlacementManager] {player.Name} built {PlacementRules.publicName(placementKind, typeKind)} ({placement.id}) in zone {zoneIndex} at {cell.column},{cell.row}`)
 end
@@ -443,6 +446,7 @@ function PlacementManager:move(player: Player, id: string, zoneIndex: number, ce
 	self:firePlacementsChanged()
 	NetManager:notifyClient(player, NetEventNames.NOTIFY_PLACEMENT_BUILT, {
 		id = placement.id,
+		price = 0,
 	})
 	print(`[PlacementManager] {player.Name} moved {id} to zone {zoneIndex} at {cell.column},{cell.row} turned {placement.rotation}`)
 end

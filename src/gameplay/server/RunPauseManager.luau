@@ -45,8 +45,11 @@ function RunPauseManager:subscribeResumed(handler: ResumedHandler)
 	table.insert(self.resumedHandlers, handler)
 end
 
+-- the start time is what holds every client clock; the dev tool flag is
+-- what shows the PAUSED word, so a crew wipe's hold stays silent on screen
 function RunPauseManager:replicate()
 	SplendidReplicationManager:setGameMetadata(Attributes.RUN_PAUSE_START_TIME, self.pauseStartTime)
+	SplendidReplicationManager:setGameMetadata(Attributes.RUN_PAUSED_BY_DEV_TOOL, self:isHeldBy(RunPauseManager.DEV_TOOL_HOLDER))
 end
 
 function RunPauseManager:isHeldBy(holder: string): boolean
@@ -60,6 +63,9 @@ function RunPauseManager:setPaused(isPaused: boolean, holder: string?)
 	self.holders[holder or RunPauseManager.DEV_TOOL_HOLDER] = if isPaused then true else nil
 	isPaused = next(self.holders) ~= nil
 	if isPaused == wasPaused then
+		-- the set of holders changed under an unchanged pause (the dev tool
+		-- pressed during a wipe, or the reverse): the word follows the dev tool
+		self:replicate()
 		return
 	end
 	local now = workspace:GetServerTimeNow()

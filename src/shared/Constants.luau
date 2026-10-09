@@ -82,6 +82,8 @@ Constants.PAD_GUI_PANEL = "Panel"
 Constants.PAD_GUI_STATUS_LABEL = "Status"
 Constants.PAD_GUI_PRIVATE_LABEL = "Private"
 Constants.PAD_GUI_PLAYERS_LABEL = "Players"
+-- the designer's full-panel line shown alone while a host sets a run up (2026-10-09)
+Constants.PAD_GUI_CONFIGURING_LABEL = "Configuring"
 -- helicopter template under GameAssets; the clone on a pad keeps the name
 Constants.HELICOPTER_TEMPLATE = "Helicopter"
 Constants.HELICOPTER_PLAYER_SPAWNS_FOLDER = "PlayerSpawns"
@@ -142,6 +144,17 @@ Constants.MINE_ENTRANCE_PART = "Entrance"
 -- bounding box (RefineryManager, 2026-10-01), and its top is where the
 -- client's ore icons fly to
 Constants.CAMP_REFINERY_MODEL = "Refinery"
+-- Camp.Refinery.Funnel: the designer's hopper, with an Entrance attachment
+-- at its mouth where ore flies in and an Exit attachment over the tray
+-- where bars fly out (2026-10-09); the model's top stands in for either
+-- when it is missing
+Constants.REFINERY_FUNNEL_PART = "Funnel"
+Constants.REFINERY_ENTRANCE_ATTACHMENT = "Entrance"
+Constants.REFINERY_EXIT_ATTACHMENT = "Exit"
+-- Camp.Refinery.Spikes1 / Spikes2: the two anchored grinder rollers, each
+-- long along its own Z axis with gears welded on; clients spin them in
+-- opposite directions while a refine runs (2026-10-09)
+Constants.REFINERY_SPIKE_PARTS = { "Spikes1", "Spikes2" }
 -- Camp.MiningStore.Stands: one "<Item>Stand" Model per Enums.StoreItem
 -- (the name comes from StoreRules.standNameForItem), each with a Base part
 -- carrying the SurfaceGui the client fills in and the ProximityPrompt the
@@ -319,12 +332,14 @@ Constants.POST_SIGN_POST_TYPE_LABEL = "PostType"
 Constants.POST_SPAWN_PART = "Spawn"
 -- post weapon models under GameAssets, one per Enums.PostWeaponKind key.
 -- Each is a Model whose PrimaryPart is its own Spawn cylinder (matched to
--- the post's), with CharacterSpawn (the gunner's feet, carrying the Use
--- prompt), HandleLeft / HandleRight (the hands), CameraLocation (welded to
--- the gun), and one MeshPart gun carrying the MuzzleAttachment; the gun is
--- the part that tilts
+-- the post's), with CharacterSpawn (the gunner's feet), Prompt (the
+-- designer's invisible part carrying the Use ProximityPrompt, moved off
+-- the CharacterSpawn on 2026-10-09), HandleLeft / HandleRight (the hands),
+-- CameraLocation (welded to the gun), and one MeshPart gun carrying the
+-- MuzzleAttachment; the gun is the part that tilts
 Constants.POST_WEAPON_TEMPLATES_FOLDER = "PostWeapons"
 Constants.POST_WEAPON_CHARACTER_SPAWN_PART = "CharacterSpawn"
+Constants.POST_WEAPON_PROMPT_PART = "Prompt"
 Constants.POST_WEAPON_HANDLE_LEFT_PART = "HandleLeft"
 Constants.POST_WEAPON_HANDLE_RIGHT_PART = "HandleRight"
 Constants.POST_WEAPON_CAMERA_PART = "CameraLocation"
@@ -402,6 +417,10 @@ Constants.POST_TEMPLATE_PREFIX = "POST"
 -- "WALL_<tier>" and "GATE_<tier>" beside them
 Constants.WALL_TEMPLATE_PREFIX = "WALL"
 Constants.GATE_TEMPLATE_PREFIX = "GATE"
+-- "REFINERY_<tier>" too (2026-10-09): the map's Refinery is a marker like
+-- the walls, swapped for the tier's model; it has no rubble, since its
+-- fall ends the run
+Constants.REFINERY_TEMPLATE_PREFIX = "REFINERY"
 -- optional per-map terrain: the part bounding the terrain to snapshot and
 -- the TerrainRegion the snapshot is stored in (scripts/studio/map_tools.luau)
 Constants.MAP_TERRAIN_BOUNDS_PART = "TerrainBounds"
