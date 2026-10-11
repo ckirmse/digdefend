@@ -49,7 +49,7 @@ export type KindData = {
 }
 
 -- what the server publishes as GameMetadata: entry N of the price list is
--- the Gold price of upgrade N; the list's length is the upgrade cap
+-- the Iron price of upgrade N (Gold before M63); the list's length is the upgrade cap
 export type Catalog = {
 	claimPriceGold: number,
 	upgradePriceByLevel: { number },
@@ -190,8 +190,8 @@ function PostRules.getUpgradeOffer(catalog: Catalog, upgrades: Upgrades, attribu
 	}
 end
 
-function PostRules.canAfford(gold: number, price: number): boolean
-	return gold >= price
+function PostRules.canAfford(balance: number, price: number): boolean
+	return balance >= price
 end
 
 -- into (-180, 180], so a base that turned through north compares sanely

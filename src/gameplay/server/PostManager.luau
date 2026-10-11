@@ -143,6 +143,7 @@ local IK_ARMS = {
 local FEEDBACK_ALREADY_OWN_POST = "You already have a post"
 local FEEDBACK_POST_TAKEN = "That post is taken"
 local FEEDBACK_NOT_ENOUGH_GOLD = "Not enough Gold"
+local FEEDBACK_NOT_ENOUGH_IRON = "Not enough Iron"
 local FEEDBACK_MAXED = "Already maxed out"
 local FEEDBACK_NO_SUCH_UPGRADE = "This weapon has no such upgrade"
 
@@ -653,8 +654,9 @@ function PostManager:stepRockets(deltaSec: number)
 	self.rockets = survivors
 end
 
--- upgrades belong to the player, not the post (2026-10-06): they can be
--- bought before a claim, against the loadout weapon the claim would
+-- upgrades belong to the player, not the post (2026-10-06), and cost Iron
+-- (M63: Gold buys mining, Iron buys defense): they can be bought before a
+-- claim, against the loadout weapon the claim would
 -- spawn, and a claimed post fires with them from its first shot
 function PostManager:upgrade(player: Player, attribute: number)
 	if not GameController:isPlayerReady(player) then
@@ -673,11 +675,11 @@ function PostManager:upgrade(player: Player, attribute: number)
 		return
 	end
 	local price = offer.price or 0
-	if not PostRules.canAfford(RefineryManager:getGoldBars(player), price) then
-		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_GOLD)
+	if not PostRules.canAfford(RefineryManager:getIronBars(player), price) then
+		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_IRON)
 		return
 	end
-	if not RefineryManager:spendGoldBars(player, price, `post {Enums.getPublicName(Enums.PostAttribute, attribute)} {offer.level or 1}`) then
+	if not RefineryManager:spendIronBars(player, price, `post {Enums.getPublicName(Enums.PostAttribute, attribute)} {offer.level or 1}`) then
 		return
 	end
 	state.upgrades[attribute] = offer.level or 1
@@ -687,7 +689,7 @@ function PostManager:upgrade(player: Player, attribute: number)
 		level = state.upgrades[attribute],
 		price = price,
 	})
-	print(`[PostManager] {player.Name} upgraded {Enums.getPublicName(Enums.PostAttribute, attribute)} to {state.upgrades[attribute]} for {price} Gold`)
+	print(`[PostManager] {player.Name} upgraded {Enums.getPublicName(Enums.PostAttribute, attribute)} to {state.upgrades[attribute]} for {price} Iron`)
 end
 
 function PostManager:claim(player: Player, post: Post)

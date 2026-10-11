@@ -7,9 +7,9 @@
 -- the owned post's weapon, or the loadout weapon before a claim, since
 -- upgrades are the player's and carry onto the post, 2026-10-06). The menu is
 -- one row per attribute with four pips (one filled per upgrade bought) and
--- a button showing the Gold price, gone when maxed. Everything is drawn
+-- a button showing the Iron price, gone when maxed. Everything is drawn
 -- from the catalogue in GameMetadata, the upgrade counts on CurrentPlayer,
--- and the Gold balance; a tap sends TryUpgradePost and the server decides.
+-- and the Iron balance; a tap sends TryUpgradePost and the server decides.
 -- The table also carries a display: the designer's DisplayPost model sets
 -- the spot and size, and this client redraws it locally as the current
 -- fortification tier's post with its own loadout post weapon standing on
@@ -74,7 +74,7 @@ local NOTIFY_POST_UPGRADED_SHAPE = {
 
 local TITLE_FORMAT = "Upgrade %s"
 local MAXED_TEXT = "MAX"
-local FEEDBACK_NOT_ENOUGH_GOLD = "Not enough Gold"
+local FEEDBACK_NOT_ENOUGH_IRON = "Not enough Iron"
 local WAIT_FOR_CAMP_SEC = 30
 local DISPLAY_POST_NAME = "DisplayPost"
 local DISPLAY_WEAPON_NAME = "DisplayWeapon"
@@ -95,7 +95,7 @@ function ClientPostUpgradeManager:getOwnUpgrades(): PostRules.Upgrades
 	return upgrades
 end
 
-function ClientPostUpgradeManager:renderRow(row: Row, catalog: PostRules.Catalog, upgrades: PostRules.Upgrades, gold: number)
+function ClientPostUpgradeManager:renderRow(row: Row, catalog: PostRules.Catalog, upgrades: PostRules.Upgrades, iron: number)
 	local offer = PostRules.getUpgradeOffer(catalog, upgrades, row.attribute)
 	local level = PostRules.upgradeLevel(upgrades, row.attribute)
 	for index, pip in row.pips do
@@ -115,11 +115,11 @@ function ClientPostUpgradeManager:renderRow(row: Row, catalog: PostRules.Catalog
 			row.priceLabel.TextColor3 = UiStyle.TEXT_COLOR
 		else
 			row.priceLabel.Text = tostring(price)
-			row.priceLabel.TextColor3 = if not PostRules.canAfford(gold, price) then UiStyle.NEGATIVE_COLOR else UiStyle.ACCENT_STROKE_COLOR
+			row.priceLabel.TextColor3 = if not PostRules.canAfford(iron, price) then UiStyle.NEGATIVE_COLOR else UiStyle.ACCENT_STROKE_COLOR
 		end
 	end
 	if row.resourceIcon then
-		local imageId = Icons.REFINED_RESOURCE[Enums.RefinedResource.GOLD_BAR]
+		local imageId = Icons.REFINED_RESOURCE[Enums.RefinedResource.IRON_BAR]
 		row.resourceIcon.Image = if Icons.isPlaceholder(imageId) then "" else imageId
 		row.resourceIcon.Visible = not isMaxed
 	end
@@ -138,7 +138,7 @@ function ClientPostUpgradeManager:renderMenu()
 		self.titleLabel.Text = UiStyle.formatTitle(string.format(TITLE_FORMAT, Enums.getPublicName(Enums.PostWeaponKind, kind) or "Post"))
 	end
 	local upgrades = self:getOwnUpgrades()
-	local gold = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_GOLD_BARS), 0)
+	local iron = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_IRON_BARS), 0)
 	-- a row per attribute exists; the weapon kind picks which four show
 	-- and in what order (the Machine Gun has Cooldown, the Rocket
 	-- Launcher has Range)
@@ -147,7 +147,7 @@ function ClientPostUpgradeManager:renderMenu()
 		row.frame.Visible = order ~= nil
 		row.frame.LayoutOrder = order or 0
 		if order ~= nil then
-			self:renderRow(row, catalog, upgrades, gold)
+			self:renderRow(row, catalog, upgrades, iron)
 		end
 	end
 end
@@ -189,10 +189,10 @@ function ClientPostUpgradeManager:requestUpgrade(attribute: number)
 	local catalog = PostRules.decodeCatalog(ClientDataManager:getGameMetadata(Attributes.POST_CATALOG))
 	if catalog then
 		local offer = PostRules.getUpgradeOffer(catalog, self:getOwnUpgrades(), attribute)
-		local gold = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_GOLD_BARS), 0)
+		local iron = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_IRON_BARS), 0)
 		local refusal: string? = nil
-		if offer.status == Enums.StoreOffer.AVAILABLE and not PostRules.canAfford(gold, offer.price or 0) then
-			refusal = FEEDBACK_NOT_ENOUGH_GOLD
+		if offer.status == Enums.StoreOffer.AVAILABLE and not PostRules.canAfford(iron, offer.price or 0) then
+			refusal = FEEDBACK_NOT_ENOUGH_IRON
 		end
 		if refusal then
 			ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
@@ -411,7 +411,7 @@ function ClientPostUpgradeManager:init()
 			end
 		end
 	)
-	local watched = { Attributes.BALANCE_GOLD_BARS, Attributes.POST_WEAPON_KIND }
+	local watched = { Attributes.BALANCE_IRON_BARS, Attributes.POST_WEAPON_KIND }
 	for _, attributeName in PostRules.UPGRADE_ATTRIBUTE_BY_POST_ATTRIBUTE do
 		table.insert(watched, attributeName)
 	end

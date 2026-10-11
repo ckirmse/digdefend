@@ -104,15 +104,21 @@ return {
 		-- a night is cleared on time when the wave's HP is gone this long
 		-- after the last group spawns
 		CLEAR_SLACK_SEC = 60,
-		-- share of Iron the crew puts into towers; the rest is walls, repairs,
-		-- and traps
+		-- share of the Iron left after the post rungs that the crew puts into
+		-- towers; the rest is walls, repairs, and traps
 		DEFENSE_IRON_SHARE = 0.8,
+		-- share of each player's Iron that goes to their own post's rungs
+		-- before the shared defenses (M63, 2026-10-11: post rungs cost Iron,
+		-- not Gold; a quarter, as the Gold share was, until a run report says
+		-- otherwise)
+		POST_IRON_SHARE = 0.25,
 		-- how each player splits their Gold: the pick axe, the backpack, the
-		-- boots, their post's upgrades; the rest is consumables
-		PICK_AXE_GOLD_SHARE = 0.4,
-		BACKPACK_GOLD_SHARE = 0.25,
-		BOOTS_GOLD_SHARE = 0.1,
-		POST_GOLD_SHARE = 0.25,
+		-- boots; the rest is consumables. Posts took a quarter until M63
+		-- moved them to Iron, and that quarter is shared out here in the
+		-- same proportions (0.4 / 0.25 / 0.1 before)
+		PICK_AXE_GOLD_SHARE = 0.5,
+		BACKPACK_GOLD_SHARE = 0.3,
+		BOOTS_GOLD_SHARE = 0.15,
 		-- the share of a post's paper DPS a player gets out of it: shots
 		-- that miss, and the trigger held into an overheat or released
 		-- early (the machine-gun post is the yardstick for player damage,

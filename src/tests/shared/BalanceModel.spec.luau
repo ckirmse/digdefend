@@ -77,7 +77,7 @@ local ASSUMPTIONS = {
 	URANIUM_SELECTIVITY = 1,
 	TOWER_NEEDED_SLACK = 1,
 	CREW_ADVANCE_EXPONENT = 1,
-	POST_GOLD_SHARE = 1,
+	POST_IRON_SHARE = 1,
 	POST_EFFECTIVENESS = 1,
 	WALL_WALK_SEC = 10,
 	WALL_SEGMENTS_HIT = 1,
@@ -330,6 +330,18 @@ describe(
 				local result = BalanceModel.simulate(input({ nights = 1, postDps = 8, postUpgrades = ladder }))
 				expect(result.rows[1].postLevel).toBe(2)
 				expect(result.rows[1].freeDps).toBeCloseTo(8 * 2 * 2, 5)
+			end
+		)
+		it(
+			"pays the post's rungs out of the Iron before the towers",
+			function()
+				-- day 1 refines 100 Iron; a 60 rung leaves the towers 40
+				local ladder = { priceByLevel = { 60 }, damageBonusPerLevel = 1, fireRateBonusPerLevel = 1 }
+				local bare = BalanceModel.simulate(input({ nights = 1 })).rows[1]
+				local withPost = BalanceModel.simulate(input({ nights = 1, postUpgrades = ladder })).rows[1]
+				expect(withPost.postLevel).toBe(1)
+				expect(withPost.ironPerPlayer).toBeCloseTo(bare.ironPerPlayer, 5)
+				expect(withPost.towerDps).toBeLessThan(bare.towerDps)
 			end
 		)
 	end

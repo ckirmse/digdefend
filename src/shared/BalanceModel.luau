@@ -4,8 +4,9 @@
 -- run, night by night, from the numbers GameData holds. Every day the
 -- crew swings at rock for a share of the day, the HP it chews through is
 -- turned into ore at the current zone's ore-per-HP, the ore refines, Gold
--- buys pick axe levels and Iron buys the towers with the best DPS per
--- Iron; every night the wave generator's budget becomes expected HP from
+-- buys pick axe levels and Iron buys the post's rungs and then the towers
+-- with the best DPS per Iron (M63: Gold is mining, Iron is defense); every
+-- night the wave generator's budget becomes expected HP from
 -- the kinds unlocked, and the crew's free weapons plus its towers are
 -- measured against it. The output is a row per night and a list of
 -- failures against the designer's targets, so a tuning change is judged
@@ -34,14 +35,14 @@ export type Assumptions = {
 	URANIUM_SELECTIVITY: number,
 	TOWER_NEEDED_SLACK: number,
 	CREW_ADVANCE_EXPONENT: number,
-	POST_GOLD_SHARE: number,
+	POST_IRON_SHARE: number,
 	POST_EFFECTIVENESS: number,
 	WALL_WALK_SEC: number,
 	WALL_SEGMENTS_HIT: number,
 }
 
 -- a post's upgrade ladder: each attribute climbs its own levels for the
--- same Gold prices
+-- same Iron prices
 export type PostUpgrades = {
 	priceByLevel: { number },
 	damageBonusPerLevel: number,
@@ -420,7 +421,7 @@ end
 -- bought in turn, damage first, then fire rate, then (for a gun with
 -- heat) cooldown, each round taking the cheapest next rung; returns the
 -- damage level, the fire rate level, the Gold spent, and the cooldown level
-function BalanceModel.affordablePostLevels(goldSpendable: number, upgrades: PostUpgrades): (number, number, number, number)
+function BalanceModel.affordablePostLevels(ironSpendable: number, upgrades: PostUpgrades): (number, number, number, number)
 	local levels = { 0, 0, 0 }
 	local attributeCount = if upgrades.cooldownBonusPerLevel then 3 else 2
 	local spent = 0
@@ -433,7 +434,7 @@ function BalanceModel.affordablePostLevels(goldSpendable: number, upgrades: Post
 		end
 		local nextLevel = levels[lowest] + 1
 		local price = upgrades.priceByLevel[nextLevel]
-		if price == nil or spent + price > goldSpendable then
+		if price == nil or spent + price > ironSpendable then
 			break
 		end
 		spent += price
@@ -547,17 +548,20 @@ function BalanceModel.simulate(input: Input): Result
 			uraniumNight = night
 		end
 
-		-- the shops: Gold raises the pick axe, the carry, the walk, and the
-		-- player's post
+		-- the shops: Gold raises the pick axe, the carry, and the walk; Iron
+		-- raises the player's post first and the towers from what is left
 		local goldPerPlayer = goldTotal / crew
+		local ironPerPlayer = ironTotal / crew
 		pickLevel = BalanceModel.affordablePickLevel(goldPerPlayer * assumptions.PICK_AXE_GOLD_SHARE, input.pickPriceByLevel)
 		backpackLevel = BalanceModel.affordableLadderLevel(goldPerPlayer * assumptions.BACKPACK_GOLD_SHARE, input.backpack.priceByLevel)
 		bootsLevel = BalanceModel.affordableLadderLevel(goldPerPlayer * assumptions.BOOTS_GOLD_SHARE, input.boots.priceByLevel)
 		local postDps = input.postDps
 		local postLevel = 0
 		local postUpgrades = input.postUpgrades
+		local postIronSpent = 0
 		if postUpgrades ~= nil then
-			local damageLevel, rateLevel, _, cooldownLevel = BalanceModel.affordablePostLevels(goldPerPlayer * assumptions.POST_GOLD_SHARE, postUpgrades)
+			local damageLevel, rateLevel, spent, cooldownLevel = BalanceModel.affordablePostLevels(ironPerPlayer * assumptions.POST_IRON_SHARE, postUpgrades)
+			postIronSpent = spent
 			postDps *= (1 + postUpgrades.damageBonusPerLevel * damageLevel) * (1 + postUpgrades.fireRateBonusPerLevel * rateLevel) * BalanceModel.cooldownFactor(postUpgrades, cooldownLevel)
 			postLevel = damageLevel + rateLevel + cooldownLevel
 		end
@@ -571,7 +575,7 @@ function BalanceModel.simulate(input: Input): Result
 		local hpPerPoint, airShare = BalanceModel.expectedHpPerPoint(unlocked, input.monsterByKind, input.airTraversal)
 		local waveHp = budget * hpPerPoint * input.enemyHpMultiplier
 		local freeDps = crew * freeDpsPerPlayer * assumptions.WEAPON_UPTIME
-		local towerDps, towerCount = BalanceModel.planTowers(ironTotal * assumptions.DEFENSE_IRON_SHARE, input.towerKinds, input.towerByKind, input.maxTowers, input.towerAttackKinds)
+		local towerDps, towerCount = BalanceModel.planTowers(math.max(ironTotal - postIronSpent * crew, 0) * assumptions.DEFENSE_IRON_SHARE, input.towerKinds, input.towerByKind, input.maxTowers, input.towerAttackKinds)
 		towerDps *= assumptions.TOWER_COVERAGE
 		local clearWindowSec = input.spawnWindowSec + assumptions.CLEAR_SLACK_SEC
 		local requiredDps = waveHp / clearWindowSec

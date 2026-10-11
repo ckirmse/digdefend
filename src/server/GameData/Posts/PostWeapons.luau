@@ -9,8 +9,10 @@
 -- the faster rate the server refuses, so latency jitter never drops a
 -- legitimate shot. Every attribute can be upgraded four times; upgrade N
 -- adds BONUS_PER_LEVEL of the base stat (fire rate shortens the interval by
--- the same share) and costs UPGRADE_PRICE_BY_LEVEL[N] Gold Bars; the menu
--- opens at the Post Upgrade Table. A kind with a PROJECTILE block fires a rocket
+-- the same share) and costs UPGRADE_PRICE_BY_LEVEL[N] Iron Bars (M63,
+-- 2026-10-11: Gold buys mining and Iron buys defense, so a post rung is
+-- never weighed against a pick; Gold until then); the menu opens at the
+-- Post Upgrade Table. A kind with a PROJECTILE block fires a rocket
 -- instead of a hitscan ray: the server flies it in a straight line at
 -- SPEED and, where it first meets the world or a damageable, deals DAMAGE
 -- to everything within SPLASH_RADIUS_STUDS; RANGE_STUDS is how far it flies
@@ -39,12 +41,13 @@ return {
 	TABLE_PROMPT_ACTION_TEXT = "Upgrade Post",
 	TABLE_PROMPT_OBJECT_TEXT = "Post Table",
 	TABLE_PROMPT_MAX_DISTANCE_STUDS = 10,
-	-- a cheap first rung, then the pick axe's ladder (2026-09-29):
-	-- 15 / 30 / 60 / 120 maxed three attributes by day 7 in the seventh
-	-- playtest, before the run was half done; the first rung stays a
-	-- night-2 buy (the sheet's nights 2 and 3 hinge on it) and the rest
-	-- triple so the post is still climbing on the last night
-	UPGRADE_PRICE_BY_LEVEL = { 15, 90, 270, 800 },
+	-- Iron since M63 (2026-10-11; 15 / 90 / 270 / 800 Gold before, the pick
+	-- axe's ladder after a cheap first rung). Day 1 refines no Iron by
+	-- design, so night 1 is fought on bare posts and the first rung is a
+	-- day-2 buy from a day's Iron (solo about 19); the rest climb with the
+	-- fortification ladder (150 / 400 solo) so a post is still climbing on
+	-- the last night. First guess pending the designer's scan
+	UPGRADE_PRICE_BY_LEVEL = { 10, 40, 120, 300 },
 	BONUS_PER_LEVEL_BY_ATTRIBUTE = {
 		[Enums.PostAttribute.DAMAGE] = 0.25,
 		[Enums.PostAttribute.FIRE_RATE] = 0.2,

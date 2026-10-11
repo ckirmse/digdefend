@@ -28,7 +28,7 @@ export type HitBox = {
 }
 
 -- what the server publishes as GameMetadata (2026-10-01): entry N of the
--- price list is the Gold price of upgrade N, and its length is the cap
+-- price list is the Iron price of upgrade N (Gold before M63), and its length is the cap
 export type Catalog = {
 	upgradePriceByLevel: { number },
 	-- the share of the base stat each upgrade adds, by Enums.WeaponAttribute
@@ -158,7 +158,7 @@ function WeaponRules.statsFor(catalog: Catalog, kind: number, upgrades: Upgrades
 end
 
 -- what the next upgrade of one attribute would be; never locked, since
--- weapon upgrades are Gold only (GDD S12)
+-- weapon upgrades are Iron only since M63 (Gold before; GDD S12)
 function WeaponRules.getUpgradeOffer(catalog: Catalog, upgrades: Upgrades, attribute: number): Offer
 	local nextLevel = WeaponRules.upgradeLevel(upgrades, attribute) + 1
 	if nextLevel > WeaponRules.upgradeCap(catalog) then
@@ -175,8 +175,8 @@ function WeaponRules.getUpgradeOffer(catalog: Catalog, upgrades: Upgrades, attri
 	}
 end
 
-function WeaponRules.canAfford(gold: number, price: number): boolean
-	return gold >= price
+function WeaponRules.canAfford(balance: number, price: number): boolean
+	return balance >= price
 end
 
 -- JSON turns numeric keys into strings; the codecs turn them back

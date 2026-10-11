@@ -5,8 +5,8 @@
 -- table's prompt (Tags.WEAPON_UPGRADE_PROMPT) is the server's; when it
 -- fires here, this opens the WeaponUpgrade overlay: one row per attribute
 -- (Damage, Ammo, Range) with four pips, one filled per upgrade bought, and
--- a button showing the Gold price, gone when maxed. Everything is drawn from the catalogue in
--- GameMetadata, the upgrade counts on CurrentPlayer, and the Gold
+-- a button showing the Iron price, gone when maxed. Everything is drawn from the catalogue in
+-- GameMetadata, the upgrade counts on CurrentPlayer, and the Iron
 -- balance; a tap sends TryUpgradeWeapon and the server decides. The menu
 -- is the same build as the post one, so the two read alike.
 local CollectionService = game:GetService("CollectionService")
@@ -61,7 +61,7 @@ local NOTIFY_WEAPON_UPGRADED_SHAPE = {
 
 local TITLE_FORMAT = "Upgrade %s"
 local MAXED_TEXT = "MAX"
-local FEEDBACK_NOT_ENOUGH_GOLD = "Not enough Gold"
+local FEEDBACK_NOT_ENOUGH_IRON = "Not enough Iron"
 
 local function readNumber(value: any, default: number): number
 	return if typeof(value) == "number" then value else default
@@ -75,7 +75,7 @@ function ClientWeaponUpgradeManager:getOwnUpgrades(): WeaponRules.Upgrades
 	return upgrades
 end
 
-function ClientWeaponUpgradeManager:renderRow(row: Row, catalog: WeaponRules.Catalog, upgrades: WeaponRules.Upgrades, gold: number)
+function ClientWeaponUpgradeManager:renderRow(row: Row, catalog: WeaponRules.Catalog, upgrades: WeaponRules.Upgrades, iron: number)
 	local offer = WeaponRules.getUpgradeOffer(catalog, upgrades, row.attribute)
 	local level = WeaponRules.upgradeLevel(upgrades, row.attribute)
 	for index, pip in row.pips do
@@ -95,11 +95,11 @@ function ClientWeaponUpgradeManager:renderRow(row: Row, catalog: WeaponRules.Cat
 			row.priceLabel.TextColor3 = UiStyle.TEXT_COLOR
 		else
 			row.priceLabel.Text = tostring(price)
-			row.priceLabel.TextColor3 = if not WeaponRules.canAfford(gold, price) then UiStyle.NEGATIVE_COLOR else UiStyle.ACCENT_STROKE_COLOR
+			row.priceLabel.TextColor3 = if not WeaponRules.canAfford(iron, price) then UiStyle.NEGATIVE_COLOR else UiStyle.ACCENT_STROKE_COLOR
 		end
 	end
 	if row.resourceIcon then
-		local imageId = Icons.REFINED_RESOURCE[Enums.RefinedResource.GOLD_BAR]
+		local imageId = Icons.REFINED_RESOURCE[Enums.RefinedResource.IRON_BAR]
 		row.resourceIcon.Image = if Icons.isPlaceholder(imageId) then "" else imageId
 		row.resourceIcon.Visible = not isMaxed
 	end
@@ -115,9 +115,9 @@ function ClientWeaponUpgradeManager:renderMenu()
 		self.titleLabel.Text = UiStyle.formatTitle(string.format(TITLE_FORMAT, Enums.getPublicName(Enums.WeaponKind, kind) or "Weapon"))
 	end
 	local upgrades = self:getOwnUpgrades()
-	local gold = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_GOLD_BARS), 0)
+	local iron = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_IRON_BARS), 0)
 	for _, row in self.rows do
-		self:renderRow(row, catalog, upgrades, gold)
+		self:renderRow(row, catalog, upgrades, iron)
 	end
 end
 
@@ -153,10 +153,10 @@ function ClientWeaponUpgradeManager:requestUpgrade(attribute: number)
 	local catalog = WeaponRules.decodeCatalog(ClientDataManager:getGameMetadata(Attributes.WEAPON_CATALOG))
 	if catalog then
 		local offer = WeaponRules.getUpgradeOffer(catalog, self:getOwnUpgrades(), attribute)
-		local gold = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_GOLD_BARS), 0)
-		if offer.status == Enums.StoreOffer.AVAILABLE and not WeaponRules.canAfford(gold, offer.price or 0) then
+		local iron = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_IRON_BARS), 0)
+		if offer.status == Enums.StoreOffer.AVAILABLE and not WeaponRules.canAfford(iron, offer.price or 0) then
 			ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
-			ClientPlayerFeedbackManager:giveLocal(FEEDBACK_NOT_ENOUGH_GOLD)
+			ClientPlayerFeedbackManager:giveLocal(FEEDBACK_NOT_ENOUGH_IRON)
 			return
 		end
 	end
@@ -258,7 +258,7 @@ function ClientWeaponUpgradeManager:init()
 			end
 		end
 	)
-	local watched = { Attributes.BALANCE_GOLD_BARS, Attributes.WEAPON_KIND }
+	local watched = { Attributes.BALANCE_IRON_BARS, Attributes.WEAPON_KIND }
 	for _, attributeName in WeaponRules.UPGRADE_ATTRIBUTE_BY_WEAPON_ATTRIBUTE do
 		table.insert(watched, attributeName)
 	end

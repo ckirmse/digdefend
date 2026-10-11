@@ -144,7 +144,10 @@ return {
 			-- first iron zone held one iron rock in nine and days 3 to 6 refined
 			-- two and a half times the third run's iron; 360 is the old second
 			-- zone's density (one in nineteen) and the old first-44-block supply
-			iron = 360,
+			-- about 12% more iron in every iron zone (M63, 2026-10-11): post and
+			-- weapon rungs now draw on Iron beside the towers, so the designer
+			-- asked for a slight raise (360 / 221 / 249 / 249 before)
+			iron = 400,
 			gold = 255,
 			uranium = 8,
 			-- 5 since 2026-10-08 (was 18 radius 1 holes): 5% of 6912 cells
@@ -159,7 +162,7 @@ return {
 			tierBias = 3.0,
 			-- 221 (2026-10-07, from 332): half again the pre-today supply at tier 3,
 			-- not 2.25x; the deeper zones keep their 2.25x for the late drought
-			iron = 221,
+			iron = 250,
 			gold = 234,
 			uranium = 9,
 			-- 9 since 2026-10-08 (was 24 radius 2 spheres of 32 cells): 5% of
@@ -174,7 +177,7 @@ return {
 			floorDrop = 12,
 			hardness = 4.0,
 			tierBias = 4.0,
-			iron = 249,
+			iron = 280,
 			gold = 180,
 			uranium = 14,
 			-- radius 2 at most in every zone (designer, 2026-10-07: rooms 12 to 20 studs across, never touching; a radius 3 room was 28 studs)
@@ -197,7 +200,7 @@ return {
 			hardness = 5.0,
 			-- tier 5 ore (2026-10-06): zone 5 pays for its harder rock
 			tierBias = 5.0,
-			iron = 249,
+			iron = 280,
 			gold = 180,
 			uranium = 362,
 			-- 15 since 2026-10-08 (was 30 spheres): 3.5% of 24960 cells

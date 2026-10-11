@@ -4,13 +4,14 @@
 -- Table in the defense building (decided 2026-10-01). Three attributes per
 -- weapon, four upgrades each, like a post weapon's menu: upgrade N adds
 -- BONUS_PER_LEVEL of the base stat (Ammo rounds to whole rounds) and costs
--- UPGRADE_PRICE_BY_LEVEL[N] Gold Bars. Weapon upgrades are Gold only and
--- never gated by Camp Level (GDD S12). They last the run, like a post's.
+-- UPGRADE_PRICE_BY_LEVEL[N] Iron Bars (M63, 2026-10-11: Gold buys mining
+-- and Iron buys defense; Gold until then). Weapon upgrades are never gated
+-- by Camp Level (GDD S12). They last the run, like a post's.
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 
 return {
-	-- the post ladder (2026-09-29), so the two menus read the same
-	UPGRADE_PRICE_BY_LEVEL = { 15, 90, 270, 800 },
+	-- the post ladder, so the two menus read the same (Iron since M63)
+	UPGRADE_PRICE_BY_LEVEL = { 10, 40, 120, 300 },
 	BONUS_PER_LEVEL_BY_ATTRIBUTE = {
 		[Enums.WeaponAttribute.DAMAGE] = 0.25,
 		-- a fifth of the magazine per level: the Rifle's 5 rounds become 6 / 7 / 8 / 9

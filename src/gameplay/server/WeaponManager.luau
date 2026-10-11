@@ -69,7 +69,7 @@ local TRY_UPGRADE_WEAPON_SHAPE = {
 local NO_HIT_ID = ""
 local MIN_DIRECTION_MAGNITUDE = 0.001
 
-local FEEDBACK_NOT_ENOUGH_GOLD = "Not enough Gold"
+local FEEDBACK_NOT_ENOUGH_IRON = "Not enough Iron"
 local FEEDBACK_MAXED = "Already maxed out"
 
 function WeaponManager:getWeaponData(weaponKind: number): WeaponRules.WeaponData?
@@ -217,8 +217,9 @@ function WeaponManager:fire(player: Player, origin: Vector3, direction: Vector3)
 	end
 end
 
--- one upgrade of one attribute, paid in Gold; the client refused what it
--- could see was refused, and this checks again
+-- one upgrade of one attribute, paid in Iron (M63: Gold buys mining, Iron
+-- buys defense); the client refused what it could see was refused, and
+-- this checks again
 function WeaponManager:upgrade(player: Player, attribute: number)
 	local state = self.stateByPlayer[player]
 	if not state or not GameController:isPlayerReady(player) then
@@ -230,11 +231,11 @@ function WeaponManager:upgrade(player: Player, attribute: number)
 		return
 	end
 	local price = offer.price
-	if not WeaponRules.canAfford(RefineryManager:getGoldBars(player), price) then
-		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_GOLD)
+	if not WeaponRules.canAfford(RefineryManager:getIronBars(player), price) then
+		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_IRON)
 		return
 	end
-	if not RefineryManager:spendGoldBars(player, price, `weapon {Enums.getPublicName(Enums.WeaponAttribute, attribute)} {offer.level}`) then
+	if not RefineryManager:spendIronBars(player, price, `weapon {Enums.getPublicName(Enums.WeaponAttribute, attribute)} {offer.level}`) then
 		return
 	end
 	state.upgrades[attribute] = offer.level
@@ -244,7 +245,7 @@ function WeaponManager:upgrade(player: Player, attribute: number)
 		level = offer.level,
 		price = price,
 	})
-	print(`[WeaponManager] {player.Name} upgraded weapon {Enums.getPublicName(Enums.WeaponAttribute, attribute)} to {offer.level} for {price} Gold`)
+	print(`[WeaponManager] {player.Name} upgraded weapon {Enums.getPublicName(Enums.WeaponAttribute, attribute)} to {offer.level} for {price} Iron`)
 end
 
 function WeaponManager:getNetHandlers()
