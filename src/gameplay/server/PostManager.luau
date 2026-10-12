@@ -34,6 +34,7 @@ local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local PostWeaponsData = require("@game/ServerScriptService/GameData/Posts/PostWeapons")
+local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -208,9 +209,7 @@ function PostManager:resolveWeaponKind(player: Player): number
 	if state.loadoutOverride and self:getWeaponData(state.loadoutOverride) then
 		return state.loadoutOverride
 	end
-	local playerData = GameController:getPlayerData(player)
-	local unlockName = if playerData then playerData:getLoadoutSlot(Enums.LoadoutSlot.POST) else nil
-	local kind = PostRules.resolveLoadoutPost(unlockName, PostWeaponsData.DEFAULT_POST_WEAPON)
+	local kind = CharacterManager:getGearKind(player, Enums.GearSlot.POST, PostWeaponsData.DEFAULT_POST_WEAPON)
 	if not self:getWeaponData(kind) then
 		warn(`PostManager: no GameData/Posts/PostWeapons entry for post weapon {kind}; using the default`)
 		kind = PostWeaponsData.DEFAULT_POST_WEAPON

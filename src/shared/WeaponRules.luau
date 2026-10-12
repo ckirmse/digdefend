@@ -230,18 +230,4 @@ function WeaponRules.templateNameFor(weaponKind: number): string
 	return TEMPLATE_PREFIX .. (Enums.getName(Enums.WeaponKind, weaponKind) or "?")
 end
 
--- the loadout saves an unlock name; either the enum key or the public name
--- finds the weapon, anything else is the default
-function WeaponRules.resolveLoadoutWeapon(unlockName: string?, defaultKind: number): number
-	if unlockName == nil or unlockName == "" then
-		return defaultKind
-	end
-	for _, kind in Enums.getAllValues(Enums.WeaponKind) do
-		if Enums.getName(Enums.WeaponKind, kind) == string.upper(unlockName) or Enums.getPublicName(Enums.WeaponKind, kind) == unlockName then
-			return kind
-		end
-	end
-	return defaultKind
-end
-
 return WeaponRules

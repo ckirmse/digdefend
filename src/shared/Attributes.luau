@@ -126,15 +126,30 @@ module = {
 	-- server time (GetServerTimeNow) the active pad timer expires; 0 when none;
 	-- clients count down locally from it
 	PAD_TIMER_END_TIME = "PadTimerEndTime",
-	-- on each HUD loadout slot frame: the Enums.LoadoutSlot value it shows
-	LOADOUT_SLOT = "LoadoutSlot",
 	-- CurrentPlayer (private)
 	DIAMONDS = "Diamonds",
-	LOADOUT_WEAPON = "LoadoutWeapon",
-	LOADOUT_POST = "LoadoutPost",
-	LOADOUT_DEFENSE_1 = "LoadoutDefense1",
-	LOADOUT_DEFENSE_2 = "LoadoutDefense2",
-	LOADOUT_DEFENSE_3 = "LoadoutDefense3",
+	-- the active character (M55), written by SplendidReplicationManager:
+	-- replicateCharacters from PlayerPublicSchema.buildCharacterAttributes;
+	-- the same set sits on each child of the CurrentPlayer.Characters folder
+	CHARACTER_ID = "CharacterId",
+	CHARACTER_NAME = "CharacterName",
+	CHARACTER_NIGHTS_SURVIVED = "CharacterNightsSurvived",
+	CHARACTER_WEAPON_KIND = "CharacterWeaponKind",
+	CHARACTER_WEAPON_STARS = "CharacterWeaponStars",
+	CHARACTER_POST_KIND = "CharacterPostKind",
+	CHARACTER_POST_STARS = "CharacterPostStars",
+	CHARACTER_TOWER_1_KIND = "CharacterTower1Kind",
+	CHARACTER_TOWER_1_STARS = "CharacterTower1Stars",
+	CHARACTER_TOWER_2_KIND = "CharacterTower2Kind",
+	CHARACTER_TOWER_2_STARS = "CharacterTower2Stars",
+	-- how many skill slots the character's Nights Survived has opened
+	CHARACTER_SKILL_SLOTS_OPEN = "CharacterSkillSlotsOpen",
+	-- JSON array of { skillId, rarity } in slot order (CharacterSchema codec)
+	CHARACTER_SKILLS = "CharacterSkills",
+	-- JSON of Enums.CosmeticSlot key name to skin id (M61)
+	CHARACTER_COSMETICS = "CharacterCosmetics",
+	-- on the Characters folder: the id of the character the player brings
+	ACTIVE_CHARACTER_ID = "ActiveCharacterId",
 	DAILY_REWARD_LAST_CLAIMED_DAY = "DailyRewardLastClaimedDay",
 	DAILY_REWARD_NEXT_CLAIM_TIME = "DailyRewardNextClaimTime",
 	-- on each structure shadow part (StructureManager, M23): what it is and

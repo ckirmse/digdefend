@@ -10,6 +10,7 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local PlayerControlData = require("@game/ServerScriptService/GameData/Control/Player")
 local ProfileStore = require(script.Parent.Libs.ProfileStore)
+local CharacterManager = require(script.Parent.CharacterManager)
 local DevTools = require(script.Parent.DevTools)
 local NetManager = require(script.Parent.NetManager)
 local PlayerData = require(script.Parent.PlayerData)
@@ -338,8 +339,13 @@ function GameController:init()
 	self.splendidReplicationManager = SplendidReplicationManager
 	SplendidReplicationManager:init(self)
 
+	-- the record of truth for a player's characters is PlayerData; this
+	-- manager is the one writer, so every change is replicated (M55)
+	self.characterManager = CharacterManager
+	CharacterManager:init(self, SplendidReplicationManager)
+
 	self.devTools = DevTools
-	DevTools:init(self, SplendidReplicationManager)
+	DevTools:init(self, SplendidReplicationManager, CharacterManager)
 
 	self.playerFeedbackManager = PlayerFeedbackManager
 

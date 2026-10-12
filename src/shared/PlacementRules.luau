@@ -638,28 +638,6 @@ function PlacementRules.cycleTargetPriority(current: number, direction: number):
 	return values[(index - 1 + direction) % count + 1]
 end
 
--- the loadout saves unlock names; either the enum key or the public name
--- finds a Tower, anything else is skipped, and an empty result is the
--- default Tower alone. Duplicates collapse to one entry
-function PlacementRules.resolveLoadoutTowers(unlockNames: { string? }, defaultKind: number): { number }
-	local kinds: { number } = {}
-	for _, unlockName in unlockNames do
-		if unlockName == nil or unlockName == "" then
-			continue
-		end
-		for _, kind in Enums.getAllValues(Enums.TowerKind) do
-			local isMatch = Enums.getName(Enums.TowerKind, kind) == string.upper(unlockName) or Enums.getPublicName(Enums.TowerKind, kind) == unlockName
-			if isMatch and not table.find(kinds, kind) then
-				table.insert(kinds, kind)
-			end
-		end
-	end
-	if #kinds == 0 then
-		table.insert(kinds, defaultKind)
-	end
-	return kinds
-end
-
 function PlacementRules.encodeTowerLoadout(kinds: { number }): string
 	return HttpService:JSONEncode(kinds)
 end

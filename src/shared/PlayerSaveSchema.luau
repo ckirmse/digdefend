@@ -4,6 +4,7 @@
 -- data out, so it is unit-testable and PlayerData (the sole owner of the live
 -- record) stays thin. Adding a save field = a type entry, a default, and a
 -- validation rule here, plus coverage in the reset-player dev tool contract.
+local CharacterSchema = require(script.Parent.CharacterSchema)
 local CompletionKeys = require(script.Parent.CompletionKeys)
 local Enums = require(script.Parent.Enums)
 local Validate = require(script.Parent.Validate)
@@ -24,10 +25,13 @@ export type DailyRewardSave = {
 
 export type SaveData = {
 	diamonds: number,
-	-- set of owned unlock names (weapons, posts, defenses)
-	ownedUnlocks: { [string]: boolean },
-	-- LoadoutSlot key name -> equipped unlock name; absent when the slot is empty
-	loadout: { [string]: string },
+	-- the player's characters in slot order (M55); every player has at
+	-- least one, and a character is named by its id, never its position.
+	-- The bought-unlock `ownedUnlocks` and `loadout` fields went with the
+	-- Character redesign on 2026-10-12: the character brings its gear
+	characters: { CharacterSchema.CharacterSave },
+	-- the id of the character the player brings on the next run
+	activeCharacterId: string,
 	-- set of CompletionKeys ("MAP/DIFFICULTY")
 	completions: { [string]: boolean },
 	dailyReward: DailyRewardSave,
@@ -42,6 +46,10 @@ export type SaveData = {
 
 export type Defaults = {
 	startingDiamonds: number,
+	character: CharacterSchema.Defaults,
+	maxCharacters: number,
+	-- makes a fresh character id; handed in so the schema stays pure
+	generateId: () -> string,
 }
 
 -- only the newest receipts are kept: Roblox retries a receipt for days at
@@ -59,11 +67,17 @@ function PlayerSaveSchema.getDefaultReviveCredits(): { [string]: number }
 	return credits
 end
 
+-- the empty character a new slot holds, named for its position
+function PlayerSaveSchema.makeDefaultCharacter(defaults: Defaults, index: number): CharacterSchema.CharacterSave
+	return CharacterSchema.getDefault(defaults.character, defaults.generateId(), CharacterSchema.makeDefaultName(defaults.character, index))
+end
+
 function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
+	local firstCharacter = PlayerSaveSchema.makeDefaultCharacter(defaults, 1)
 	return {
 		diamonds = defaults.startingDiamonds,
-		ownedUnlocks = {},
-		loadout = {},
+		characters = { firstCharacter },
+		activeCharacterId = firstCharacter.id,
 		completions = {},
 		dailyReward = {
 			lastClaimedDay = 0,
@@ -80,36 +94,62 @@ function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 	}
 end
 
-local function validateStringSet(data: any, field: string, repairs: { Repair })
-	if typeof(data[field]) ~= "table" then
-		data[field] = {}
-		table.insert(repairs, field .. " reset")
+-- every record repaired by CharacterSchema in list order; a record that
+-- cannot be repaired, a duplicate id, or one past the cap is dropped, and a
+-- player is never left without a character
+local function validateCharacters(data: any, defaults: Defaults, repairs: { Repair })
+	if typeof(data.characters) ~= "table" then
+		data.characters = { PlayerSaveSchema.makeDefaultCharacter(defaults, 1) }
+		table.insert(repairs, "characters reset")
 		return
 	end
-	for key, value in data[field] do
-		if typeof(key) ~= "string" or key == "" or value ~= true then
-			data[field][key] = nil
-			table.insert(repairs, field .. " dropped entry " .. tostring(key))
+	local kept: { CharacterSchema.CharacterSave } = {}
+	local seenIds: { [string]: boolean } = {}
+	local isRepaired = false
+	for key, record in data.characters do
+		if typeof(key) ~= "number" then
+			table.insert(repairs, "characters dropped entry " .. tostring(key))
+			isRepaired = true
+			continue
 		end
+		local position = #kept + 1
+		local prefix = "characters[" .. tostring(key) .. "]."
+		local validated = CharacterSchema.validate(record, defaults.character, CharacterSchema.makeDefaultName(defaults.character, position), prefix, repairs)
+		if not validated then
+			isRepaired = true
+			continue
+		end
+		if seenIds[validated.id] then
+			table.insert(repairs, prefix .. "dropped: duplicate id")
+			isRepaired = true
+			continue
+		end
+		if position > defaults.maxCharacters then
+			table.insert(repairs, prefix .. "dropped: over the character cap")
+			isRepaired = true
+			continue
+		end
+		seenIds[validated.id] = true
+		table.insert(kept, validated)
+	end
+	if #kept == 0 then
+		table.insert(kept, PlayerSaveSchema.makeDefaultCharacter(defaults, 1))
+		table.insert(repairs, "characters refilled with a new character")
+		isRepaired = true
+	end
+	if isRepaired then
+		data.characters = kept
 	end
 end
 
-local function validateLoadout(data: any, repairs: { Repair })
-	if typeof(data.loadout) ~= "table" then
-		data.loadout = {}
-		table.insert(repairs, "loadout reset")
-		return
-	end
-	for slotName, unlockName in data.loadout do
-		if Enums.getValueByName(Enums.LoadoutSlot, slotName) == nil
-			or typeof(unlockName) ~= "string"
-			or unlockName == ""
-			or data.ownedUnlocks[unlockName] ~= true
-		then
-			data.loadout[slotName] = nil
-			table.insert(repairs, "loadout dropped slot " .. tostring(slotName))
+local function validateActiveCharacterId(data: any, repairs: { Repair })
+	for _, record in data.characters do
+		if record.id == data.activeCharacterId then
+			return
 		end
 	end
+	data.activeCharacterId = data.characters[1].id
+	table.insert(repairs, "activeCharacterId reset")
 end
 
 local function validateCompletions(data: any, repairs: { Repair })
@@ -213,9 +253,9 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 		table.insert(repairs, "diamonds reset")
 	end
 
-	-- ownedUnlocks before loadout: an equipped item must be owned
-	validateStringSet(data, "ownedUnlocks", repairs)
-	validateLoadout(data, repairs)
+	-- characters before the active id: the id must name a kept character
+	validateCharacters(data, defaults, repairs)
+	validateActiveCharacterId(data, repairs)
 	validateCompletions(data, repairs)
 
 	if typeof(data.dailyReward) ~= "table" then
@@ -240,7 +280,9 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 	validatePurchaseIds(data, repairs)
 	validateReviveCredits(data, repairs)
 
-	-- unknown top-level keys are dropped so a renamed field cannot linger forever
+	-- unknown top-level keys are dropped so a renamed field cannot linger
+	-- forever (the pre-M55 ownedUnlocks and loadout go this way: only the
+	-- starting Rifle and Machine Gun ever existed, so nothing is lost)
 	local knownFields = defaultData :: any
 	for key in data do
 		if knownFields[key] == nil then

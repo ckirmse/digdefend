@@ -42,6 +42,7 @@ local StructuresData = require("@game/ServerScriptService/GameData/Camp/Structur
 local PlacementData = require("@game/ServerScriptService/GameData/Defenses/Placement")
 local TowersData = require("@game/ServerScriptService/GameData/Defenses/Towers")
 local TrapsData = require("@game/ServerScriptService/GameData/Defenses/Traps")
+local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -179,7 +180,7 @@ function PlacementManager:getPlayerState(player: Player): PlayerState
 	return state
 end
 
--- dev tools: stands in for the three Defense loadout slots
+-- dev tools: stands in for the character's Tower rows
 function PlacementManager:setLoadoutOverride(player: Player, kinds: { number }?)
 	self:getPlayerState(player).loadoutOverride = kinds
 	self:replicatePlayer(player)
@@ -191,12 +192,14 @@ function PlacementManager:resolveTowerLoadout(player: Player): { number }
 	if override and #override > 0 then
 		return override
 	end
-	local playerData = GameController:getPlayerData(player)
-	local names: { string? } = {}
-	for _, slot in { Enums.LoadoutSlot.DEFENSE_1, Enums.LoadoutSlot.DEFENSE_2, Enums.LoadoutSlot.DEFENSE_3 } do
-		table.insert(names, if playerData then playerData:getLoadoutSlot(slot) else nil)
+	-- the character's two Tower rows (GDD "Characters", 2026-10-12); the
+	-- same kind in both rows is offered once
+	local kinds = { CharacterManager:getGearKind(player, Enums.GearSlot.TOWER_1, TowersData.DEFAULT_TOWER) }
+	local second = CharacterManager:getGearKind(player, Enums.GearSlot.TOWER_2, TowersData.DEFAULT_SECOND_TOWER)
+	if not table.find(kinds, second) then
+		table.insert(kinds, second)
 	end
-	return PlacementRules.resolveLoadoutTowers(names, TowersData.DEFAULT_TOWER)
+	return kinds
 end
 
 function PlacementManager:countActiveTowers(player: Player): number

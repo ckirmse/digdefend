@@ -9,6 +9,7 @@ local UserInputService = game:GetService("UserInputService")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local BakedIconUtil = require("@game/ReplicatedStorage/Shared/BakedIconUtil")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local IconFramingFormat = require("@game/ReplicatedStorage/Shared/IconFramingFormat")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local Iris = require(script.Parent.Iris)
@@ -34,6 +35,15 @@ export type ClientDevTools = typeof(setmetatable(
 		iconFramingSize: any,
 		confirmReset: any,
 		diamondsInput: any,
+		-- the Character section (M55): Iris states for its inputs
+		characterNightsInput: any,
+		characterGearSlotInput: any,
+		characterGearKindInput: any,
+		characterGearStarsInput: any,
+		characterSkillSlotInput: any,
+		characterSkillIdInput: any,
+		characterSkillRarityInput: any,
+		characterNameInput: any,
 		framingAssetOption: any,
 		framingAssetOptions: { string },
 		framingYaw: any,
@@ -378,11 +388,103 @@ function ClientDevTools:openTestMenu()
 	ClientOverlayManager:notifyBeginOverlay(overlay)
 end
 
+local function sendDevTool(command: string, args: { [string]: any }?)
+	ClientNetManager:fireServer(
+		NetEventNames.TRY_DEV_TOOL,
+		{
+			command = command,
+			args = args,
+		}
+	)
+end
+
+-- the active character's record and the setters the Character Menu will
+-- own (M37, M57); kinds and rarities are typed as enum values
+function ClientDevTools:renderCharacterSection()
+	local character = ClientDataManager:getActiveCharacter()
+	if not character then
+		return
+	end
+	Iris.Text({ `Character: {character.name} ({string.sub(character.id, 1, 8)})` })
+	Iris.Text({ `Nights survived: {character.nightsSurvived}, skill slots open: {character.skillSlotsOpen}` })
+	for _, gearSlot in Enums.getAllValues(Enums.GearSlot) do
+		local gear = character.gear[gearSlot]
+		Iris.Text({ `{Enums.getName(Enums.GearSlot, gearSlot)}: kind {gear.kind} x{gear.stars}` })
+	end
+	for slot = 1, character.skillSlotsOpen do
+		local skill = character.skills[tostring(slot)]
+		Iris.Text({ `Skill {slot}: {if skill then skill.skillId .. " (" .. tostring(skill.rarity) .. ")" else "empty"}` })
+	end
+
+	Iris.InputNum({ "Nights survived", 1, 0 }, { number = self.characterNightsInput })
+	if Iris.Button({ "Set nights survived" }).clicked() then
+		sendDevTool("setCharacterNights", { nightsSurvived = math.max(0, math.floor(self.characterNightsInput:get())) })
+	end
+
+	Iris.InputNum({ "Gear slot (1 weapon, 2 post, 3-4 towers)", 1, 1, 4 }, { number = self.characterGearSlotInput })
+	Iris.InputNum({ "Gear kind (enum value)", 1, 1 }, { number = self.characterGearKindInput })
+	Iris.InputNum({ "Gear stars", 1, 1, 5 }, { number = self.characterGearStarsInput })
+	if Iris.Button({ "Set gear" }).clicked() then
+		sendDevTool(
+			"setCharacterGear",
+			{
+				gearSlot = math.floor(self.characterGearSlotInput:get()),
+				kind = math.floor(self.characterGearKindInput:get()),
+				stars = math.floor(self.characterGearStarsInput:get()),
+			}
+		)
+	end
+
+	Iris.InputNum({ "Skill slot", 1, 1, 3 }, { number = self.characterSkillSlotInput })
+	Iris.InputText({ "Skill id" }, { text = self.characterSkillIdInput })
+	Iris.InputNum({ "Skill rarity (1 common to 4 legendary)", 1, 1, 4 }, { number = self.characterSkillRarityInput })
+	if Iris.Button({ "Set skill" }).clicked() then
+		sendDevTool(
+			"setCharacterSkill",
+			{
+				slot = math.floor(self.characterSkillSlotInput:get()),
+				skillId = self.characterSkillIdInput:get(),
+				rarity = math.floor(self.characterSkillRarityInput:get()),
+			}
+		)
+	end
+	if Iris.Button({ "Clear skill slot" }).clicked() then
+		sendDevTool("setCharacterSkill", { slot = math.floor(self.characterSkillSlotInput:get()) })
+	end
+
+	Iris.InputText({ "Character name" }, { text = self.characterNameInput })
+	if Iris.Button({ "Rename character" }).clicked() then
+		sendDevTool("renameCharacter", { name = self.characterNameInput:get() })
+	end
+
+	if Iris.Button({ "Add character" }).clicked() then
+		sendDevTool("addCharacter", {})
+	end
+	-- the pick cycles through the list so every card can be made active
+	if Iris.Button({ "Next character" }).clicked() then
+		local characters = ClientDataManager:getCharacters()
+		table.sort(
+			characters,
+			function(a, b)
+				return a.id < b.id
+			end
+		)
+		local activeId = ClientDataManager:getActiveCharacterId()
+		for index, entry in characters do
+			if entry.id == activeId then
+				local nextEntry = characters[index % #characters + 1]
+				sendDevTool("setActiveCharacter", { characterId = nextEntry.id })
+				break
+			end
+		end
+	end
+end
+
 function ClientDevTools:renderMenuWindow()
 	Iris.Window({ "Dev Tools" }, { size = self.menuSize, isOpened = self.showMenu })
 
 	Iris.Text({ "Diamonds: " .. tostring(ClientDataManager:getDiamonds()) })
-	Iris.Text({ "Owned unlocks: " .. tostring(#ClientDataManager:getOwnedUnlockNames()) })
+	Iris.Text({ "Characters: " .. tostring(#ClientDataManager:getCharacters()) })
 	if Iris.Button({ "Players in Server" }).clicked() then
 		self:toggleWindow(self.showPlayers, self.playersSize)
 	end
@@ -425,6 +527,9 @@ function ClientDevTools:renderMenuWindow()
 			}
 		)
 	end
+
+	Iris.Separator()
+	self:renderCharacterSection()
 
 	Iris.Separator()
 	Iris.Checkbox({ "Confirm full reset" }, { isChecked = self.confirmReset })
@@ -529,6 +634,14 @@ function ClientDevTools:init()
 	self.framingDistance = Iris.State(5)
 	self.framingHeight = Iris.State(0)
 	self.framingFov = Iris.State(30)
+	self.characterNightsInput = Iris.State(0)
+	self.characterGearSlotInput = Iris.State(1)
+	self.characterGearKindInput = Iris.State(1)
+	self.characterGearStarsInput = Iris.State(1)
+	self.characterSkillSlotInput = Iris.State(1)
+	self.characterSkillIdInput = Iris.State("GOLD_DIGGER")
+	self.characterSkillRarityInput = Iris.State(1)
+	self.characterNameInput = Iris.State("")
 
 	UserInputService.InputBegan:Connect(
 		function(input: InputObject, isGameProcessed: boolean)
@@ -564,6 +677,14 @@ function ClientDevTools.new(): ClientDevTools
 	self.iconFramingSize = nil
 	self.confirmReset = nil
 	self.diamondsInput = nil
+	self.characterNightsInput = nil
+	self.characterGearSlotInput = nil
+	self.characterGearKindInput = nil
+	self.characterGearStarsInput = nil
+	self.characterSkillSlotInput = nil
+	self.characterSkillIdInput = nil
+	self.characterSkillRarityInput = nil
+	self.characterNameInput = nil
 	self.framingAssetOption = nil
 	self.framingAssetOptions = {}
 	self.framingYaw = nil

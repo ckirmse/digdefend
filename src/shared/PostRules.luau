@@ -395,20 +395,6 @@ function PostRules.templateNameFor(kind: number): string
 	return Enums.getName(Enums.PostWeaponKind, kind) or "?"
 end
 
--- the loadout saves an unlock name; either the enum key or the public name
--- finds the kind, anything else is the default
-function PostRules.resolveLoadoutPost(unlockName: string?, defaultKind: number): number
-	if unlockName == nil or unlockName == "" then
-		return defaultKind
-	end
-	for _, kind in Enums.getAllValues(Enums.PostWeaponKind) do
-		if Enums.getName(Enums.PostWeaponKind, kind) == string.upper(unlockName) or Enums.getPublicName(Enums.PostWeaponKind, kind) == unlockName then
-			return kind
-		end
-	end
-	return defaultKind
-end
-
 -- "Post4" -> 4; nil for anything else
 function PostRules.postIndexFromName(name: string): number?
 	if name:sub(1, #Constants.POST_NAME_PREFIX) ~= Constants.POST_NAME_PREFIX then

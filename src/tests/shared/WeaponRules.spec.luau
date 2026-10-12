@@ -156,18 +156,6 @@ describe(
 				end
 			end
 		)
-
-		it(
-			"resolves a loadout name by key or public name and falls back to the default",
-			function()
-				local rifle = Enums.WeaponKind.RIFLE
-				expect(WeaponRules.resolveLoadoutWeapon("Rifle", rifle)).toBe(rifle)
-				expect(WeaponRules.resolveLoadoutWeapon("RIFLE", rifle)).toBe(rifle)
-				expect(WeaponRules.resolveLoadoutWeapon(nil, rifle)).toBe(rifle)
-				expect(WeaponRules.resolveLoadoutWeapon("", rifle)).toBe(rifle)
-				expect(WeaponRules.resolveLoadoutWeapon("Pistol", rifle)).toBe(rifle)
-			end
-		)
 	end
 )
 

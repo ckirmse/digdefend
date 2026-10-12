@@ -5,15 +5,56 @@ local describe = JestGlobals.describe
 local it = JestGlobals.it
 local expect = JestGlobals.expect
 
+local Enums = require(game:GetService("ReplicatedStorage").Shared.Enums)
 local PlayerSaveSchema = require(game:GetService("ReplicatedStorage").Shared.PlayerSaveSchema)
 
-local DEFAULTS = { startingDiamonds = 0 }
+local nextId = 0
+local function generateId()
+	nextId += 1
+	return "id" .. nextId
+end
+
+local DEFAULTS = {
+	startingDiamonds = 0,
+	character = {
+		defaultKindByGearSlot = {
+			[Enums.GearSlot.WEAPON] = Enums.WeaponKind.RIFLE,
+			[Enums.GearSlot.POST] = Enums.PostWeaponKind.MACHINE_GUN,
+			[Enums.GearSlot.TOWER_1] = Enums.TowerKind.SENTRY_GUN,
+			[Enums.GearSlot.TOWER_2] = Enums.TowerKind.FLAMETHROWER,
+		},
+		minStars = 1,
+		maxStars = 5,
+		skillSlotUnlockNights = { 0, 15, 50 },
+		validSkillIds = { GOLD_DIGGER = true },
+		maxNameLength = 20,
+		defaultNamePrefix = "Character ",
+	},
+	maxCharacters = 3,
+	generateId = generateId,
+}
+
+local function makeCharacter(id, name)
+	return {
+		id = id,
+		name = name,
+		nightsSurvived = 4,
+		gear = {
+			WEAPON = { kind = "RIFLE", stars = 2 },
+			POST = { kind = "MACHINE_GUN", stars = 1 },
+			TOWER_1 = { kind = "SENTRY_GUN", stars = 1 },
+			TOWER_2 = { kind = "FLAMETHROWER", stars = 1 },
+		},
+		skills = { ["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.SkillRarity.COMMON } },
+		cosmetics = {},
+	}
+end
 
 local function makeValidSave()
 	return {
 		diamonds = 250,
-		ownedUnlocks = { Pistol = true, Turret = true },
-		loadout = { WEAPON = "Pistol", POST = "Turret" },
+		characters = { makeCharacter("a", "Ada"), makeCharacter("b", "Bob") },
+		activeCharacterId = "b",
 		completions = { ["DEADMANS_CANYON/NORMAL"] = true },
 		dailyReward = { lastClaimedDay = 3, nextClaimTime = 1700000000 },
 		sessionMeta = { creationTime = 1690000000, sessions = 4, totalPlaySec = 3600, saveTime = 1700000000 },
@@ -26,12 +67,22 @@ describe(
 	"PlayerSaveSchema.getDefault",
 	function()
 		it(
-			"starts a new player with the configured diamonds and nothing else",
+			"starts a new player with the configured diamonds and one empty character",
 			function()
-				local data = PlayerSaveSchema.getDefault({ startingDiamonds = 50 })
+				local data = PlayerSaveSchema.getDefault({
+					startingDiamonds = 50,
+					character = DEFAULTS.character,
+					maxCharacters = 3,
+					generateId = function()
+						return "fresh"
+					end,
+				})
 				expect(data.diamonds).toBe(50)
-				expect(data.ownedUnlocks).toEqual({})
-				expect(data.loadout).toEqual({})
+				expect(#data.characters).toBe(1)
+				expect(data.characters[1].id).toBe("fresh")
+				expect(data.characters[1].name).toBe("Character 1")
+				expect(data.characters[1].nightsSurvived).toBe(0)
+				expect(data.activeCharacterId).toBe("fresh")
 				expect(data.completions).toEqual({})
 				expect(data.dailyReward).toEqual({ lastClaimedDay = 0, nextClaimTime = 0 })
 				expect(data.sessionMeta.sessions).toBe(0)
@@ -65,7 +116,8 @@ describe(
 			"replaces a non-table save with defaults",
 			function()
 				local validated, repairs = PlayerSaveSchema.validate("garbage", DEFAULTS)
-				expect(validated).toEqual(PlayerSaveSchema.getDefault(DEFAULTS))
+				expect(validated.diamonds).toBe(0)
+				expect(#validated.characters).toBe(1)
 				expect(#repairs).toBe(1)
 			end
 		)
@@ -84,29 +136,78 @@ describe(
 		)
 
 		it(
-			"drops corrupt unlock entries and keeps good ones",
+			"drops characters that cannot be repaired, duplicates, and non-list entries",
 			function()
 				local save = makeValidSave()
-				save.ownedUnlocks = { Pistol = true, Rifle = false, [7] = true, [""] = true }
-				save.loadout = {}
-				local validated = PlayerSaveSchema.validate(save, DEFAULTS)
-				expect(validated.ownedUnlocks).toEqual({ Pistol = true })
+				save.characters = {
+					makeCharacter("a", "Ada"),
+					"junk",
+					makeCharacter("a", "Twin"),
+					makeCharacter("c", "Cid"),
+					extra = makeCharacter("d", "Dee"),
+				}
+				save.activeCharacterId = "c"
+				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
+				expect(#validated.characters).toBe(2)
+				expect(validated.characters[1].id).toBe("a")
+				expect(validated.characters[2].id).toBe("c")
+				expect(validated.activeCharacterId).toBe("c")
+				expect(#repairs).toBe(3)
 			end
 		)
 
 		it(
-			"drops loadout slots that are unknown, empty, or not owned",
+			"names a repaired character for its kept position",
 			function()
 				local save = makeValidSave()
-				save.loadout = {
-					WEAPON = "Pistol",
-					POST = "NotOwned",
-					DEFENSE_1 = "",
-					HAT = "Pistol",
-					DEFENSE_2 = 5,
-				}
+				save.characters = { "junk", makeCharacter("z", "") }
 				local validated = PlayerSaveSchema.validate(save, DEFAULTS)
-				expect(validated.loadout).toEqual({ WEAPON = "Pistol" })
+				expect(validated.characters[1].name).toBe("Character 1")
+			end
+		)
+
+		it(
+			"trims characters past the cap and keeps the first ones",
+			function()
+				local save = makeValidSave()
+				save.characters = { makeCharacter("a", "A"), makeCharacter("b", "B"), makeCharacter("c", "C"), makeCharacter("d", "D") }
+				save.activeCharacterId = "d"
+				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
+				expect(#validated.characters).toBe(3)
+				expect(validated.characters[3].id).toBe("c")
+				expect(validated.activeCharacterId).toBe("a")
+				expect(#repairs).toBe(2)
+			end
+		)
+
+		it(
+			"never leaves a player without a character",
+			function()
+				local save = makeValidSave()
+				save.characters = {}
+				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
+				expect(#validated.characters).toBe(1)
+				expect(validated.characters[1].nightsSurvived).toBe(0)
+				expect(validated.activeCharacterId).toBe(validated.characters[1].id)
+				expect(#repairs).toBe(2)
+
+				local missing = makeValidSave()
+				missing.characters = nil
+				local refilled = PlayerSaveSchema.validate(missing, DEFAULTS)
+				expect(#refilled.characters).toBe(1)
+			end
+		)
+
+		it(
+			"points a stale active id at the first character",
+			function()
+				for _, badId in { "nobody", 7, nil } do
+					local save = makeValidSave()
+					save.activeCharacterId = badId
+					local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
+					expect(validated.activeCharacterId).toBe("a")
+					expect(#repairs).toBe(1)
+				end
 			end
 		)
 
@@ -146,14 +247,14 @@ describe(
 		)
 
 		it(
-			"drops unknown top-level fields",
+			"drops unknown top-level fields, the pre-M55 loadout among them",
 			function()
 				local save = makeValidSave()
-				save.xp = 400
-				save.level = 7
+				save.ownedUnlocks = { RIFLE = true }
+				save.loadout = { WEAPON = "RIFLE" }
 				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
-				expect(validated.xp).toBeNil()
-				expect(validated.level).toBeNil()
+				expect(validated.ownedUnlocks).toBeNil()
+				expect(validated.loadout).toBeNil()
 				expect(#repairs).toBe(2)
 			end
 		)
@@ -163,8 +264,8 @@ describe(
 			function()
 				local validated, repairs = PlayerSaveSchema.validate({ diamonds = 10 }, DEFAULTS)
 				expect(validated.diamonds).toBe(10)
-				expect(validated.ownedUnlocks).toEqual({})
-				expect(validated.loadout).toEqual({})
+				expect(#validated.characters).toBe(1)
+				expect(validated.activeCharacterId).toBe(validated.characters[1].id)
 				expect(validated.completions).toEqual({})
 				expect(validated.sessionMeta.sessions).toBe(0)
 				expect(validated.processedPurchaseIds).toEqual({})

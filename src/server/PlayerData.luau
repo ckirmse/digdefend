@@ -4,7 +4,16 @@
 -- touches ProfileStore. Managers implement business logic; PlayerData is the
 -- record of what is true for this player. The lifecycle lives here too, so a
 -- system asking "may I act on this player" asks one object.
+local HttpService = game:GetService("HttpService")
+
+local ProgressionData = require("@game/ServerScriptService/GameData/Characters/Progression")
+local SkillsData = require("@game/ServerScriptService/GameData/Characters/Skills")
+local StarsData = require("@game/ServerScriptService/GameData/Characters/Stars")
 local PlayerControlData = require("@game/ServerScriptService/GameData/Control/Player")
+local TowersData = require("@game/ServerScriptService/GameData/Defenses/Towers")
+local PostWeaponsData = require("@game/ServerScriptService/GameData/Posts/PostWeapons")
+local HandheldData = require("@game/ServerScriptService/GameData/Weapons/Handheld")
+local CharacterSchema = require("@game/ReplicatedStorage/Shared/CharacterSchema")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local PlayerSaveSchema = require("@game/ReplicatedStorage/Shared/PlayerSaveSchema")
 local utils = require("@game/ReplicatedStorage/Shared/utils")
@@ -13,6 +22,7 @@ local PlayerData = {}
 PlayerData.__index = PlayerData
 
 export type SaveData = PlayerSaveSchema.SaveData
+export type CharacterSave = CharacterSchema.CharacterSave
 
 export type PlayerData = typeof(setmetatable(
 	{} :: {
@@ -23,8 +33,8 @@ export type PlayerData = typeof(setmetatable(
 		sessionStartTime: number,
 		isSaveOnExit: boolean,
 		diamonds: number,
-		ownedUnlocks: { [string]: boolean },
-		loadout: { [string]: string },
+		characters: { CharacterSave },
+		activeCharacterId: string,
 		completions: { [string]: boolean },
 		dailyReward: PlayerSaveSchema.DailyRewardSave,
 		sessionMeta: PlayerSaveSchema.SessionMetaSave,
@@ -38,8 +48,8 @@ export type PlayerData = typeof(setmetatable(
 -- adding a field here means adding it to PlayerSaveSchema too
 local SAVE_FIELDS = {
 	"diamonds",
-	"ownedUnlocks",
-	"loadout",
+	"characters",
+	"activeCharacterId",
 	"completions",
 	"dailyReward",
 	"sessionMeta",
@@ -47,12 +57,53 @@ local SAVE_FIELDS = {
 	"reviveCredits",
 }
 
+local function buildValidSkillIds(): { [string]: boolean }
+	local ids = {}
+	for id in SkillsData.BY_ID do
+		ids[id] = true
+	end
+	return ids
+end
+
+-- the GameData the pure schemas need, gathered once: the character shape
+-- (defaults, star bounds, slot thresholds, the skill catalogue's ids) and
+-- the account shape around it
+local CHARACTER_DEFAULTS: CharacterSchema.Defaults = {
+	defaultKindByGearSlot = {
+		[Enums.GearSlot.WEAPON] = HandheldData.DEFAULT_WEAPON,
+		[Enums.GearSlot.POST] = PostWeaponsData.DEFAULT_POST_WEAPON,
+		[Enums.GearSlot.TOWER_1] = TowersData.DEFAULT_TOWER,
+		[Enums.GearSlot.TOWER_2] = TowersData.DEFAULT_SECOND_TOWER,
+	},
+	minStars = StarsData.MIN_STARS,
+	maxStars = StarsData.MAX_STARS,
+	skillSlotUnlockNights = ProgressionData.SKILL_SLOT_UNLOCK_NIGHTS,
+	validSkillIds = buildValidSkillIds(),
+	maxNameLength = ProgressionData.MAX_NAME_LENGTH,
+	defaultNamePrefix = ProgressionData.DEFAULT_NAME_PREFIX,
+}
+
 local SCHEMA_DEFAULTS: PlayerSaveSchema.Defaults = {
 	startingDiamonds = PlayerControlData.STARTING_DIAMONDS,
+	character = CHARACTER_DEFAULTS,
+	maxCharacters = ProgressionData.MAX_CHARACTERS,
+	generateId = function()
+		return HttpService:GenerateGUID(false)
+	end,
 }
 
 function PlayerData.getDefaultSaveData(): SaveData
 	return PlayerSaveSchema.getDefault(SCHEMA_DEFAULTS)
+end
+
+-- the character shape's tuning, for managers that reason about a record
+-- (open skill slots, star bounds) without requiring GameData themselves
+function PlayerData.getCharacterDefaults(): CharacterSchema.Defaults
+	return CHARACTER_DEFAULTS
+end
+
+function PlayerData.getMaxCharacters(): number
+	return SCHEMA_DEFAULTS.maxCharacters
 end
 
 function PlayerData:validate(data: any): SaveData
@@ -162,43 +213,47 @@ function PlayerData:spendDiamonds(amount: number): boolean
 	return true
 end
 
-function PlayerData:hasUnlock(unlockName: string): boolean
-	return self.ownedUnlocks[unlockName] == true
+-- the live records, in slot order; callers mutate through CharacterManager
+-- so every change is replicated
+function PlayerData:getCharacters(): { CharacterSave }
+	return self.characters
 end
 
-function PlayerData:addUnlock(unlockName: string)
-	self.ownedUnlocks[unlockName] = true
-end
-
-function PlayerData:getOwnedUnlockNames(): { string }
-	local names = {}
-	for name in self.ownedUnlocks do
-		table.insert(names, name)
+function PlayerData:getCharacter(characterId: string): CharacterSave?
+	for _, record in self.characters do
+		if record.id == characterId then
+			return record
+		end
 	end
-	table.sort(names)
-	return names
+	return nil
 end
 
-function PlayerData:getLoadoutSlot(slot: number): string?
-	local slotName = Enums.getName(Enums.LoadoutSlot, slot)
-	if not slotName then
+function PlayerData:getActiveCharacterId(): string
+	return self.activeCharacterId
+end
+
+-- the schema guarantees the active id names a character, so this never
+-- returns nil for a loaded save
+function PlayerData:getActiveCharacter(): CharacterSave
+	return self:getCharacter(self.activeCharacterId) or self.characters[1]
+end
+
+function PlayerData:setActiveCharacterId(characterId: string): boolean
+	if not self:getCharacter(characterId) then
+		return false
+	end
+	self.activeCharacterId = characterId
+	return true
+end
+
+-- a new empty character in the next slot, or nil at the cap
+function PlayerData:addCharacter(): CharacterSave?
+	if #self.characters >= SCHEMA_DEFAULTS.maxCharacters then
 		return nil
 	end
-	return self.loadout[slotName]
-end
-
--- nil clears the slot; equipping requires ownership so a save never claims
--- an item the player lacks
-function PlayerData:setLoadoutSlot(slot: number, unlockName: string?): boolean
-	local slotName = Enums.getName(Enums.LoadoutSlot, slot)
-	if not slotName then
-		return false
-	end
-	if unlockName ~= nil and not self:hasUnlock(unlockName) then
-		return false
-	end
-	self.loadout[slotName] = unlockName
-	return true
+	local record = PlayerSaveSchema.makeDefaultCharacter(SCHEMA_DEFAULTS, #self.characters + 1)
+	table.insert(self.characters, record)
+	return record
 end
 
 function PlayerData:hasCompletion(completionKey: string): boolean
@@ -280,8 +335,8 @@ function PlayerData.new(player: Player): PlayerData
 	self.isSaveOnExit = true
 	local defaults = PlayerData.getDefaultSaveData()
 	self.diamonds = defaults.diamonds
-	self.ownedUnlocks = defaults.ownedUnlocks
-	self.loadout = defaults.loadout
+	self.characters = defaults.characters
+	self.activeCharacterId = defaults.activeCharacterId
 	self.completions = defaults.completions
 	self.dailyReward = defaults.dailyReward
 	self.sessionMeta = defaults.sessionMeta

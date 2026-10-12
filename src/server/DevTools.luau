@@ -3,6 +3,7 @@
 -- Server half of the admin-only dev tools. Every command arrives as
 -- TryDevTool { command, args }; the sender must be an admin and the command
 -- must be on the explicit allowlist below. Each command validates its own args.
+local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local DevToolCommands = require(script.Parent.DevToolCommands)
@@ -27,6 +28,7 @@ export type DevTools = typeof(setmetatable(
 
 local gameController: any -- prevent circular reference by not initializing here
 local splendidReplicationManager: any
+local characterManager: any
 
 local TRY_DEV_TOOL_SHAPE = {
 	command = "string",
@@ -40,6 +42,32 @@ local SEND_TEST_FEEDBACK_ARGS_SHAPE = {
 
 local SET_DIAMONDS_ARGS_SHAPE = {
 	diamonds = "nonnegativeInteger",
+}
+
+-- the character commands (M55) act on the active character; the lobby's
+-- Character Menu (M37, M57) replaces them for players
+local SET_CHARACTER_NIGHTS_ARGS_SHAPE = {
+	nightsSurvived = "nonnegativeInteger",
+}
+
+local SET_CHARACTER_GEAR_ARGS_SHAPE = {
+	gearSlot = { type = "enum", name = "GearSlot" },
+	kind = { type = "positiveInteger", optional = true },
+	stars = { type = "positiveInteger", optional = true },
+}
+
+local SET_CHARACTER_SKILL_ARGS_SHAPE = {
+	slot = "positiveInteger",
+	skillId = { type = "string", optional = true },
+	rarity = { type = "enum", name = "SkillRarity", optional = true },
+}
+
+local RENAME_CHARACTER_ARGS_SHAPE = {
+	name = "string",
+}
+
+local SET_ACTIVE_CHARACTER_ARGS_SHAPE = {
+	characterId = "string",
 }
 
 -- a method is client-callable only if named in DevToolCommands.NAMES; init()
@@ -132,7 +160,76 @@ function DevTools:setDiamonds(player: Player, args: { [string]: any })
 	PlayerFeedbackManager:give(player, "Diamonds set to " .. tostring(playerData:getDiamonds()))
 end
 
-function DevTools:init(gameControllerIn: any, splendidReplicationManagerIn: any)
+function DevTools:setCharacterNights(player: Player, args: { [string]: any })
+	local isValid, err = Validate.isTableShape(args, SET_CHARACTER_NIGHTS_ARGS_SHAPE)
+	if not isValid then
+		warn("DevTools: setCharacterNights with invalid args:", err)
+		return
+	end
+	if characterManager:setNightsSurvived(player, nil, args.nightsSurvived) then
+		PlayerFeedbackManager:give(player, "Nights survived set to " .. tostring(args.nightsSurvived))
+	end
+end
+
+function DevTools:setCharacterGear(player: Player, args: { [string]: any })
+	local isValid, err = Validate.isTableShape(args, SET_CHARACTER_GEAR_ARGS_SHAPE)
+	if not isValid then
+		warn("DevTools: setCharacterGear with invalid args:", err)
+		return
+	end
+	if characterManager:setGear(player, nil, args.gearSlot, args.kind, args.stars) then
+		PlayerFeedbackManager:give(player, Enums.getPublicName(Enums.GearSlot, args.gearSlot) .. " row updated")
+	else
+		PlayerFeedbackManager:give(player, "That gear kind or star count is not allowed")
+	end
+end
+
+function DevTools:setCharacterSkill(player: Player, args: { [string]: any })
+	local isValid, err = Validate.isTableShape(args, SET_CHARACTER_SKILL_ARGS_SHAPE)
+	if not isValid then
+		warn("DevTools: setCharacterSkill with invalid args:", err)
+		return
+	end
+	if characterManager:setSkill(player, nil, args.slot, args.skillId, args.rarity) then
+		PlayerFeedbackManager:give(player, "Skill slot " .. tostring(args.slot) .. " updated")
+	else
+		PlayerFeedbackManager:give(player, "That skill slot is closed or the skill is unknown")
+	end
+end
+
+function DevTools:renameCharacter(player: Player, args: { [string]: any })
+	local isValid, err = Validate.isTableShape(args, RENAME_CHARACTER_ARGS_SHAPE)
+	if not isValid then
+		warn("DevTools: renameCharacter with invalid args:", err)
+		return
+	end
+	if characterManager:renameCharacter(player, nil, args.name) then
+		PlayerFeedbackManager:give(player, "Character renamed")
+	end
+end
+
+function DevTools:addCharacter(player: Player, args: { [string]: any })
+	local record = characterManager:addCharacter(player)
+	if record then
+		PlayerFeedbackManager:give(player, "Added " .. record.name)
+	end
+end
+
+function DevTools:setActiveCharacter(player: Player, args: { [string]: any })
+	local isValid, err = Validate.isTableShape(args, SET_ACTIVE_CHARACTER_ARGS_SHAPE)
+	if not isValid then
+		warn("DevTools: setActiveCharacter with invalid args:", err)
+		return
+	end
+	if characterManager:setActiveCharacter(player, args.characterId) then
+		PlayerFeedbackManager:give(player, "Active character changed")
+	else
+		PlayerFeedbackManager:give(player, "No character with that id")
+	end
+end
+
+function DevTools:init(gameControllerIn: any, splendidReplicationManagerIn: any, characterManagerIn: any)
+	characterManager = characterManagerIn
 	gameController = gameControllerIn
 	splendidReplicationManager = splendidReplicationManagerIn
 	for _, name in DevToolCommands.NAMES do

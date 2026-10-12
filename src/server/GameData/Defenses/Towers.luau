@@ -24,6 +24,9 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 return {
 	-- every new player starts with this one unlocked and in slot 1
 	DEFAULT_TOWER = Enums.TowerKind.SENTRY_GUN,
+	-- a character's second Tower row starts on a different kind so a new
+	-- player's Build Mode offers two towers, not one twice (M55, 2026-10-12)
+	DEFAULT_SECOND_TOWER = Enums.TowerKind.FLAMETHROWER,
 	-- the camp's Towers, shared out evenly among the crew (decided
 	-- 2026-09-28, docs/balance-plan.md): each player may hold
 	-- ceil(camp / crew), so a solo player builds the whole camp's worth and

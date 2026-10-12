@@ -389,20 +389,6 @@ describe(
 )
 
 describe(
-	"PlacementRules.resolveLoadoutTowers",
-	function()
-		it(
-			"reads keys and public names, drops unknowns and duplicates, and defaults when empty",
-			function()
-				local kinds = PlacementRules.resolveLoadoutTowers({ "SENTRY_GUN", "Flamethrower", "Bogus", "sentry_gun" }, Enums.TowerKind.SENTRY_GUN)
-				expect(kinds).toEqual({ Enums.TowerKind.SENTRY_GUN, Enums.TowerKind.FLAMETHROWER })
-				expect(PlacementRules.resolveLoadoutTowers({ nil, "" }, Enums.TowerKind.SENTRY_GUN)).toEqual({ Enums.TowerKind.SENTRY_GUN })
-			end
-		)
-	end
-)
-
-describe(
 	"PlacementRules codecs",
 	function()
 		it(

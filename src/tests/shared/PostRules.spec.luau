@@ -423,16 +423,6 @@ describe(
 		)
 
 		it(
-			"resolves a loadout name by key or public name, else the default",
-			function()
-				expect(PostRules.resolveLoadoutPost("ROCKET_LAUNCHER", 1)).toBe(Enums.PostWeaponKind.ROCKET_LAUNCHER)
-				expect(PostRules.resolveLoadoutPost("Rocket Launcher", 1)).toBe(Enums.PostWeaponKind.ROCKET_LAUNCHER)
-				expect(PostRules.resolveLoadoutPost(nil, 1)).toBe(1)
-				expect(PostRules.resolveLoadoutPost("Trebuchet", 1)).toBe(1)
-			end
-		)
-
-		it(
 			"reads the post number from its marker name",
 			function()
 				expect(PostRules.postIndexFromName("Post4")).toBe(4)

@@ -6,8 +6,8 @@
 -- else writes the tree.
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
-local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local PlayerPublicSchema = require("@game/ReplicatedStorage/Shared/PlayerPublicSchema")
+local PlayerData = require(script.Parent.PlayerData)
 
 local SplendidReplicationManager = {}
 SplendidReplicationManager.__index = SplendidReplicationManager
@@ -54,6 +54,38 @@ local function syncMarkerFolder(folder: Instance, names: { [string]: boolean })
 	end
 end
 
+-- keeps the Characters folder equal to the player's list (M55): one child
+-- folder per character named by its id and carrying the same attribute set
+-- as the active character on CurrentPlayer, plus the active id on the
+-- folder itself, so the select menu can draw every card and a late viewer
+-- gets them all
+local function syncCharactersFolder(folder: Instance, playerData: any)
+	local unlockNights = PlayerData.getCharacterDefaults().skillSlotUnlockNights
+	local records = playerData:getCharacters()
+	local keep: { [string]: boolean } = {}
+	for _, record in records do
+		keep[record.id] = true
+		local existing = folder:FindFirstChild(record.id)
+		local child: Instance
+		if existing then
+			child = existing
+		else
+			child = Instance.new("Folder")
+			child.Name = record.id
+		end
+		writeAttributes(child, PlayerPublicSchema.buildCharacterAttributes(record, unlockNights))
+		if child.Parent ~= folder then
+			child.Parent = folder
+		end
+	end
+	for _, child in folder:GetChildren() do
+		if not keep[child.Name] then
+			child:Destroy()
+		end
+	end
+	folder:SetAttribute(Attributes.ACTIVE_CHARACTER_ID, playerData:getActiveCharacterId())
+end
+
 local function snapshot(player: Player, playerData: any): PlayerPublicSchema.Snapshot
 	local dailyReward = playerData:getDailyReward()
 	return {
@@ -62,7 +94,8 @@ local function snapshot(player: Player, playerData: any): PlayerPublicSchema.Sna
 		isReady = true,
 		isAdmin = playerData:getIsAdmin(),
 		diamonds = playerData:getDiamonds(),
-		loadout = playerData.loadout,
+		activeCharacter = playerData:getActiveCharacter(),
+		skillSlotUnlockNights = PlayerData.getCharacterDefaults().skillSlotUnlockNights,
 		dailyRewardLastClaimedDay = dailyReward.lastClaimedDay,
 		dailyRewardNextClaimTime = dailyReward.nextClaimTime,
 	}
@@ -106,9 +139,9 @@ end
 function SplendidReplicationManager:writeCurrentPlayer(player: Player, playerData: any, currentPlayer: Instance)
 	writeAttributes(currentPlayer, PlayerPublicSchema.buildCurrentPlayerAttributes(snapshot(player, playerData)))
 	writeAttributes(currentPlayer, self.extraCurrentPlayerByUserId[player.UserId] or {})
-	local ownedUnlocks = currentPlayer:FindFirstChild(Constants.OWNED_UNLOCKS_FOLDER)
-	if ownedUnlocks then
-		syncMarkerFolder(ownedUnlocks, playerData.ownedUnlocks)
+	local characters = currentPlayer:FindFirstChild(Constants.CHARACTERS_FOLDER)
+	if characters then
+		syncCharactersFolder(characters, playerData)
 	end
 	local completions = currentPlayer:FindFirstChild(Constants.COMPLETIONS_FOLDER)
 	if completions then
@@ -142,9 +175,9 @@ function SplendidReplicationManager:buildPlayerTree(player: Player)
 
 	local currentPlayer = Instance.new("Folder")
 	currentPlayer.Name = Constants.CURRENT_PLAYER_FOLDER
-	local ownedUnlocks = Instance.new("Folder")
-	ownedUnlocks.Name = Constants.OWNED_UNLOCKS_FOLDER
-	ownedUnlocks.Parent = currentPlayer
+	local characters = Instance.new("Folder")
+	characters.Name = Constants.CHARACTERS_FOLDER
+	characters.Parent = currentPlayer
 	local completions = Instance.new("Folder")
 	completions.Name = Constants.COMPLETIONS_FOLDER
 	completions.Parent = currentPlayer
@@ -267,28 +300,19 @@ function SplendidReplicationManager:replicateDiamonds(player: Player)
 	currentPlayer:SetAttribute(Attributes.DIAMONDS, playerData:getDiamonds())
 end
 
-function SplendidReplicationManager:replicateOwnedUnlocks(player: Player)
+-- the active character's attributes on CurrentPlayer and the whole list
+-- under Characters; CharacterManager calls this after every change
+function SplendidReplicationManager:replicateCharacters(player: Player)
 	local playerData = gameController:getPlayerData(player)
 	local currentPlayer = self:getCurrentPlayerFolder(player)
 	if not playerData or not currentPlayer then
 		return
 	end
-	local ownedUnlocks = currentPlayer:FindFirstChild(Constants.OWNED_UNLOCKS_FOLDER)
-	if ownedUnlocks then
-		syncMarkerFolder(ownedUnlocks, playerData.ownedUnlocks)
-	end
-end
-
-function SplendidReplicationManager:replicateLoadout(player: Player)
-	local playerData = gameController:getPlayerData(player)
-	local currentPlayer = self:getCurrentPlayerFolder(player)
-	if not playerData or not currentPlayer then
-		return
-	end
-	local attributes = PlayerPublicSchema.buildCurrentPlayerAttributes(snapshot(player, playerData))
-	for _, slot in Enums.getAllValues(Enums.LoadoutSlot) do
-		local attributeName = PlayerPublicSchema.getLoadoutAttribute(slot) :: string
-		currentPlayer:SetAttribute(attributeName, attributes[attributeName])
+	local unlockNights = PlayerData.getCharacterDefaults().skillSlotUnlockNights
+	writeAttributes(currentPlayer, PlayerPublicSchema.buildCharacterAttributes(playerData:getActiveCharacter(), unlockNights))
+	local characters = currentPlayer:FindFirstChild(Constants.CHARACTERS_FOLDER)
+	if characters then
+		syncCharactersFolder(characters, playerData)
 	end
 end
 

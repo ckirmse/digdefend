@@ -7,6 +7,8 @@ local Players = game:GetService("Players")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local CharacterSchema = require("@game/ReplicatedStorage/Shared/CharacterSchema")
+local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local PlayerPublicSchema = require("@game/ReplicatedStorage/Shared/PlayerPublicSchema")
 
 -- the ready wait never gives up; the number only marks the yield as intended
@@ -41,6 +43,27 @@ export type PublicData = {
 	isDead: boolean,
 }
 
+-- one character as the client sees it (M55), read from the CHARACTER_*
+-- attributes on CurrentPlayer (the active one) or on a child of the
+-- Characters folder (every one)
+export type GearData = {
+	kind: number,
+	stars: number,
+}
+
+export type CharacterData = {
+	id: string,
+	name: string,
+	nightsSurvived: number,
+	-- Enums.GearSlot value -> the kind's enum value and its stars
+	gear: { [number]: GearData },
+	skillSlotsOpen: number,
+	-- slot index as a string -> the skill in it
+	skills: { [string]: CharacterSchema.SkillSave },
+	-- Enums.CosmeticSlot key name -> skin id
+	cosmetics: { [string]: string },
+}
+
 export type AllPlayersHandlers = {
 	onAdded: ((userId: number, data: PublicData) -> ())?,
 	onRemoved: ((userId: number) -> ())?,
@@ -60,7 +83,7 @@ export type ClientDataManager = typeof(setmetatable(
 		gameMetadata: Instance?,
 		allPlayers: Instance?,
 		currentPlayer: Instance?,
-		ownedUnlocks: Instance?,
+		characters: Instance?,
 		completions: Instance?,
 	},
 	ClientDataManager
@@ -98,7 +121,7 @@ function ClientDataManager:awaitReady()
 	self.allPlayers = root:WaitForChild(Constants.ALL_PLAYERS_FOLDER)
 	local currentPlayer = root:WaitForChild(Constants.CURRENT_PLAYER_FOLDER)
 	self.currentPlayer = currentPlayer
-	self.ownedUnlocks = currentPlayer:WaitForChild(Constants.OWNED_UNLOCKS_FOLDER)
+	self.characters = currentPlayer:WaitForChild(Constants.CHARACTERS_FOLDER)
 	self.completions = currentPlayer:WaitForChild(Constants.COMPLETIONS_FOLDER)
 end
 
@@ -131,35 +154,71 @@ function ClientDataManager:getIsAdmin(): boolean
 	return self:getCurrentPlayerAttribute(Attributes.IS_ADMIN) == true
 end
 
-function ClientDataManager:hasUnlock(unlockName: string): boolean
-	local ownedUnlocks = self.ownedUnlocks
-	return ownedUnlocks ~= nil and ownedUnlocks:FindFirstChild(unlockName) ~= nil
+local function readCharacter(instance: Instance): CharacterData
+	local gear: { [number]: GearData } = {}
+	for _, gearSlot in Enums.getAllValues(Enums.GearSlot) do
+		local kindAttribute, starsAttribute = PlayerPublicSchema.getGearAttributes(gearSlot)
+		gear[gearSlot] = {
+			kind = (instance:GetAttribute(kindAttribute :: string) :: number?) or 0,
+			stars = (instance:GetAttribute(starsAttribute :: string) :: number?) or 0,
+		}
+	end
+	return {
+		id = (instance:GetAttribute(Attributes.CHARACTER_ID) :: string?) or "",
+		name = (instance:GetAttribute(Attributes.CHARACTER_NAME) :: string?) or "",
+		nightsSurvived = (instance:GetAttribute(Attributes.CHARACTER_NIGHTS_SURVIVED) :: number?) or 0,
+		gear = gear,
+		skillSlotsOpen = (instance:GetAttribute(Attributes.CHARACTER_SKILL_SLOTS_OPEN) :: number?) or 0,
+		skills = CharacterSchema.decodeSkills(instance:GetAttribute(Attributes.CHARACTER_SKILLS)),
+		cosmetics = CharacterSchema.decodeCosmetics(instance:GetAttribute(Attributes.CHARACTER_COSMETICS)),
+	}
 end
 
-function ClientDataManager:getOwnedUnlockNames(): { string }
-	local names = {}
-	local ownedUnlocks = self.ownedUnlocks
-	if not ownedUnlocks then
-		return names
+-- the character the player brings; nil before the tree is ready
+function ClientDataManager:getActiveCharacter(): CharacterData?
+	local currentPlayer = self.currentPlayer
+	if not currentPlayer then
+		return nil
 	end
-	for _, marker in ownedUnlocks:GetChildren() do
-		table.insert(names, marker.Name)
-	end
-	table.sort(names)
-	return names
+	return readCharacter(currentPlayer)
 end
 
--- nil when the slot is empty
-function ClientDataManager:getLoadoutSlot(slot: number): string?
-	local attributeName = PlayerPublicSchema.getLoadoutAttribute(slot)
-	if not attributeName then
-		return nil
+function ClientDataManager:getActiveCharacterId(): string
+	local characters = self.characters
+	if not characters then
+		return ""
 	end
-	local value = self:getCurrentPlayerAttribute(attributeName)
-	if typeof(value) ~= "string" or value == "" then
-		return nil
+	return (characters:GetAttribute(Attributes.ACTIVE_CHARACTER_ID) :: string?) or ""
+end
+
+-- every character, in no particular order (the folder has no slot order;
+-- M37 sorts by name or keeps the server's list order as it decides)
+function ClientDataManager:getCharacters(): { CharacterData }
+	local list = {}
+	local characters = self.characters
+	if not characters then
+		return list
 	end
-	return value
+	for _, child in characters:GetChildren() do
+		table.insert(list, readCharacter(child))
+	end
+	return list
+end
+
+-- fires once per attribute the server writes, so a reroll that changes a
+-- kind and its stars calls back twice; readers re-read the whole character
+function ClientDataManager:subscribeActiveCharacter(handler: (character: CharacterData) -> ()): Disconnect
+	local currentPlayer = self.currentPlayer :: Instance
+	local connection = currentPlayer.AttributeChanged:Connect(
+		function(attributeName: string)
+			if string.sub(attributeName, 1, #"Character") == "Character" then
+				handler(readCharacter(currentPlayer))
+			end
+		end
+	)
+	return function()
+		connection:Disconnect()
+	end
 end
 
 function ClientDataManager:hasCompletion(completionKey: string): boolean
@@ -262,8 +321,55 @@ local function subscribeMarkerFolder(folder: Instance, handlers: MarkerHandlers)
 	end
 end
 
-function ClientDataManager:subscribeOwnedUnlocks(handlers: MarkerHandlers): Disconnect
-	return subscribeMarkerFolder(self.ownedUnlocks :: Instance, handlers)
+-- any change to the character list or the active id: a character added, a
+-- card's values, or the pick
+function ClientDataManager:subscribeCharacters(handler: () -> ()): Disconnect
+	local characters = self.characters :: Instance
+	local connections: { RBXScriptConnection } = {}
+	local function watch(child: Instance)
+		table.insert(
+			connections,
+			child.AttributeChanged:Connect(
+				function()
+					handler()
+				end
+			)
+		)
+	end
+	for _, child in characters:GetChildren() do
+		watch(child)
+	end
+	table.insert(
+		connections,
+		characters.ChildAdded:Connect(
+			function(child: Instance)
+				watch(child)
+				handler()
+			end
+		)
+	)
+	table.insert(
+		connections,
+		characters.ChildRemoved:Connect(
+			function()
+				handler()
+			end
+		)
+	)
+	table.insert(
+		connections,
+		characters.AttributeChanged:Connect(
+			function()
+				handler()
+			end
+		)
+	)
+	return function()
+		for _, connection in connections do
+			connection:Disconnect()
+		end
+		table.clear(connections)
+	end
 end
 
 function ClientDataManager:subscribeCompletions(handlers: MarkerHandlers): Disconnect
@@ -323,7 +429,7 @@ function ClientDataManager.new(): ClientDataManager
 	self.gameMetadata = nil
 	self.allPlayers = nil
 	self.currentPlayer = nil
-	self.ownedUnlocks = nil
+	self.characters = nil
 	self.completions = nil
 	return self
 end

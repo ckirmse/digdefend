@@ -558,19 +558,80 @@ module = {
 		LOW = 4,
 		DESTROYED = 5,
 	},
-	LoadoutSlot = {
+	-- the gear rows on a character's sheet (M55; GDD "Characters"): a
+	-- weapon, a post weapon, and two towers (decided 2026-10-12). Each names
+	-- a kind and carries a star count, 1 to 5. The LoadoutSlot enum of the
+	-- bought-unlock loadout (WEAPON, POST, DEFENSE_1 to 3) was replaced by
+	-- this on 2026-10-12
+	GearSlot = {
 		WEAPON = 1,
 		POST = 2,
-		DEFENSE_1 = 3,
-		DEFENSE_2 = 4,
-		DEFENSE_3 = 5,
+		TOWER_1 = 3,
+		TOWER_2 = 4,
 
 		PublicNames = {
 			WEAPON = "Weapon",
 			POST = "Post",
-			DEFENSE_1 = "Defense",
-			DEFENSE_2 = "Defense",
-			DEFENSE_3 = "Defense",
+			TOWER_1 = "Tower",
+			TOWER_2 = "Tower",
+		},
+	},
+	-- skill families (GDD "Characters"): every skill belongs to one; two of
+	-- a family give a title and three its set bonus (M56)
+	SkillFamily = {
+		DIGGING = 1,
+		HAULING = 2,
+		DEMOLITION = 3,
+		BUILDING = 4,
+		GUNNERY = 5,
+		MARKSMANSHIP = 6,
+
+		PublicNames = {
+			DIGGING = "Digging",
+			HAULING = "Hauling",
+			DEMOLITION = "Demolition",
+			BUILDING = "Building",
+			GUNNERY = "Gunnery",
+			MARKSMANSHIP = "Marksmanship",
+		},
+	},
+	-- four tiers, decided 2026-10-12; the names show on the sheet and are
+	-- saved by key, so they are hard to rename later
+	SkillRarity = {
+		COMMON = 1,
+		RARE = 2,
+		EPIC = 3,
+		LEGENDARY = 4,
+
+		PublicNames = {
+			COMMON = "Common",
+			RARE = "Rare",
+			EPIC = "Epic",
+			LEGENDARY = "Legendary",
+		},
+	},
+	-- the skin slots a character equips (M61; reserved in the save from
+	-- M55). Skins are owned by the account and equipped per character; the
+	-- helicopter skin is account-wide, so it is not a slot here
+	CosmeticSlot = {
+		PICK_AXE = 1,
+		HAMMER = 2,
+		WEAPON = 3,
+		POST_WEAPON = 4,
+		TOWER = 5,
+		JET_PACK = 6,
+		BACKPACK = 7,
+		HELMET = 8,
+
+		PublicNames = {
+			PICK_AXE = "Pick Axe",
+			HAMMER = "Hammer",
+			WEAPON = "Weapon",
+			POST_WEAPON = "Post Weapon",
+			TOWER = "Tower",
+			JET_PACK = "Jet Pack",
+			BACKPACK = "Backpack",
+			HELMET = "Helmet",
 		},
 	},
 

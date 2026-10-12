@@ -8,6 +8,12 @@ DevToolCommands.NAMES = {
 	"resetPlayerState",
 	"sendTestFeedback",
 	"setDiamonds",
+	"setCharacterNights",
+	"setCharacterGear",
+	"setCharacterSkill",
+	"renameCharacter",
+	"addCharacter",
+	"setActiveCharacter",
 }
 
 local isCommandByName: { [string]: boolean } = {}

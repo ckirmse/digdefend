@@ -1,16 +1,15 @@
 --!strict
 
 -- Drives the Studio-authored lobby HUD (GDD "HUD"): Diamonds balance with the
--- green/red change flash and sounds, the five loadout slots, and the menu
--- buttons. Slides off screen while a menu (overlay) is open. Menus arrive in
+-- green/red change flash and sounds, and the menu buttons (the loadout
+-- strip along the bottom went with the Character redesign, 2026-10-12: the
+-- character brings its gear, shown in the Character Menu). Slides off screen while a menu (overlay) is open. Menus arrive in
 -- later milestones; until then the buttons give "coming soon" feedback.
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
-local Enums = require("@game/ReplicatedStorage/Shared/Enums")
-local PlayerPublicSchema = require("@game/ReplicatedStorage/Shared/PlayerPublicSchema")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local utils = require("@game/ReplicatedStorage/Shared/utils")
@@ -28,11 +27,6 @@ type HudGroup = {
 	offscreenPosition: UDim2,
 }
 
-type SlotView = {
-	slot: number,
-	icon: ImageLabel,
-}
-
 export type ClientHudManager = typeof(setmetatable(
 	{} :: {
 		gui: ScreenGui?,
@@ -41,7 +35,6 @@ export type ClientHudManager = typeof(setmetatable(
 		-- bumps per flash so an older restore cannot undo a newer flash
 		flashGeneration: number,
 		groups: { HudGroup },
-		slotViews: { SlotView },
 	},
 	ClientHudManager
 ))
@@ -114,47 +107,6 @@ function ClientHudManager:onDiamondsChanged(diamonds: number)
 	)
 end
 
-function ClientHudManager:renderSlot(view: SlotView)
-	local unlockName = ClientDataManager:getLoadoutSlot(view.slot)
-	-- unlock icons arrive with the store (M35); an equipped slot shows the
-	-- accent colour until then
-	if unlockName then
-		view.icon.BackgroundColor3 = UiStyle.ACCENT_COLOR
-	else
-		view.icon.BackgroundColor3 = UiStyle.EMPTY_SLOT_COLOR
-	end
-end
-
--- slot icons are the ImageLabels under the strip carrying the LoadoutSlot
--- attribute; the labels beneath are shared (one "Defense" spans three slots)
-function ClientHudManager:findSlots(strip: Instance)
-	for _, descendant in strip:GetDescendants() do
-		local slot = descendant:GetAttribute(Attributes.LOADOUT_SLOT)
-		if typeof(slot) ~= "number" or not Enums.isValidValue(Enums.LoadoutSlot, slot) then
-			continue
-		end
-		if not descendant:IsA("ImageLabel") then
-			warn(`ClientHudManager: {descendant:GetFullName()} carries {Attributes.LOADOUT_SLOT} but is not an ImageLabel`)
-			continue
-		end
-		local view: SlotView = {
-			slot = slot,
-			icon = descendant,
-		}
-		table.insert(self.slotViews, view)
-		self:renderSlot(view)
-		local attributeName = PlayerPublicSchema.getLoadoutAttribute(slot)
-		if attributeName then
-			ClientDataManager:subscribeCurrentPlayerAttribute(
-				attributeName,
-				function()
-					self:renderSlot(view)
-				end
-			)
-		end
-	end
-end
-
 function ClientHudManager:addGroup(frame: GuiObject, offscreenPosition: UDim2)
 	table.insert(
 		self.groups,
@@ -214,10 +166,6 @@ function ClientHudManager:init()
 		)
 	end
 
-	local loadoutStrip = gui:WaitForChild(Constants.HUD_LOADOUT_STRIP) :: GuiObject
-	self:addGroup(loadoutStrip, UDim2.new(loadoutStrip.Position.X.Scale, 0, 1.5, 0))
-	self:findSlots(loadoutStrip)
-
 	ClientOverlayManager:addOverlayNotifier(self)
 
 	self:onDiamondsChanged(ClientDataManager:getDiamonds())
@@ -236,7 +184,6 @@ function ClientHudManager.new(): ClientHudManager
 	self.lastDiamonds = nil
 	self.flashGeneration = 0
 	self.groups = {}
-	self.slotViews = {}
 	return self
 end
 

@@ -27,6 +27,7 @@ local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local HandheldData = require("@game/ServerScriptService/GameData/Weapons/Handheld")
 local UpgradesData = require("@game/ServerScriptService/GameData/Weapons/Upgrades")
+local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -318,9 +319,7 @@ function WeaponManager:onPlayerReady(player: Player)
 		self:replicate(player)
 		return
 	end
-	local playerData = GameController:getPlayerData(player)
-	local unlockName = if playerData then playerData:getLoadoutSlot(Enums.LoadoutSlot.WEAPON) else nil
-	local weaponKind = WeaponRules.resolveLoadoutWeapon(unlockName, HandheldData.DEFAULT_WEAPON)
+	local weaponKind = CharacterManager:getGearKind(player, Enums.GearSlot.WEAPON, HandheldData.DEFAULT_WEAPON)
 	local data = self:getWeaponData(weaponKind)
 	if not data then
 		warn(`WeaponManager: no GameData/Weapons/Handheld entry for weapon {weaponKind}; using the default`)

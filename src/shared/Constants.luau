@@ -11,9 +11,13 @@ Constants.SPLENDID_GAMES_NAME = "SplendidGames"
 Constants.GAME_METADATA_FOLDER = "GameMetadata"
 Constants.ALL_PLAYERS_FOLDER = "AllPlayers"
 Constants.CURRENT_PLAYER_FOLDER = "CurrentPlayer"
--- CurrentPlayer sub-folders whose children are name-only marker folders
-Constants.OWNED_UNLOCKS_FOLDER = "OwnedUnlocks"
+-- CurrentPlayer sub-folders: Completions holds name-only marker folders;
+-- Characters holds one folder per character (M55), named by the
+-- character's id and carrying the CHARACTER_* attributes, with the active
+-- id as an attribute on the folder itself. OwnedUnlocks went with the
+-- bought-unlock loadout on 2026-10-12
 Constants.COMPLETIONS_FOLDER = "Completions"
+Constants.CHARACTERS_FOLDER = "Characters"
 
 -- ScreenGuis authored in Studio (scripts/studio/*.luau rebuild them)
 Constants.LOADING_GUI_NAME = "Loading"
@@ -41,7 +45,6 @@ Constants.PLAYER_FEEDBACK_ICON = "Icon"
 Constants.HUD_GUI_NAME = "HUD"
 Constants.HUD_DIAMOND_WALLET = "DiamondWallet"
 Constants.HUD_DIAMOND_AMOUNT_LABEL = "DiamondAmount"
-Constants.HUD_LOADOUT_STRIP = "LoadoutStrip"
 Constants.HUD_MENU_BUTTONS = "MenuButtons"
 Constants.HUD_STORE_BUTTON = "StoreButton"
 Constants.HUD_LOADOUT_BUTTON = "LoadoutButton"
