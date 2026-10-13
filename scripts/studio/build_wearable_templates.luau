@@ -66,6 +66,17 @@ flameLight.Parent = flame
 for _, part in { leftTank, rightTank, flame } do
 	weldTo(plate, part)
 end
+-- where the stowed tools hang (designer, 2026-10-12; the cosmetics system,
+-- M61, mounts the pick axe and hammer skins here): one attachment on the
+-- outer face of each tank, the tool's head up, handle down the tank
+local pickAxeMount = Instance.new("Attachment")
+pickAxeMount.Name = Constants.JET_PACK_PICK_AXE_ATTACHMENT
+pickAxeMount.CFrame = CFrame.new(-0.3, 0.2, 0) * CFrame.Angles(0, 0, math.rad(15))
+pickAxeMount.Parent = leftTank
+local hammerMount = Instance.new("Attachment")
+hammerMount.Name = Constants.JET_PACK_HAMMER_ATTACHMENT
+hammerMount.CFrame = CFrame.new(0.3, 0.2, 0) * CFrame.Angles(0, 0, math.rad(-15))
+hammerMount.Parent = rightTank
 jetPack.PrimaryPart = plate
 jetPack.Parent = wearables
 

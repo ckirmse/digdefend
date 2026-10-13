@@ -595,19 +595,34 @@ module = {
 			MARKSMANSHIP = "Marksmanship",
 		},
 	},
-	-- four tiers, decided 2026-10-12; the names show on the sheet and are
-	-- saved by key, so they are hard to rename later
-	SkillRarity = {
+	-- the one rarity ladder (designer, 2026-10-12; five tiers, replacing
+	-- the four-tier skill rarity and the star rating the sheet showed for
+	-- gear): a gear row's 1 to 5 stars read as these words, and a skill
+	-- carries one directly. Saved by value, so never renumbered
+	Rarity = {
 		COMMON = 1,
-		RARE = 2,
-		EPIC = 3,
-		LEGENDARY = 4,
+		UNCOMMON = 2,
+		RARE = 3,
+		EPIC = 4,
+		LEGENDARY = 5,
 
 		PublicNames = {
 			COMMON = "Common",
+			UNCOMMON = "Uncommon",
 			RARE = "Rare",
 			EPIC = "Epic",
 			LEGENDARY = "Legendary",
+		},
+	},
+	-- what a character slot is bought with (M37): the second slot Diamonds,
+	-- every later one Robux
+	SlotCurrency = {
+		DIAMONDS = 1,
+		ROBUX = 2,
+
+		PublicNames = {
+			DIAMONDS = "Diamonds",
+			ROBUX = "Robux",
 		},
 	},
 	-- the skin slots a character equips (M61; reserved in the save from

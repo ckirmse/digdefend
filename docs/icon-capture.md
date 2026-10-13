@@ -195,6 +195,21 @@ in one `upload_image` call and stamp all ids; clean up once at the end.
 `rbxassetid://<id>`. Freshly uploaded assets can take a minute to load and
 pass moderation.
 
+## Framing without the artist (2026-10-12)
+
+The post weapons were framed by script instead of saved framings: stage the
+template, hide every helper part that is not the gun mesh (`Transparency = 1`
+on the post's Spawn, CharacterSpawn, handles, CameraLocation, Prompt), and aim
+the camera from the mesh's own axes: a three-quarter view from the side the
+barrel runs along (`side = along:Cross(yAxis)`), weighted `side 1.0, along 0.6,
+up 0.45`, at `mesh.Size.Magnitude * 1.15` with a 30 degree field of view. Two
+things changed since the runbook above was written: the Studio assistant resets
+`CameraType` back to Fixed after an `execute_luau` call, so set `camera.CFrame`
+and `camera.Focus` and leave the type alone; and the MinePreview's zone
+BillboardGuis draw over the backdrop, so disable them for the shot and restore
+them in cleanup. `capture_studio_window.ps1` takes `-TitleMatch <place name>` to
+pick the right window when two Studios are open.
+
 ## Known gotchas
 
 - Play-mode attribute writes don't persist; everything above runs in Edit.

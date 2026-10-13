@@ -59,7 +59,7 @@ local SET_CHARACTER_GEAR_ARGS_SHAPE = {
 local SET_CHARACTER_SKILL_ARGS_SHAPE = {
 	slot = "positiveInteger",
 	skillId = { type = "string", optional = true },
-	rarity = { type = "enum", name = "SkillRarity", optional = true },
+	rarity = { type = "enum", name = "Rarity", optional = true },
 }
 
 local RENAME_CHARACTER_ARGS_SHAPE = {

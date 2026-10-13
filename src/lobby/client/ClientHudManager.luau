@@ -17,6 +17,7 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
+local ClientCharacterMenuManager = require(script.Parent.ClientCharacterMenuManager)
 
 local ClientHudManager = {}
 ClientHudManager.__index = ClientHudManager
@@ -156,7 +157,20 @@ function ClientHudManager:init()
 
 	local menuButtons = gui:WaitForChild(Constants.HUD_MENU_BUTTONS) :: GuiObject
 	self:addGroup(menuButtons, UDim2.new(1.5, 0, menuButtons.Position.Y.Scale, 0))
-	for _, name in { Constants.HUD_STORE_BUTTON, Constants.HUD_LOADOUT_BUTTON, Constants.HUD_DAILY_REWARDS_BUTTON } do
+	-- the jet pack bar slides away with the menu buttons; its fill is
+	-- ClientJetPackManager's
+	local jetPackBar = gui:FindFirstChild(Constants.HUD_JET_PACK_BAR)
+	if jetPackBar and jetPackBar:IsA("GuiObject") then
+		self:addGroup(jetPackBar, UDim2.new(1.5, 0, jetPackBar.Position.Y.Scale, 0))
+	end
+	self:wireButton(
+		menuButtons,
+		Constants.HUD_CHARACTER_BUTTON,
+		function()
+			ClientCharacterMenuManager:openMenu()
+		end
+	)
+	for _, name in { Constants.HUD_STORE_BUTTON, Constants.HUD_DAILY_REWARDS_BUTTON } do
 		self:wireButton(
 			menuButtons,
 			name,

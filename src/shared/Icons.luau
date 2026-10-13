@@ -46,6 +46,32 @@ Icons.WEAPON = {
 	[Enums.WeaponKind.RIFLE] = "rbxassetid://71757532147550",
 }
 
+-- the character sheet's gear cards show the item, never its type (designer,
+-- 2026-10-12): the ids the icon pipeline (docs/icon-capture.md) baked onto
+-- GameAssets/Towers/<KIND>, GameAssets/PostWeapons/<KIND>, and
+-- GameAssets/Tools/WEAPON_<KIND> in the gameplay place, copied here because
+-- the lobby has no GameAssets to read them from. Every gun faces right
+-- (designer, 2026-10-12). Recapture an asset and update its id in both
+-- places. WEAPON_KIND is the rendered gun; WEAPON above stays the tool
+-- bar's own art
+Icons.TOWER_KIND = {
+	[Enums.TowerKind.SENTRY_GUN] = "rbxassetid://123552008549366",
+	[Enums.TowerKind.FLAMETHROWER] = "rbxassetid://138549055728375",
+	[Enums.TowerKind.AA_TURRET] = "rbxassetid://113913681124008",
+	[Enums.TowerKind.FROST_TOWER] = "rbxassetid://122186464277976",
+	[Enums.TowerKind.TESLA_COIL] = "rbxassetid://118033678404166",
+	[Enums.TowerKind.SNIPER_TOWER] = "rbxassetid://117170402065913",
+}
+
+Icons.POST_WEAPON = {
+	[Enums.PostWeaponKind.MACHINE_GUN] = "rbxassetid://88160356446112",
+	[Enums.PostWeaponKind.ROCKET_LAUNCHER] = "rbxassetid://72633570515796",
+}
+
+Icons.WEAPON_KIND = {
+	[Enums.WeaponKind.RIFLE] = "rbxassetid://126641049266938",
+}
+
 Icons.UI = {
 	-- the HUD backpack button and the jet pack fuel bar
 	BACKPACK = "rbxassetid://135327278539325",

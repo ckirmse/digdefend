@@ -7,6 +7,25 @@ local module
 
 module = {
 	TRY_DEV_TOOL = "TryDevTool",
+	-- the Character Select Menu (M37): pick the character to bring, buy the
+	-- next slot (Diamonds, or a Robux prompt), rename one (filtered). The
+	-- records themselves arrive as CurrentPlayer attributes and the
+	-- Characters folder; the notify is the buyer's sound and toast
+	TRY_SELECT_CHARACTER = "TrySelectCharacter",
+	TRY_BUY_CHARACTER_SLOT = "TryBuyCharacterSlot",
+	TRY_RENAME_CHARACTER = "TryRenameCharacter",
+	-- equips a cosmetic on a character's slot (an empty id clears it)
+	TRY_SET_COSMETIC = "TrySetCosmetic",
+	NOTIFY_CHARACTER_SLOT_BOUGHT = "NotifyCharacterSlotBought",
+	-- the character sheet's rerolls (M37): one result per roll (new stars,
+	-- or one skill), which the player keeps or undoes with the price spent
+	-- either way. The result is held on the server until resolved
+	TRY_REROLL_GEAR = "TryRerollGear",
+	TRY_RESOLVE_GEAR_ROLL = "TryResolveGearRoll",
+	TRY_REROLL_SKILL = "TryRerollSkill",
+	TRY_RESOLVE_SKILL_ROLL = "TryResolveSkillRoll",
+	NOTIFY_GEAR_ROLL_OFFER = "NotifyGearRollOffer",
+	NOTIFY_SKILL_ROLL_OFFER = "NotifySkillRollOffer",
 	-- helicopter pad parties (GDD "Helicopter Pads"); joining is by touch, not message
 	TRY_CREATE_PARTY = "TryCreateParty",
 	TRY_LEAVE_PARTY = "TryLeaveParty",

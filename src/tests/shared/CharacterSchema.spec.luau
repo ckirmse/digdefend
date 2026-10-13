@@ -21,6 +21,7 @@ local DEFAULTS = {
 	validSkillIds = { GOLD_DIGGER = true, DEAD_EYE = true },
 	maxNameLength = 20,
 	defaultNamePrefix = "Character ",
+	defaultCosmetics = { HELMET = "HARD_HAT" },
 }
 
 local function makeValidCharacter()
@@ -35,8 +36,8 @@ local function makeValidCharacter()
 			TOWER_2 = { kind = "TESLA_COIL", stars = 2 },
 		},
 		skills = {
-			["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.SkillRarity.COMMON },
-			["2"] = { skillId = "DEAD_EYE", rarity = Enums.SkillRarity.RARE },
+			["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.Rarity.COMMON },
+			["2"] = { skillId = "DEAD_EYE", rarity = Enums.Rarity.RARE },
 		},
 		cosmetics = { HELMET = "lamp_helmet" },
 	}
@@ -65,7 +66,7 @@ describe(
 					TOWER_2 = { kind = "FLAMETHROWER", stars = 1 },
 				})
 				expect(record.skills).toEqual({})
-				expect(record.cosmetics).toEqual({})
+				expect(record.cosmetics).toEqual({ HELMET = "HARD_HAT" })
 			end
 		)
 
@@ -205,15 +206,15 @@ describe(
 			function()
 				local record = makeValidCharacter()
 				record.skills = {
-					["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.SkillRarity.EPIC },
-					["4"] = { skillId = "GOLD_DIGGER", rarity = Enums.SkillRarity.COMMON },
-					["2"] = { skillId = "NOPE", rarity = Enums.SkillRarity.COMMON },
+					["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.Rarity.EPIC },
+					["4"] = { skillId = "GOLD_DIGGER", rarity = Enums.Rarity.COMMON },
+					["2"] = { skillId = "NOPE", rarity = Enums.Rarity.COMMON },
 					["3"] = { skillId = "DEAD_EYE", rarity = 99 },
-					[1] = { skillId = "DEAD_EYE", rarity = Enums.SkillRarity.COMMON },
+					[1] = { skillId = "DEAD_EYE", rarity = Enums.Rarity.COMMON },
 				}
 				local validated, repairs = validate(record)
 				expect(validated.skills).toEqual({
-					["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.SkillRarity.EPIC },
+					["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.Rarity.EPIC },
 				})
 				expect(#repairs).toBe(4)
 			end
@@ -225,7 +226,7 @@ describe(
 				local record = makeValidCharacter()
 				record.skills["1"].level = 3
 				local validated, repairs = validate(record)
-				expect(validated.skills["1"]).toEqual({ skillId = "GOLD_DIGGER", rarity = Enums.SkillRarity.COMMON })
+				expect(validated.skills["1"]).toEqual({ skillId = "GOLD_DIGGER", rarity = Enums.Rarity.COMMON })
 				expect(#repairs).toBe(1)
 			end
 		)
@@ -235,6 +236,12 @@ describe(
 			function()
 				local record = makeValidCharacter()
 				record.cosmetics = { HELMET = "lamp", HAT = "x", JET_PACK = "", BACKPACK = 4 }
+				local bare = makeValidCharacter()
+				bare.cosmetics = { JET_PACK = "chrome" }
+				expect(validate(bare).cosmetics).toEqual({ JET_PACK = "chrome", HELMET = "HARD_HAT" })
+				local own = makeValidCharacter()
+				own.cosmetics = { HELMET = CharacterSchema.OWN_HAT_ID }
+				expect(validate(own).cosmetics).toEqual({ HELMET = CharacterSchema.OWN_HAT_ID })
 				local validated, repairs = validate(record)
 				expect(validated.cosmetics).toEqual({ HELMET = "lamp" })
 				expect(#repairs).toBe(3)
@@ -251,7 +258,7 @@ describe(
 				record.xp = 100
 				local validated, repairs = validate(record)
 				expect(validated.skills).toEqual({})
-				expect(validated.cosmetics).toEqual({})
+				expect(validated.cosmetics).toEqual({ HELMET = "HARD_HAT" })
 				expect(validated.level).toBeNil()
 				expect(validated.xp).toBeNil()
 				expect(#repairs).toBe(4)

@@ -437,7 +437,7 @@ function ClientDevTools:renderCharacterSection()
 
 	Iris.InputNum({ "Skill slot", 1, 1, 3 }, { number = self.characterSkillSlotInput })
 	Iris.InputText({ "Skill id" }, { text = self.characterSkillIdInput })
-	Iris.InputNum({ "Skill rarity (1 common to 4 legendary)", 1, 1, 4 }, { number = self.characterSkillRarityInput })
+	Iris.InputNum({ "Skill rarity (1 common to 5 legendary)", 1, 1, 5 }, { number = self.characterSkillRarityInput })
 	if Iris.Button({ "Set skill" }).clicked() then
 		sendDevTool(
 			"setCharacterSkill",

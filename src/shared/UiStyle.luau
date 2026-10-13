@@ -86,6 +86,18 @@ UiStyle.CAMP_MAP_BAND_COLORS = {
 	[Enums.StructureHealthBand.DESTROYED] = Color3.fromRGB(0, 0, 0),
 }
 UiStyle.CAMP_MAP_LOCAL_PLAYER_RING_COLOR = Color3.fromRGB(255, 255, 255)
+
+-- the rarity ladder's colours (designer, 2026-10-12), the convention most
+-- games share: grey, green, blue, purple, gold. An item's name and its
+-- rarity word take the colour wherever they show (the character sheet's
+-- gear cards and skill rows, the roll screen, the Rank band)
+UiStyle.RARITY_COLORS = {
+	[Enums.Rarity.COMMON] = Color3.fromRGB(200, 200, 200),
+	[Enums.Rarity.UNCOMMON] = Color3.fromRGB(90, 220, 90),
+	[Enums.Rarity.RARE] = Color3.fromRGB(80, 150, 255),
+	[Enums.Rarity.EPIC] = Color3.fromRGB(190, 100, 255),
+	[Enums.Rarity.LEGENDARY] = Color3.fromRGB(255, 170, 40),
+}
 UiStyle.CAMP_MAP_MONSTER_COLOR = Color3.fromRGB(230, 40, 40)
 
 function UiStyle.formatTitle(text: string): string

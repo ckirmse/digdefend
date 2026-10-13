@@ -20,10 +20,11 @@ local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
-local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
-local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
-local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
-local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
+local Wearables = require("@game/ReplicatedStorage/Shared/Wearables")
+local ClientDataManager = require(script.Parent.ClientDataManager)
+local ClientNetManager = require(script.Parent.ClientNetManager)
+local ClientOverlayManager = require(script.Parent.ClientOverlayManager)
+local ClientSoundManager = require(script.Parent.ClientSoundManager)
 
 local ClientJetPackManager = {}
 ClientJetPackManager.__index = ClientJetPackManager
@@ -168,31 +169,18 @@ function ClientJetPackManager:removeWorn(userId: number)
 end
 
 function ClientJetPackManager:wear(userId: number, character: Model)
-	local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
 	local template = self:getTemplate()
-	if not torso or not torso:IsA("BasePart") or not template then
+	if not template then
 		return
 	end
 	self:removeWorn(userId)
-	local model = template:Clone()
-	model.Name = WORN_MODEL_NAME
-	local handle = model:FindFirstChild(Constants.TOOL_HANDLE_PART) :: BasePart
-	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("BasePart") then
-			descendant.Anchored = false
-			descendant.CanCollide = false
-			descendant.CanQuery = false
-			descendant.Massless = true
-		end
+	-- a Roblox backpack would sit inside the pack; it comes off on this
+	-- client's view (the lobby strips it on the server, 2026-10-12)
+	Wearables.removeBackAccessories(character)
+	local model = Wearables.wearOnBack(character, template, WORN_MODEL_NAME)
+	if not model then
+		return
 	end
-	local back = torso:FindFirstChild("BodyBackAttachment")
-	local backCFrame = if back and back:IsA("Attachment") then back.CFrame else CFrame.new(0, 0, 0.6)
-	local weld = Instance.new("Weld")
-	weld.Part0 = torso
-	weld.Part1 = handle
-	weld.C0 = backCFrame * CFrame.new(0, 0, handle.Size.Z / 2)
-	weld.Parent = handle
-	model.Parent = character
 	local flame = model:FindFirstChild(Constants.JET_PACK_FLAME_PART)
 	self.wornByUserId[userId] = {
 		model = model,
@@ -247,8 +235,10 @@ function ClientJetPackManager:watchCharacter(player: Player)
 end
 
 function ClientJetPackManager:findHud()
+	-- the pack works in both places since 2026-10-12: the gameplay HUD
+	-- carries the bar and button in a run, the lobby HUD in the lobby
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-	local gui = playerGui:WaitForChild(Constants.GAMEPLAY_HUD_GUI_NAME, 10)
+	local gui = playerGui:FindFirstChild(Constants.GAMEPLAY_HUD_GUI_NAME) or playerGui:WaitForChild(Constants.HUD_GUI_NAME, 10)
 	if not gui or not gui:IsA("ScreenGui") then
 		return
 	end
@@ -263,7 +253,7 @@ function ClientJetPackManager:findHud()
 		local fill = if track then track:FindFirstChild(Constants.HUD_JET_PACK_FILL) else nil
 		self.fill = if fill and fill:IsA("GuiObject") then fill else nil
 	else
-		warn("ClientJetPackManager: GameplayHud is missing JetPackBar; run scripts/studio/build_gameplay_hud_gui.luau")
+		warn(`ClientJetPackManager: {gui.Name} is missing JetPackBar; rerun its build script`)
 	end
 	local button = gui:FindFirstChild(Constants.HUD_JET_PACK_BUTTON)
 	if button and button:IsA("GuiButton") then

@@ -120,7 +120,7 @@ menuLayout.Parent = menuButtons
 
 local menuButtonNames = {
 	{ name = "StoreButton", text = "Store" },
-	{ name = "LoadoutButton", text = "Loadout" },
+	{ name = "CharacterButton", text = "Character" },
 	{ name = "DailyRewardsButton", text = "Daily Rewards" },
 }
 for order, entry in menuButtonNames do
@@ -146,6 +146,70 @@ for order, entry in menuButtonNames do
 	padding.PaddingBottom = UDim.new(0.15, 0)
 	padding.Parent = button
 end
+
+-- the jet pack fuel bar and touch button (the pack flies in the lobby as in
+-- a run, designer 2026-10-12; ClientJetPackManager drives both). The bar
+-- sits under the menu buttons on the right edge, level with where the
+-- gameplay HUD keeps it; the button above Roblox's jump button, touch only
+local jetBar = Instance.new("Frame")
+jetBar.Name = "JetPackBar"
+jetBar.AnchorPoint = Vector2.new(1, 0)
+jetBar.Position = UDim2.fromScale(0.98, 0.68)
+jetBar.Size = UDim2.fromScale(0.12, 0.05)
+addAspect(jetBar, 4.4)
+addMaxSize(jetBar, Vector2.new(260, 59))
+jetBar.BackgroundColor3 = UiStyle.PANEL_COLOR
+jetBar.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
+jetBar.BorderSizePixel = 0
+jetBar.Parent = gui
+addCorner(jetBar)
+local jetIcon = Instance.new("ImageLabel")
+jetIcon.Name = "Icon"
+jetIcon.Position = UDim2.fromScale(0.05, 0.1)
+jetIcon.Size = UDim2.fromScale(0.2, 0.8)
+jetIcon.BackgroundTransparency = 1
+jetIcon.Image = ""
+jetIcon.ScaleType = Enum.ScaleType.Fit
+addAspect(jetIcon, 1)
+jetIcon.Parent = jetBar
+local jetTrack = Instance.new("Frame")
+jetTrack.Name = "Track"
+jetTrack.AnchorPoint = Vector2.new(0, 0.5)
+jetTrack.Position = UDim2.fromScale(0.3, 0.5)
+jetTrack.Size = UDim2.fromScale(0.65, 0.4)
+jetTrack.BackgroundColor3 = UiStyle.EMPTY_SLOT_COLOR
+jetTrack.BorderSizePixel = 0
+jetTrack.Parent = jetBar
+addCorner(jetTrack)
+local jetFill = Instance.new("Frame")
+jetFill.Name = "Fill"
+jetFill.Size = UDim2.fromScale(1, 1)
+jetFill.BackgroundColor3 = UiStyle.ACCENT_COLOR
+jetFill.BorderSizePixel = 0
+jetFill.Parent = jetTrack
+addCorner(jetFill)
+
+local jetButton = Instance.new("TextButton")
+jetButton.Name = "JetPackButton"
+jetButton.AnchorPoint = Vector2.new(1, 1)
+jetButton.Position = UDim2.fromScale(0.98, 0.76)
+jetButton.Size = UDim2.fromScale(0.08, 0.08)
+addAspect(jetButton, 1)
+addTouchTarget(jetButton, Vector2.new(130, 130))
+jetButton.BackgroundColor3 = UiStyle.PANEL_COLOR
+jetButton.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
+jetButton.BorderSizePixel = 0
+jetButton.Text = "JET"
+jetButton.TextColor3 = UiStyle.TEXT_COLOR
+jetButton.TextScaled = true
+jetButton.FontFace = UiStyle.TITLE_FONT
+jetButton.AutoButtonColor = true
+jetButton.Visible = false
+addTextSizeBounds(jetButton, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.BODY_TEXT_MAX_PX)
+jetButton.Parent = gui
+local jetCorner = Instance.new("UICorner")
+jetCorner.CornerRadius = UDim.new(0.5, 0)
+jetCorner.Parent = jetButton
 
 gui.Parent = StarterGui
 

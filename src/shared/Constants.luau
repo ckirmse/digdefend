@@ -47,7 +47,8 @@ Constants.HUD_DIAMOND_WALLET = "DiamondWallet"
 Constants.HUD_DIAMOND_AMOUNT_LABEL = "DiamondAmount"
 Constants.HUD_MENU_BUTTONS = "MenuButtons"
 Constants.HUD_STORE_BUTTON = "StoreButton"
-Constants.HUD_LOADOUT_BUTTON = "LoadoutButton"
+-- the Loadout button until 2026-10-12 (M37): it opens the Character Select Menu
+Constants.HUD_CHARACTER_BUTTON = "CharacterButton"
 Constants.HUD_DAILY_REWARDS_BUTTON = "DailyRewardsButton"
 -- SoundService layout (designer-authored in both places): AudioPlayers under
 -- these folders, each wired to the AudioDeviceOutput; see SoundNames
@@ -448,8 +449,19 @@ Constants.TOOL_HANDLE_PART = "Handle"
 -- the jet pack worn on the back (GameAssets/Wearables/JET_PACK) and the
 -- attachment its Handle welds to; its Flame part is shown while burning
 Constants.WEARABLE_TEMPLATES_FOLDER = "Wearables"
+-- catalogue hats loaded by HatManager at startup (GameData/Characters/Hats),
+-- one Accessory per hat id, so clients can clone one onto a menu avatar
+Constants.HAT_TEMPLATES_FOLDER = "Hats"
+-- copies of the player's own avatar hats, kept by HatManager under their
+-- PlayerGui (replicated to that player alone, never simulated) so the menu
+-- avatars can wear them while the live character wears a catalogue hat
+Constants.OWN_HATS_FOLDER = "OwnHats"
 Constants.JET_PACK_TEMPLATE = "JET_PACK"
 Constants.JET_PACK_FLAME_PART = "Flame"
+-- the attachments on the pack's tanks where the stowed pick axe and hammer
+-- skins mount (designer, 2026-10-12; used from M61)
+Constants.JET_PACK_PICK_AXE_ATTACHMENT = "PickAxeMount"
+Constants.JET_PACK_HAMMER_ATTACHMENT = "HammerMount"
 -- the custom tool bar (built by scripts/studio/build_tool_bar_gui.luau)
 Constants.TOOL_BAR_GUI_NAME = "ToolBar"
 Constants.TOOL_BAR_SLOTS_FRAME = "Slots"
@@ -652,6 +664,83 @@ Constants.ORE_PICKUPS_FOLDER = "OrePickups"
 Constants.HELICOPTER_ROTOR_MODEL = "Rotar"
 Constants.HELICOPTER_ROTOR_PART = "Rotar"
 -- pad menus (built by scripts/studio/build_create_party_gui.luau and build_queue_gui.luau)
+-- the Character Select Menu (M37; scripts/studio/build_character_select_gui.luau):
+-- a header with Back and the Diamonds wallet, a row of cards cloned from
+-- the template (one per character, then the next slot to buy), and a hint
+Constants.CHARACTER_SELECT_GUI_NAME = "CharacterSelect"
+Constants.CHARACTER_SELECT_BACK_BUTTON = "BackButton"
+Constants.CHARACTER_SELECT_WALLET = "DiamondWallet"
+Constants.CHARACTER_SELECT_CARDS = "Cards"
+Constants.CHARACTER_SELECT_CARD_TEMPLATE = "CardTemplate"
+Constants.CHARACTER_SELECT_HINT = "Hint"
+Constants.CHARACTER_CARD_TITLE = "Title"
+Constants.CHARACTER_CARD_AVATAR = "Avatar"
+Constants.CHARACTER_CARD_RANK_LABEL = "RankLabel"
+Constants.CHARACTER_CARD_NIGHTS_LABEL = "NightsLabel"
+Constants.CHARACTER_CARD_UNLOCK_BUTTON = "UnlockButton"
+Constants.CHARACTER_CARD_UNLOCK_LABEL = "UnlockLabel"
+Constants.CHARACTER_CARD_PRICE_FRAME = "Price"
+Constants.CHARACTER_CARD_PRICE_LABEL = "PriceLabel"
+Constants.CHARACTER_CARD_PRICE_ICON = "PriceIcon"
+Constants.CHARACTER_CARD_SELECTED_STROKE = "SelectedStroke"
+-- the Character Sheet (M37; scripts/studio/build_character_sheet_gui.luau):
+-- the same header, a left panel for the character, and a right panel with
+-- the LOADOUT and COSMETICS tabs; gear cards and skill rows are cloned
+-- from their templates, and the roll offer dialog sits over the sheet
+Constants.CHARACTER_SHEET_GUI_NAME = "CharacterSheet"
+Constants.CHARACTER_SHEET_LEFT_PANEL = "LeftPanel"
+Constants.CHARACTER_SHEET_NAME_LABEL = "NameLabel"
+Constants.CHARACTER_SHEET_NAME_BOX = "NameBox"
+Constants.CHARACTER_SHEET_RENAME_BUTTON = "RenameButton"
+Constants.CHARACTER_SHEET_RANK_INFO_BUTTON = "RankInfoButton"
+Constants.CHARACTER_SHEET_RIGHT_PANEL = "RightPanel"
+Constants.CHARACTER_SHEET_LOADOUT_TAB = "LoadoutTab"
+Constants.CHARACTER_SHEET_COSMETICS_TAB = "CosmeticsTab"
+Constants.CHARACTER_SHEET_LOADOUT_PAGE = "LoadoutPage"
+Constants.CHARACTER_SHEET_COSMETICS_PAGE = "CosmeticsPage"
+Constants.CHARACTER_SHEET_GEAR_ROW = "GearRow"
+Constants.CHARACTER_SHEET_GEAR_CARD_TEMPLATE = "GearCardTemplate"
+Constants.CHARACTER_SHEET_SKILL_ROWS = "SkillRows"
+Constants.CHARACTER_SHEET_SKILLS_HEADING = "SkillsHeading"
+Constants.CHARACTER_SHEET_SKILL_ROW_TEMPLATE = "SkillRowTemplate"
+Constants.GEAR_CARD_SLOT_LABEL = "SlotLabel"
+Constants.GEAR_CARD_KIND_LABEL = "KindLabel"
+Constants.GEAR_CARD_RARITY_LABEL = "RarityLabel"
+Constants.GEAR_CARD_PICTURE = "Picture"
+Constants.GEAR_CARD_INFO_BUTTON = "InfoButton"
+Constants.GEAR_CARD_REROLL_BUTTON = "RerollButton"
+Constants.REROLL_BUTTON_LABEL = "Label"
+Constants.REROLL_BUTTON_PRICE_LABEL = "PriceLabel"
+Constants.REROLL_BUTTON_PRICE_ICON = "PriceIcon"
+Constants.SKILL_ROW_BADGE = "Badge"
+Constants.SKILL_ROW_BADGE_LABEL = "Number"
+Constants.SKILL_ROW_NAME_LABEL = "NameLabel"
+Constants.SKILL_ROW_DESCRIPTION_LABEL = "DescriptionLabel"
+Constants.SKILL_ROW_INFO_BUTTON = "InfoButton"
+Constants.SKILL_ROW_REROLL_BUTTON = "RerollButton"
+Constants.SKILL_ROW_LOCK_ICON = "LockIcon"
+-- the roll screen (designer, 2026-10-12): CURRENT and NEW boxes side by
+-- side, the NEW box's icon flipping until it stops on the result, then its
+-- name and rarity appear with Keep and Undo under the boxes
+-- the COSMETICS tab's hat picker: one button per hat cloned from the
+-- template, plus the "own hat" button, under a heading
+Constants.CHARACTER_SHEET_HAT_GRID = "HatGrid"
+Constants.CHARACTER_SHEET_HAT_BUTTON_TEMPLATE = "HatButtonTemplate"
+Constants.HAT_BUTTON_PICTURE = "Picture"
+Constants.HAT_BUTTON_NAME_LABEL = "NameLabel"
+Constants.HAT_BUTTON_SELECTED_STROKE = "SelectedStroke"
+Constants.CHARACTER_SHEET_OFFER_DIALOG = "OfferDialog"
+Constants.OFFER_DIALOG_TITLE = "Title"
+Constants.OFFER_CURRENT_BOX = "CurrentBox"
+Constants.OFFER_NEW_BOX = "NewBox"
+Constants.OFFER_BOX_HEADER = "Header"
+Constants.OFFER_BOX_ICON = "Icon"
+Constants.OFFER_BOX_SPIN_LABEL = "SpinLabel"
+Constants.OFFER_BOX_NAME_LABEL = "NameLabel"
+Constants.OFFER_BOX_DETAIL_LABEL = "DetailLabel"
+Constants.OFFER_KEEP_BUTTON = "KeepButton"
+Constants.OFFER_UNDO_BUTTON = "UndoButton"
+Constants.OFFER_RANK_LABEL = "RankLabel"
 Constants.CREATE_PARTY_GUI_NAME = "CreateParty"
 Constants.QUEUE_GUI_NAME = "Queue"
 Constants.MENU_DIALOG_FRAME = "Dialog"

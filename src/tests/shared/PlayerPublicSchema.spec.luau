@@ -23,7 +23,7 @@ local function makeCharacter()
 			TOWER_1 = { kind = "TESLA_COIL", stars = 1 },
 			TOWER_2 = { kind = "SNIPER_TOWER", stars = 3 },
 		},
-		skills = { ["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.SkillRarity.RARE } },
+		skills = { ["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.Rarity.RARE } },
 		cosmetics = { HELMET = "lamp" },
 	}
 end

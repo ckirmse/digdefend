@@ -150,6 +150,20 @@ module = {
 	CHARACTER_COSMETICS = "CharacterCosmetics",
 	-- on the Characters folder: the id of the character the player brings
 	ACTIVE_CHARACTER_ID = "ActiveCharacterId",
+	-- GameMetadata: JSON of the slot pricing (CharacterRules codec), so the
+	-- lobby draws the next slot's card without asking the server
+	CHARACTER_SLOT_PRICING = "CharacterSlotPricing",
+	-- GameMetadata: JSON of the reroll prices, star bounds and bonus, and
+	-- the skill catalogue (CharacterRules codecs), so the sheet draws every
+	-- row and its odds without requiring GameData
+	CHARACTER_REROLL_PRICING = "CharacterRerollPricing",
+	CHARACTER_SKILL_CATALOGUE = "CharacterSkillCatalogue",
+	-- GameMetadata: JSON of the hat catalogue (CharacterRules codec), the
+	-- cosmetics first pass of 2026-10-12
+	CHARACTER_HAT_CATALOGUE = "CharacterHatCatalogue",
+	-- on a player's OwnHats folder: the factor a Humanoid scales a worn
+	-- accessory by for this avatar's build, so a menu avatar matches
+	HAT_SCALE = "HatScale",
 	DAILY_REWARD_LAST_CLAIMED_DAY = "DailyRewardLastClaimedDay",
 	DAILY_REWARD_NEXT_CLAIM_TIME = "DailyRewardNextClaimTime",
 	-- on each structure shadow part (StructureManager, M23): what it is and

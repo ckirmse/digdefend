@@ -54,9 +54,16 @@ export type Defaults = {
 	validSkillIds: { [string]: boolean },
 	maxNameLength: number,
 	defaultNamePrefix: string,
+	-- Enums.CosmeticSlot key name -> the skin every new character wears;
+	-- a save missing one of these slots is repaired to it
+	defaultCosmetics: { [string]: string },
 }
 
 export type Repair = string
+
+-- the skin id that means "no skin here, the player's own look": stored on
+-- purpose so a cleared slot is told apart from one that was never set
+CharacterSchema.OWN_HAT_ID = "OWN_HAT"
 
 -- the kind enum each gear row draws from; two Tower rows since 2026-10-12
 local GEAR_ENUM_BY_SLOT: { [number]: any } = {
@@ -94,7 +101,7 @@ function CharacterSchema.getDefault(defaults: Defaults, id: string, name: string
 		nightsSurvived = 0,
 		gear = getDefaultGear(defaults),
 		skills = {},
-		cosmetics = {},
+		cosmetics = table.clone(defaults.defaultCosmetics),
 	}
 end
 
@@ -169,7 +176,7 @@ local function validateSkills(record: any, defaults: Defaults, prefix: string, r
 		local isSkillValid = typeof(skill) == "table"
 			and typeof(skill.skillId) == "string"
 			and defaults.validSkillIds[skill.skillId] == true
-			and Enums.isValidValue(Enums.SkillRarity, skill.rarity)
+			and Enums.isValidValue(Enums.Rarity, skill.rarity)
 		if isSlotValid and isSkillValid then
 			-- extra fields on a skill are dropped so a renamed field cannot linger
 			for field in skill do
@@ -185,9 +192,9 @@ local function validateSkills(record: any, defaults: Defaults, prefix: string, r
 	end
 end
 
-local function validateCosmetics(record: any, prefix: string, repairs: { Repair })
+local function validateCosmetics(record: any, defaults: Defaults, prefix: string, repairs: { Repair })
 	if typeof(record.cosmetics) ~= "table" then
-		record.cosmetics = {}
+		record.cosmetics = table.clone(defaults.defaultCosmetics)
 		table.insert(repairs, prefix .. "cosmetics reset")
 		return
 	end
@@ -197,6 +204,12 @@ local function validateCosmetics(record: any, prefix: string, repairs: { Repair 
 		end
 		record.cosmetics[key] = nil
 		table.insert(repairs, prefix .. "cosmetics dropped slot " .. tostring(key))
+	end
+	for key, skinId in defaults.defaultCosmetics do
+		if record.cosmetics[key] == nil then
+			record.cosmetics[key] = skinId
+			table.insert(repairs, prefix .. "cosmetics " .. key .. " set to default")
+		end
 	end
 end
 
@@ -224,7 +237,7 @@ function CharacterSchema.validate(record: any, defaults: Defaults, fallbackName:
 
 	validateGear(record, defaults, prefix, repairs)
 	validateSkills(record, defaults, prefix, repairs)
-	validateCosmetics(record, prefix, repairs)
+	validateCosmetics(record, defaults, prefix, repairs)
 
 	local knownFields = CharacterSchema.getDefault(defaults, record.id, record.name) :: any
 	for key in record do

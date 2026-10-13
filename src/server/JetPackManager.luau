@@ -18,9 +18,9 @@ local JetPackRules = require("@game/ReplicatedStorage/Shared/JetPackRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local JetPackData = require("@game/ServerScriptService/GameData/Mining/JetPack")
-local GameController = require(script.Parent.Parent.Server.GameController)
-local SpatialSoundManager = require(script.Parent.Parent.Server.SpatialSoundManager)
-local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
+local GameController = require(script.Parent.GameController)
+local SpatialSoundManager = require(script.Parent.SpatialSoundManager)
+local SplendidReplicationManager = require(script.Parent.SplendidReplicationManager)
 
 local JetPackManager = {}
 JetPackManager.__index = JetPackManager

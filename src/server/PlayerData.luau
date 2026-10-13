@@ -7,6 +7,7 @@
 local HttpService = game:GetService("HttpService")
 
 local ProgressionData = require("@game/ServerScriptService/GameData/Characters/Progression")
+local HatsData = require("@game/ServerScriptService/GameData/Characters/Hats")
 local SkillsData = require("@game/ServerScriptService/GameData/Characters/Skills")
 local StarsData = require("@game/ServerScriptService/GameData/Characters/Stars")
 local PlayerControlData = require("@game/ServerScriptService/GameData/Control/Player")
@@ -81,6 +82,9 @@ local CHARACTER_DEFAULTS: CharacterSchema.Defaults = {
 	validSkillIds = buildValidSkillIds(),
 	maxNameLength = ProgressionData.MAX_NAME_LENGTH,
 	defaultNamePrefix = ProgressionData.DEFAULT_NAME_PREFIX,
+	defaultCosmetics = {
+		[Enums.getName(Enums.CosmeticSlot, Enums.CosmeticSlot.HELMET) :: string] = HatsData.DEFAULT_HAT_ID,
+	},
 }
 
 local SCHEMA_DEFAULTS: PlayerSaveSchema.Defaults = {

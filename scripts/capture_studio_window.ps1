@@ -2,7 +2,9 @@
 # docs/icon-capture.md). Captures only the Studio window, never the full screen.
 # Usage: powershell -NoProfile -File scripts/capture_studio_window.ps1 <out.png>
 param(
-	[Parameter(Mandatory = $true)][string]$OutPath
+	[Parameter(Mandatory = $true)][string]$OutPath,
+	# with two Studios open, pick the window whose title contains this (the place name)
+	[string]$TitleMatch = ""
 )
 
 $source = @'
@@ -19,7 +21,7 @@ Add-Type -TypeDefinition $source
 Add-Type -AssemblyName System.Drawing
 [StudioWindowCapture]::SetProcessDPIAware() | Out-Null
 
-$studio = Get-Process RobloxStudioBeta -ErrorAction Stop | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+$studio = Get-Process RobloxStudioBeta -ErrorAction Stop | Where-Object { $_.MainWindowHandle -ne 0 -and ($TitleMatch -eq "" -or $_.MainWindowTitle -like "*$TitleMatch*") } | Select-Object -First 1
 if ($null -eq $studio) {
 	throw "Roblox Studio window not found"
 }

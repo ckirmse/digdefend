@@ -12,6 +12,7 @@ local PlayerControlData = require("@game/ServerScriptService/GameData/Control/Pl
 local ProfileStore = require(script.Parent.Libs.ProfileStore)
 local CharacterManager = require(script.Parent.CharacterManager)
 local DevTools = require(script.Parent.DevTools)
+local HatManager = require(script.Parent.HatManager)
 local NetManager = require(script.Parent.NetManager)
 local PlayerData = require(script.Parent.PlayerData)
 local PlayerFeedbackManager = require(script.Parent.PlayerFeedbackManager)
@@ -341,8 +342,11 @@ function GameController:init()
 
 	-- the record of truth for a player's characters is PlayerData; this
 	-- manager is the one writer, so every change is replicated (M55)
+	-- hats load from the catalogue before any player is Ready (M37, 2026-10-12)
+	self.hatManager = HatManager
+	HatManager:init(self, SplendidReplicationManager)
 	self.characterManager = CharacterManager
-	CharacterManager:init(self, SplendidReplicationManager)
+	CharacterManager:init(self, SplendidReplicationManager, PurchaseManager, NetManager, HatManager)
 
 	self.devTools = DevTools
 	DevTools:init(self, SplendidReplicationManager, CharacterManager)
@@ -357,6 +361,7 @@ function GameController:init()
 	-- handle client messages are listed here, place managers register themselves
 	local handlerOwners: { any } = {
 		DevTools,
+		CharacterManager,
 	}
 	for _, manager in handlerOwners do
 		self:addNetHandlers(manager)

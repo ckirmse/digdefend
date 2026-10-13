@@ -6,8 +6,9 @@
 -- tunes them against real runs.
 return {
 	-- the Nights Survived a character needs for each skill slot, by slot
-	-- index; slot 1 is open from the start
-	SKILL_SLOT_UNLOCK_NIGHTS = { 0, 15, 50 },
+	-- index (slot 1 at 5 nights since 2026-10-12, designer; it opened from
+	-- the start before)
+	SKILL_SLOT_UNLOCK_NIGHTS = { 5, 15, 50 },
 	-- how many characters an account may hold, the free one included
 	-- (the second slot is Diamonds, every later one Robux; M37)
 	MAX_CHARACTERS = 5,

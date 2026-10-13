@@ -86,7 +86,15 @@ function SpatialSoundManager:attach(part: BasePart, name: string, isLooping: boo
 	if fullVolumeStuds and silentStuds then
 		emitter:SetDistanceAttenuation(distanceCurve(fullVolumeStuds, silentStuds))
 	end
+	-- an emitter emits from its direct parent, so it must sit on the part;
+	-- it goes when the caller destroys the player (one was left behind per
+	-- jet pack burn before, 2026-10-12)
 	emitter.Parent = part
+	player.Destroying:Connect(
+		function()
+			emitter:Destroy()
+		end
+	)
 	local wire = Instance.new("Wire")
 	wire.SourceInstance = player
 	wire.TargetInstance = emitter

@@ -29,6 +29,7 @@ local DEFAULTS = {
 		validSkillIds = { GOLD_DIGGER = true },
 		maxNameLength = 20,
 		defaultNamePrefix = "Character ",
+		defaultCosmetics = { HELMET = "HARD_HAT" },
 	},
 	maxCharacters = 3,
 	generateId = generateId,
@@ -45,8 +46,8 @@ local function makeCharacter(id, name)
 			TOWER_1 = { kind = "SENTRY_GUN", stars = 1 },
 			TOWER_2 = { kind = "FLAMETHROWER", stars = 1 },
 		},
-		skills = { ["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.SkillRarity.COMMON } },
-		cosmetics = {},
+		skills = { ["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.Rarity.COMMON } },
+		cosmetics = { HELMET = "HARD_HAT" },
 	}
 end
 
