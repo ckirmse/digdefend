@@ -3,13 +3,16 @@
 -- Gameplay-only client startup. The shared client starts from
 -- StarterPlayerScripts/Client/main; this script wires the gameplay's own managers.
 local StarterGui = game:GetService("StarterGui")
+local ClientButtonSoundManager = require(script.Parent.Parent.Client.ClientButtonSoundManager)
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
+local ClientDevConsoleManager = require(script.Parent.Parent.Client.ClientDevConsoleManager)
 local ClientActionButtonManager = require(script.Parent.ClientActionButtonManager)
 local ClientAimManager = require(script.Parent.ClientAimManager)
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
 local ClientCampMapManager = require(script.Parent.ClientCampMapManager)
 local ClientDiamondTapManager = require(script.Parent.ClientDiamondTapManager)
 local ClientCompassManager = require(script.Parent.ClientCompassManager)
+local ClientCursorManager = require(script.Parent.ClientCursorManager)
 local ClientDamageableManager = require(script.Parent.ClientDamageableManager)
 local ClientDefenseTableManager = require(script.Parent.ClientDefenseTableManager)
 local ClientDynamiteManager = require(script.Parent.ClientDynamiteManager)
@@ -51,6 +54,9 @@ local ClientWeaponManager = require(script.Parent.ClientWeaponManager)
 local ClientWeaponUpgradeManager = require(script.Parent.ClientWeaponUpgradeManager)
 
 ClientDataManager:awaitReady()
+ClientButtonSoundManager:init()
+ClientDevConsoleManager:init()
+ClientCursorManager:init()
 
 -- held tools are real Tool instances (ToolManager) but the custom tool bar
 -- is the only bar; Roblox's own hotbar stays off. The player list is off

@@ -603,7 +603,7 @@ function ClientPartyMenuManager:sendLaunch()
 end
 
 function ClientPartyMenuManager:findCreateView(playerGui: PlayerGui): CreateView?
-	local gui = playerGui:FindFirstChild(Constants.CREATE_PARTY_GUI_NAME)
+	local gui = playerGui:WaitForChild(Constants.CREATE_PARTY_GUI_NAME, Constants.GUI_WAIT_SEC)
 	if not gui or not gui:IsA("ScreenGui") then
 		warn(`ClientPartyMenuManager: no {Constants.CREATE_PARTY_GUI_NAME} ScreenGui; run scripts/studio/build_create_party_gui.luau`)
 		return nil
@@ -639,7 +639,7 @@ function ClientPartyMenuManager:findCreateView(playerGui: PlayerGui): CreateView
 end
 
 function ClientPartyMenuManager:findQueueView(playerGui: PlayerGui): QueueView?
-	local gui = playerGui:FindFirstChild(Constants.QUEUE_GUI_NAME)
+	local gui = playerGui:WaitForChild(Constants.QUEUE_GUI_NAME, Constants.GUI_WAIT_SEC)
 	if not gui or not gui:IsA("ScreenGui") then
 		warn(`ClientPartyMenuManager: no {Constants.QUEUE_GUI_NAME} ScreenGui; run scripts/studio/build_queue_gui.luau`)
 		return nil

@@ -189,7 +189,7 @@ end
 
 function ClientPlayerFeedbackManager:findGui()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-	local gui = playerGui:FindFirstChild(Constants.PLAYER_FEEDBACK_GUI_NAME)
+	local gui = playerGui:WaitForChild(Constants.PLAYER_FEEDBACK_GUI_NAME, Constants.GUI_WAIT_SEC)
 	if not gui then
 		warn(`ClientPlayerFeedbackManager: no {Constants.PLAYER_FEEDBACK_GUI_NAME} ScreenGui; messages will print`)
 		return

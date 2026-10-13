@@ -93,6 +93,14 @@ local sfx = {
 	GEIGER_1 = "Geiger1",
 	GEIGER_2 = "Geiger2",
 	GEIGER_3 = "Geiger3",
+	-- menus (designer, 2026-10-13): every menu button clicks
+	-- (ClientButtonSoundManager); a REROLL button plays its own sound
+	-- instead; the roll screen ticks on every image the NEW box flips to
+	-- and chimes when the result lands (ClientCharacterSheetManager)
+	BUTTON_CLICK = "ButtonClick",
+	REROLL = "Reroll",
+	REROLL_SPIN = "RerollSpin",
+	REROLL_REVEAL = "RerollReveal",
 }
 
 -- each weapon's sound set, by its Enums.WeaponKind key. A new weapon adds its
@@ -139,6 +147,10 @@ local lobbySfxNames: { string } = {
 	sfx.COINS_ADDED,
 	sfx.SALE_SUCCESS,
 	sfx.HELICOPTER,
+	sfx.BUTTON_CLICK,
+	sfx.REROLL,
+	sfx.REROLL_SPIN,
+	sfx.REROLL_REVEAL,
 }
 local lobbyMusicNames: { string } = {}
 

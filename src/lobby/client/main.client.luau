@@ -2,7 +2,9 @@
 
 -- Lobby-only client startup. The shared client starts from
 -- StarterPlayerScripts/Client/main; this script wires the lobby's own managers.
+local ClientButtonSoundManager = require(script.Parent.Parent.Client.ClientButtonSoundManager)
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
+local ClientDevConsoleManager = require(script.Parent.Parent.Client.ClientDevConsoleManager)
 local ClientCharacterMenuManager = require(script.Parent.ClientCharacterMenuManager)
 local ClientCharacterSheetManager = require(script.Parent.ClientCharacterSheetManager)
 local ClientHudManager = require(script.Parent.ClientHudManager)
@@ -11,6 +13,8 @@ local ClientPadBillboardManager = require(script.Parent.ClientPadBillboardManage
 local ClientPartyMenuManager = require(script.Parent.ClientPartyMenuManager)
 
 ClientDataManager:awaitReady()
+ClientButtonSoundManager:init()
+ClientDevConsoleManager:init()
 
 -- the menus before the HUD, whose Character button opens them
 ClientCharacterSheetManager:init()

@@ -4,7 +4,12 @@
 -- docs/mockups/character-sheet-2026-10-12.png): one character's name (with
 -- the rename pencil), avatar, Rank, and Nights Survived on the left; on the
 -- right the LOADOUT tab with four gear cards over three skill rows, each
--- with an info button and a REROLL, and the COSMETICS tab (M61). Opened
+-- with a REROLL, a gear card's name and picture opening its stats page,
+-- one REROLL ODDS button under the left panel (every roll's odds by
+-- rarity in one dialog, Roblox's paid random items policy), and the
+-- COSMETICS tab: a scrolling row per cosmetic slot, a type box beside a
+-- strip of picture-only items, the equipped one outlined and first when
+-- the sheet opens (designer's mock-up, 2026-10-13). Opened
 -- from a card on the Character Select Menu; Back returns there. Everything
 -- drawn is replicated (the character, the Diamonds, the reroll pricing and
 -- skill catalogue in GameMetadata); a roll's offer arrives as a notify and
@@ -16,6 +21,7 @@ local CharacterRules = require("@game/ReplicatedStorage/Shared/CharacterRules")
 local CharacterSchema = require("@game/ReplicatedStorage/Shared/CharacterSchema")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local GearStatsRules = require("@game/ReplicatedStorage/Shared/GearStatsRules")
 local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
@@ -42,13 +48,14 @@ type View = {
 	avatar: ViewportFrame,
 	rankLabel: TextLabel,
 	rankInfoButton: GuiButton,
+	oddsButton: GuiButton,
 	nightsLabel: TextLabel,
 	loadoutTab: GuiButton,
 	cosmeticsTab: GuiButton,
 	loadoutPage: GuiObject,
 	cosmeticsPage: GuiObject,
-	hatGrid: GuiObject,
-	hatButtonTemplate: TextButton,
+	cosmeticRows: GuiObject,
+	cosmeticRowTemplate: GuiObject,
 	gearRow: GuiObject,
 	gearCardTemplate: GuiObject,
 	skillRows: GuiObject,
@@ -60,6 +67,23 @@ type View = {
 	offerKeep: GuiButton,
 	offerUndo: GuiButton,
 	offerRank: TextLabel,
+	statsPanel: GuiObject,
+	statRows: GuiObject,
+	statRowTemplate: GuiObject,
+	infoDialog: GuiObject,
+	infoTitle: TextLabel,
+	infoPicture: ImageLabel,
+	infoRows: GuiObject,
+	infoRowTemplate: GuiObject,
+	infoNote: TextLabel,
+	infoClose: GuiButton,
+}
+
+-- one line of the info dialog: a coloured label on the left, a value on the right
+type InfoRow = {
+	label: string,
+	value: string,
+	color: Color3?,
 }
 
 -- what one box of the roll screen shows
@@ -74,6 +98,15 @@ type BoxContent = {
 	rank: number,
 	-- Enums.Rarity, colouring the name and detail; nil for an empty slot
 	rarity: number?,
+	-- the stats panel's rows for this item: a label, the value as shown,
+	-- and the number behind it for the better-or-worse colour
+	stats: { StatLine },
+}
+
+type StatLine = {
+	label: string,
+	value: string,
+	number: number?,
 }
 
 export type ClientCharacterSheetManager = typeof(setmetatable(
@@ -83,8 +116,9 @@ export type ClientCharacterSheetManager = typeof(setmetatable(
 		isOpen: boolean,
 		characterId: string?,
 		isCosmeticsTab: boolean,
-		-- the hat buttons cloned into the grid, by hat id ("" is own hat)
-		hatButtons: { [string]: TextButton },
+		-- the item buttons of every COSMETICS row, by slot then item id,
+		-- rebuilt when the sheet opens so the equipped item leads each strip
+		cosmeticButtons: { [number]: { [string]: ImageButton } },
 		-- the select menu hands in how to get back to it, so neither
 		-- manager requires the other both ways
 		onBack: (() -> ())?,
@@ -92,6 +126,9 @@ export type ClientCharacterSheetManager = typeof(setmetatable(
 		offerConnections: { RBXScriptConnection },
 		-- bumps per roll screen so an older flip animation stops touching it
 		rollGeneration: number,
+		-- the sheet's own parts hidden while the roll screen is up, so it
+		-- stands alone (designer, 2026-10-13); put back when it clears
+		hiddenForRoll: { GuiObject },
 	},
 	ClientCharacterSheetManager
 ))
@@ -103,11 +140,14 @@ local FREE_TEXT = "Free"
 local LOCKED_TEXT = "Survive %d nights to unlock"
 local RANK_INFO_TEXT = "Rank adds up your gear and skills by rarity, one number for how built this character is. A Contract's recommended Rank is a guide, never a guarantee."
 local NIGHTS_TEXT = "Nights survived: %d"
--- the hat grid's first button: the player's own avatar hat
+-- the hat row's last item, NONE: the player's own avatar hat, whatever it
+-- is (designer, 2026-10-13)
 local OWN_HAT_ID = CharacterSchema.OWN_HAT_ID
-local OWN_HAT_TEXT = "Own hat"
+local OWN_HAT_NAME = "None"
 -- the catalogue's own picture of a hat
 local HAT_THUMBNAIL = "rbxthumb://type=Asset&id=%d&w=150&h=150"
+-- every other slot's one skin so far: the game's existing asset
+local DEFAULT_ITEM_ID = CharacterSchema.DEFAULT_SKIN_ID
 local GEAR_OFFER_TITLE = "New roll: %s"
 local SKILL_OFFER_TITLE = "New roll: skill %d"
 -- the NEW box flips through candidates quickly, then slows to a stop on the
@@ -118,8 +158,32 @@ local SPIN_LAST_STEP_SEC = 0.45
 -- the reveal of the name and buttons after the flip stops
 local SPIN_REVEAL_DELAY_SEC = 0.35
 local RANK_CHANGE_TEXT = "Character rank:  %d  >>  %d"
-local TAB_ACTIVE_COLOR = UiStyle.PANEL_COLOR
-local TAB_INACTIVE_COLOR = UiStyle.BACKGROUND_COLOR
+-- a stat the panel colours the other way round: less is better
+local LOWER_IS_BETTER_LABELS: { [string]: boolean } = {
+	Reload = true,
+	Cooldown = true,
+}
+local RARITY_BONUS_LABEL = "Rarity bonus"
+local RARITY_LABEL = "Rarity"
+local MISSING_STAT_TEXT = "-"
+-- the selected tab is the accent yellow of every other button (designer, 2026-10-13)
+local TAB_ACTIVE_COLOR = UiStyle.ACCENT_COLOR
+local TAB_INACTIVE_COLOR = UiStyle.PANEL_COLOR
+local ODDS_TITLE = "Reroll odds"
+local GEAR_ODDS_HEADER = "Gear (every slot)"
+local SKILL_ODDS_HEADER = "Skills"
+-- Roblox's paid random items policy: every tier's share as a percentage,
+-- totalling 100, with a rounding note where the printed shares cannot
+local ODDS_ROUNDING_NOTE = "Shares are rounded, so they may not add up to exactly 100%."
+local ODDS_NOTE = "A gear roll draws the kind and the rarity together, every kind of the slot equally likely. A skill roll draws one of %d skills, each equally likely. A result may match what you have."
+local STATS_TITLE = "%s (%s)"
+local STATS_NOTE = "Base numbers. The rarity adds +%d%% damage."
+-- the rows sit under the picture, or where it was
+local INFO_ROWS_POSITION_WITH_PICTURE = UDim2.fromScale(0.5, 0.38)
+local INFO_ROWS_POSITION_NO_PICTURE = UDim2.fromScale(0.5, 0.16)
+-- both end above the note line, which is anchored at 0.84 and 0.08 tall
+local INFO_ROWS_SIZE_WITH_PICTURE = UDim2.fromScale(0.9, 0.36)
+local INFO_ROWS_SIZE_NO_PICTURE = UDim2.fromScale(0.9, 0.58)
 
 -- the row label on a gear card: the slot's public name, numbered for the
 -- two tower rows
@@ -137,6 +201,12 @@ local function gearName(gearSlot: number, kind: number): string
 	local gearEnum = CharacterSchema.getGearEnum(gearSlot)
 	local kindName = if gearEnum then Enums.getPublicName(gearEnum, kind) else nil
 	return kindName or "?"
+end
+
+-- the item's name with its star numeral ("Rifle IV"; designer, 2026-10-13,
+-- in place of a numeral badge on the roll screen's boxes)
+local function gearNameWithStars(gearSlot: number, kind: number, stars: number): string
+	return gearName(gearSlot, kind) .. " " .. CharacterRules.starNumeral(stars)
 end
 
 local function gearRarityName(stars: number): string
@@ -193,6 +263,105 @@ function ClientCharacterSheetManager:getSkillCatalogue(): CharacterRules.SkillCa
 	return CharacterRules.decodeSkillCatalogue(ClientDataManager:getGameMetadata(Attributes.CHARACTER_SKILL_CATALOGUE))
 end
 
+function ClientCharacterSheetManager:getGearStats(): GearStatsRules.GearStatsCatalogue
+	return GearStatsRules.decodeCatalogue(ClientDataManager:getGameMetadata(Attributes.CHARACTER_GEAR_STATS))
+end
+
+-- the info dialog over the sheet: a title, a picture or none, rows, and
+-- a note; one dialog serves the odds tables and the stats pages
+function ClientCharacterSheetManager:showInfo(title: string, pictureId: string?, rows: { InfoRow }, note: string)
+	local view = self.view
+	if not view then
+		return
+	end
+	for _, child in view.infoRows:GetChildren() do
+		if child:IsA("GuiObject") and child ~= view.infoRowTemplate then
+			child:Destroy()
+		end
+	end
+	view.infoTitle.Text = UiStyle.formatTitle(title)
+	local hasPicture = pictureId ~= nil and pictureId ~= ""
+	view.infoPicture.Image = pictureId or ""
+	view.infoPicture.Visible = hasPicture
+	view.infoRows.Position = if hasPicture then INFO_ROWS_POSITION_WITH_PICTURE else INFO_ROWS_POSITION_NO_PICTURE
+	view.infoRows.Size = if hasPicture then INFO_ROWS_SIZE_WITH_PICTURE else INFO_ROWS_SIZE_NO_PICTURE
+	-- the rows list scrolls (designer, 2026-10-13), so every row keeps the
+	-- template's height and a long table scrolls back to the top
+	if view.infoRows:IsA("ScrollingFrame") then
+		view.infoRows.CanvasPosition = Vector2.zero
+	end
+	for index, infoRow in rows do
+		local row = view.infoRowTemplate:Clone()
+		row.Name = "Row" .. tostring(index)
+		row.LayoutOrder = index
+		row.Visible = true
+		-- a header row is a label with no value and no background
+		row.BackgroundTransparency = if infoRow.value == "" then 1 else view.infoRowTemplate.BackgroundTransparency
+		local label = row:FindFirstChild(Constants.INFO_ROW_LABEL) :: TextLabel
+		label.Text = UiStyle.formatTitle(infoRow.label)
+		label.TextColor3 = infoRow.color or UiStyle.TEXT_COLOR
+		local value = row:FindFirstChild(Constants.INFO_ROW_VALUE) :: TextLabel
+		value.Text = infoRow.value
+		row.Parent = view.infoRows
+	end
+	view.infoNote.Text = note
+	view.infoDialog.Visible = true
+end
+
+function ClientCharacterSheetManager:closeInfo()
+	local view = self.view
+	if view then
+		view.infoDialog.Visible = false
+	end
+end
+
+local function rarityRows(odds: { CharacterRules.RarityOdds }, rows: { InfoRow }): { InfoRow }
+	for _, line in odds do
+		table.insert(rows, { label = CharacterRules.rarityName(line.rarity), value = CharacterRules.percentText(line.percent), color = rarityColor(line.rarity) })
+	end
+	return rows
+end
+
+-- the one REROLL ODDS button (designer, 2026-10-13): both tables in one
+-- dialog, so every roll's odds are on the sheet before any REROLL is
+-- pressed, as Roblox's paid random items policy asks
+function ClientCharacterSheetManager:showAllOdds()
+	local pricing = self:getRerollPricing()
+	if not pricing then
+		return
+	end
+	local catalogue = self:getSkillCatalogue()
+	local count = 0
+	for _ in catalogue do
+		count += 1
+	end
+	local gearOdds = CharacterRules.gearRarityOdds(pricing)
+	local skillOdds = CharacterRules.skillRarityOdds(catalogue)
+	local rows: { InfoRow } = { { label = GEAR_ODDS_HEADER, value = "", color = UiStyle.TEXT_MUTED_COLOR } }
+	rarityRows(gearOdds, rows)
+	table.insert(rows, { label = SKILL_ODDS_HEADER, value = "", color = UiStyle.TEXT_MUTED_COLOR })
+	rarityRows(skillOdds, rows)
+	local note = string.format(ODDS_NOTE, count)
+	if not CharacterRules.isOddsTotalExact(gearOdds) or not CharacterRules.isOddsTotalExact(skillOdds) then
+		note ..= " " .. ODDS_ROUNDING_NOTE
+	end
+	self:showInfo(ODDS_TITLE, nil, rows, note)
+end
+
+-- the stats page behind a gear card's name or picture: the kind's base
+-- numbers from the published catalogue
+function ClientCharacterSheetManager:showGearStats(gearSlot: number, gear: ClientDataManager.GearData, pricing: CharacterRules.RerollPricing?)
+	local byKind = self:getGearStats()[gearSlot]
+	local statRows = if byKind then byKind[gear.kind] else nil
+	local rows: { InfoRow } = {}
+	for _, statRow in statRows or {} do
+		table.insert(rows, { label = statRow.label, value = statRow.value })
+	end
+	local bonusPercent = if pricing then math.floor(pricing.bonusPerStar * (gear.stars - 1) * 100 + 0.5) else 0
+	local title = string.format(STATS_TITLE, gearName(gearSlot, gear.kind), gearRarityName(gear.stars))
+	self:showInfo(title, gearPicture(gearSlot, gear.kind), rows, string.format(STATS_NOTE, bonusPercent))
+end
+
 function ClientCharacterSheetManager:fillRerollButton(button: GuiObject, price: number)
 	local priceLabel = button:FindFirstChild(Constants.REROLL_BUTTON_PRICE_LABEL) :: TextLabel
 	local priceIcon = button:FindFirstChild(Constants.REROLL_BUTTON_PRICE_ICON) :: ImageLabel
@@ -219,28 +388,26 @@ function ClientCharacterSheetManager:renderGearCards(view: View, character: Clie
 		card.Visible = true
 		local slotLabel = card:FindFirstChild(Constants.GEAR_CARD_SLOT_LABEL) :: TextLabel
 		slotLabel.Text = UiStyle.formatTitle(gearSlotTitle(gearSlot))
-		local kindLabel = card:FindFirstChild(Constants.GEAR_CARD_KIND_LABEL) :: TextLabel
-		kindLabel.Text = UiStyle.formatTitle(gearName(gearSlot, gear.kind))
+		local kindLabel = card:FindFirstChild(Constants.GEAR_CARD_KIND_LABEL) :: TextButton
+		kindLabel.Text = UiStyle.formatTitle(gearNameWithStars(gearSlot, gear.kind, gear.stars))
 		local rarityLabel = card:FindFirstChild(Constants.GEAR_CARD_RARITY_LABEL) :: TextLabel
 		rarityLabel.Text = UiStyle.formatTitle(gearRarityName(gear.stars))
 		local gearColor = rarityColor(CharacterRules.rarityForStars(gear.stars))
 		kindLabel.TextColor3 = gearColor
 		rarityLabel.TextColor3 = gearColor
-		local picture = card:FindFirstChild(Constants.GEAR_CARD_PICTURE) :: ImageLabel
+		local picture = card:FindFirstChild(Constants.GEAR_CARD_PICTURE) :: ImageButton
 		picture.Image = gearPicture(gearSlot, gear.kind)
+		-- the name and the picture open the stats page (designer, 2026-10-13)
+		local function openStats()
+			self:showGearStats(gearSlot, gear, pricing)
+		end
+		kindLabel.Activated:Connect(openStats)
+		picture.Activated:Connect(openStats)
 		local rerollButton = card:FindFirstChild(Constants.GEAR_CARD_REROLL_BUTTON) :: GuiButton
 		self:fillRerollButton(rerollButton, if pricing then pricing.gearPriceDiamonds else 0)
 		rerollButton.Activated:Connect(
 			function()
 				ClientNetManager:fireServer(NetEventNames.TRY_REROLL_GEAR, { characterId = character.id, gearSlot = gearSlot })
-			end
-		)
-		local infoButton = card:FindFirstChild(Constants.GEAR_CARD_INFO_BUTTON) :: GuiButton
-		infoButton.Activated:Connect(
-			function()
-				local bonusPercent = if pricing then math.floor(pricing.bonusPerStar * (gear.stars - 1) * 100 + 0.5) else 0
-				local odds = if pricing then CharacterRules.describeStarOdds(pricing) else ""
-				ClientPlayerFeedbackManager:giveLocal(string.format("%s (%s): +%d%% damage from its rarity. A roll draws the kind and the rarity: %s. %s", gearName(gearSlot, gear.kind), gearRarityName(gear.stars), bonusPercent, CharacterRules.describeKindOdds(gearSlot), odds), INFO_DISPLAY_SEC)
 			end
 		)
 		card.Parent = view.gearRow
@@ -266,7 +433,6 @@ function ClientCharacterSheetManager:renderSkillRows(view: View, character: Clie
 		number.Text = tostring(slot)
 		local nameLabel = row:FindFirstChild(Constants.SKILL_ROW_NAME_LABEL) :: TextLabel
 		local descriptionLabel = row:FindFirstChild(Constants.SKILL_ROW_DESCRIPTION_LABEL) :: TextLabel
-		local infoButton = row:FindFirstChild(Constants.SKILL_ROW_INFO_BUTTON) :: GuiButton
 		local rerollButton = row:FindFirstChild(Constants.SKILL_ROW_REROLL_BUTTON) :: GuiButton
 		local lockIcon = row:FindFirstChild(Constants.SKILL_ROW_LOCK_ICON) :: GuiObject
 		local isOpen = slot <= character.skillSlotsOpen
@@ -277,7 +443,6 @@ function ClientCharacterSheetManager:renderSkillRows(view: View, character: Clie
 			nameLabel.TextColor3 = if skill then rarityColor(skill.rarity) else UiStyle.TEXT_MUTED_COLOR
 			descriptionLabel.Text = if entry then entry.description else (if skill then "" else EMPTY_SKILL_DESCRIPTION)
 			descriptionLabel.Visible = true
-			infoButton.Visible = skill ~= nil
 			rerollButton.Visible = true
 			lockIcon.Visible = false
 			self:fillRerollButton(rerollButton, if pricing then CharacterRules.skillRollPrice(pricing, skill == nil) else 0)
@@ -286,19 +451,10 @@ function ClientCharacterSheetManager:renderSkillRows(view: View, character: Clie
 					ClientNetManager:fireServer(NetEventNames.TRY_REROLL_SKILL, { characterId = character.id, slot = slot })
 				end
 			)
-			infoButton.Activated:Connect(
-				function()
-					if entry then
-						local family = Enums.getPublicName(Enums.SkillFamily, entry.family) or ""
-						ClientPlayerFeedbackManager:giveLocal(string.format("%s (%s): %s", entry.name, family, entry.description), INFO_DISPLAY_SEC)
-					end
-				end
-			)
 		else
 			nameLabel.Text = UiStyle.formatTitle(string.format(LOCKED_TEXT, unlockNights[slot] or 0))
 			nameLabel.TextColor3 = UiStyle.TEXT_COLOR
 			descriptionLabel.Visible = false
-			infoButton.Visible = false
 			rerollButton.Visible = false
 			lockIcon.Visible = true
 		end
@@ -306,60 +462,122 @@ function ClientCharacterSheetManager:renderSkillRows(view: View, character: Clie
 	end
 end
 
-local HELMET_SLOT_NAME = Enums.getName(Enums.CosmeticSlot, Enums.CosmeticSlot.HELMET) :: string
+-- the items a slot's strip offers and what each is called: the hat row
+-- is the catalogue (every hat counts as unlocked until M61 brings
+-- ownership) then NONE, the player's own avatar hat; every other slot
+-- offers its one default skin, the game's existing asset, until M61.
+function ClientCharacterSheetManager:getCosmeticItems(slot: number): ({ string }, { [string]: string }, { [string]: string })
+	local ids: { string } = {}
+	local names: { [string]: string } = {}
+	local pictures: { [string]: string } = {}
+	if slot == Enums.CosmeticSlot.HELMET then
+		local catalogue = CharacterRules.decodeHatCatalogue(ClientDataManager:getGameMetadata(Attributes.CHARACTER_HAT_CATALOGUE))
+		for hatId, entry in catalogue do
+			table.insert(ids, hatId)
+			names[hatId] = entry.name
+			pictures[hatId] = string.format(HAT_THUMBNAIL, entry.assetId)
+		end
+		table.insert(ids, OWN_HAT_ID)
+		names[OWN_HAT_ID] = OWN_HAT_NAME
+		pictures[OWN_HAT_ID] = Icons.UI.NO_HAT
+	else
+		table.insert(ids, DEFAULT_ITEM_ID)
+		names[DEFAULT_ITEM_ID] = "Default"
+		pictures[DEFAULT_ITEM_ID] = Icons.COSMETIC_DEFAULT_SKIN[slot] or Icons.COSMETIC_SLOT[slot] or ""
+	end
+	return ids, names, pictures
+end
 
--- one button per catalogue hat plus "own hat", built once the catalogue
--- is known; the selected one wears the accent stroke
-function ClientCharacterSheetManager:buildHatGrid(view: View)
-	if next(self.hatButtons) ~= nil then
-		return
+local function equippedCosmetic(cosmetics: { [string]: string }, slot: number): string
+	local slotName = Enums.getName(Enums.CosmeticSlot, slot) :: string
+	if slot == Enums.CosmeticSlot.HELMET then
+		return cosmetics[slotName] or OWN_HAT_ID
 	end
-	local catalogue = CharacterRules.decodeHatCatalogue(ClientDataManager:getGameMetadata(Attributes.CHARACTER_HAT_CATALOGUE))
-	local ids = { OWN_HAT_ID }
-	for hatId in catalogue do
-		table.insert(ids, hatId)
+	return cosmetics[slotName] or DEFAULT_ITEM_ID
+end
+
+-- one row per cosmetic slot, each strip in the order the sheet opened
+-- with (equipped first); built once per open, so a tap equips without
+-- moving anything, and the next open leads with the new pick (designer,
+-- 2026-10-13)
+function ClientCharacterSheetManager:buildCosmeticRows(view: View, cosmetics: { [string]: string })
+	for _, child in view.cosmeticRows:GetChildren() do
+		if child:IsA("GuiObject") and child ~= view.cosmeticRowTemplate then
+			child:Destroy()
+		end
 	end
-	table.sort(
-		ids,
-		function(a, b)
-			if a == OWN_HAT_ID or b == OWN_HAT_ID then
-				return a == OWN_HAT_ID
-			end
-			return catalogue[a].name < catalogue[b].name
-		end
-	)
-	for order, hatId in ids do
-		local button = view.hatButtonTemplate:Clone()
-		button.Name = if hatId == OWN_HAT_ID then "OwnHat" else hatId
-		button.LayoutOrder = order
-		button.Visible = true
-		local picture = button:FindFirstChild(Constants.HAT_BUTTON_PICTURE) :: ImageLabel
-		local nameLabel = button:FindFirstChild(Constants.HAT_BUTTON_NAME_LABEL) :: TextLabel
-		if hatId == OWN_HAT_ID then
-			picture.Image = ""
-			nameLabel.Text = UiStyle.formatTitle(OWN_HAT_TEXT)
-		else
-			picture.Image = string.format(HAT_THUMBNAIL, catalogue[hatId].assetId)
-			nameLabel.Text = UiStyle.formatTitle(catalogue[hatId].name)
-		end
-		button.Activated:Connect(
-			function()
-				if self.characterId then
-					ClientNetManager:fireServer(NetEventNames.TRY_SET_COSMETIC, { characterId = self.characterId, slot = Enums.CosmeticSlot.HELMET, skinId = hatId })
-				end
-			end
+	self.cosmeticButtons = {}
+	for order, slot in Constants.CHARACTER_SHEET_COSMETIC_SLOTS do
+		local row = view.cosmeticRowTemplate:Clone()
+		row.Name = Enums.getName(Enums.CosmeticSlot, slot) :: string
+		row.LayoutOrder = order
+		row.Visible = true
+		local typeBox = row:FindFirstChild(Constants.COSMETIC_ROW_TYPE_BOX) :: GuiObject
+		local typeIcon = typeBox:FindFirstChild(Constants.COSMETIC_ROW_TYPE_ICON) :: ImageLabel
+		typeIcon.Image = Icons.COSMETIC_SLOT[slot] or ""
+		local typeLabel = typeBox:FindFirstChild(Constants.COSMETIC_ROW_TYPE_LABEL) :: TextLabel
+		typeLabel.Text = UiStyle.formatTitle(Enums.getPublicName(Enums.CosmeticSlot, slot) or "")
+		local items = row:FindFirstChild(Constants.COSMETIC_ROW_ITEMS) :: ScrollingFrame
+		local itemTemplate = items:FindFirstChild(Constants.COSMETIC_ROW_ITEM_TEMPLATE) :: ImageButton
+		local ids, names, pictures = self:getCosmeticItems(slot)
+		local ordered = CharacterRules.cosmeticItemOrder(
+			ids,
+			equippedCosmetic(cosmetics, slot),
+			function(id)
+				return names[id] or id
+			end,
+			if slot == Enums.CosmeticSlot.HELMET then OWN_HAT_ID else nil
 		)
-		button.Parent = view.hatGrid
-		self.hatButtons[hatId] = button
+		local buttons: { [string]: ImageButton } = {}
+		for itemOrder, itemId in ordered do
+			local button = itemTemplate:Clone()
+			button.Name = itemId
+			button.LayoutOrder = itemOrder
+			button.Visible = true
+			button.Image = pictures[itemId] or ""
+			-- every item is a real pick, the default skin included
+			button.Activated:Connect(
+				function()
+					if self.characterId then
+						ClientNetManager:fireServer(NetEventNames.TRY_SET_COSMETIC, { characterId = self.characterId, slot = slot, skinId = itemId })
+					end
+				end
+			)
+			button.Parent = items
+			buttons[itemId] = button
+		end
+		self.cosmeticButtons[slot] = buttons
+		-- the strip starts just after the square type box, whose width is
+		-- the row's height; a scale width cannot express that, so it is
+		-- measured once the row is on screen
+		local function fitStrip()
+			local rowWidth = row.AbsoluteSize.X
+			if rowWidth <= 0 then
+				return
+			end
+			local boxRight = typeBox.AbsolutePosition.X + typeBox.AbsoluteSize.X - row.AbsolutePosition.X
+			local gap = rowWidth * 0.01
+			local right = rowWidth * 0.99
+			items.Size = UDim2.fromScale(math.max((right - boxRight - gap) / rowWidth, 0.1), items.Size.Y.Scale)
+		end
+		row:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitStrip)
+		row.Parent = view.cosmeticRows
+		fitStrip()
 	end
 end
 
-function ClientCharacterSheetManager:renderHats(view: View, cosmetics: { [string]: string })
-	self:buildHatGrid(view)
-	local equipped = cosmetics[HELMET_SLOT_NAME] or OWN_HAT_ID
-	for hatId, button in self.hatButtons do
-		local stroke = button:FindFirstChild(Constants.HAT_BUTTON_SELECTED_STROKE) :: UIStroke
-		stroke.Enabled = hatId == equipped
+-- the equipped item in every strip wears the accent stroke; the strips
+-- themselves are built once per open
+function ClientCharacterSheetManager:renderCosmetics(view: View, cosmetics: { [string]: string })
+	if next(self.cosmeticButtons) == nil then
+		self:buildCosmeticRows(view, cosmetics)
+	end
+	for slot, buttons in self.cosmeticButtons do
+		local equipped = equippedCosmetic(cosmetics, slot)
+		for itemId, button in buttons do
+			local stroke = button:FindFirstChild(Constants.COSMETIC_ITEM_SELECTED_STROKE) :: UIStroke
+			stroke.Enabled = itemId == equipped
+		end
 	end
 end
 
@@ -393,7 +611,7 @@ function ClientCharacterSheetManager:render()
 	view.nightsLabel.Text = UiStyle.formatTitle(string.format(NIGHTS_TEXT, character.nightsSurvived))
 	self:renderGearCards(view, character, pricing)
 	self:renderSkillRows(view, character, pricing)
-	self:renderHats(view, character.cosmetics)
+	self:renderCosmetics(view, character.cosmetics)
 	self:renderTabs(view)
 end
 
@@ -429,17 +647,10 @@ local function fillBox(box: GuiObject, content: BoxContent, isRevealed: boolean)
 	local detail = box:FindFirstChild(Constants.OFFER_BOX_DETAIL_LABEL) :: TextLabel
 	icon.Image = content.icon
 	spin.Text = content.spinText
-	-- with an icon the flipping text is a badge in the icon's corner; with
-	-- none (skills, until their icons exist) it fills the icon area
-	if content.icon ~= "" then
-		spin.AnchorPoint = Vector2.new(1, 1)
-		spin.Position = UDim2.fromScale(0.92, 0.61)
-		spin.Size = UDim2.fromScale(0.3, 0.16)
-	else
-		spin.AnchorPoint = Vector2.new(0.5, 0)
-		spin.Position = UDim2.fromScale(0.5, 0.17)
-		spin.Size = UDim2.fromScale(0.9, 0.44)
-	end
+	-- with an icon nothing flips over it (the star numeral rides in the
+	-- name since 2026-10-13); with none (skills, until their icons exist)
+	-- the name itself flips in the icon area
+	spin.Visible = content.icon == ""
 	nameLabel.Text = UiStyle.formatTitle(content.name)
 	detail.Text = content.detail
 	local color = if content.rarity then rarityColor(content.rarity) else UiStyle.TEXT_MUTED_COLOR
@@ -449,21 +660,74 @@ local function fillBox(box: GuiObject, content: BoxContent, isRevealed: boolean)
 	detail.Visible = isRevealed
 end
 
--- the Rank line under the boxes: green when the candidate raises it, red
--- when it lowers it, muted when nothing changes
-function ClientCharacterSheetManager:showRankChange(before: number, after: number)
+-- green when the candidate is better, red when worse, muted when the same
+local function directionColor(before: number?, after: number?, isLowerBetter: boolean): Color3
+	if before == nil or after == nil or before == after then
+		return UiStyle.TEXT_MUTED_COLOR
+	end
+	local isBetter = if isLowerBetter then after < before else after > before
+	return if isBetter then UiStyle.POSITIVE_COLOR else UiStyle.NEGATIVE_COLOR
+end
+
+-- the number at the front of a stat as shown ("1.7/s", "300 studs", "+20%")
+local function leadingNumber(value: string): number?
+	return tonumber(value:match("^[-+]?%d+%.?%d*"))
+end
+
+-- the stats panel beside the boxes: every stat the current item or the
+-- candidate has, as the current value then the candidate's, coloured by
+-- direction, with the Rank line at its foot (designer, 2026-10-13)
+function ClientCharacterSheetManager:showComparison(current: BoxContent, candidate: BoxContent)
 	local view = self.view
 	if not view then
 		return
 	end
-	view.offerRank.Text = UiStyle.formatTitle(string.format(RANK_CHANGE_TEXT, before, after))
-	if after > before then
-		view.offerRank.TextColor3 = UiStyle.POSITIVE_COLOR
-	elseif after < before then
-		view.offerRank.TextColor3 = UiStyle.NEGATIVE_COLOR
-	else
-		view.offerRank.TextColor3 = UiStyle.TEXT_MUTED_COLOR
+	for _, child in view.statRows:GetChildren() do
+		if child:IsA("GuiObject") and child ~= view.statRowTemplate then
+			child:Destroy()
+		end
 	end
+	local currentByLabel: { [string]: StatLine } = {}
+	local candidateByLabel: { [string]: StatLine } = {}
+	local labels: { string } = {}
+	for _, line in current.stats do
+		currentByLabel[line.label] = line
+		table.insert(labels, line.label)
+	end
+	for _, line in candidate.stats do
+		candidateByLabel[line.label] = line
+		if not currentByLabel[line.label] then
+			table.insert(labels, line.label)
+		end
+	end
+	-- two kinds that share few stats make a long union, so the rows share
+	-- the frame out rather than running into the Rank line
+	local layout = view.statRows:FindFirstChildOfClass("UIListLayout")
+	local paddingScale: number = if layout then layout.Padding.Scale else 0
+	local templateHeight: number = view.statRowTemplate.Size.Y.Scale
+	local fitHeight: number = (1 - paddingScale * math.max(#labels - 1, 0)) / math.max(#labels, 1)
+	local rowHeight: number = math.min(templateHeight, fitHeight)
+	for order, label in labels do
+		local before = currentByLabel[label]
+		local after = candidateByLabel[label]
+		local row = view.statRowTemplate:Clone()
+		row.Name = "Row" .. tostring(order)
+		row.LayoutOrder = order
+		row.Visible = true
+		row.Size = UDim2.fromScale(view.statRowTemplate.Size.X.Scale, rowHeight)
+		local rowLabel = row:FindFirstChild(Constants.OFFER_STAT_ROW_LABEL) :: TextLabel
+		rowLabel.Text = UiStyle.formatTitle(label)
+		local currentValue = row:FindFirstChild(Constants.OFFER_STAT_ROW_CURRENT) :: TextLabel
+		currentValue.Text = if before then before.value else MISSING_STAT_TEXT
+		local newValue = row:FindFirstChild(Constants.OFFER_STAT_ROW_NEW) :: TextLabel
+		newValue.Text = if after then after.value else MISSING_STAT_TEXT
+		local beforeNumber = if before then (before.number or leadingNumber(before.value)) else nil
+		local afterNumber = if after then (after.number or leadingNumber(after.value)) else nil
+		newValue.TextColor3 = directionColor(beforeNumber, afterNumber, LOWER_IS_BETTER_LABELS[label] == true)
+		row.Parent = view.statRows
+	end
+	view.offerRank.Text = UiStyle.formatTitle(string.format(RANK_CHANGE_TEXT, current.rank, candidate.rank))
+	view.offerRank.TextColor3 = directionColor(current.rank, candidate.rank, false)
 end
 
 function ClientCharacterSheetManager:clearOffer()
@@ -477,6 +741,20 @@ function ClientCharacterSheetManager:clearOffer()
 	end
 	table.clear(self.offerConnections)
 	view.offerDialog.Visible = false
+	for _, part in self.hiddenForRoll do
+		part.Visible = true
+	end
+	table.clear(self.hiddenForRoll)
+end
+
+-- everything on the dialog but the roll screen goes away while it shows
+function ClientCharacterSheetManager:hideSheetForRoll(view: View)
+	for _, child in view.dialog:GetChildren() do
+		if child:IsA("GuiObject") and child ~= view.offerDialog and child.Visible then
+			child.Visible = false
+			table.insert(self.hiddenForRoll, child)
+		end
+	end
 end
 
 -- the roll screen: CURRENT on the left, NEW on the right. The NEW box flips
@@ -493,9 +771,10 @@ function ClientCharacterSheetManager:showRoll(title: string, current: BoxContent
 	view.offerTitle.Text = UiStyle.formatTitle(title)
 	fillBox(view.currentBox, current, true)
 	fillBox(view.newBox, result, true)
-	self:showRankChange(current.rank, result.rank)
+	self:showComparison(current, result)
 	view.offerKeep.Visible = false
 	view.offerUndo.Visible = false
+	self:hideSheetForRoll(view)
 	view.offerDialog.Visible = true
 
 	table.insert(
@@ -531,7 +810,8 @@ function ClientCharacterSheetManager:showRoll(title: string, current: BoxContent
 				end
 				index = index % #candidates + 1
 				fillBox(view.newBox, candidates[index], true)
-				self:showRankChange(current.rank, candidates[index].rank)
+				ClientSoundManager:playSfx(SoundNames.Sfx.REROLL_SPIN)
+				self:showComparison(current, candidates[index])
 				task.wait(step)
 				step *= SPIN_STEP_GROWTH
 			end
@@ -539,8 +819,8 @@ function ClientCharacterSheetManager:showRoll(title: string, current: BoxContent
 				return
 			end
 			fillBox(view.newBox, result, true)
-			self:showRankChange(current.rank, result.rank)
-			ClientSoundManager:playSfx(SoundNames.Sfx.SALE_SUCCESS)
+			self:showComparison(current, result)
+			ClientSoundManager:playSfx(SoundNames.Sfx.REROLL_REVEAL)
 			task.wait(SPIN_REVEAL_DELAY_SEC)
 			if self.rollGeneration ~= generation then
 				return
@@ -564,14 +844,23 @@ function ClientCharacterSheetManager:onGearRollOffer(payload: any)
 	local pricing = self:getRerollPricing()
 	local minStars = if pricing then pricing.minStars else 1
 	local maxStars = if pricing then pricing.maxStars else 5
+	local statsByKind = self:getGearStats()[gearSlot] or {}
 	local function boxFor(kind: number, stars: number): BoxContent
+		local stats: { StatLine } = {}
+		local kindRows: { GearStatsRules.StatRow } = statsByKind[kind] or {}
+		for _, statRow in kindRows do
+			table.insert(stats, { label = statRow.label, value = statRow.value })
+		end
+		local bonusPercent = if pricing then math.floor(pricing.bonusPerStar * (stars - 1) * 100 + 0.5) else 0
+		table.insert(stats, { label = RARITY_BONUS_LABEL, value = string.format("+%d%%", bonusPercent), number = bonusPercent })
 		return {
 			icon = gearPicture(gearSlot, kind),
-			spinText = CharacterRules.starNumeral(stars),
-			name = gearName(gearSlot, kind),
+			spinText = "",
+			name = gearNameWithStars(gearSlot, kind, stars),
 			detail = gearRarityName(stars),
 			rank = self:rankWith(character, gearSlot, stars, nil, nil),
 			rarity = CharacterRules.rarityForStars(stars),
+			stats = stats,
 		}
 	end
 	-- the flip runs through every kind the slot can hold, with the star
@@ -623,6 +912,7 @@ function ClientCharacterSheetManager:onSkillRollOffer(payload: any)
 			detail = if entry then entry.description else "",
 			rank = self:rankWith(character, nil, nil, payload.slot, rarity or 0),
 			rarity = if skillId then rarity else nil,
+			stats = if skillId then { { label = RARITY_LABEL, value = CharacterRules.rarityName(rarity or 0), number = rarity } } else {},
 		}
 	end
 	local ids = {}
@@ -687,6 +977,8 @@ function ClientCharacterSheetManager:openMenu(characterId: string)
 	self.characterId = characterId
 	self.isOpen = true
 	self.isCosmeticsTab = false
+	-- the strips are rebuilt so each opens with the equipped item first
+	self.cosmeticButtons = {}
 	view.gui.Enabled = true
 	self:render()
 	ClientOverlayManager:notifyBeginOverlay(overlay)
@@ -699,6 +991,7 @@ function ClientCharacterSheetManager:closeMenu()
 	end
 	self:endRename(false)
 	self:clearOffer()
+	self:closeInfo()
 	self.isOpen = false
 	view.gui.Enabled = false
 	local overlay = self.overlay
@@ -712,7 +1005,9 @@ local function findChild(parent: Instance?, name: string): Instance?
 end
 
 function ClientCharacterSheetManager:findView(playerGui: PlayerGui): View?
-	local gui = playerGui:FindFirstChild(Constants.CHARACTER_SHEET_GUI_NAME)
+	-- waited for, not found: on a live server the client starts before
+	-- StarterGui is copied in (2026-10-13)
+	local gui = playerGui:WaitForChild(Constants.CHARACTER_SHEET_GUI_NAME, Constants.GUI_WAIT_SEC)
 	if not gui or not gui:IsA("ScreenGui") then
 		warn(`ClientCharacterSheetManager: no {Constants.CHARACTER_SHEET_GUI_NAME} ScreenGui; run build_character_sheet_gui`)
 		return nil
@@ -725,8 +1020,12 @@ function ClientCharacterSheetManager:findView(playerGui: PlayerGui): View?
 	local gearRow = findChild(loadoutPage, Constants.CHARACTER_SHEET_GEAR_ROW)
 	local skillRows = findChild(loadoutPage, Constants.CHARACTER_SHEET_SKILL_ROWS)
 	local offerDialog = findChild(dialog, Constants.CHARACTER_SHEET_OFFER_DIALOG)
+	local statsPanel = findChild(offerDialog, Constants.OFFER_STATS_PANEL)
+	local statRows = findChild(statsPanel, Constants.OFFER_STAT_ROWS)
 	local cosmeticsPage = findChild(rightPanel, Constants.CHARACTER_SHEET_COSMETICS_PAGE)
-	local hatGrid = findChild(cosmeticsPage, Constants.CHARACTER_SHEET_HAT_GRID)
+	local cosmeticRows = findChild(cosmeticsPage, Constants.CHARACTER_SHEET_COSMETIC_ROWS)
+	local infoDialog = findChild(dialog, Constants.CHARACTER_SHEET_INFO_DIALOG)
+	local infoRows = findChild(infoDialog, Constants.INFO_DIALOG_ROWS)
 	local parts = {
 		backButton = findChild(dialog, Constants.CHARACTER_SELECT_BACK_BUTTON),
 		diamondLabel = findChild(wallet, Constants.HUD_DIAMOND_AMOUNT_LABEL),
@@ -736,13 +1035,14 @@ function ClientCharacterSheetManager:findView(playerGui: PlayerGui): View?
 		avatar = findChild(leftPanel, Constants.CHARACTER_CARD_AVATAR),
 		rankLabel = findChild(leftPanel, Constants.CHARACTER_CARD_RANK_LABEL),
 		rankInfoButton = findChild(leftPanel, Constants.CHARACTER_SHEET_RANK_INFO_BUTTON),
+		oddsButton = findChild(dialog, Constants.CHARACTER_SHEET_ODDS_BUTTON),
 		nightsLabel = findChild(leftPanel, Constants.CHARACTER_CARD_NIGHTS_LABEL),
 		loadoutTab = findChild(rightPanel, Constants.CHARACTER_SHEET_LOADOUT_TAB),
 		cosmeticsTab = findChild(rightPanel, Constants.CHARACTER_SHEET_COSMETICS_TAB),
 		loadoutPage = loadoutPage,
 		cosmeticsPage = cosmeticsPage,
-		hatGrid = hatGrid,
-		hatButtonTemplate = findChild(hatGrid, Constants.CHARACTER_SHEET_HAT_BUTTON_TEMPLATE),
+		cosmeticRows = cosmeticRows,
+		cosmeticRowTemplate = findChild(cosmeticRows, Constants.CHARACTER_SHEET_COSMETIC_ROW_TEMPLATE),
 		gearRow = gearRow,
 		gearCardTemplate = findChild(gearRow, Constants.CHARACTER_SHEET_GEAR_CARD_TEMPLATE),
 		skillRows = skillRows,
@@ -753,7 +1053,17 @@ function ClientCharacterSheetManager:findView(playerGui: PlayerGui): View?
 		newBox = findChild(offerDialog, Constants.OFFER_NEW_BOX),
 		offerKeep = findChild(offerDialog, Constants.OFFER_KEEP_BUTTON),
 		offerUndo = findChild(offerDialog, Constants.OFFER_UNDO_BUTTON),
-		offerRank = findChild(offerDialog, Constants.OFFER_RANK_LABEL),
+		offerRank = findChild(statsPanel, Constants.OFFER_RANK_LABEL),
+		statsPanel = statsPanel,
+		statRows = statRows,
+		statRowTemplate = findChild(statRows, Constants.OFFER_STAT_ROW_TEMPLATE),
+		infoDialog = infoDialog,
+		infoTitle = findChild(infoDialog, Constants.INFO_DIALOG_TITLE),
+		infoPicture = findChild(infoDialog, Constants.INFO_DIALOG_PICTURE),
+		infoRows = infoRows,
+		infoRowTemplate = findChild(infoRows, Constants.INFO_DIALOG_ROW_TEMPLATE),
+		infoNote = findChild(infoDialog, Constants.INFO_DIALOG_NOTE),
+		infoClose = findChild(infoDialog, Constants.INFO_DIALOG_CLOSE_BUTTON),
 	}
 	for name, part in parts do
 		if part == nil then
@@ -778,8 +1088,11 @@ function ClientCharacterSheetManager:init()
 	view.gearCardTemplate.Visible = false
 	view.skillRowTemplate.Visible = false
 	view.offerDialog.Visible = false
+	view.statRowTemplate.Visible = false
+	view.infoDialog.Visible = false
+	view.infoRowTemplate.Visible = false
 	view.nameBox.Visible = false
-	view.hatButtonTemplate.Visible = false
+	view.cosmeticRowTemplate.Visible = false
 
 	view.backButton.Activated:Connect(
 		function()
@@ -807,6 +1120,16 @@ function ClientCharacterSheetManager:init()
 			self:beginRename()
 		end
 	)
+	view.infoClose.Activated:Connect(
+		function()
+			self:closeInfo()
+		end
+	)
+	view.oddsButton.Activated:Connect(
+		function()
+			self:showAllOdds()
+		end
+	)
 	view.rankInfoButton.Activated:Connect(
 		function()
 			ClientPlayerFeedbackManager:giveLocal(RANK_INFO_TEXT, INFO_DISPLAY_SEC)
@@ -826,6 +1149,7 @@ function ClientCharacterSheetManager:init()
 		notifyForceEnd = function(_overlay)
 			self:endRename(false)
 			self:clearOffer()
+			self:closeInfo()
 			self.isOpen = false
 			view.gui.Enabled = false
 		end,
@@ -865,10 +1189,11 @@ function ClientCharacterSheetManager.new(): ClientCharacterSheetManager
 	self.isOpen = false
 	self.characterId = nil
 	self.isCosmeticsTab = false
-	self.hatButtons = {}
+	self.cosmeticButtons = {}
 	self.onBack = nil
 	self.offerConnections = {}
 	self.rollGeneration = 0
+	self.hiddenForRoll = {}
 	return self
 end
 

@@ -363,7 +363,7 @@ function ClientDevTools:openTestMenu()
 		return
 	end
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-	local gui = playerGui:FindFirstChild(Constants.DEV_TEST_MENU_GUI_NAME)
+	local gui = playerGui:WaitForChild(Constants.DEV_TEST_MENU_GUI_NAME, Constants.GUI_WAIT_SEC)
 	local frame = if gui then gui:FindFirstChild(Constants.DEV_TEST_MENU_DIALOG) else nil
 	if not gui or not gui:IsA("ScreenGui") or not frame or not frame:IsA("GuiObject") then
 		warn("ClientDevTools: no DevTestMenu ScreenGui; run scripts/studio/build_dev_test_menu_gui.luau in this place")

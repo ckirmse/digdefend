@@ -180,6 +180,9 @@ local selectedStroke = Instance.new("UIStroke")
 selectedStroke.Name = Constants.CHARACTER_CARD_SELECTED_STROKE
 selectedStroke.Thickness = UiStyle.STROKE_PX * 2
 selectedStroke.Color = UiStyle.ACCENT_COLOR
+-- the card is a TextButton, and a stroke on a text object outlines its
+-- text unless told to take the border (2026-10-13: the outline never drew)
+selectedStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 selectedStroke.Enabled = false
 selectedStroke.Parent = card
 
@@ -193,7 +196,8 @@ local avatar = Instance.new("ViewportFrame")
 avatar.Name = Constants.CHARACTER_CARD_AVATAR
 avatar.AnchorPoint = Vector2.new(0.5, 0)
 avatar.Position = UDim2.fromScale(0.5, 0.16)
-avatar.Size = UDim2.fromScale(0.9, 0.58)
+-- shorter since 2026-10-13 (0.58 before) to leave the EQUIP row its room
+avatar.Size = UDim2.fromScale(0.9, 0.52)
 avatar.BackgroundTransparency = 1
 avatar.Ambient = Color3.new(1, 1, 1)
 avatar.LightColor = Color3.new(1, 1, 1)
@@ -201,15 +205,43 @@ avatar.Parent = card
 
 local rankLabel = makeLabel(Constants.CHARACTER_CARD_RANK_LABEL, UiStyle.formatTitle("Rank 1"), UiStyle.TITLE_FONT, UiStyle.TEXT_COLOR, 36)
 rankLabel.AnchorPoint = Vector2.new(0.5, 0)
-rankLabel.Position = UDim2.fromScale(0.5, 0.78)
+rankLabel.Position = UDim2.fromScale(0.5, 0.7)
 rankLabel.Size = UDim2.fromScale(0.9, 0.08)
 rankLabel.Parent = card
 
 local nightsLabel = makeLabel(Constants.CHARACTER_CARD_NIGHTS_LABEL, UiStyle.formatTitle("Nights survived: 0"), UiStyle.BODY_BOLD_FONT, UiStyle.TEXT_COLOR, UiStyle.BODY_TEXT_MAX_PX)
 nightsLabel.AnchorPoint = Vector2.new(0.5, 0)
-nightsLabel.Position = UDim2.fromScale(0.5, 0.87)
+nightsLabel.Position = UDim2.fromScale(0.5, 0.78)
 nightsLabel.Size = UDim2.fromScale(0.9, 0.06)
 nightsLabel.Parent = card
+
+-- EQUIP on an owned card that is not the pick, EQUIPPED (with the stroke)
+-- on the one that is; neither shows with a single character (designer,
+-- 2026-10-13). The sheet opens from the card itself
+local equipButton = Instance.new("TextButton")
+equipButton.Name = Constants.CHARACTER_CARD_EQUIP_BUTTON
+equipButton.AnchorPoint = Vector2.new(0.5, 1)
+equipButton.Position = UDim2.fromScale(0.5, 0.95)
+equipButton.Size = UDim2.fromScale(0.86, 0.11)
+addTouchTarget(equipButton, Vector2.new(380, 72))
+equipButton.BackgroundColor3 = UiStyle.ACCENT_COLOR
+equipButton.BorderSizePixel = 0
+equipButton.Text = UiStyle.formatTitle("Equip")
+equipButton.TextColor3 = UiStyle.TEXT_COLOR
+equipButton.TextScaled = true
+equipButton.FontFace = UiStyle.TITLE_FONT
+equipButton.AutoButtonColor = true
+equipButton.Visible = false
+addTextSizeBounds(equipButton, 1, 32)
+addCorner(equipButton, UiStyle.CORNER_RADIUS_PX // 2)
+equipButton.Parent = card
+
+local equippedLabel = makeLabel(Constants.CHARACTER_CARD_EQUIPPED_LABEL, UiStyle.formatTitle("Equipped"), UiStyle.TITLE_FONT, UiStyle.ACCENT_COLOR, 32)
+equippedLabel.AnchorPoint = Vector2.new(0.5, 1)
+equippedLabel.Position = UDim2.fromScale(0.5, 0.95)
+equippedLabel.Size = UDim2.fromScale(0.86, 0.11)
+equippedLabel.Visible = false
+equippedLabel.Parent = card
 
 -- the next slot's buy button: UNLOCK SLOT on the left, the price (number
 -- then icon, the resource rule) on a black tab on the right

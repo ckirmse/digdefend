@@ -16,10 +16,14 @@ local RerollsData = require("@game/ServerScriptService/GameData/Characters/Rerol
 local SkillsData = require("@game/ServerScriptService/GameData/Characters/Skills")
 local SlotsData = require("@game/ServerScriptService/GameData/Characters/Slots")
 local StarsData = require("@game/ServerScriptService/GameData/Characters/Stars")
+local TowersData = require("@game/ServerScriptService/GameData/Defenses/Towers")
+local PostWeaponsData = require("@game/ServerScriptService/GameData/Posts/PostWeapons")
+local HandheldData = require("@game/ServerScriptService/GameData/Weapons/Handheld")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local CharacterRules = require("@game/ReplicatedStorage/Shared/CharacterRules")
 local CharacterSchema = require("@game/ReplicatedStorage/Shared/CharacterSchema")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local GearStatsRules = require("@game/ReplicatedStorage/Shared/GearStatsRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PlayerData = require(script.Parent.PlayerData)
 local PlayerFeedbackManager = require(script.Parent.PlayerFeedbackManager)
@@ -223,6 +227,29 @@ function CharacterManager:getRerollPricing(): CharacterRules.RerollPricing
 	}
 end
 
+-- the stats page behind every gear card (2026-10-13): each kind's base
+-- numbers as rows, built once from GameData and published as GameMetadata
+function CharacterManager:getGearStatsCatalogue(): GearStatsRules.GearStatsCatalogue
+	local weapons: { [number]: { GearStatsRules.StatRow } } = {}
+	for kind, data in HandheldData.BY_KIND do
+		weapons[kind] = GearStatsRules.weaponRows(data)
+	end
+	local posts: { [number]: { GearStatsRules.StatRow } } = {}
+	for kind, data in PostWeaponsData.BY_KIND do
+		posts[kind] = GearStatsRules.postWeaponRows(data)
+	end
+	local towers: { [number]: { GearStatsRules.StatRow } } = {}
+	for kind, data in TowersData.BY_KIND do
+		towers[kind] = GearStatsRules.towerRows(data)
+	end
+	return {
+		[Enums.GearSlot.WEAPON] = weapons,
+		[Enums.GearSlot.POST] = posts,
+		[Enums.GearSlot.TOWER_1] = towers,
+		[Enums.GearSlot.TOWER_2] = towers,
+	}
+end
+
 function CharacterManager:getRankBands(): { CharacterRules.RankBand }
 	local bands: { CharacterRules.RankBand } = {}
 	for _, band in RankData.BANDS do
@@ -394,8 +421,9 @@ function CharacterManager:setActiveCharacter(player: Player, characterId: string
 	return true
 end
 
--- equips a skin on a cosmetic slot; "" clears the slot. Only hats have
--- skins so far (2026-10-12); the other slots wait on M61's art
+-- equips a skin on a cosmetic slot; "" clears the slot. A hat slot takes
+-- a catalogue hat or the player's own; every other slot takes only its
+-- default skin until M61's art lands (2026-10-13)
 function CharacterManager:setCosmetic(player: Player, characterId: string?, slot: number, skinId: string): boolean
 	local playerData = self:getPlayerData(player)
 	local record = self:getCharacter(player, characterId)
@@ -407,7 +435,12 @@ function CharacterManager:setCosmetic(player: Player, characterId: string?, slot
 		return false
 	end
 	if skinId ~= "" then
-		local isKnown = slot == Enums.CosmeticSlot.HELMET and (skinId == CharacterSchema.OWN_HAT_ID or hatManager:isHat(skinId))
+		local isKnown
+		if slot == Enums.CosmeticSlot.HELMET then
+			isKnown = skinId == CharacterSchema.OWN_HAT_ID or hatManager:isHat(skinId)
+		else
+			isKnown = skinId == CharacterSchema.DEFAULT_SKIN_ID
+		end
 		if not isKnown then
 			warn(`CharacterManager: {player.Name} equipped unknown skin {skinId} on {slotName}`)
 			return false
@@ -603,6 +636,7 @@ function CharacterManager:init(gameControllerIn: any, splendidReplicationManager
 	splendidReplicationManager:setGameMetadata(Attributes.CHARACTER_SLOT_PRICING, CharacterRules.encodePricing(self:getSlotPricing()))
 	splendidReplicationManager:setGameMetadata(Attributes.CHARACTER_REROLL_PRICING, CharacterRules.encodeRerollPricing(self:getRerollPricing()))
 	splendidReplicationManager:setGameMetadata(Attributes.CHARACTER_SKILL_CATALOGUE, CharacterRules.encodeSkillCatalogue(self:getSkillCatalogue()))
+	splendidReplicationManager:setGameMetadata(Attributes.CHARACTER_GEAR_STATS, GearStatsRules.encodeCatalogue(self:getGearStatsCatalogue()))
 
 	-- an unresolved roll is paid for and lost with the player who left; the
 	-- menu never shows one across sessions

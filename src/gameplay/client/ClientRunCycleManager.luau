@@ -153,7 +153,7 @@ function ClientRunCycleManager:findGui()
 	else
 		warn("ClientRunCycleManager: the DayClock Root is not a CanvasGroup; rebuild it")
 	end
-	local numberGui = playerGui:FindFirstChild(Constants.DAY_NIGHT_NUMBER_GUI_NAME)
+	local numberGui = playerGui:WaitForChild(Constants.DAY_NIGHT_NUMBER_GUI_NAME, Constants.GUI_WAIT_SEC)
 	if numberGui and numberGui:IsA("ScreenGui") then
 		numberGui.Enabled = false
 		self.numberGui = numberGui

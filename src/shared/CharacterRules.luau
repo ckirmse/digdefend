@@ -246,11 +246,102 @@ function CharacterRules.skillRollPrice(pricing: RerollPricing, isSlotEmpty: bool
 	return pricing.skillPriceDiamonds
 end
 
--- the odds line the info button shows for a gear roll
-function CharacterRules.describeStarOdds(pricing: RerollPricing): string
+-- one line of the odds table a reroll shows before it is bought (Roblox's
+-- paid random items policy: every outcome's odds as a percentage, the
+-- tiers totalling 100%, reachable before the purchase)
+export type RarityOdds = {
+	rarity: number,
+	-- 0 to 100
+	percent: number,
+}
+
+-- a gear roll draws its stars evenly, and each star count is one rarity
+-- rung, so every rarity in range has the same share; a rarity outside
+-- the roll's range is listed at 0 so the table always names them all
+function CharacterRules.gearRarityOdds(pricing: RerollPricing): { RarityOdds }
+	local odds: { RarityOdds } = {}
 	local count = pricing.maxStars - pricing.minStars + 1
-	local percent = math.floor(100 / count + 0.5)
-	return string.format("Each star count from %d to %d has a %d%% chance", pricing.minStars, pricing.maxStars, percent)
+	for _, rarity in Enums.getAllValues(Enums.Rarity) do
+		local stars = rarity
+		local isInRange = stars >= pricing.minStars and stars <= pricing.maxStars
+		table.insert(odds, { rarity = rarity, percent = if isInRange and count > 0 then 100 / count else 0 })
+	end
+	table.sort(
+		odds,
+		function(a: RarityOdds, b: RarityOdds)
+			return a.rarity < b.rarity
+		end
+	)
+	return odds
+end
+
+-- a skill roll draws evenly from the whole catalogue, so a rarity's share
+-- is how many skills carry it
+function CharacterRules.skillRarityOdds(catalogue: SkillCatalogue): { RarityOdds }
+	local countByRarity: { [number]: number } = {}
+	local total = 0
+	for _, entry in catalogue do
+		countByRarity[entry.rarity] = (countByRarity[entry.rarity] or 0) + 1
+		total += 1
+	end
+	local odds: { RarityOdds } = {}
+	for _, rarity in Enums.getAllValues(Enums.Rarity) do
+		local count = countByRarity[rarity] or 0
+		table.insert(odds, { rarity = rarity, percent = if total > 0 then count / total * 100 else 0 })
+	end
+	table.sort(
+		odds,
+		function(a: RarityOdds, b: RarityOdds)
+			return a.rarity < b.rarity
+		end
+	)
+	return odds
+end
+
+-- the order a COSMETICS row shows its items in when the sheet opens
+-- (designer, 2026-10-13): the equipped one first, the rest by name; the
+-- row keeps this order while the sheet stays open, so a tap equips
+-- without shuffling the strip. `nameOf` gives the sort key of an id;
+-- `lastId` is pinned to the end whatever is equipped (the hat row's NONE,
+-- designer, 2026-10-13)
+function CharacterRules.cosmeticItemOrder(ids: { string }, equippedId: string?, nameOf: (string) -> string, lastId: string?): { string }
+	local ordered = table.clone(ids)
+	table.sort(
+		ordered,
+		function(a: string, b: string)
+			if a == lastId or b == lastId then
+				return b == lastId
+			end
+			if a == equippedId or b == equippedId then
+				return a == equippedId
+			end
+			local nameA, nameB = nameOf(a), nameOf(b)
+			if nameA == nameB then
+				return a < b
+			end
+			return nameA < nameB
+		end
+	)
+	return ordered
+end
+
+-- a share as the table prints it: whole when it is, else one decimal
+function CharacterRules.percentText(percent: number): string
+	local rounded = math.floor(percent * 10 + 0.5) / 10
+	if rounded == math.floor(rounded) then
+		return string.format("%d%%", math.floor(rounded))
+	end
+	return string.format("%.1f%%", rounded)
+end
+
+-- whether the printed shares add up to exactly 100, so the table can
+-- carry the rounding note the policy asks for only when it needs one
+function CharacterRules.isOddsTotalExact(odds: { RarityOdds }): boolean
+	local total = 0
+	for _, line in odds do
+		total += math.floor(line.percent * 10 + 0.5) / 10
+	end
+	return math.abs(total - 100) < 0.001
 end
 
 -- the odds line for the kind a gear roll draws

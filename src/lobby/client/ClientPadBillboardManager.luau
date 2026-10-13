@@ -135,8 +135,11 @@ function ClientPadBillboardManager:render(view: PadView)
 end
 
 function ClientPadBillboardManager:watchPad(model: Model)
-	local guiPart = model:FindFirstChild(Constants.PAD_GUI_PART)
-	local gui = if guiPart then guiPart:FindFirstChild(Constants.PAD_GUI_NAME) else nil
+	-- the pad's parts stream in after the client starts on a live server
+	-- (2026-10-13: every pad warned and drew nothing for a tester), so the
+	-- billboard is waited for rather than found
+	local guiPart = model:WaitForChild(Constants.PAD_GUI_PART, Constants.GUI_WAIT_SEC)
+	local gui = if guiPart then guiPart:WaitForChild(Constants.PAD_GUI_NAME, Constants.GUI_WAIT_SEC) else nil
 	if not gui or not gui:IsA("BillboardGui") then
 		warn(`ClientPadBillboardManager: {model:GetFullName()} has no {Constants.PAD_GUI_NAME}`)
 		return
@@ -170,11 +173,20 @@ end
 
 function ClientPadBillboardManager:init()
 	local padsFolder = workspace:WaitForChild(Constants.HELICOPTER_PADS_FOLDER)
-	for _, pad in padsFolder:GetChildren() do
+	-- each pad waits on its own thread, so one slow pad never holds the rest
+	local function watchIfPad(pad: Instance)
 		if pad:IsA("Model") and pad:GetAttribute(Attributes.PAD_INDEX) ~= nil then
-			self:watchPad(pad)
+			task.spawn(
+				function()
+					self:watchPad(pad)
+				end
+			)
 		end
 	end
+	for _, pad in padsFolder:GetChildren() do
+		watchIfPad(pad)
+	end
+	padsFolder.ChildAdded:Connect(watchIfPad)
 	task.spawn(
 		function()
 			while true do

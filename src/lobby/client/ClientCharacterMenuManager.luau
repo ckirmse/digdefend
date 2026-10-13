@@ -5,9 +5,11 @@
 -- (name, avatar, Rank, Nights Survived), then the next slot to buy as a
 -- dark card with an UNLOCK SLOT button. Everything shown is already
 -- replicated (the Characters folder, the active id, the Diamonds balance,
--- the slot pricing in GameMetadata); the menu only sends the pick, the
--- buy, and a rename. The card sheet (M57) opens from a card later; for
--- now a tap picks the character to bring.
+-- the slot pricing in GameMetadata); the menu only sends the pick and the
+-- buy. A tap on a card opens its sheet; the EQUIP button under a card
+-- picks the character to bring, and the picked card says EQUIPPED inside
+-- the accent stroke. With one character there is nothing to pick, so no
+-- button, word, or stroke shows (designer, 2026-10-13).
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 
@@ -114,7 +116,7 @@ function ClientCharacterMenuManager:makeCard(view: View, order: number): GuiObje
 	return card
 end
 
-function ClientCharacterMenuManager:renderOwnedCard(view: View, order: number, character: ClientDataManager.CharacterData, isActive: boolean)
+function ClientCharacterMenuManager:renderOwnedCard(view: View, order: number, character: ClientDataManager.CharacterData, isActive: boolean, hasChoice: boolean)
 	local card = self:makeCard(view, order)
 	local title = card:FindFirstChild(Constants.CHARACTER_CARD_TITLE) :: TextLabel
 	title.Text = UiStyle.formatTitle(character.name)
@@ -127,16 +129,21 @@ function ClientCharacterMenuManager:renderOwnedCard(view: View, order: number, c
 	local unlockButton = card:FindFirstChild(Constants.CHARACTER_CARD_UNLOCK_BUTTON) :: GuiButton
 	unlockButton.Visible = false
 	local stroke = card:FindFirstChild(Constants.CHARACTER_CARD_SELECTED_STROKE) :: UIStroke
-	stroke.Enabled = isActive
+	stroke.Enabled = isActive and hasChoice
+	local equipButton = card:FindFirstChild(Constants.CHARACTER_CARD_EQUIP_BUTTON) :: GuiButton
+	equipButton.Visible = hasChoice and not isActive
+	local equippedLabel = card:FindFirstChild(Constants.CHARACTER_CARD_EQUIPPED_LABEL) :: TextLabel
+	equippedLabel.Visible = hasChoice and isActive
 	ClientAvatarViewport:fill(card:FindFirstChild(Constants.CHARACTER_CARD_AVATAR) :: ViewportFrame, false, character.cosmetics)
+	equipButton.Activated:Connect(
+		function()
+			ClientNetManager:fireServer(NetEventNames.TRY_SELECT_CHARACTER, { characterId = character.id })
+		end
+	)
 	local cardButton = card :: GuiButton
-	-- a tap brings the character on the next run and opens its sheet (GDD
-	-- "Character Menu"); Back on the sheet returns here
+	-- a tap opens the sheet; Back on the sheet returns here
 	cardButton.Activated:Connect(
 		function()
-			if ClientDataManager:getActiveCharacterId() ~= character.id then
-				ClientNetManager:fireServer(NetEventNames.TRY_SELECT_CHARACTER, { characterId = character.id })
-			end
 			self:closeMenu()
 			ClientCharacterSheetManager:openMenu(character.id)
 		end
@@ -154,6 +161,10 @@ function ClientCharacterMenuManager:renderUnlockCard(view: View, order: number, 
 	nightsLabel.Visible = false
 	local stroke = card:FindFirstChild(Constants.CHARACTER_CARD_SELECTED_STROKE) :: UIStroke
 	stroke.Enabled = false
+	local equipButton = card:FindFirstChild(Constants.CHARACTER_CARD_EQUIP_BUTTON) :: GuiButton
+	equipButton.Visible = false
+	local equippedLabel = card:FindFirstChild(Constants.CHARACTER_CARD_EQUIPPED_LABEL) :: TextLabel
+	equippedLabel.Visible = false
 	ClientAvatarViewport:fill(card:FindFirstChild(Constants.CHARACTER_CARD_AVATAR) :: ViewportFrame, true, nil)
 
 	local unlockButton = card:FindFirstChild(Constants.CHARACTER_CARD_UNLOCK_BUTTON) :: GuiButton
@@ -202,8 +213,10 @@ function ClientCharacterMenuManager:render()
 	end
 	local characters = ClientDataManager:getCharacters()
 	local activeId = ClientDataManager:getActiveCharacterId()
+	-- a pick only means something between two or more
+	local hasChoice = #characters >= 2
 	for order, character in characters do
-		self:renderOwnedCard(view, order, character, character.id == activeId)
+		self:renderOwnedCard(view, order, character, character.id == activeId, hasChoice)
 	end
 	local pricing = self:getPricing()
 	local offer = if pricing then CharacterRules.nextSlotOffer(#characters, pricing) else nil
@@ -245,7 +258,9 @@ function ClientCharacterMenuManager:onSlotBought()
 end
 
 function ClientCharacterMenuManager:findView(playerGui: PlayerGui): View?
-	local gui = playerGui:FindFirstChild(Constants.CHARACTER_SELECT_GUI_NAME)
+	-- waited for, not found: on a live server the client starts before
+	-- StarterGui is copied in (2026-10-13)
+	local gui = playerGui:WaitForChild(Constants.CHARACTER_SELECT_GUI_NAME, Constants.GUI_WAIT_SEC)
 	if not gui or not gui:IsA("ScreenGui") then
 		warn(`ClientCharacterMenuManager: no {Constants.CHARACTER_SELECT_GUI_NAME} ScreenGui; run build_character_select_gui`)
 		return nil

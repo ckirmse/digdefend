@@ -72,7 +72,37 @@ Icons.WEAPON_KIND = {
 	[Enums.WeaponKind.RIFLE] = "rbxassetid://126641049266938",
 }
 
+-- the type box of each row on the sheet's COSMETICS tab (designer's
+-- mock-up, 2026-10-13): the slot's own art where it exists, the Hard Hat's
+-- catalogue thumbnail for the Helmet, the placeholder for the rest
+Icons.COSMETIC_SLOT = {
+	[Enums.CosmeticSlot.PICK_AXE] = "rbxassetid://80581106612931",
+	[Enums.CosmeticSlot.HAMMER] = "rbxassetid://96069694494045",
+	[Enums.CosmeticSlot.WEAPON] = "rbxassetid://71757532147550",
+	[Enums.CosmeticSlot.POST_WEAPON] = "rbxassetid://88160356446112",
+	[Enums.CosmeticSlot.TOWER] = "rbxassetid://72202536661953",
+	[Enums.CosmeticSlot.JET_PACK] = "rbxassetid://110721276111650",
+	[Enums.CosmeticSlot.BACKPACK] = "rbxassetid://135327278539325",
+	-- the designer's hat category icon (2026-10-13)
+	[Enums.CosmeticSlot.HELMET] = "rbxassetid://94277531430593",
+}
+
+-- the one skin each non-hat slot offers so far, the game's existing
+-- asset: renders of GameAssets/Tools/PICK_AXE_1 and
+-- GameAssets/Wearables/JET_PACK captured on 2026-10-13 (placeholders
+-- until the skin art lands; the type box keeps its white glyph above)
+Icons.COSMETIC_DEFAULT_SKIN = {
+	[Enums.CosmeticSlot.PICK_AXE] = "rbxassetid://140057314922013",
+	[Enums.CosmeticSlot.JET_PACK] = "rbxassetid://74237324800322",
+}
+
 Icons.UI = {
+	-- the first-person cursor in a run (ClientCursorManager, 2026-10-13): a
+	-- 16 px white dot with a dark edge, so an aim point always shows
+	CURSOR_DOT = "rbxassetid://70725934412881",
+	-- the NONE item at the end of the sheet's hat row: the player's own
+	-- avatar hat, whatever it is (designer's art, 2026-10-13)
+	NO_HAT = "rbxassetid://109536655284287",
 	-- the HUD backpack button and the jet pack fuel bar
 	BACKPACK = "rbxassetid://135327278539325",
 	JET_PACK = "rbxassetid://110721276111650",

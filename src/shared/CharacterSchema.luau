@@ -64,6 +64,10 @@ export type Repair = string
 -- the skin id that means "no skin here, the player's own look": stored on
 -- purpose so a cleared slot is told apart from one that was never set
 CharacterSchema.OWN_HAT_ID = "OWN_HAT"
+-- the one skin every other slot offers until M61: the game's existing
+-- asset (the pick axe, the jet pack); saved explicitly so a pick is a
+-- pick (designer, 2026-10-13)
+CharacterSchema.DEFAULT_SKIN_ID = "DEFAULT"
 
 -- the kind enum each gear row draws from; two Tower rows since 2026-10-12
 local GEAR_ENUM_BY_SLOT: { [number]: any } = {

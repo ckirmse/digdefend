@@ -46,7 +46,11 @@ local DIMMED_COLOR = Color3.fromRGB(70, 70, 70)
 -- root, clear each joint's animation transform (this rig's limbs hang on
 -- AnimationConstraints between rig attachments; a Motor6D rig is covered
 -- too), and seat each joined part from its joint's offsets. WeldConstraints
--- carry no offsets, so theirs are read off the model before anything moves
+-- carry no offsets, so theirs are read off the model before anything moves.
+-- A weld is followed from whichever side the walk reaches first: Roblox's
+-- AccessoryWeld runs from the accessory's Handle to the Head, so a hair or
+-- a back accessory would otherwise be left at the animated frame it was
+-- cloned in (hair hanging in front of the face on the cards, 2026-10-13)
 local function restPose(model: Model)
 	local root = model:FindFirstChild("HumanoidRootPart")
 	if not root or not root:IsA("BasePart") then
@@ -71,6 +75,14 @@ local function restPose(model: Model)
 			table.insert(joints, descendant)
 			jointsByPart0[part0] = joints
 		end
+		-- a weld is indexed under both its parts so the walk can cross it
+		-- from either side; an AnimationConstraint always runs rig-outward
+		if (descendant:IsA("Motor6D") or descendant:IsA("Weld") or descendant:IsA("WeldConstraint")) and descendant.Part1 then
+			local part1 = descendant.Part1 :: BasePart
+			local joints = jointsByPart0[part1] or {}
+			table.insert(joints, descendant)
+			jointsByPart0[part1] = joints
+		end
 	end
 	local visited: { [BasePart]: boolean } = { [root] = true }
 	local queue: { BasePart } = { root }
@@ -86,21 +98,32 @@ local function restPose(model: Model)
 					child = parent1
 					parent1.CFrame = part.CFrame * attachment0.CFrame * attachment1.CFrame:Inverse()
 				end
-			elseif joint:IsA("Motor6D") then
-				joint.Transform = CFrame.identity
-				child = joint.Part1
-				if child then
-					child.CFrame = part.CFrame * joint.C0 * joint.C1:Inverse()
+			elseif joint:IsA("Motor6D") or joint:IsA("Weld") then
+				if joint:IsA("Motor6D") then
+					joint.Transform = CFrame.identity
 				end
-			elseif joint:IsA("Weld") then
-				child = joint.Part1
-				if child then
-					child.CFrame = part.CFrame * joint.C0 * joint.C1:Inverse()
+				if joint.Part0 == part then
+					child = joint.Part1
+					if child then
+						child.CFrame = part.CFrame * joint.C0 * joint.C1:Inverse()
+					end
+				else
+					child = joint.Part0
+					if child then
+						child.CFrame = part.CFrame * joint.C1 * joint.C0:Inverse()
+					end
 				end
 			elseif joint:IsA("WeldConstraint") then
-				child = joint.Part1
-				if child then
-					child.CFrame = part.CFrame * weldOffsets[joint]
+				if joint.Part0 == part then
+					child = joint.Part1
+					if child then
+						child.CFrame = part.CFrame * weldOffsets[joint]
+					end
+				else
+					child = joint.Part0
+					if child then
+						child.CFrame = part.CFrame * weldOffsets[joint]:Inverse()
+					end
 				end
 			end
 			if child and not visited[child] then

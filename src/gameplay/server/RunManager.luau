@@ -53,10 +53,27 @@ function RunManager:isExpectedMember(userId: number): boolean
 	return run ~= nil and table.find(run.memberUserIds, userId) ~= nil
 end
 
+local function callHandler(handler: RunStartedHandler, index: number, map: number, difficulty: number)
+	local isSuccess, message = pcall(handler, map, difficulty)
+	if not isSuccess then
+		warn(`RunManager: run-start handler {index} failed: {tostring(message)}`)
+	end
+end
+
 -- handlers run in registration order every time a run starts, including a
--- dev-tool restart
+-- dev-tool restart. A handler registered after the run has already started
+-- runs at once (2026-10-13): the run starts on the first arrival, and a
+-- player already present when the server script is still initialising
+-- started it before the mine and everything after it had subscribed, so a
+-- run began with no mine and dead systems (seen in Studio, and the likely
+-- shape of a live two-player start)
 function RunManager:subscribeRunStarted(handler: RunStartedHandler)
 	table.insert(self.runStartedHandlers, handler)
+	local map, difficulty = self.map, self.difficulty
+	if map ~= nil and difficulty ~= nil then
+		warn(`RunManager: a run-start handler subscribed after the run started; running it now ({#self.runStartedHandlers})`)
+		callHandler(handler, #self.runStartedHandlers, map, difficulty)
+	end
 end
 
 function RunManager:startRun(map: number, difficulty: number)
@@ -65,8 +82,11 @@ function RunManager:startRun(map: number, difficulty: number)
 	SplendidReplicationManager:setGameMetadata(Attributes.RUN_MAP, map)
 	SplendidReplicationManager:setGameMetadata(Attributes.RUN_DIFFICULTY, difficulty)
 	print(`[RunManager] run started: map {Enums.getName(Enums.Map, map)} difficulty {Enums.getName(Enums.Difficulty, difficulty)}`)
-	for _, handler in self.runStartedHandlers do
-		handler(map, difficulty)
+	-- each system's run-start work is isolated (2026-10-13): one error must
+	-- not stop the mine, the run cycle, or the helicopter for everyone, and
+	-- the Server log must name the system that failed
+	for index, handler in self.runStartedHandlers do
+		callHandler(handler, index, map, difficulty)
 	end
 end
 

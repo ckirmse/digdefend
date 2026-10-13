@@ -158,6 +158,13 @@ module = {
 	-- row and its odds without requiring GameData
 	CHARACTER_REROLL_PRICING = "CharacterRerollPricing",
 	CHARACTER_SKILL_CATALOGUE = "CharacterSkillCatalogue",
+	-- GameMetadata: JSON of every gear kind's base stats as label and value
+	-- rows (GearStatsRules codec), the stats page behind a gear card
+	-- (2026-10-13)
+	CHARACTER_GEAR_STATS = "CharacterGearStats",
+	-- on any GuiButton: the SoundNames.Sfx name it plays instead of the
+	-- button click, or "" to stay silent (ClientButtonSoundManager, 2026-10-13)
+	BUTTON_SOUND = "ButtonSound",
 	-- GameMetadata: JSON of the hat catalogue (CharacterRules codec), the
 	-- cosmetics first pass of 2026-10-12
 	CHARACTER_HAT_CATALOGUE = "CharacterHatCatalogue",

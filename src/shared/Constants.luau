@@ -52,6 +52,12 @@ Constants.HUD_CHARACTER_BUTTON = "CharacterButton"
 Constants.HUD_DAILY_REWARDS_BUTTON = "DailyRewardsButton"
 -- SoundService layout (designer-authored in both places): AudioPlayers under
 -- these folders, each wired to the AudioDeviceOutput; see SoundNames
+-- how long a client manager waits for a Studio-authored instance (a
+-- ScreenGui copied into PlayerGui at spawn, a billboard on a streamed
+-- part) before warning that it is missing. On a live server the client
+-- starts ahead of both, so a plain find misses them (2026-10-13: the
+-- character menus and the pad billboards never appeared for a tester)
+Constants.GUI_WAIT_SEC = 10
 Constants.SFX_FOLDER = "Sfx"
 Constants.MUSIC_FOLDER = "Music"
 Constants.REMOTE_EVENT_NAME = "GameRemoteEvent"
@@ -683,6 +689,11 @@ Constants.CHARACTER_CARD_PRICE_FRAME = "Price"
 Constants.CHARACTER_CARD_PRICE_LABEL = "PriceLabel"
 Constants.CHARACTER_CARD_PRICE_ICON = "PriceIcon"
 Constants.CHARACTER_CARD_SELECTED_STROKE = "SelectedStroke"
+-- the EQUIP button and the EQUIPPED word that replaces it on the active
+-- card, shown only when the player has a choice of two or more
+-- (designer, 2026-10-13)
+Constants.CHARACTER_CARD_EQUIP_BUTTON = "EquipButton"
+Constants.CHARACTER_CARD_EQUIPPED_LABEL = "EquippedLabel"
 -- the Character Sheet (M37; scripts/studio/build_character_sheet_gui.luau):
 -- the same header, a left panel for the character, and a right panel with
 -- the LOADOUT and COSMETICS tabs; gear cards and skill rows are cloned
@@ -693,6 +704,9 @@ Constants.CHARACTER_SHEET_NAME_LABEL = "NameLabel"
 Constants.CHARACTER_SHEET_NAME_BOX = "NameBox"
 Constants.CHARACTER_SHEET_RENAME_BUTTON = "RenameButton"
 Constants.CHARACTER_SHEET_RANK_INFO_BUTTON = "RankInfoButton"
+-- the one REROLL ODDS button under the left panel (designer, 2026-10-13):
+-- every roll's odds in one dialog, reachable before any REROLL
+Constants.CHARACTER_SHEET_ODDS_BUTTON = "OddsButton"
 Constants.CHARACTER_SHEET_RIGHT_PANEL = "RightPanel"
 Constants.CHARACTER_SHEET_LOADOUT_TAB = "LoadoutTab"
 Constants.CHARACTER_SHEET_COSMETICS_TAB = "CosmeticsTab"
@@ -707,7 +721,6 @@ Constants.GEAR_CARD_SLOT_LABEL = "SlotLabel"
 Constants.GEAR_CARD_KIND_LABEL = "KindLabel"
 Constants.GEAR_CARD_RARITY_LABEL = "RarityLabel"
 Constants.GEAR_CARD_PICTURE = "Picture"
-Constants.GEAR_CARD_INFO_BUTTON = "InfoButton"
 Constants.GEAR_CARD_REROLL_BUTTON = "RerollButton"
 Constants.REROLL_BUTTON_LABEL = "Label"
 Constants.REROLL_BUTTON_PRICE_LABEL = "PriceLabel"
@@ -716,7 +729,6 @@ Constants.SKILL_ROW_BADGE = "Badge"
 Constants.SKILL_ROW_BADGE_LABEL = "Number"
 Constants.SKILL_ROW_NAME_LABEL = "NameLabel"
 Constants.SKILL_ROW_DESCRIPTION_LABEL = "DescriptionLabel"
-Constants.SKILL_ROW_INFO_BUTTON = "InfoButton"
 Constants.SKILL_ROW_REROLL_BUTTON = "RerollButton"
 Constants.SKILL_ROW_LOCK_ICON = "LockIcon"
 -- the roll screen (designer, 2026-10-12): CURRENT and NEW boxes side by
@@ -724,11 +736,20 @@ Constants.SKILL_ROW_LOCK_ICON = "LockIcon"
 -- name and rarity appear with Keep and Undo under the boxes
 -- the COSMETICS tab's hat picker: one button per hat cloned from the
 -- template, plus the "own hat" button, under a heading
-Constants.CHARACTER_SHEET_HAT_GRID = "HatGrid"
-Constants.CHARACTER_SHEET_HAT_BUTTON_TEMPLATE = "HatButtonTemplate"
-Constants.HAT_BUTTON_PICTURE = "Picture"
-Constants.HAT_BUTTON_NAME_LABEL = "NameLabel"
-Constants.HAT_BUTTON_SELECTED_STROKE = "SelectedStroke"
+-- the COSMETICS tab (designer's mock-up, 2026-10-13): a vertical scrolling
+-- list with a row per Enums.CosmeticSlot, each a type box beside a
+-- horizontal scrolling strip of picture-only item buttons
+Constants.CHARACTER_SHEET_COSMETIC_ROWS = "CosmeticRows"
+-- the rows shown, in order (designer, 2026-10-13: only these three until
+-- the other slots have skins)
+Constants.CHARACTER_SHEET_COSMETIC_SLOTS = { Enums.CosmeticSlot.PICK_AXE, Enums.CosmeticSlot.JET_PACK, Enums.CosmeticSlot.HELMET }
+Constants.CHARACTER_SHEET_COSMETIC_ROW_TEMPLATE = "CosmeticRowTemplate"
+Constants.COSMETIC_ROW_TYPE_BOX = "TypeBox"
+Constants.COSMETIC_ROW_TYPE_ICON = "Icon"
+Constants.COSMETIC_ROW_TYPE_LABEL = "NameLabel"
+Constants.COSMETIC_ROW_ITEMS = "Items"
+Constants.COSMETIC_ROW_ITEM_TEMPLATE = "ItemTemplate"
+Constants.COSMETIC_ITEM_SELECTED_STROKE = "SelectedStroke"
 Constants.CHARACTER_SHEET_OFFER_DIALOG = "OfferDialog"
 Constants.OFFER_DIALOG_TITLE = "Title"
 Constants.OFFER_CURRENT_BOX = "CurrentBox"
@@ -740,7 +761,26 @@ Constants.OFFER_BOX_NAME_LABEL = "NameLabel"
 Constants.OFFER_BOX_DETAIL_LABEL = "DetailLabel"
 Constants.OFFER_KEEP_BUTTON = "KeepButton"
 Constants.OFFER_UNDO_BUTTON = "UndoButton"
+-- the stats panel on the roll screen's right (designer, 2026-10-13): one
+-- row per stat, current value then the candidate's, the Rank line at its foot
+Constants.OFFER_STATS_PANEL = "StatsPanel"
+Constants.OFFER_STAT_ROWS = "Rows"
+Constants.OFFER_STAT_ROW_TEMPLATE = "RowTemplate"
+Constants.OFFER_STAT_ROW_LABEL = "Label"
+Constants.OFFER_STAT_ROW_CURRENT = "CurrentValue"
+Constants.OFFER_STAT_ROW_NEW = "NewValue"
 Constants.OFFER_RANK_LABEL = "RankLabel"
+-- the info dialog over the sheet (2026-10-13): a reroll's odds by rarity
+-- (the ODDS buttons) or a gear kind's stats (tapping its name or picture)
+Constants.CHARACTER_SHEET_INFO_DIALOG = "InfoDialog"
+Constants.INFO_DIALOG_TITLE = "Title"
+Constants.INFO_DIALOG_PICTURE = "Picture"
+Constants.INFO_DIALOG_ROWS = "Rows"
+Constants.INFO_DIALOG_ROW_TEMPLATE = "RowTemplate"
+Constants.INFO_ROW_LABEL = "Label"
+Constants.INFO_ROW_VALUE = "Value"
+Constants.INFO_DIALOG_NOTE = "Note"
+Constants.INFO_DIALOG_CLOSE_BUTTON = "CloseButton"
 Constants.CREATE_PARTY_GUI_NAME = "CreateParty"
 Constants.QUEUE_GUI_NAME = "Queue"
 Constants.MENU_DIALOG_FRAME = "Dialog"

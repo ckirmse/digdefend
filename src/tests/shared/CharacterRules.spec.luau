@@ -127,6 +127,57 @@ describe(
 		)
 
 		it(
+			"lists the gear odds by rarity, every rung a fifth",
+			function()
+				local odds = CharacterRules.gearRarityOdds(REROLL_PRICING)
+				expect(#odds).toBe(5)
+				for index, line in odds do
+					expect(line.rarity).toBe(index)
+					expect(line.percent).toBeCloseTo(20, 5)
+				end
+				expect(CharacterRules.isOddsTotalExact(odds)).toBe(true)
+				local narrow = CharacterRules.gearRarityOdds({ minStars = 2, maxStars = 3 } :: any)
+				expect(narrow[1].percent).toBe(0)
+				expect(narrow[2].percent).toBe(50)
+				expect(narrow[3].percent).toBe(50)
+				expect(narrow[5].percent).toBe(0)
+			end
+		)
+
+		it(
+			"lists the skill odds by how many skills carry each rarity",
+			function()
+				local odds = CharacterRules.skillRarityOdds(CATALOGUE)
+				expect(#odds).toBe(5)
+				expect(odds[1].percent).toBe(25)
+				expect(odds[4].percent).toBe(25)
+				expect(odds[5].percent).toBe(0)
+				expect(CharacterRules.isOddsTotalExact(odds)).toBe(true)
+				local thirds = CharacterRules.skillRarityOdds({ A = CATALOGUE.A, B = CATALOGUE.B, C = CATALOGUE.C })
+				expect(CharacterRules.isOddsTotalExact(thirds)).toBe(false)
+				expect(CharacterRules.percentText(thirds[1].percent)).toBe("33.3%")
+				expect(CharacterRules.percentText(25)).toBe("25%")
+				expect(CharacterRules.skillRarityOdds({})[1].percent).toBe(0)
+			end
+		)
+
+		it(
+			"orders a cosmetics row equipped first, then by name",
+			function()
+				local names = { a = "Zed", b = "Alpha", c = "Mid", d = "Mid" }
+				local nameOf = function(id)
+					return names[id]
+				end
+				expect(CharacterRules.cosmeticItemOrder({ "a", "b", "c", "d" }, "c", nameOf)).toEqual({ "c", "b", "d", "a" })
+				expect(CharacterRules.cosmeticItemOrder({ "a", "b" }, nil, nameOf)).toEqual({ "b", "a" })
+				expect(CharacterRules.cosmeticItemOrder({ "a", "b" }, "zz", nameOf)).toEqual({ "b", "a" })
+				expect(CharacterRules.cosmeticItemOrder({}, "a", nameOf)).toEqual({})
+				expect(CharacterRules.cosmeticItemOrder({ "a", "b", "c" }, "c", nameOf, "c")).toEqual({ "b", "a", "c" })
+				expect(CharacterRules.cosmeticItemOrder({ "a", "b", "c" }, "a", nameOf, "c")).toEqual({ "a", "b", "c" })
+			end
+		)
+
+		it(
 			"describes the kind odds",
 			function()
 				expect(CharacterRules.describeKindOdds(Enums.GearSlot.WEAPON)).toBe("Only one kind exists so far")
@@ -173,7 +224,6 @@ describe(
 				expect(CharacterRules.rarityForStars(4)).toBe(Enums.Rarity.EPIC)
 				expect(CharacterRules.rarityForStars(9)).toBe(Enums.Rarity.LEGENDARY)
 				expect(CharacterRules.rarityName(Enums.Rarity.EPIC)).toBe("Epic")
-				expect(CharacterRules.describeStarOdds(REROLL_PRICING)).toBe("Each star count from 1 to 5 has a 20% chance")
 			end
 		)
 

@@ -32,7 +32,8 @@ The user jots dated notes directly into `milestones.md` while work is in progres
 While the project is young, ask before adopting anything from the reference projects that seems contradictory, a bad idea, or inapplicable here.
 
 ### "Boot up the project"
-When the user says "boot up the project", do both of these without asking:
+When the user says "boot up the project", do all of these without asking:
+0. **Name the conversation after the milestone** being worked on, as its number and short name from `milestones.md`, for example "M37 Character Select Menu". Use the milestone the user names in the same message; otherwise the one the latest commit or the open `milestones.md` notes point at. If the user gives a different title in the same message, use theirs instead.
 1. **Make sure the project is up to date:** `git fetch` and check `git status`; if the branch is behind its remote, pull (fast-forward only). If there are local changes or the pull cannot fast-forward, stop and say so rather than merging or discarding anything.
 2. **Start both Rojo servers** in the background: `scripts/serve.sh lobby` (port 34872) and `scripts/serve.sh gameplay` (port 34873). Skip one that is already running. Then report what was pulled and that both servers are up, and remind the user to connect the Rojo plugin in each Studio place.
 
