@@ -73,6 +73,9 @@ local function makeFlatPart(name: string, minX: number, maxX: number, minZ: numb
 	part.CanQuery = false
 	part.CanTouch = false
 	part.CastShadow = false
+	-- locked so a stray drag in the viewport cannot move an invisible marker
+	-- (2026-10-15: a moved CampArea left the Refinery off the monster grid)
+	part.Locked = true
 	part.Transparency = 0.9
 	part.Color = color
 	part.Material = Enum.Material.SmoothPlastic
@@ -123,6 +126,7 @@ buildFolder(
 			spawn.CanQuery = false
 			spawn.CanTouch = false
 			spawn.CastShadow = false
+			spawn.Locked = true
 			spawn.Transparency = 0.5
 			spawn.Color = SPAWN_COLOR
 			spawn.Material = Enum.Material.Neon
