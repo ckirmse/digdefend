@@ -80,6 +80,11 @@ export type ClientPartyMenuManager = typeof(setmetatable(
 		-- set from launch until the teleport succeeds or fails: the camera stays
 		-- on the pad with no menu while the helicopter flies off
 		isDeparting: boolean,
+		-- told when this player's pad launches with them aboard (the lobby
+		-- music fades out, 2026-10-14), and when a failed teleport brings
+		-- them back (it fades in again)
+		departingHandlers: { () -> () },
+		returnedHandlers: { () -> () },
 	},
 	ClientPartyMenuManager
 ))
@@ -435,8 +440,14 @@ function ClientPartyMenuManager:closeMenu()
 	if self.activeMenu == Enums.PartyMenu.NONE and not self.isDeparting then
 		return
 	end
+	local wasDeparting = self.isDeparting
 	self.activeMenu = Enums.PartyMenu.NONE
 	self.isDeparting = false
+	if wasDeparting then
+		for _, handler in self.returnedHandlers do
+			handler()
+		end
+	end
 	self:showGuis()
 	local padConnection = self.padConnection
 	if padConnection then
@@ -505,7 +516,18 @@ end
 
 -- the pad launched with us aboard: the menu goes, the departure screen comes
 -- in over the takeoff. Only a failed teleport brings us back (menu NONE).
+function ClientPartyMenuManager:subscribeDeparting(handler: () -> ())
+	table.insert(self.departingHandlers, handler)
+end
+
+function ClientPartyMenuManager:subscribeReturned(handler: () -> ())
+	table.insert(self.returnedHandlers, handler)
+end
+
 function ClientPartyMenuManager:onDeparting(padModel: Model)
+	for _, handler in self.departingHandlers do
+		handler()
+	end
 	local map = getAttributeNumber(padModel, Attributes.PAD_MAP)
 	local mapName = Enums.getPublicName(Enums.Map, map) or "the mine"
 	-- the menu fades but everything else stays: camera on the pad, billboards
@@ -828,6 +850,8 @@ function ClientPartyMenuManager.new(): ClientPartyMenuManager
 	self.padModel = nil
 	self.padConnection = nil
 	self.isHost = false
+	self.departingHandlers = {}
+	self.returnedHandlers = {}
 	self.mapIndex = 1
 	self.difficultyIndex = 1
 	self.maxPlayers = 1

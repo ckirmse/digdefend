@@ -19,7 +19,7 @@ return {
 	MAX_PARTY_SIZE = 6,
 	DEFAULT_MAX_PLAYERS = 4,
 	DEFAULT_VISIBILITY = Enums.PartyVisibility.PUBLIC,
-	-- JoinCollision fires every frame a character stands in it; one decision
+	-- the helicopter's parts fire Touched every frame a character leans on them; one decision
 	-- per player per this many seconds
 	TOUCH_DEBOUNCE_SEC = 2,
 	-- how often the server checks pad timers for expiry

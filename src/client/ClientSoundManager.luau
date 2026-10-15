@@ -70,7 +70,7 @@ end
 -- playbackSpeed shifts the pitch for this play only (1 is as authored);
 -- a caller varies it so a repeated hit is not the identical sound each time
 function ClientSoundManager:playSfx(name: string, playbackSpeed: number?)
-	local player = self:findPlayer(self.sfxFolder, name)
+	local player = self:findPlayer(self:getSfxFolder(), name)
 	if not player then
 		self:warnOnce(name, `no AudioPlayer {Constants.SFX_FOLDER}.{name}`)
 		return
@@ -93,8 +93,25 @@ end
 -- unless the caller asks for a loop, whatever the authored player says
 -- (the dusk song was authored looping and ran through the night and into
 -- the next day, 2026-09-29)
+-- the folders on demand: a place's own main may ask for a track before
+-- the common main has run init (the lobby music, 2026-10-14), and the
+-- two LocalScripts start in no fixed order
+function ClientSoundManager:getMusicFolder(): Instance?
+	if not self.musicFolder then
+		self.musicFolder = SoundService:FindFirstChild(Constants.MUSIC_FOLDER)
+	end
+	return self.musicFolder
+end
+
+function ClientSoundManager:getSfxFolder(): Instance?
+	if not self.sfxFolder then
+		self.sfxFolder = SoundService:FindFirstChild(Constants.SFX_FOLDER)
+	end
+	return self.sfxFolder
+end
+
 function ClientSoundManager:playMusic(name: string, isLooping: boolean?)
-	local player = self:findPlayer(self.musicFolder, name)
+	local player = self:findPlayer(self:getMusicFolder(), name)
 	if not player then
 		self:warnOnce(name, `no AudioPlayer {Constants.MUSIC_FOLDER}.{name}`)
 		return
@@ -120,10 +137,48 @@ function ClientSoundManager:playMusic(name: string, isLooping: boolean?)
 	player:Play()
 end
 
+-- a track started silent and eased up to `volume` over fadeSec (the lobby
+-- music, 2026-10-14); a fade-out that follows puts the authored volume
+-- back afterwards, as it does for any track
+function ClientSoundManager:fadeInMusic(name: string, volume: number, fadeSec: number, isLooping: boolean?)
+	local player = self:findPlayer(self:getMusicFolder(), name)
+	if not player then
+		self:warnOnce(name, `no AudioPlayer {Constants.MUSIC_FOLDER}.{name}`)
+		return
+	end
+	if player.Asset == "" then
+		self:warnOnce(name, `{Constants.MUSIC_FOLDER}.{name} has no asset yet`)
+		return
+	end
+	local runningTween = self.musicFadeTweenByName[name]
+	if runningTween then
+		self.musicFadeTweenByName[name] = nil
+		runningTween:Cancel()
+	end
+	if self.authoredVolumeByName[name] == nil then
+		self.authoredVolumeByName[name] = player.Volume
+	end
+	player:Stop()
+	player.Looping = isLooping == true
+	player.TimePosition = 0
+	player.Volume = 0
+	player:Play()
+	local tween = TweenService:Create(player, TweenInfo.new(math.max(fadeSec, 0.01), Enum.EasingStyle.Linear), { Volume = volume })
+	tween.Completed:Connect(
+		function()
+			if self.musicFadeTweenByName[name] == tween then
+				self.musicFadeTweenByName[name] = nil
+			end
+		end
+	)
+	self.musicFadeTweenByName[name] = tween
+	tween:Play()
+end
+
 -- a playing track eased to silence over fadeSec and then stopped, its
 -- authored volume put back for the next play (the dusk song, 2026-10-02)
 function ClientSoundManager:fadeOutMusic(name: string, fadeSec: number)
-	local player = self:findPlayer(self.musicFolder, name)
+	local player = self:findPlayer(self:getMusicFolder(), name)
 	if not player then
 		return
 	end

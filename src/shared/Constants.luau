@@ -81,7 +81,6 @@ Constants.HOLDING_AREA_FOLDER = "HoldingArea"
 Constants.HOLDING_AREA_SPAWNS_FOLDER = "Spawns"
 Constants.PAD_COUNT = 6
 -- parts every helicopter pad model must contain
-Constants.PAD_JOIN_COLLISION_PART = "JoinCollision"
 Constants.PAD_EXIT_SPAWN_PART = "ExitSpawn"
 Constants.PAD_HELICOPTER_SPAWN_PART = "HelicopterSpawn"
 Constants.PAD_CAMERA_POSITION_PART = "CameraPositionPart"

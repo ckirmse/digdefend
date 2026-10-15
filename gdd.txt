@@ -56,13 +56,13 @@ Helicopter Pads – Party Creation/Teleports
    * Private: hidden while Idle or Configuring; once a party exists it shows "PUBLIC" in green or "PRIVATE" in red from the party config (2026-10-09; muted and gold before). Players reads waiting/max
    * Players: always shows current players / party size (an idle pad reads 0 / MaxPartySize)
 * Pad states. Each pad is in exactly one state, held in server Lua and replicated to clients as an attribute on the pad model so the billboard and menus can render it:
-   * Idle: empty, no host. Touching JoinCollision makes you the host and moves the pad to Configuring.
+   * Idle: empty, no host. Touching the helicopter makes you the host and moves the pad to Configuring.
    * Configuring: the host is on the Create Party Menu. Nobody else can join; touching gives the feedback "Pad is being set up".
    * Boarding: configured and accepting players who pass the join checks.
    * Departing: teleport in progress. Nobody can join; touching gives "Pad is departing".
    * Transitions: Idle → (touch) → Configuring → (Create) → Boarding → (launch) → Departing → (reset) → Idle. Configuring returns to Idle on creation timeout or if the host leaves. Boarding returns to Idle if nobody is left.
 * Becoming host
-   * A player touches JoinCollision on an Idle pad. The server rejects them with "You're already in a party" if they are in a party on any pad.
+   * A player touches the helicopter on an Idle pad. The server rejects them with "You're already in a party" if they are in a party on any pad.
    * The server sets the pad to Configuring with this player as host and starts the CreationTimer at CreationTimeout.
    * The host's character is seated in the helicopter at the first PlayerSpawn and their camera is moved to CameraPositionPart. While in a party, jumping is disabled so the seat can only be left through the menu (Exit or Cancel); the pad billboards are hidden while a party menu is open.
    * The host's client opens the Create Party Menu.
@@ -72,7 +72,7 @@ Helicopter Pads – Party Creation/Teleports
    * If the countdown reaches zero, the host presses Cancel, or the host leaves the game: the host is moved to ExitSpawn, camera returned, menu closed, and the pad returns to Idle. The timeout gives the feedback "Party creation timed out"; Cancel and leaving give none.
    * When the host presses Create, the server validates the selection (see Create validation). If invalid, it rejects with feedback and the pad stays Configuring. If valid, the server records map, difficulty, max players, and visibility on the pad, sets Boarding, stops the CreationTimer, and starts the BoardingTimer at BoardingTimeout. The host's client swaps the Create Party Menu for the Queue Menu in host mode and the billboard shows the configuration.
 * Boarding
-   * Other players touch JoinCollision. The server runs the join checks. On pass, the character is seated at the next free PlayerSpawn, the camera moved, the player added to the party, the count updated on the billboard, and the Queue Menu opened in member mode.
+   * Other players touch the helicopter. The server runs the join checks. On pass, the character is seated at the next free PlayerSpawn, the camera moved, the player added to the party, the count updated on the billboard, and the Queue Menu opened in member mode.
    * When the party reaches max players, the BoardingTimer is set to CapacityTime (a short auto-launch countdown).
    * Leaving: the Exit button in the Queue Menu, or disconnecting (a character that leaves its seat for any other reason, such as dying, also counts as leaving). The character goes to ExitSpawn and the party and billboard update. If a full party drops below full, the timer does not go back up; it keeps counting from where it is (a full party that loses someone in the last two seconds still launches).
    * If the host leaves during Boarding and other players remain, the earliest-joined remaining player becomes host, their Queue Menu switches to host mode, and they get the feedback "You are now the party host". If nobody remains, the pad returns to Idle.
@@ -95,7 +95,7 @@ Helicopter Pads – Party Creation/Teleports
    * Visibility is Public or Friends Only
    * The pad is still Configuring and this player is still its host
    * The client greys out locked options, but the server is authoritative. Never trust the client's claim that something is unlocked.
-* Join checks (server, on JoinCollision touch during Boarding). Reject with the given feedback if any fail:
+* Join checks (server, on a helicopter touch during Boarding). Reject with the given feedback if any fail:
    * Pad is Boarding: "Pad is being set up" / "Pad is departing"
    * Party has room: "Party is full"
    * Player not already in a party: "You're already in a party"
@@ -109,7 +109,7 @@ Helicopter Pads – Party Creation/Teleports
    * HelicopterSpawn: An invisible part used to place newly spawned HelicopterModels
    * CameraPositionPart: Invisible part that will be used to position the player's camera
    * GuiPart.PadGui: GuiPart is an invisible part that PadGui (BillboardGui) will be parented to. PadGui will display all the necessary info.
-   * JoinCollision: An invisible part, that when touched by a player character starts or joins a party if available
+   * The helicopter is the join trigger (designer, 2026-10-14): touching any part of the pad's helicopter starts or joins its party; the invisible JoinCollision part that did this before is no longer read and may be removed from the pad models
    * ExitSpawn: an invisible part outside the helicopter pad, where players leaving the party will be moved to
    * Other decorations (not needed by code)
    * Runtime pad state (state, host, map, difficulty, max players, visibility, current player count, departure time) is server Lua replicated as attributes on the pad model. The party member list itself stays on the server; only the count replicates. The pad model carries no authored map, difficulty, or max players values.

@@ -69,7 +69,7 @@ export type JoinData = {
 	memberUserIds: { number },
 }
 
--- what the server knows about a would-be joiner when JoinCollision is touched
+-- what the server knows about a would-be joiner when the helicopter is touched
 export type JoinContext = {
 	padState: number,
 	memberCount: number,

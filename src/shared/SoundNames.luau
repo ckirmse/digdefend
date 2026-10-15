@@ -135,6 +135,9 @@ local music = {
 	-- plays from the top as dusk begins, the day's dusk before every night
 	-- (2026-09-25), and fades out across night fall (2026-10-02)
 	DUSK_SONG_1 = "DuskSong1",
+	-- the lobby's track, looping from the moment a player is Ready there
+	-- (designer, 2026-10-14)
+	LOBBY = "LobbyMusic",
 	-- starts as the Game Over screen fades to black and plays out over the
 	-- Results Menu, looping, until the player leaves the menu (M32)
 	GAME_OVER = "GameOver",
@@ -152,7 +155,9 @@ local lobbySfxNames: { string } = {
 	sfx.REROLL_SPIN,
 	sfx.REROLL_REVEAL,
 }
-local lobbyMusicNames: { string } = {}
+local lobbyMusicNames: { string } = {
+	music.LOBBY,
+}
 
 local module = {
 	Sfx = sfx,

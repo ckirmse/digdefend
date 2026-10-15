@@ -10,6 +10,7 @@ local ClientCharacterSheetManager = require(script.Parent.ClientCharacterSheetMa
 local ClientHudManager = require(script.Parent.ClientHudManager)
 local ClientJetPackManager = require(script.Parent.Parent.Client.ClientJetPackManager)
 local ClientPadBillboardManager = require(script.Parent.ClientPadBillboardManager)
+local ClientLobbyMusicManager = require(script.Parent.ClientLobbyMusicManager)
 local ClientPartyMenuManager = require(script.Parent.ClientPartyMenuManager)
 
 ClientDataManager:awaitReady()
@@ -24,3 +25,5 @@ ClientHudManager:init()
 ClientJetPackManager:init()
 ClientPadBillboardManager:init()
 ClientPartyMenuManager:init()
+-- after the party menu, whose launch it listens for
+ClientLobbyMusicManager:init()

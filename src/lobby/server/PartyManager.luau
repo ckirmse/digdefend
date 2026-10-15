@@ -486,22 +486,32 @@ function PartyManager:placeHelicopter(party: Party)
 			end
 		)
 	end
+	self:connectTouch(party, helicopter)
 end
 
-function PartyManager:connectTouch(party: Party)
-	local joinCollision = party.model:FindFirstChild(Constants.PAD_JOIN_COLLISION_PART)
-	if not joinCollision or not joinCollision:IsA("BasePart") then
-		return
-	end
-	joinCollision.Touched:Connect(
-		function(hit: BasePart)
-			local character = hit.Parent
-			local player = if character and character:IsA("Model") then Players:GetPlayerFromCharacter(character) else nil
-			if player then
-				self:handleTouch(party, player)
-			end
+-- touching the helicopter itself starts or joins the party (designer,
+-- 2026-10-14; an invisible JoinCollision box round the pad before). Every
+-- part of the model listens, so a hand on the tail counts as much as the
+-- cabin; a helicopter that has departed still carries its connections, so
+-- the touch only counts while this one is the pad's
+function PartyManager:connectTouch(party: Party, helicopter: Model)
+	for _, descendant in helicopter:GetDescendants() do
+		if not descendant:IsA("BasePart") then
+			continue
 		end
-	)
+		descendant.Touched:Connect(
+			function(hit: BasePart)
+				if party.helicopter ~= helicopter then
+					return
+				end
+				local character = hit.Parent
+				local player = if character and character:IsA("Model") then Players:GetPlayerFromCharacter(character) else nil
+				if player then
+					self:handleTouch(party, player)
+				end
+			end
+		)
+	end
 end
 
 function PartyManager:getPresentMembers(party: Party): { Player }
@@ -813,7 +823,6 @@ function PartyManager:init()
 		self.partiesByPadIndex[padIndex] = party
 		self:setIdle(party)
 		self:placeHelicopter(party)
-		self:connectTouch(party)
 	end
 
 	-- the Create Party menu needs the map and difficulty lists; the client
