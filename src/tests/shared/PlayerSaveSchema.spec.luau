@@ -17,6 +17,7 @@ end
 local DEFAULTS = {
 	startingDiamonds = 0,
 	character = {
+		defaultClassKind = Enums.ClassKind.RECRUIT,
 		defaultKindByGearSlot = {
 			[Enums.GearSlot.WEAPON] = Enums.WeaponKind.RIFLE,
 			[Enums.GearSlot.POST] = Enums.PostWeaponKind.MACHINE_GUN,
@@ -39,6 +40,7 @@ local function makeCharacter(id, name)
 	return {
 		id = id,
 		name = name,
+		classKind = "RECRUIT",
 		nightsSurvived = 4,
 		gear = {
 			WEAPON = { kind = "RIFLE", stars = 2 },
@@ -83,6 +85,7 @@ describe(
 				expect(data.characters[1].id).toBe("fresh")
 				expect(data.characters[1].name).toBe("Character 1")
 				expect(data.characters[1].nightsSurvived).toBe(0)
+				expect(data.characters[1].classKind).toBe("RECRUIT")
 				expect(data.activeCharacterId).toBe("fresh")
 				expect(data.completions).toEqual({})
 				expect(data.dailyReward).toEqual({ lastClaimedDay = 0, nextClaimTime = 0 })

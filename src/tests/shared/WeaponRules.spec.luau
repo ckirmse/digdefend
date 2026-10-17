@@ -229,3 +229,30 @@ describe(
 		)
 	end
 )
+
+describe(
+	"WeaponRules cone and pierce hits (the class weapons)",
+	function()
+		local function box(id, x, z)
+			return { id = id, cframe = CFrame.new(x, 0, z), size = Vector3.new(2, 2, 2) }
+		end
+
+		it(
+			"finds what a cone reaches, nearest first, and nothing outside its angle or range",
+			function()
+				local boxes = { box("far", 0, 50), box("side", 20, 5), box("near", 1, 10), box("mid", 0, 20), box("ontop", 0, 0.5) }
+				expect(WeaponRules.findConeHits(Vector3.zero, Vector3.zAxis, 30, 30, boxes)).toEqual({ "ontop", "near", "mid" })
+			end
+		)
+
+		it(
+			"pierces through boxes along the ray in order, up to the count",
+			function()
+				local boxes = { box("third", 0, 30), box("first", 0, 10), box("second", 0, 20), box("miss", 10, 15) }
+				expect(WeaponRules.findPierceHits(Vector3.zero, Vector3.zAxis, 100, boxes, 2)).toEqual({ "first", "second" })
+				expect(WeaponRules.findPierceHits(Vector3.zero, Vector3.zAxis, 100, boxes, 10)).toEqual({ "first", "second", "third" })
+				expect(WeaponRules.findPierceHits(Vector3.zero, Vector3.zAxis, 15, boxes, 10)).toEqual({ "first" })
+			end
+		)
+	end
+)

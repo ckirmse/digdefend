@@ -16,12 +16,14 @@ local RerollsData = require("@game/ServerScriptService/GameData/Characters/Rerol
 local SkillsData = require("@game/ServerScriptService/GameData/Characters/Skills")
 local SlotsData = require("@game/ServerScriptService/GameData/Characters/Slots")
 local StarsData = require("@game/ServerScriptService/GameData/Characters/Stars")
+local ClassRosterData = require("@game/ServerScriptService/GameData/Classes/Roster")
 local TowersData = require("@game/ServerScriptService/GameData/Defenses/Towers")
 local PostWeaponsData = require("@game/ServerScriptService/GameData/Posts/PostWeapons")
 local HandheldData = require("@game/ServerScriptService/GameData/Weapons/Handheld")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local CharacterRules = require("@game/ReplicatedStorage/Shared/CharacterRules")
 local CharacterSchema = require("@game/ReplicatedStorage/Shared/CharacterSchema")
+local ClassRules = require("@game/ReplicatedStorage/Shared/ClassRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local GearStatsRules = require("@game/ReplicatedStorage/Shared/GearStatsRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
@@ -180,15 +182,74 @@ function CharacterManager:getCharacter(player: Player, characterId: string?): Ch
 	return playerData:getCharacter(characterId)
 end
 
--- the kind a gear row brings into a run; a player without data (not Ready,
--- or a dev stand-in) gets the default so the run never stalls on it
-function CharacterManager:getGearKind(player: Player, gearSlot: number, defaultKind: number): number
+-- the class the player's active character is (M64); the default class for
+-- a player without data (not Ready, or a dev stand-in)
+function CharacterManager:getClassKind(player: Player): number
 	local record = self:getActiveCharacter(player)
 	if not record then
-		return defaultKind
+		return ClassRosterData.DEFAULT_CLASS
 	end
-	local kind = CharacterSchema.getGear(record, gearSlot)
+	return CharacterSchema.getClassKind(record, PlayerData.getCharacterDefaults())
+end
+
+function CharacterManager:getClassData(player: Player): ClassRules.ClassData?
+	return ClassRosterData.BY_KIND[self:getClassKind(player)]
+end
+
+-- the scale the player's class puts on one stat (Enums.ClassModifier);
+-- 1.0 for everything the class leaves alone, so a caller multiplies and
+-- never branches on the class
+function CharacterManager:getModifier(player: Player, classModifier: number): number
+	return ClassRules.modifier(self:getClassData(player), classModifier)
+end
+
+-- the kind a gear slot brings into a run: the class's fixed kit (M64),
+-- never the record's gear rows, which stay in the save only until the
+-- menus are redrawn for classes. The default covers a player without data
+-- and a one-tower class's second row
+function CharacterManager:getGearKind(player: Player, gearSlot: number, defaultKind: number): number
+	local kind = ClassRules.kitKind(self:getClassData(player), gearSlot)
 	return kind or defaultKind
+end
+
+-- the towers the player's class may build, each once (nil for no data)
+function CharacterManager:getClassTowerKinds(player: Player): { number }
+	return ClassRules.towerKinds(self:getClassData(player))
+end
+
+function CharacterManager:setClassKind(player: Player, characterId: string?, classKind: number): boolean
+	local record = self:getCharacter(player, characterId)
+	local className = Enums.getName(Enums.ClassKind, classKind)
+	if not record or not className or not ClassRosterData.BY_KIND[classKind] then
+		return false
+	end
+	record.classKind = className
+	self:replicate(player)
+	return true
+end
+
+-- every roster row must point at built content, or a class would hand a
+-- player a weapon with no data; checked once at startup so a roster typo
+-- is a startup error naming the class, not a silent fallback mid-run
+function CharacterManager:checkRoster()
+	local function isKindKnown(gearSlot: number, kind: number): boolean
+		if gearSlot == Enums.GearSlot.WEAPON then
+			return HandheldData.BY_KIND[kind] ~= nil
+		elseif gearSlot == Enums.GearSlot.POST then
+			return PostWeaponsData.BY_KIND[kind] ~= nil
+		end
+		return TowersData.BY_KIND[kind] ~= nil
+	end
+	for _, classKind in Enums.getAllValues(Enums.ClassKind) do
+		local className = Enums.getName(Enums.ClassKind, classKind)
+		local problems = ClassRules.rosterRowProblems(ClassRosterData.BY_KIND[classKind], isKindKnown)
+		if #problems > 0 then
+			error(`CharacterManager: GameData/Classes/Roster {className}: {table.concat(problems, "; ")}`)
+		end
+	end
+	if not ClassRosterData.BY_KIND[ClassRosterData.DEFAULT_CLASS] then
+		error("CharacterManager: GameData/Classes/Roster DEFAULT_CLASS has no row")
+	end
 end
 
 function CharacterManager:getGearStars(player: Player, gearSlot: number): number
@@ -630,6 +691,7 @@ function CharacterManager:init(gameControllerIn: any, splendidReplicationManager
 	purchaseManager = purchaseManagerIn
 	netManager = netManagerIn
 	hatManager = hatManagerIn
+	self:checkRoster()
 
 	-- the lobby draws the next slot's card, the reroll buttons, and the
 	-- skill rows from these; none changes at runtime

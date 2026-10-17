@@ -9,6 +9,7 @@ DevToolCommands.NAMES = {
 	"sendTestFeedback",
 	"setDiamonds",
 	"setCharacterNights",
+	"setCharacterClass",
 	"setCharacterGear",
 	"setCharacterSkill",
 	"renameCharacter",

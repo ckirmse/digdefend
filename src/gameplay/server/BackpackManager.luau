@@ -10,9 +10,11 @@ local Players = game:GetService("Players")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local BackpackRules = require("@game/ReplicatedStorage/Shared/BackpackRules")
+local ClassRules = require("@game/ReplicatedStorage/Shared/ClassRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local BackpackData = require("@game/ServerScriptService/GameData/Mining/Backpack")
+local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
@@ -37,7 +39,12 @@ local STARTING_LEVEL = 1
 function BackpackManager:getCapacity(player: Player): number
 	local state = self.stateByPlayer[player]
 	local level = if state then state.level else STARTING_LEVEL
-	return BackpackRules.capacityForLevel(BackpackData.CAPACITY_BY_LEVEL, level)
+	-- the class scales the level's capacity (M64); every caller reads
+	-- capacity through here, so the HUD's total follows
+	return ClassRules.scaleAmount(
+		BackpackRules.capacityForLevel(BackpackData.CAPACITY_BY_LEVEL, level),
+		CharacterManager:getModifier(player, Enums.ClassModifier.BACKPACK_CAPACITY)
+	)
 end
 
 function BackpackManager:getLevel(player: Player): number

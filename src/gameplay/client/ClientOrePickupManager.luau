@@ -157,6 +157,32 @@ local function makeCasterPart(resource: number): BasePart
 	return part
 end
 
+-- refined bars (the Salvage Gun's Iron): the refined resource's icon on
+-- the same plate, a plain cube with no icon yet
+local function makeBarsCasterPart(refinedResource: number): BasePart
+	local part = Instance.new("Part")
+	part.Name = "BarsPickup"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	local imageId = Icons.REFINED_RESOURCE[refinedResource]
+	if Icons.isPlaceholder(imageId) then
+		part.Size = Vector3.new(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE)
+		part.Color = Color3.fromRGB(170, 170, 180)
+		part.Material = Enum.Material.Metal
+		return part
+	end
+	part.Size = Vector3.new(PLATE_SIZE, PLATE_SIZE, PLATE_THICKNESS)
+	part.Transparency = 1
+	addFace(part, Enum.NormalId.Front, imageId :: string)
+	addFace(part, Enum.NormalId.Back, imageId :: string)
+	return part
+end
+
 function ClientOrePickupManager:getFolder(): Folder
 	local folder = self.folder
 	if folder then
@@ -218,9 +244,15 @@ function ClientOrePickupManager:addCaster(shadow: Instance)
 	end
 	local resource = shadow:GetAttribute(Attributes.PICKUP_RESOURCE)
 	local tool = shadow:GetAttribute(Attributes.PICKUP_TOOL)
-	local part = if typeof(tool) == "number"
-		then makeToolCasterPart(tool)
-		else makeCasterPart(if typeof(resource) == "number" then resource else 0)
+	local bars = shadow:GetAttribute(Attributes.PICKUP_BARS)
+	local part
+	if typeof(tool) == "number" then
+		part = makeToolCasterPart(tool)
+	elseif typeof(bars) == "number" then
+		part = makeBarsCasterPart(bars)
+	else
+		part = makeCasterPart(if typeof(resource) == "number" then resource else 0)
+	end
 	part.CFrame = shadow.CFrame
 	if resource == Enums.RawResource.URANIUM_ORE then
 		if not self.humPlayer then

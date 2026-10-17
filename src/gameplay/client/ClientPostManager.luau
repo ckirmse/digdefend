@@ -18,16 +18,19 @@
 -- range. Spacebar, gamepad A (or B), or the touch Exit button that stands
 -- where the hidden jump button was all leave, as does any menu opening. Every shot is a request carrying the muzzle ray; the truth
 -- comes back as NotifyPostWeaponFired, which also draws everyone else's.
--- A projectile kind (the Rocket Launcher) is drawn from
--- NotifyPostRocketLaunched instead: a client-only clone of the
--- GameAssets/Projectiles model flies at the server's speed with a smoke
--- trail from its TailAttachment and a 3D flight loop, and bursts where
--- NotifyPostRocketExploded says, with a blast, a flash, and the explosion
--- sound; the server's rocket is the truth, this one only shows it.
+-- A projectile kind's shot is drawn by ClientProjectileManager from the
+-- launch message (2026-10-16). The class posts add their own showings
+-- here: the Minigun's spin-up and the Railgun's charge as the status bar
+-- filling while the trigger is held (the trigger is reported to the
+-- server as TrySetPostTrigger, and the Railgun fires on its release), the
+-- AA Launcher's locks as the reticle's readout from the PostWeaponLocks
+-- attribute, the Tesla Arc's chain as bolts between the bodies it jumped
+-- to, the Napalm Mortar's pool of fire, the Mine Layer's armed mines,
+-- and the Magnet Gun's pull, each from its own notify.
 local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -51,20 +54,17 @@ local ClientDamageableManager = require(script.Parent.ClientDamageableManager)
 local ClientHoldInput = require(script.Parent.ClientHoldInput)
 local ClientImpactManager = require(script.Parent.ClientImpactManager)
 local ClientMiningManager = require(script.Parent.ClientMiningManager)
+local ClientProjectileManager = require(script.Parent.ClientProjectileManager)
 local ClientTouchLayoutManager = require(script.Parent.ClientTouchLayoutManager)
 local ClientWeaponManager = require(script.Parent.ClientWeaponManager)
 
 local ClientPostManager = {}
 ClientPostManager.__index = ClientPostManager
 
--- a rocket in the air as this client draws it
-type RocketView = {
-	id: string,
+-- an armed mine on the ground as this client draws it
+type MineView = {
 	part: BasePart,
-	weaponKind: number,
-	unitDirection: Vector3,
-	speedStudsPerSec: number,
-	tailOffset: Vector3,
+	light: PointLight?,
 }
 
 -- one spawned weapon as this client draws it
@@ -84,7 +84,8 @@ export type ClientPostManager = typeof(setmetatable(
 	{} :: {
 		catalog: PostRules.Catalog?,
 		viewsByModel: { [Model]: WeaponView },
-		rocketsById: { [string]: RocketView },
+		minesById: { [string]: MineView },
+		poolParts: { BasePart },
 		postPromptsByModel: { [Model]: ProximityPrompt },
 		isMounted: boolean,
 		mountedView: WeaponView?,
@@ -116,6 +117,12 @@ export type ClientPostManager = typeof(setmetatable(
 		-- is right now (0 to 1), so it swells and dies away smoothly
 		lastTurnTime: number,
 		turnLevel: number,
+		-- the trigger as this client last reported it (a spin-up or charge
+		-- kind), and when it closed, for the bar ahead of the server's echo
+		isTriggerHeld: boolean,
+		triggerStartTime: number?,
+		-- the lock ids already announced with the tone, so each sounds once
+		announcedLockIds: { [string]: boolean },
 		isTouchOnly: boolean,
 		savedCameraType: Enum.CameraType?,
 		savedFieldOfView: number?,
@@ -178,28 +185,6 @@ local NOTIFY_POST_CLAIMED_SHAPE = {
 	weaponKind = { type = "enum", name = "PostWeaponKind" },
 	price = "nonnegativeInteger",
 }
-local NOTIFY_POST_ROCKET_LAUNCHED_SHAPE = {
-	rocketId = "string",
-	userId = "integer",
-	postIndex = "positiveInteger",
-	weaponKind = { type = "enum", name = "PostWeaponKind" },
-	origin = "vector3",
-	direction = "vector3",
-	speed = "positiveNumber",
-}
-local NOTIFY_POST_ROCKET_EXPLODED_SHAPE = {
-	rocketId = "string",
-	userId = "integer",
-	weaponKind = { type = "enum", name = "PostWeaponKind" },
-	position = "vector3",
-	hitCount = "nonnegativeInteger",
-}
--- the burst: how long the smoke lingers, the flash, and the blast's own light
-local BLAST_SMOKE_LIFETIME_SEC = 2.5
-local BLAST_SMOKE_COUNT = 40
-local BLAST_FLASH_SEC = 0.15
--- a rocket that never hears its burst (a lost message) is dropped after this
-local ROCKET_MAX_LIFETIME_SEC = 10
 local NOTIFY_POST_WEAPON_FIRED_SHAPE = {
 	userId = "integer",
 	postIndex = "positiveInteger",
@@ -208,7 +193,49 @@ local NOTIFY_POST_WEAPON_FIRED_SHAPE = {
 	endPosition = "vector3",
 	isImpact = "boolean",
 	hitId = "string",
+	-- a pierce or a chain: every body hit, in order
+	hitIds = { type = "array", elementType = "string", optional = true },
 }
+local NOTIFY_POST_POOL_STARTED_SHAPE = {
+	poolId = "string",
+	weaponKind = { type = "enum", name = "PostWeaponKind" },
+	position = "vector3",
+	radius = "positiveNumber",
+	sec = "positiveNumber",
+}
+local NOTIFY_POST_MINE_PLACED_SHAPE = {
+	mineId = "string",
+	weaponKind = { type = "enum", name = "PostWeaponKind" },
+	position = "vector3",
+}
+local NOTIFY_POST_MINE_REMOVED_SHAPE = {
+	mineId = "string",
+	weaponKind = { type = "enum", name = "PostWeaponKind" },
+	position = "vector3",
+	isExploded = "boolean",
+}
+local NOTIFY_POST_PULL_SHAPE = {
+	weaponKind = { type = "enum", name = "PostWeaponKind" },
+	position = "vector3",
+	radius = "positiveNumber",
+	sec = "positiveNumber",
+}
+-- the chain's bolts and a pierce's streak
+local BOLT_COLOR = Color3.fromRGB(150, 200, 255)
+local BOLT_THICKNESS_STUDS = 0.3
+local BOLT_LIFE_SEC = 0.15
+-- the status bar's words for the class posts
+local STATUS_SPINNING_TEXT = "Spinning up"
+local STATUS_CHARGING_TEXT = "Charging"
+local STATUS_LOCKED_FORMAT = "Locked x%d"
+-- the fire pool: flames across the radius, and the mine's blink
+local POOL_FLAME_COLOR = ColorSequence.new(Color3.fromRGB(255, 190, 80), Color3.fromRGB(200, 50, 20))
+local MINE_BLINK_SEC = 0.6
+local MINE_PLACEHOLDER_SIZE = Vector3.new(1.2, 0.4, 1.2)
+local MINE_COLOR = Color3.fromRGB(70, 75, 70)
+local PULL_COLOR = Color3.fromRGB(120, 180, 255)
+-- the mines and pools of a run are kept here, under the workspace
+local POST_EFFECTS_FOLDER = "PostEffects"
 
 local function readNumber(value: any, default: number): number
 	return if typeof(value) == "number" then value else default
@@ -502,7 +529,7 @@ function ClientPostManager:onRenderStep(deltaTime: number)
 		end
 		self:applyView(view)
 	end
-	self:stepRockets(deltaTime)
+	self:stepTrigger()
 	if self.isMounted and mountedView then
 		self:renderStatusBar()
 		self:placeCharacter(mountedView)
@@ -544,6 +571,17 @@ function ClientPostManager:fire(isFreshPress: boolean): boolean
 	end
 	-- an empty or overheated gun does not fire; the hold keeps trying
 	if self:getIsReloading() then
+		return false
+	end
+	-- a charge kind fires on the trigger's release (stepTrigger), never on
+	-- the hold's interval; a spin-up kind fires only once spun up
+	if kindData.CHARGE and not isFreshPress then
+		return false
+	end
+	if kindData.CHARGE and self.isTriggerHeld then
+		return false
+	end
+	if kindData.SPIN_UP and not PostRules.isWoundUp(self.triggerStartTime, workspace:GetServerTimeNow(), stats.spinUpSec or kindData.SPIN_UP.SEC, 0) then
 		return false
 	end
 	local heatData = kindData.HEAT
@@ -593,267 +631,44 @@ function ClientPostManager:fire(isFreshPress: boolean): boolean
 	return true
 end
 
-function ClientPostManager:findProjectileTemplate(templateName: string): BasePart?
-	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
-	local folder = if gameAssets then gameAssets:FindFirstChild(Constants.PROJECTILE_TEMPLATES_FOLDER) else nil
-	local template = if folder then folder:FindFirstChild(templateName) else nil
-	if template and template:IsA("BasePart") then
-		return template
-	end
-	warn(`ClientPostManager: no part named {templateName} under GameAssets.{Constants.PROJECTILE_TEMPLATES_FOLDER}; rockets fly unseen`)
-	return nil
-end
-
--- the flight loop rides the rocket: an AudioEmitter on the part, fed by a
--- copy of the authored player (the same wiring ClientSoundManager uses for
--- a one-shot, kept alive for the flight)
-function ClientPostManager:attachFlightSound(part: BasePart, weaponKind: number)
-	local weaponSfx = self:getPostWeaponSfx(weaponKind)
-	local name = if weaponSfx then weaponSfx.FLIGHT else nil
-	if not name then
-		return
-	end
-	ClientSoundManager:attachLoop(part, name, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
-end
-
--- the smoke trail streams from the TailAttachment while the rocket flies.
--- The designer authors it on the template (any ParticleEmitter or light
--- under the attachment is used as is); this placeholder is only built when
--- the attachment carries nothing
-function ClientPostManager:attachTrail(tail: Attachment)
-	local hasAuthoredTrail = false
-	for _, child in tail:GetChildren() do
-		if child:IsA("ParticleEmitter") then
-			child.Enabled = true
-			hasAuthoredTrail = true
-		end
-	end
-	if hasAuthoredTrail then
-		return
-	end
-	local smoke = Instance.new("ParticleEmitter")
-	smoke.Name = "Trail"
-	smoke.Color = ColorSequence.new(Color3.fromRGB(220, 215, 205), Color3.fromRGB(110, 105, 100))
-	smoke.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.6),
-		NumberSequenceKeypoint.new(1, 2.5),
-	})
-	smoke.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.3),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	smoke.Lifetime = NumberRange.new(0.8, 1.4)
-	smoke.Speed = NumberRange.new(1, 3)
-	smoke.SpreadAngle = Vector2.new(15, 15)
-	smoke.Rate = 60
-	smoke.LightEmission = 0.1
-	smoke.Parent = tail
-	local flame = Instance.new("PointLight")
-	flame.Name = "Flame"
-	flame.Brightness = 3
-	flame.Range = 12
-	flame.Color = Color3.fromRGB(255, 170, 90)
-	flame.Parent = tail
-end
-
-function ClientPostManager:onRocketLaunched(payload: any)
-	if not Validate.isTableShape(payload, NOTIFY_POST_ROCKET_LAUNCHED_SHAPE) then
-		warn("ClientPostManager: malformed NotifyPostRocketLaunched")
-		return
-	end
-	local weaponSfx = self:getPostWeaponSfx(payload.weaponKind)
-	-- the gunner heard their own launch when they fired; everyone else hears it now
-	if payload.userId ~= Players.LocalPlayer.UserId and weaponSfx then
-		local view: WeaponView? = nil
-		for _, candidate in self.viewsByModel do
-			if readNumber(candidate.model:GetAttribute(Attributes.POST_WEAPON_POST_INDEX), 0) == payload.postIndex then
-				view = candidate
-			end
-		end
-		ClientWeaponManager:playMuzzleEffects(if view then view.muzzle else nil)
-		ClientSoundManager:playSfxAt(payload.origin, weaponSfx.FIRE, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
-	end
-	local catalog = self.catalog
-	local kindData = if catalog then catalog.kinds[payload.weaponKind] else nil
-	local projectile = if kindData then kindData.PROJECTILE else nil
-	local template = if projectile then self:findProjectileTemplate(projectile.TEMPLATE) else nil
-	if not template then
-		return
-	end
-	local part = template:Clone()
-	part.Name = payload.rocketId
-	part.Anchored = true
-	part.CanCollide = false
-	part.CanQuery = false
-	part.CanTouch = false
-	part.CastShadow = false
-	local tail = part:FindFirstChild(Constants.PROJECTILE_TAIL_ATTACHMENT)
-	local tailOffset = if tail and tail:IsA("Attachment") then tail.Position else Vector3.zero
-	local direction: Vector3 = payload.direction
-	local unitDirection = if direction.Magnitude > 0.001 then direction.Unit else Vector3.zAxis
-	part.CFrame = PostRules.projectileFrame(payload.origin, unitDirection, tailOffset)
-	if tail and tail:IsA("Attachment") then
-		self:attachTrail(tail)
-	end
-	part.Parent = workspace
-	self:attachFlightSound(part, payload.weaponKind)
-	self.rocketsById[payload.rocketId] = {
-		id = payload.rocketId,
-		part = part,
-		weaponKind = payload.weaponKind,
-		unitDirection = unitDirection,
-		speedStudsPerSec = payload.speed,
-		tailOffset = tailOffset,
-	}
-	Debris:AddItem(part, ROCKET_MAX_LIFETIME_SEC)
-end
-
--- the authored blast: the template's part at the point, every emitter
--- fired once for its BurstCount, every light on for the flash. Nil when
--- there is no template, and the placeholder below is used instead
-function ClientPostManager:playAuthoredBlast(position: Vector3, templateName: string): boolean
-	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
-	local folder = if gameAssets then gameAssets:FindFirstChild(Constants.EFFECT_TEMPLATES_FOLDER) else nil
-	local template = if folder then folder:FindFirstChild(templateName) else nil
-	if not template or not template:IsA("BasePart") then
-		return false
-	end
-	local part = template:Clone()
-	part.Anchored = true
-	part.CanCollide = false
-	part.CanQuery = false
-	part.CanTouch = false
-	part.CFrame = CFrame.new(position)
-	part.Parent = workspace
-	local longestLifeSec = BLAST_FLASH_SEC
-	for _, descendant in part:GetDescendants() do
-		if descendant:IsA("ParticleEmitter") then
-			descendant.Enabled = false
-			descendant:Emit(readNumber(descendant:GetAttribute(Attributes.BURST_COUNT), BLAST_SMOKE_COUNT))
-			longestLifeSec = math.max(longestLifeSec, descendant.Lifetime.Max)
-		elseif descendant:IsA("Light") then
-			descendant.Enabled = true
-			Debris:AddItem(descendant, BLAST_FLASH_SEC)
-		end
-	end
-	Debris:AddItem(part, longestLifeSec + 0.2)
-	return true
-end
-
--- the blast at the burst point: the authored effect when there is one,
--- else a ball of smoke and a flash; then the sound
-function ClientPostManager:playBlast(position: Vector3, weaponKind: number)
-	local weaponSfx = self:getPostWeaponSfx(weaponKind)
-	local explodeName = if weaponSfx then weaponSfx.EXPLODE else nil
-	if explodeName then
-		ClientSoundManager:playSfxAt(position, explodeName, BLAST_FULL_VOLUME_STUDS, BLAST_SILENT_STUDS)
-	end
-	local catalog = self.catalog
-	local kindData = if catalog then catalog.kinds[weaponKind] else nil
-	local projectile = if kindData then kindData.PROJECTILE else nil
-	local blastTemplate = if projectile then projectile.BLAST_TEMPLATE else nil
-	if blastTemplate and self:playAuthoredBlast(position, blastTemplate) then
-		return
-	end
-	local anchor = Instance.new("Part")
-	anchor.Name = "RocketBlast"
-	anchor.Anchored = true
-	anchor.CanCollide = false
-	anchor.CanQuery = false
-	anchor.CanTouch = false
-	anchor.Transparency = 1
-	anchor.Size = Vector3.one
-	anchor.CFrame = CFrame.new(position)
-	anchor.Parent = workspace
-	local fire = Instance.new("ParticleEmitter")
-	fire.Color = ColorSequence.new(Color3.fromRGB(255, 200, 90), Color3.fromRGB(200, 60, 20))
-	fire.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 3),
-		NumberSequenceKeypoint.new(1, 8),
-	})
-	fire.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.1),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	fire.Lifetime = NumberRange.new(0.3, 0.6)
-	fire.Speed = NumberRange.new(10, 25)
-	fire.SpreadAngle = Vector2.new(180, 180)
-	fire.LightEmission = 1
-	fire.Rate = 0
-	fire.Parent = anchor
-	fire:Emit(BLAST_SMOKE_COUNT)
-	local smoke = Instance.new("ParticleEmitter")
-	smoke.Color = ColorSequence.new(Color3.fromRGB(90, 85, 80), Color3.fromRGB(40, 38, 36))
-	smoke.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 3),
-		NumberSequenceKeypoint.new(1, 10),
-	})
-	smoke.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.2),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	smoke.Lifetime = NumberRange.new(1.2, BLAST_SMOKE_LIFETIME_SEC)
-	smoke.Speed = NumberRange.new(6, 16)
-	smoke.SpreadAngle = Vector2.new(180, 180)
-	smoke.Rate = 0
-	smoke.Parent = anchor
-	smoke:Emit(BLAST_SMOKE_COUNT)
-	local flash = Instance.new("PointLight")
-	flash.Brightness = 10
-	flash.Range = 40
-	flash.Color = Color3.fromRGB(255, 190, 110)
-	flash.Parent = anchor
-	Debris:AddItem(flash, BLAST_FLASH_SEC)
-	Debris:AddItem(anchor, BLAST_SMOKE_LIFETIME_SEC + 0.2)
-end
-
-function ClientPostManager:onRocketExploded(payload: any)
-	if not Validate.isTableShape(payload, NOTIFY_POST_ROCKET_EXPLODED_SHAPE) then
-		warn("ClientPostManager: malformed NotifyPostRocketExploded")
-		return
-	end
-	local rocket = self.rocketsById[payload.rocketId]
-	if rocket then
-		self.rocketsById[payload.rocketId] = nil
-		rocket.part:Destroy()
-	end
-	local camera = workspace.CurrentCamera
-	if camera and (camera.CFrame.Position - payload.position).Magnitude <= BLAST_SILENT_STUDS then
-		self:playBlast(payload.position, payload.weaponKind)
-	end
-	if payload.userId == Players.LocalPlayer.UserId and payload.hitCount > 0 then
-		local weaponSfx = self:getPostWeaponSfx(payload.weaponKind)
-		if weaponSfx then
-			ClientSoundManager:playSfx(weaponSfx.HIT)
-		end
-	end
-end
-
-function ClientPostManager:stepRockets(deltaTime: number)
-	for id, rocket in self.rocketsById do
-		if not rocket.part.Parent then
-			self.rocketsById[id] = nil
-			continue
-		end
-		local position = rocket.part.Position + rocket.unitDirection * rocket.speedStudsPerSec * deltaTime
-		rocket.part.CFrame = PostRules.projectileFrame(position, rocket.unitDirection, rocket.tailOffset)
-	end
-end
-
 function ClientPostManager:onPostWeaponFired(payload: any)
 	local isValid = Validate.isTableShape(payload, NOTIFY_POST_WEAPON_FIRED_SHAPE)
 	if not isValid then
 		warn("ClientPostManager: malformed NotifyPostWeaponFired")
 		return
 	end
-	if payload.hitId ~= "" then
-		ClientDamageableManager:flashHit(payload.hitId)
+	local hitIds: { string } = payload.hitIds or {}
+	if #hitIds == 0 and payload.hitId ~= "" then
+		hitIds = { payload.hitId }
 	end
-	if payload.userId == Players.LocalPlayer.UserId then
+	for _, hitId in hitIds do
+		ClientDamageableManager:flashHit(hitId)
+	end
+	local catalog = self.catalog
+	local kindData = if catalog then catalog.kinds[payload.weaponKind] else nil
+	if kindData and kindData.CHAIN then
+		-- the arc: a bolt from the muzzle to the first body, then on
+		-- between each pair it jumped
+		local from: Vector3 = payload.origin
+		for _, hitId in hitIds do
+			local to = ClientDamageableManager:getBodyPosition(hitId)
+			if to then
+				self:drawStreak(from, to, BOLT_COLOR, BOLT_THICKNESS_STUDS, BOLT_LIFE_SEC)
+				from = to
+			end
+		end
+	end
+	local isOwnShot = payload.userId == Players.LocalPlayer.UserId
+	local mountedView = self.mountedView
+	local isOwnMannedShot = isOwnShot and self.isMounted and mountedView ~= nil and readNumber(mountedView.model:GetAttribute(Attributes.POST_WEAPON_POST_INDEX), 0) == payload.postIndex
+	if isOwnShot then
 		local weaponSfx = self:getPostWeaponSfx(payload.weaponKind)
-		if payload.hitId ~= "" and weaponSfx then
+		if #hitIds > 0 and weaponSfx then
 			ClientSoundManager:playSfx(weaponSfx.HIT)
 		end
+	end
+	if isOwnMannedShot then
+		-- this client drew its own shot when it fired; the news is the hit
 		return
 	end
 	local camera = workspace.CurrentCamera
@@ -867,6 +682,13 @@ function ClientPostManager:onPostWeaponFired(payload: any)
 		end
 	end
 	ClientWeaponManager:playMuzzleEffects(if view then view.muzzle else nil)
+	if kindData and kindData.CHAIN then
+		local weaponSfx = self:getPostWeaponSfx(payload.weaponKind)
+		if weaponSfx then
+			ClientSoundManager:playSfxAt(payload.origin, weaponSfx.FIRE, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
+		end
+		return
+	end
 	local shotVector = payload.endPosition - payload.origin
 	local endPosition: Vector3 = payload.endPosition
 	local impactNormal: Vector3? = nil
@@ -940,6 +762,270 @@ function ClientPostManager:getIsReloading(): boolean
 	return WeaponRules.isReloading(reloadEndTime, workspace:GetServerTimeNow())
 end
 
+-- the AA Launcher's locks as the server last wrote them: how many are
+-- locked and the furthest-along share, with the tone once per new lock
+function ClientPostManager:readLocks(): (number, number)
+	local view = self.mountedView
+	local encoded = if view then view.model:GetAttribute(Attributes.POST_WEAPON_LOCKS) else nil
+	if typeof(encoded) ~= "string" or encoded == "" then
+		self.announcedLockIds = {}
+		return 0, 0
+	end
+	local isSuccess, rows = pcall(HttpService.JSONDecode, HttpService, encoded)
+	if not isSuccess or typeof(rows) ~= "table" then
+		return 0, 0
+	end
+	local lockedCount = 0
+	local bestShare = 0
+	local seen: { [string]: boolean } = {}
+	for _, row in rows do
+		if typeof(row) ~= "table" or typeof(row.share) ~= "number" then
+			continue
+		end
+		bestShare = math.max(bestShare, row.share)
+		if row.share >= 1 then
+			lockedCount += 1
+			if typeof(row.id) == "string" then
+				seen[row.id] = true
+				if not self.announcedLockIds[row.id] then
+					self.announcedLockIds[row.id] = true
+					local weaponSfx = self:getPostWeaponSfx(readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.POST_WEAPON_KIND), 0))
+					if weaponSfx and weaponSfx.WINDUP then
+						ClientSoundManager:playSfx(weaponSfx.WINDUP)
+					end
+				end
+			end
+		end
+	end
+	for id in self.announcedLockIds do
+		if not seen[id] then
+			self.announcedLockIds[id] = nil
+		end
+	end
+	return lockedCount, bestShare
+end
+
+-- the trigger of a spin-up or charge kind follows the hold: the server is
+-- told when it closes and opens, the wind-up sound plays at the close,
+-- and a charge kind fires on the release once charged
+function ClientPostManager:stepTrigger()
+	local kindData = self.kindData
+	local holdInput = self.holdInput
+	if not self.isMounted or not kindData or not holdInput or (not kindData.SPIN_UP and not kindData.CHARGE) then
+		if self.isTriggerHeld then
+			self.isTriggerHeld = false
+			self.triggerStartTime = nil
+		end
+		return
+	end
+	local isHeld = holdInput:getIsHolding()
+	if isHeld == self.isTriggerHeld then
+		return
+	end
+	self.isTriggerHeld = isHeld
+	local now = workspace:GetServerTimeNow()
+	ClientNetManager:fireServer(NetEventNames.TRY_SET_POST_TRIGGER, { isHeld = isHeld })
+	if isHeld then
+		self.triggerStartTime = now
+		local weaponSfx = self:getPostWeaponSfx(readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.POST_WEAPON_KIND), 0))
+		if weaponSfx and weaponSfx.WINDUP then
+			ClientSoundManager:playSfx(weaponSfx.WINDUP)
+		end
+		return
+	end
+	local stats = self.stats
+	if kindData.CHARGE and PostRules.isWoundUp(self.triggerStartTime, now, if stats and stats.chargeSec then stats.chargeSec else kindData.CHARGE.SEC, 0) then
+		self:fire(true)
+	end
+	self.triggerStartTime = nil
+end
+
+function ClientPostManager:getEffectsFolder(): Folder
+	local folder = workspace:FindFirstChild(POST_EFFECTS_FOLDER)
+	if folder and folder:IsA("Folder") then
+		return folder
+	end
+	local created = Instance.new("Folder")
+	created.Name = POST_EFFECTS_FOLDER
+	created.Parent = workspace
+	return created
+end
+
+function ClientPostManager:drawStreak(from: Vector3, to: Vector3, color: Color3, thickness: number, lifeSec: number)
+	local length = (to - from).Magnitude
+	if length < 0.1 then
+		return
+	end
+	local streak = Instance.new("Part")
+	streak.Name = "Streak"
+	streak.Anchored = true
+	streak.CanCollide = false
+	streak.CanQuery = false
+	streak.CanTouch = false
+	streak.CastShadow = false
+	streak.Material = Enum.Material.Neon
+	streak.Color = color
+	streak.Size = Vector3.new(thickness, thickness, length)
+	streak.CFrame = CFrame.lookAt((from + to) / 2, to)
+	streak.Parent = self:getEffectsFolder()
+	Debris:AddItem(streak, lifeSec)
+end
+
+-- the Napalm Mortar's pool: flames over the radius for as long as it burns
+function ClientPostManager:onPoolStarted(payload: any)
+	if not Validate.isTableShape(payload, NOTIFY_POST_POOL_STARTED_SHAPE) then
+		warn("ClientPostManager: malformed NotifyPostPoolStarted")
+		return
+	end
+	local anchor = Instance.new("Part")
+	anchor.Name = payload.poolId
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.new(payload.radius * 2, 0.2, payload.radius * 2)
+	anchor.CFrame = CFrame.new(payload.position)
+	anchor.Parent = self:getEffectsFolder()
+	local flames = Instance.new("ParticleEmitter")
+	flames.Name = "Flames"
+	flames.Shape = Enum.ParticleEmitterShape.Box
+	flames.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	flames.Color = POOL_FLAME_COLOR
+	flames.LightEmission = 1
+	flames.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 2),
+		NumberSequenceKeypoint.new(1, 4),
+	})
+	flames.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.2),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	flames.Lifetime = NumberRange.new(0.5, 0.9)
+	flames.Speed = NumberRange.new(2, 5)
+	flames.Rate = payload.radius * 6
+	flames.Parent = anchor
+	local light = Instance.new("PointLight")
+	light.Brightness = 4
+	light.Range = payload.radius * 2
+	light.Color = Color3.fromRGB(255, 160, 70)
+	light.Parent = anchor
+	table.insert(self.poolParts, anchor)
+	Debris:AddItem(anchor, payload.sec)
+	task.delay(
+		payload.sec - 0.5,
+		function()
+			if anchor.Parent then
+				flames.Enabled = false
+			end
+		end
+	)
+end
+
+-- the Mine Layer's mine: the projectile part at rest with a blinking
+-- light, until the server says it blew or fizzled
+function ClientPostManager:onMinePlaced(payload: any)
+	if not Validate.isTableShape(payload, NOTIFY_POST_MINE_PLACED_SHAPE) then
+		warn("ClientPostManager: malformed NotifyPostMinePlaced")
+		return
+	end
+	local catalog = self.catalog
+	local kindData = if catalog then catalog.kinds[payload.weaponKind] else nil
+	local projectile = if kindData then kindData.PROJECTILE else nil
+	local template = if projectile then ClientProjectileManager:findTemplate(projectile.TEMPLATE) else nil
+	local part: BasePart
+	if template then
+		part = template:Clone()
+	else
+		part = Instance.new("Part")
+		part.Size = MINE_PLACEHOLDER_SIZE
+		part.Color = MINE_COLOR
+		part.Material = Enum.Material.Metal
+		part.Shape = Enum.PartType.Cylinder
+	end
+	part.Name = payload.mineId
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CFrame = if template then CFrame.new(payload.position) else CFrame.new(payload.position) * CFrame.Angles(0, 0, math.rad(90))
+	part.Parent = self:getEffectsFolder()
+	local light = Instance.new("PointLight")
+	light.Brightness = 2
+	light.Range = 4
+	light.Color = Color3.fromRGB(255, 60, 40)
+	light.Parent = part
+	self.minesById[payload.mineId] = { part = part, light = light }
+	task.spawn(
+		function()
+			while part.Parent do
+				light.Enabled = not light.Enabled
+				task.wait(MINE_BLINK_SEC)
+			end
+		end
+	)
+end
+
+function ClientPostManager:onMineRemoved(payload: any)
+	if not Validate.isTableShape(payload, NOTIFY_POST_MINE_REMOVED_SHAPE) then
+		warn("ClientPostManager: malformed NotifyPostMineRemoved")
+		return
+	end
+	local mine = self.minesById[payload.mineId]
+	if mine then
+		self.minesById[payload.mineId] = nil
+		mine.part:Destroy()
+	end
+	if not payload.isExploded then
+		return
+	end
+	local catalog = self.catalog
+	local kindData = if catalog then catalog.kinds[payload.weaponKind] else nil
+	local projectile = if kindData then kindData.PROJECTILE else nil
+	local weaponSfx = self:getPostWeaponSfx(payload.weaponKind)
+	if weaponSfx and weaponSfx.EXPLODE then
+		ClientSoundManager:playSfxAt(payload.position, weaponSfx.EXPLODE, BLAST_FULL_VOLUME_STUDS, BLAST_SILENT_STUDS)
+	end
+	ClientProjectileManager:playBlast(payload.position, if projectile and projectile.BLAST_TEMPLATE then projectile.BLAST_TEMPLATE else "")
+end
+
+-- the Magnet Gun's pull: a ring of light drawn in at the point for as
+-- long as the pull lasts
+function ClientPostManager:onPull(payload: any)
+	if not Validate.isTableShape(payload, NOTIFY_POST_PULL_SHAPE) then
+		warn("ClientPostManager: malformed NotifyPostPull")
+		return
+	end
+	local anchor = Instance.new("Part")
+	anchor.Name = "Pull"
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.one
+	anchor.CFrame = CFrame.new(payload.position)
+	anchor.Parent = self:getEffectsFolder()
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.Color = ColorSequence.new(PULL_COLOR)
+	sparks.LightEmission = 1
+	sparks.Size = NumberSequence.new(0.6, 0.1)
+	sparks.Lifetime = NumberRange.new(0.6, 0.9)
+	-- the particles fly outward and are dragged back: negative drag pulls
+	-- them home, which reads as suction
+	sparks.Speed = NumberRange.new(payload.radius * 1.2, payload.radius * 1.5)
+	sparks.Drag = 4
+	sparks.SpreadAngle = Vector2.new(180, 180)
+	sparks.Rate = 80
+	sparks.Parent = anchor
+	local light = Instance.new("PointLight")
+	light.Brightness = 3
+	light.Range = payload.radius
+	light.Color = PULL_COLOR
+	light.Parent = anchor
+	Debris:AddItem(anchor, payload.sec)
+end
+
 -- heat: fill = heat, green cooling to red. Reload: fill = progress, red
 -- while filling, green once loaded. Neither: no bar
 function ClientPostManager:renderStatusBar()
@@ -949,7 +1035,7 @@ function ClientPostManager:renderStatusBar()
 	if not bar or not fill then
 		return
 	end
-	if not self.isMounted or not kindData or (not kindData.HEAT and not kindData.RELOAD_SEC) then
+	if not self.isMounted or not kindData or (not kindData.HEAT and not kindData.RELOAD_SEC and not kindData.SPIN_UP and not kindData.CHARGE and not kindData.LOCK) then
 		bar.Visible = false
 		if self.statusLabel then
 			self.statusLabel.Visible = false
@@ -958,6 +1044,32 @@ function ClientPostManager:renderStatusBar()
 	end
 	bar.Visible = true
 	local label = self.statusLabel
+	local now = workspace:GetServerTimeNow()
+	local stats = self.stats
+	local windupSec = if kindData.SPIN_UP then (if stats and stats.spinUpSec then stats.spinUpSec else kindData.SPIN_UP.SEC) elseif kindData.CHARGE then (if stats and stats.chargeSec then stats.chargeSec else kindData.CHARGE.SEC) else nil
+	if windupSec and self.isTriggerHeld then
+		-- the trigger is held: the bar is the spin-up or charge filling
+		local progress = PostRules.windupProgress(self.triggerStartTime, now, windupSec)
+		fill.Size = UDim2.fromScale(progress, 1)
+		fill.BackgroundColor3 = STATUS_HOT_COLOR:Lerp(STATUS_COOL_COLOR, progress)
+		if label then
+			label.Text = UiStyle.formatTitle(if kindData.SPIN_UP then STATUS_SPINNING_TEXT else STATUS_CHARGING_TEXT)
+			label.Visible = progress < 1
+		end
+		return
+	end
+	if kindData.LOCK then
+		-- the AA Launcher: the bar is the best lock's progress, the label
+		-- how many are locked
+		local lockedCount, bestShare = self:readLocks()
+		fill.Size = UDim2.fromScale(bestShare, 1)
+		fill.BackgroundColor3 = STATUS_HOT_COLOR:Lerp(STATUS_COOL_COLOR, bestShare)
+		if label then
+			label.Text = UiStyle.formatTitle(string.format(STATUS_LOCKED_FORMAT, lockedCount))
+			label.Visible = lockedCount > 0
+		end
+		return
+	end
 	if kindData.HEAT then
 		local heat, isOverheated = self:getCurrentHeat()
 		fill.Size = UDim2.fromScale(heat, 1)
@@ -1077,6 +1189,12 @@ function ClientPostManager:exitMode()
 	end
 	ClientSoundManager:stopSfxLoop(SoundNames.Sfx.POST_TURN)
 	self.turnLevel = 0
+	if self.isTriggerHeld then
+		self.isTriggerHeld = false
+		ClientNetManager:fireServer(NetEventNames.TRY_SET_POST_TRIGGER, { isHeld = false })
+	end
+	self.triggerStartTime = nil
+	self.announcedLockIds = {}
 end
 
 function ClientPostManager:setMounted(isMounted: boolean)
@@ -1302,15 +1420,27 @@ function ClientPostManager:init()
 		end
 	)
 	ClientNetManager:registerHandler(
-		NetEventNames.NOTIFY_POST_ROCKET_LAUNCHED,
+		NetEventNames.NOTIFY_POST_POOL_STARTED,
 		function(payload: any)
-			self:onRocketLaunched(payload)
+			self:onPoolStarted(payload)
 		end
 	)
 	ClientNetManager:registerHandler(
-		NetEventNames.NOTIFY_POST_ROCKET_EXPLODED,
+		NetEventNames.NOTIFY_POST_MINE_PLACED,
 		function(payload: any)
-			self:onRocketExploded(payload)
+			self:onMinePlaced(payload)
+		end
+	)
+	ClientNetManager:registerHandler(
+		NetEventNames.NOTIFY_POST_MINE_REMOVED,
+		function(payload: any)
+			self:onMineRemoved(payload)
+		end
+	)
+	ClientNetManager:registerHandler(
+		NetEventNames.NOTIFY_POST_PULL,
+		function(payload: any)
+			self:onPull(payload)
 		end
 	)
 	ClientNetManager:registerHandler(
@@ -1327,7 +1457,8 @@ function ClientPostManager.new(): ClientPostManager
 	local self = setmetatable({}, ClientPostManager) :: ClientPostManager
 	self.catalog = nil
 	self.viewsByModel = {}
-	self.rocketsById = {}
+	self.minesById = {}
+	self.poolParts = {}
 	self.postPromptsByModel = {}
 	self.isMounted = false
 	self.mountedView = nil
@@ -1353,6 +1484,9 @@ function ClientPostManager.new(): ClientPostManager
 	self.isPredictedOverheated = false
 	self.lastTurnTime = 0
 	self.turnLevel = 0
+	self.isTriggerHeld = false
+	self.triggerStartTime = nil
+	self.announcedLockIds = {}
 	self.isTouchOnly = false
 	self.savedCameraType = nil
 	self.savedFieldOfView = nil

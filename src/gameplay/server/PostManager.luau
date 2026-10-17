@@ -1,25 +1,33 @@
 --!strict
 
--- Posts (GDD "Posts"), M25. Every post along the wall is a slot
--- StructureManager fills with the tier's model; this manager owns what
--- happens on it, all as Lua state: who claimed it (the sign's Claim Post
--- prompt, 10 Gold), the weapon their loadout named, cloned from
--- GameAssets/PostWeapons onto the post's Spawn, the upgrade bench beside
--- the stairs, who is manning the weapon (its Use prompt), the aim the
--- server accepted, and the owner's four upgrade counts. Clients read it
--- back from attributes on the post and weapon models and on AllPlayers,
--- and turn the weapon themselves; the server never moves a part after the
--- spawn. Every shot is a TryFirePostWeapon request carrying the ray the
--- client aimed: the server checks the gunner, the cooldown, and that the
--- ray starts at the muzzle it computes from its own yaw and pitch, then
--- decides the hit exactly as WeaponManager does. A projectile kind (the
--- Rocket Launcher) flies instead: the rocket is a few numbers stepped
--- every Heartbeat, cast segment by segment against the world and the
--- damageables, and where it lands everything within the splash radius is
--- hurt; clients fly the model from the launch message and burst it on the
--- explode message. Yaw reports are refused when the base could not have
--- turned that far at its turn speed.
+-- Posts (GDD "Posts", "Post Types"), M25. Every post along the wall is a
+-- slot StructureManager fills with the tier's model; this manager owns
+-- what happens on it, all as Lua state: who claimed it (the sign's Claim
+-- Post prompt), the weapon their class names, cloned from
+-- GameAssets/PostWeapons onto the post's Spawn, who is manning the
+-- weapon (its Use prompt), the aim the server accepted, and the owner's
+-- four upgrade counts. Clients read it back from attributes on the post
+-- and weapon models and on AllPlayers, and turn the weapon themselves;
+-- the server never moves a part after the spawn. Every shot is a
+-- TryFirePostWeapon request carrying the ray the client aimed: the
+-- server checks the gunner, the cooldown, and that the ray starts at the
+-- muzzle it computes from its own yaw and pitch, then decides the hit
+-- exactly as WeaponManager does. Yaw reports are refused when the base
+-- could not have turned that far at its turn speed.
+--
+-- The class posts (2026-10-16) each add one block to the kind's GameData
+-- and one branch here, named for the block: a PROJECTILE flies through
+-- ProjectileManager (straight, lobbed, piercing, or homing) and lands as
+-- a splash, a POOL of fire, or an armed mine (MINES); a HEAT gun
+-- overheats; SPIN_UP and CHARGE wait on the trigger, which the client
+-- reports held or released (TrySetPostTrigger); PIERCE carries a ray on
+-- through several targets; CHAIN jumps a hit to its neighbours; SALVAGE
+-- drops Iron where a kill falls; PULL draws monsters to the landing
+-- point; LOCK accrues on flyers near the aim and fires a homing missile
+-- per lock; IS_UNMANNED has no gunner at all, the server aiming and
+-- firing it at the nearest target every Heartbeat.
 local CollectionService = game:GetService("CollectionService")
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -27,10 +35,11 @@ local RunService = game:GetService("RunService")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
-local MiningRules = require("@game/ReplicatedStorage/Shared/MiningRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
+local RunCycleRules = require("@game/ReplicatedStorage/Shared/RunCycleRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
+local TowerRules = require("@game/ReplicatedStorage/Shared/TowerRules")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local PostWeaponsData = require("@game/ServerScriptService/GameData/Posts/PostWeapons")
@@ -41,13 +50,27 @@ local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedback
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 local DamageableManager = require(script.Parent.DamageableManager)
 local MapManager = require(script.Parent.MapManager)
+local OrePickupManager = require(script.Parent.OrePickupManager)
+local ProjectileManager = require(script.Parent.ProjectileManager)
 local RefineryManager = require(script.Parent.RefineryManager)
+local RunCycleManager = require(script.Parent.RunCycleManager)
+local RunPauseManager = require(script.Parent.RunPauseManager)
 local StructureManager = require(script.Parent.StructureManager)
 local ToolManager = require(script.Parent.ToolManager)
 local WeaponManager = require(script.Parent.WeaponManager)
 
 local PostManager = {}
 PostManager.__index = PostManager
+
+-- MonsterManager requires ReviveManager, which requires this module
+local monsterManager: any -- prevent circular reference by not initializing here
+
+-- one of the AA Launcher's locks: how long the aim has rested on the
+-- target, and whether that is long enough
+type Lock = {
+	startTime: number,
+	isLocked: boolean,
+}
 
 type Post = {
 	index: number,
@@ -64,6 +87,14 @@ type Post = {
 	isOverheated: boolean,
 	-- reload (a kind with RELOAD_SEC): server time it ends, 0 when loaded
 	reloadEndTime: number,
+	-- server time the trigger closed (SPIN_UP, CHARGE); nil while open
+	triggerStartTime: number?,
+	-- the AA Launcher's locks by damageable id
+	locksById: { [string]: Lock },
+	replicatedLocks: string,
+	-- an unmanned post's last aim report, so its attributes are written at
+	-- the clients' own cadence rather than every Heartbeat
+	lastAutoReplicateTime: number,
 	gunner: Player?,
 	ikControls: { IKControl },
 	promptConnections: { RBXScriptConnection },
@@ -73,17 +104,29 @@ type Post = {
 	claimConnection: RBXScriptConnection?,
 }
 
--- a rocket in flight, server truth only
-type Rocket = {
+-- a pool of fire on the ground (the Napalm Mortar): burns what stands in
+-- it every tick until it dies down
+type Pool = {
 	id: string,
-	gunner: Player,
+	owner: Player?,
+	position: Vector3,
+	radiusStuds: number,
+	endTime: number,
+	nextTickTime: number,
+	tickSec: number,
+	burnDamagePerSec: number,
+	burnSec: number,
+}
+
+-- an armed mine on the ground (the Mine Layer)
+type Mine = {
+	id: string,
+	owner: Player,
 	postIndex: number,
 	weaponKind: number,
 	position: Vector3,
-	unitDirection: Vector3,
-	speedStudsPerSec: number,
-	travelledStuds: number,
-	rangeStuds: number,
+	armTime: number,
+	triggerRadiusStuds: number,
 	damage: number,
 	splashRadiusStuds: number,
 }
@@ -91,8 +134,10 @@ type Rocket = {
 type PlayerState = {
 	postIndex: number,
 	upgrades: PostRules.Upgrades,
-	-- a dev tool's stand-in for the lobby loadout until the store exists
+	-- a dev tool's stand-in for the class's post
 	loadoutOverride: number?,
+	-- the Salvage Gun's Iron dropped so far this night
+	salvageIronTonight: number,
 }
 
 export type PostManager = typeof(setmetatable(
@@ -101,8 +146,10 @@ export type PostManager = typeof(setmetatable(
 		postsByIndex: { [number]: Post },
 		stateByPlayer: { [Player]: PlayerState },
 		warnedTemplates: { [string]: boolean },
-		rockets: { Rocket },
-		nextRocketId: number,
+		pools: { Pool },
+		mines: { Mine },
+		nextPoolId: number,
+		nextMineId: number,
 	},
 	PostManager
 ))
@@ -124,21 +171,37 @@ local TRY_FIRE_POST_WEAPON_SHAPE = {
 	origin = "vector3",
 	direction = "vector3",
 }
+local TRY_SET_POST_TRIGGER_SHAPE = {
+	isHeld = "boolean",
+}
 local TRY_UPGRADE_POST_SHAPE = {
 	attribute = { type = "enum", name = "PostAttribute" },
 }
 
 local NO_HIT_ID = ""
-local ROCKET_ID_FORMAT = "Rocket%d"
 local MIN_DIRECTION_MAGNITUDE = 0.001
 local WEAPON_MODEL_FORMAT = "PostWeapon%d"
+local POOL_ID_FORMAT = "Pool%d"
+local MINE_ID_FORMAT = "Mine%d"
 local UNCLAIMED_TEXT = "Unclaimed"
 local CLAIM_PROMPT_ATTACHMENT = "ClaimPromptAttachment"
 local HEADSHOT_FORMAT = "rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150"
+-- an unmanned post writes its aim this often, the clients' own cadence
+local AUTO_REPLICATE_INTERVAL_SEC = 0.1
+-- a lock is kept while its target stays within this many times the lock
+-- angle, so a flyer crossing the reticle is not lost the moment it leaves it
+local LOCK_KEEP_ANGLE_SHARE = 3
 -- R15: the chain each hand's IKControl solves from
 local IK_ARMS = {
 	{ root = "LeftUpperArm", hand = "LeftHand", handle = Constants.POST_WEAPON_HANDLE_LEFT_PART },
 	{ root = "RightUpperArm", hand = "RightHand", handle = Constants.POST_WEAPON_HANDLE_RIGHT_PART },
+}
+-- what a post may hit: everything, on the ground or in the air
+local ANY_TARGET_BEHAVIOR = {
+	ATTACK = Enums.TowerAttack.SINGLE,
+	TARGETS_GROUND = true,
+	TARGETS_AIR = true,
+	HAS_TURRET = true,
 }
 
 local FEEDBACK_ALREADY_OWN_POST = "You already have a post"
@@ -163,6 +226,7 @@ function PostManager:getPlayerState(player: Player): PlayerState
 			postIndex = PostRules.NO_POST,
 			upgrades = {},
 			loadoutOverride = nil,
+			salvageIronTonight = 0,
 		}
 		self.stateByPlayer[player] = state
 	end
@@ -196,10 +260,18 @@ end
 function PostManager:getStats(post: Post): PostRules.Stats?
 	local owner = post.owner
 	local upgrades = if owner then self:getPlayerState(owner).upgrades else {}
-	return PostRules.statsFor(self.catalog, post.weaponKind, upgrades)
+	local stats = PostRules.statsFor(self.catalog, post.weaponKind, upgrades)
+	if stats and owner then
+		-- the owner's class scales the post's damage on top of its Iron
+		-- upgrades (M64); the stats table is fresh per call, so this never
+		-- compounds
+		local damageScale: number = CharacterManager:getModifier(owner, Enums.ClassModifier.POST_DAMAGE)
+		stats.damage *= damageScale
+	end
+	return stats
 end
 
--- dev tools: stands in for the lobby loadout's Post slot
+-- dev tools: stands in for the class's post
 function PostManager:setLoadoutOverride(player: Player, kind: number?)
 	self:getPlayerState(player).loadoutOverride = kind
 end
@@ -257,8 +329,8 @@ function PostManager:replicatePost(post: Post)
 	end
 end
 
--- the heat and reload travel separately from the aim: they change per
--- shot, the aim a few times a second
+-- the heat, reload, and trigger travel separately from the aim: they
+-- change per shot, the aim a few times a second
 function PostManager:replicateFireState(post: Post)
 	local weaponModel = post.weaponModel
 	if not weaponModel then
@@ -268,6 +340,28 @@ function PostManager:replicateFireState(post: Post)
 	weaponModel:SetAttribute(Attributes.POST_WEAPON_HEAT_TIME, post.lastFireTime or 0)
 	weaponModel:SetAttribute(Attributes.POST_WEAPON_IS_OVERHEATED, post.isOverheated)
 	weaponModel:SetAttribute(Attributes.POST_WEAPON_RELOAD_END_TIME, post.reloadEndTime)
+	weaponModel:SetAttribute(Attributes.POST_WEAPON_TRIGGER_TIME, post.triggerStartTime or 0)
+end
+
+-- the AA Launcher's locks as JSON rows the reticle draws from; written
+-- only when a row changes
+function PostManager:replicateLocks(post: Post, now: number, lockData: PostRules.LockData)
+	local weaponModel = post.weaponModel
+	if not weaponModel then
+		return
+	end
+	local rows = {}
+	for id, lock in post.locksById do
+		table.insert(rows, {
+			id = id,
+			share = if lock.isLocked then 1 else math.clamp((now - lock.startTime) / lockData.SEC, 0, 1),
+		})
+	end
+	local encoded = HttpService:JSONEncode(rows)
+	if encoded ~= post.replicatedLocks then
+		post.replicatedLocks = encoded
+		weaponModel:SetAttribute(Attributes.POST_WEAPON_LOCKS, encoded)
+	end
 end
 
 -- the sign reads UNCLAIMED, or the owner's headshot, name, and weapon. Written on the server because the models are server
@@ -357,7 +451,8 @@ function PostManager:spawnWeapon(post: Post)
 	local spawn = if slotModel then slotModel:FindFirstChild(Constants.POST_SPAWN_PART) else nil
 	local folder = self:getSpawnedFolder()
 	local template = self:findTemplate(Constants.POST_WEAPON_TEMPLATES_FOLDER, PostRules.templateNameFor(post.weaponKind))
-	if not spawn or not spawn:IsA("BasePart") or not folder or not template then
+	local data = self:getWeaponData(post.weaponKind)
+	if not spawn or not spawn:IsA("BasePart") or not folder or not template or not data then
 		warn(`PostManager: post {post.index} has no {Constants.POST_SPAWN_PART} part or the weapon template is missing; no weapon spawned`)
 		return
 	end
@@ -378,33 +473,44 @@ function PostManager:spawnWeapon(post: Post)
 	post.isOverheated = false
 	post.reloadEndTime = 0
 	post.lastFireTime = nil
+	post.triggerStartTime = nil
+	post.locksById = {}
+	post.replicatedLocks = ""
 	CollectionService:AddTag(model, Tags.POST_WEAPON)
+	model:SetAttribute(Attributes.POST_WEAPON_IS_UNMANNED, data.IS_UNMANNED == true)
 	model.Parent = folder
 	post.weaponModel = model
 	self:replicateFireState(post)
 
 	local promptPart = model:FindFirstChild(Constants.POST_WEAPON_PROMPT_PART)
+	local prompt = if promptPart then promptPart:FindFirstChildWhichIsA("ProximityPrompt") else nil
+	if data.IS_UNMANNED then
+		-- nobody mans it: the designer's Use prompt goes, so no client ever shows one
+		if prompt then
+			prompt:Destroy()
+		end
+		return
+	end
 	if not promptPart then
 		warn(`PostManager: {model:GetFullName()} has no {Constants.POST_WEAPON_PROMPT_PART} part; the weapon cannot be mounted`)
-	else
-		local prompt = promptPart:FindFirstChildWhichIsA("ProximityPrompt")
-		if not prompt then
-			prompt = Instance.new("ProximityPrompt")
-			-- a clickable prompt frees the mouse when hovered, which sticks the cursor in first person (2026-09-29)
-			prompt.ClickablePrompt = false
-			prompt.Parent = promptPart
-		end
-		local livePrompt = prompt :: ProximityPrompt
-		self:configurePrompt(livePrompt, PostWeaponsData.USE_PROMPT_ACTION_TEXT, 0, PostWeaponsData.PROMPT_MAX_DISTANCE_STUDS)
-		table.insert(
-			post.promptConnections,
-			livePrompt.Triggered:Connect(
-				function(player: Player)
-					self:mount(player, post)
-				end
-			)
-		)
+		return
 	end
+	if not prompt then
+		prompt = Instance.new("ProximityPrompt")
+		-- a clickable prompt frees the mouse when hovered, which sticks the cursor in first person (2026-09-29)
+		prompt.ClickablePrompt = false
+		prompt.Parent = promptPart
+	end
+	local livePrompt = prompt :: ProximityPrompt
+	self:configurePrompt(livePrompt, PostWeaponsData.USE_PROMPT_ACTION_TEXT, 0, PostWeaponsData.PROMPT_MAX_DISTANCE_STUDS)
+	table.insert(
+		post.promptConnections,
+		livePrompt.Triggered:Connect(
+			function(player: Player)
+				self:mount(player, post)
+			end
+		)
+	)
 end
 
 -- the Post Upgrade Table in the defense building (2026-10-01): its prompt
@@ -467,14 +573,18 @@ function PostManager:dismount(player: Player)
 	end
 	post.gunner = nil
 	post.lastAimTime = nil
+	post.triggerStartTime = nil
+	post.locksById = {}
 	self:destroyIkControls(post)
 	ToolManager:setToolsLocked(player, false)
 	self:replicatePost(post)
+	self:replicateFireState(post)
 	self:replicatePlayer(player)
 end
 
 function PostManager:mount(player: Player, post: Post)
-	if not GameController:isPlayerReady(player) or post.owner ~= player or post.gunner ~= nil or not post.rig then
+	local data = self:getWeaponData(post.weaponKind)
+	if not GameController:isPlayerReady(player) or post.owner ~= player or post.gunner ~= nil or not post.rig or not data or data.IS_UNMANNED then
 		return
 	end
 	if self:getMannedPost(player) then
@@ -498,6 +608,64 @@ function PostManager:mount(player: Player, post: Post)
 	self:replicatePlayer(player)
 end
 
+-- the muzzle and the barrel's direction for the post's current aim
+function PostManager:getAim(post: Post): (Vector3?, Vector3?)
+	local rig = post.rig
+	local weaponModel = post.weaponModel
+	if not rig or not weaponModel or not weaponModel.PrimaryPart then
+		return nil, nil
+	end
+	local gunFrame = PostRules.gunFrame(PostRules.baseFrame(weaponModel.PrimaryPart.CFrame, post.yawDegrees), rig, post.pitchDegrees)
+	return PostRules.muzzlePosition(gunFrame, rig), PostRules.barrelDirection(gunFrame, rig)
+end
+
+-- the AA Launcher's locks follow the aim: a flyer within the lock angle
+-- accrues time and locks after the lock's seconds, up to the count; one
+-- that drifts well out of the angle, out of range, or dies is dropped
+function PostManager:updateLocks(post: Post, lockData: PostRules.LockData, stats: PostRules.Stats, now: number)
+	local muzzle, direction = self:getAim(post)
+	if not muzzle or not direction then
+		return
+	end
+	local seen: { [string]: boolean } = {}
+	local lockCount = 0
+	for _, lock in post.locksById do
+		if lock.isLocked then
+			lockCount += 1
+		end
+	end
+	for _, target in DamageableManager:getTargets() do
+		if not target.isAirborne then
+			continue
+		end
+		local distance = (target.position - muzzle).Magnitude
+		local angle = PostRules.angleToDegrees(muzzle, direction, target.position)
+		local lock = post.locksById[target.id]
+		if lock then
+			if distance > stats.rangeStuds or angle > lockData.ANGLE_DEGREES * LOCK_KEEP_ANGLE_SHARE then
+				continue
+			end
+			seen[target.id] = true
+			if not lock.isLocked and now - lock.startTime >= lockData.SEC and lockCount < lockData.COUNT then
+				lock.isLocked = true
+				lockCount += 1
+			end
+		elseif distance <= stats.rangeStuds and angle <= lockData.ANGLE_DEGREES and lockCount < lockData.COUNT then
+			post.locksById[target.id] = {
+				startTime = now,
+				isLocked = false,
+			}
+			seen[target.id] = true
+		end
+	end
+	for id in post.locksById do
+		if not seen[id] then
+			post.locksById[id] = nil
+		end
+	end
+	self:replicateLocks(post, now, lockData)
+end
+
 function PostManager:setAim(player: Player, yawDegrees: number, pitchDegrees: number)
 	local post = self:getMannedPost(player)
 	local data = if post then self:getWeaponData(post.weaponKind) else nil
@@ -519,36 +687,363 @@ function PostManager:setAim(player: Player, yawDegrees: number, pitchDegrees: nu
 	post.yawDegrees = PostRules.wrapDegrees(yawDegrees)
 	post.pitchDegrees = PostRules.clampPitch(pitchDegrees, data)
 	self:replicatePost(post)
+	if data.LOCK then
+		self:updateLocks(post, data.LOCK, stats, now)
+	end
 end
 
-function PostManager:fire(player: Player, origin: Vector3, direction: Vector3)
+-- the trigger closed or opened (the class posts, 2026-10-16): a spin-up
+-- or a charge counts from the close; the client sends it with the hold
+function PostManager:setTrigger(player: Player, isHeld: boolean)
 	local post = self:getMannedPost(player)
-	local stats = if post then self:getStats(post) else nil
-	local rig = if post then post.rig else nil
-	local weaponModel = if post then post.weaponModel else nil
-	if not post or not stats or not rig or not weaponModel or not weaponModel.PrimaryPart then
+	local data = if post then self:getWeaponData(post.weaponKind) else nil
+	if not post or not data or (not data.SPIN_UP and not data.CHARGE) then
 		return
 	end
-	if direction.Magnitude < MIN_DIRECTION_MAGNITUDE then
+	if isHeld then
+		if post.triggerStartTime == nil then
+			post.triggerStartTime = workspace:GetServerTimeNow()
+		end
+	else
+		post.triggerStartTime = nil
+	end
+	self:replicateFireState(post)
+end
+
+-- the Salvage Gun: a kill drops Iron where the target stood, up to the
+-- night's cap for that owner
+function PostManager:salvage(owner: Player, salvage: PostRules.SalvageData, position: Vector3)
+	local state = self:getPlayerState(owner)
+	local amount = math.min(salvage.IRON_PER_KILL, salvage.CAP_PER_NIGHT - state.salvageIronTonight)
+	if amount <= 0 then
 		return
 	end
-	local now = workspace:GetServerTimeNow()
-	if not WeaponRules.canFire(post.lastFireTime, now, stats.fireCooldownSec) then
-		return
-	end
+	state.salvageIronTonight += amount
+	OrePickupManager:dropBars(position, Enums.RefinedResource.IRON_BAR, amount)
+end
+
+-- one damageable hit by a post: the damage, and the Salvage Gun's drop
+-- when the hit kills
+function PostManager:damageTarget(post: Post, hitId: string, amount: number, attacker: Player?)
 	local data = self:getWeaponData(post.weaponKind)
-	if not data then
+	local salvage = if data then data.SALVAGE else nil
+	local target = if salvage then DamageableManager:getTarget(hitId) else nil
+	local hpLeft = DamageableManager:damage(hitId, amount, attacker)
+	if salvage and target and hpLeft == 0 and post.owner then
+		self:salvage(post.owner, salvage, target.position)
+	end
+end
+
+-- a burst at a point: everything within the radius takes the damage
+function PostManager:splash(post: Post, position: Vector3, radiusStuds: number, damage: number, attacker: Player?): number
+	local hitIds = PostRules.findSplashHits(position, radiusStuds, DamageableManager:getHitBoxes())
+	for _, hitId in hitIds do
+		self:damageTarget(post, hitId, damage, attacker)
+	end
+	return #hitIds
+end
+
+-- the Napalm Mortar's pool: it burns whoever stands in it every tick
+function PostManager:startPool(post: Post, poolData: PostRules.PoolData, stats: PostRules.Stats, position: Vector3, attacker: Player?)
+	self.nextPoolId += 1
+	local now = workspace:GetServerTimeNow()
+	local radius = stats.poolRadiusStuds or poolData.RADIUS_STUDS
+	table.insert(self.pools, {
+		id = string.format(POOL_ID_FORMAT, self.nextPoolId),
+		owner = attacker,
+		position = position,
+		radiusStuds = radius,
+		endTime = now + poolData.SEC,
+		nextTickTime = now,
+		tickSec = poolData.TICK_SEC,
+		burnDamagePerSec = poolData.BURN_DAMAGE_PER_SEC,
+		burnSec = poolData.BURN_SEC,
+	})
+	NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_POOL_STARTED, {
+		poolId = string.format(POOL_ID_FORMAT, self.nextPoolId),
+		weaponKind = post.weaponKind,
+		position = position,
+		radius = radius,
+		sec = poolData.SEC,
+	})
+end
+
+function PostManager:stepPools(now: number)
+	if #self.pools == 0 then
 		return
+	end
+	local hitBoxes = DamageableManager:getHitBoxes()
+	local survivors = {}
+	for _, pool in self.pools do
+		if now >= pool.endTime then
+			continue
+		end
+		if now >= pool.nextTickTime then
+			pool.nextTickTime = now + pool.tickSec
+			for _, hitId in PostRules.findSplashHits(pool.position, pool.radiusStuds, hitBoxes) do
+				DamageableManager:applyBurn(hitId, pool.burnDamagePerSec, pool.burnSec)
+			end
+		end
+		table.insert(survivors, pool)
+	end
+	self.pools = survivors
+end
+
+-- the Mine Layer's mine arms where it lands; past the owner's cap the
+-- oldest fizzles
+function PostManager:placeMine(post: Post, owner: Player, minesData: PostRules.MinesData, projectile: PostRules.ProjectileData, stats: PostRules.Stats, position: Vector3)
+	self.nextMineId += 1
+	local id = string.format(MINE_ID_FORMAT, self.nextMineId)
+	table.insert(self.mines, {
+		id = id,
+		owner = owner,
+		postIndex = post.index,
+		weaponKind = post.weaponKind,
+		position = position,
+		armTime = workspace:GetServerTimeNow() + minesData.ARM_SEC,
+		triggerRadiusStuds = minesData.TRIGGER_RADIUS_STUDS,
+		damage = stats.damage,
+		splashRadiusStuds = projectile.SPLASH_RADIUS_STUDS,
+	})
+	NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_MINE_PLACED, {
+		mineId = id,
+		weaponKind = post.weaponKind,
+		position = position,
+	})
+	local ownedCount = 0
+	for index = #self.mines, 1, -1 do
+		local mine = self.mines[index]
+		if mine.owner ~= owner then
+			continue
+		end
+		ownedCount += 1
+		if ownedCount > minesData.MAX_ARMED then
+			self:removeMine(index, false)
+		end
+	end
+end
+
+function PostManager:removeMine(index: number, isExploded: boolean)
+	local mine = table.remove(self.mines, index)
+	if not mine then
+		return
+	end
+	NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_MINE_REMOVED, {
+		mineId = mine.id,
+		weaponKind = mine.weaponKind,
+		position = mine.position,
+		isExploded = isExploded,
+	})
+end
+
+function PostManager:stepMines(now: number)
+	if #self.mines == 0 then
+		return
+	end
+	local targets = DamageableManager:getTargets()
+	local index = 1
+	while index <= #self.mines do
+		local mine = self.mines[index]
+		if now < mine.armTime then
+			index += 1
+			continue
+		end
+		local isTriggered = false
+		for _, target in targets do
+			if not target.isAirborne and PostRules.distanceToBox(mine.position, target.cframe, target.size) <= mine.triggerRadiusStuds then
+				isTriggered = true
+				break
+			end
+		end
+		if not isTriggered then
+			index += 1
+			continue
+		end
+		local post = self.postsByIndex[mine.postIndex]
+		if post then
+			self:splash(post, mine.position, mine.splashRadiusStuds, mine.damage, mine.owner)
+		end
+		self:removeMine(index, true)
+	end
+end
+
+-- every mine fizzles at dawn (and with the run)
+function PostManager:clearMines()
+	while #self.mines > 0 do
+		self:removeMine(#self.mines, false)
+	end
+end
+
+-- a projectile kind's shot: straight, lobbed, piercing, or homing on a
+-- lock; what it does where it lands is the kind's block
+function PostManager:launchProjectile(post: Post, attacker: Player?, origin: Vector3, unitDirection: Vector3, stats: PostRules.Stats, data: PostRules.KindData, projectile: PostRules.ProjectileData, homingTargetId: string?, damage: number)
+	local owner = post.owner
+	local homing = projectile.HOMING
+	ProjectileManager:launch({
+		owner = attacker,
+		templateName = projectile.TEMPLATE,
+		blastTemplateName = projectile.BLAST_TEMPLATE,
+		postWeaponKind = post.weaponKind,
+		origin = origin,
+		unitDirection = unitDirection,
+		speedStudsPerSec = projectile.SPEED_STUDS_PER_SEC,
+		gravityStudsPerSec2 = projectile.GRAVITY_STUDS_PER_SEC2 or 0,
+		rangeStuds = stats.rangeStuds,
+		isPiercing = projectile.IS_PIERCING,
+		homingTargetId = homingTargetId,
+		homingTurnDegreesPerSec = if homing then homing.TURN_DEGREES_PER_SEC else nil,
+		onHit = if projectile.IS_PIERCING
+			then function(hitId: string, _position: Vector3)
+				self:damageTarget(post, hitId, damage, attacker)
+			end
+			else nil,
+		onEnd = function(position: Vector3, _hitId: string?)
+			if data.MINES and owner then
+				self:placeMine(post, owner, data.MINES, projectile, stats, position)
+				return
+			end
+			if projectile.SPLASH_RADIUS_STUDS > 0 then
+				self:splash(post, position, projectile.SPLASH_RADIUS_STUDS, damage, attacker)
+			end
+			if data.POOL then
+				self:startPool(post, data.POOL, stats, position, attacker)
+			end
+		end,
+	})
+end
+
+-- the shot itself, once the gunner (or the unmanned post) is allowed it:
+-- the kind's block decides what leaves the muzzle
+function PostManager:fireShot(post: Post, attacker: Player?, origin: Vector3, unitDirection: Vector3, stats: PostRules.Stats, data: PostRules.KindData)
+	local projectile = data.PROJECTILE
+	if projectile then
+		local lockData = data.LOCK
+		if lockData then
+			local lockedIds = {}
+			for id, lock in post.locksById do
+				if lock.isLocked then
+					table.insert(lockedIds, id)
+				end
+			end
+			if #lockedIds > 0 then
+				for _, id in lockedIds do
+					self:launchProjectile(post, attacker, origin, unitDirection, stats, data, projectile, id, stats.damage)
+				end
+			else
+				self:launchProjectile(post, attacker, origin, unitDirection, stats, data, projectile, nil, stats.damage * lockData.DUMB_FIRE_DAMAGE_SHARE)
+			end
+			post.locksById = {}
+			post.replicatedLocks = ""
+			if post.weaponModel then
+				post.weaponModel:SetAttribute(Attributes.POST_WEAPON_LOCKS, "")
+			end
+			return
+		end
+		self:launchProjectile(post, attacker, origin, unitDirection, stats, data, projectile, nil, stats.damage)
+		return
+	end
+	local worldDistance = WeaponManager:getWorldDistance(origin, unitDirection, stats.rangeStuds, true)
+	local hitBoxes = DamageableManager:getHitBoxes()
+	local userId = if attacker then attacker.UserId else PostRules.NOBODY
+	local pull = data.PULL
+	if pull then
+		-- no damage: the shot's landing point is where the magnet pulls to
+		local _hitId, hitDistance = WeaponRules.findClosestHit(origin, unitDirection, worldDistance, hitBoxes)
+		local point = origin + unitDirection * (hitDistance or worldDistance)
+		local radius = stats.pullRadiusStuds or pull.RADIUS_STUDS
+		monsterManager:applyPull(point, radius, pull.SEC, pull.SPEED_STUDS_PER_SEC)
+		NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_PULL, {
+			weaponKind = post.weaponKind,
+			position = point,
+			radius = radius,
+			sec = pull.SEC,
+		})
+		NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_WEAPON_FIRED, {
+			userId = userId,
+			postIndex = post.index,
+			weaponKind = post.weaponKind,
+			origin = origin,
+			endPosition = point,
+			isImpact = true,
+			hitId = NO_HIT_ID,
+		})
+		return
+	end
+	local pierceCount = stats.pierceCount
+	if pierceCount then
+		local hitIds = WeaponRules.findPierceHits(origin, unitDirection, worldDistance, hitBoxes, pierceCount)
+		for _, hitId in hitIds do
+			self:damageTarget(post, hitId, stats.damage, attacker)
+		end
+		NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_WEAPON_FIRED, {
+			userId = userId,
+			postIndex = post.index,
+			weaponKind = post.weaponKind,
+			origin = origin,
+			endPosition = origin + unitDirection * worldDistance,
+			isImpact = worldDistance < stats.rangeStuds,
+			hitId = hitIds[1] or NO_HIT_ID,
+			hitIds = hitIds,
+		})
+		return
+	end
+	local hitId, hitDistance = WeaponRules.findClosestHit(origin, unitDirection, worldDistance, hitBoxes)
+	local endDistance = hitDistance or worldDistance
+	local chainIds: { string }? = nil
+	if hitId then
+		local chain = data.CHAIN
+		local first = if chain then DamageableManager:getTarget(hitId) else nil
+		if chain and first then
+			-- the arc jumps from the hit to its neighbours before any of
+			-- them takes damage, so a kill never breaks the chain
+			chainIds = {}
+			for _, target in TowerRules.chainTargets(first, DamageableManager:getTargets(), chain.COUNT, stats.chainJumpStuds or chain.JUMP_STUDS, ANY_TARGET_BEHAVIOR) do
+				table.insert(chainIds :: { string }, target.id)
+			end
+			for _, id in chainIds :: { string } do
+				self:damageTarget(post, id, stats.damage, attacker)
+			end
+		else
+			self:damageTarget(post, hitId, stats.damage, attacker)
+		end
+	end
+	NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_WEAPON_FIRED, {
+		userId = userId,
+		postIndex = post.index,
+		weaponKind = post.weaponKind,
+		origin = origin,
+		endPosition = origin + unitDirection * endDistance,
+		isImpact = hitId ~= nil or worldDistance < stats.rangeStuds,
+		hitId = hitId or NO_HIT_ID,
+		hitIds = chainIds,
+	})
+end
+
+-- whether the post may fire now, and the heat and reload a shot sets;
+-- shared by the gunner's request and the unmanned step
+function PostManager:tryBeginShot(post: Post, data: PostRules.KindData, stats: PostRules.Stats, now: number): boolean
+	if not WeaponRules.canFire(post.lastFireTime, now, stats.fireCooldownSec) then
+		return false
 	end
 	-- a reloading gun is empty; an overheated one waits for cool
 	if data.RELOAD_SEC and WeaponRules.isReloading(post.reloadEndTime, now) then
-		return
+		return false
+	end
+	if data.SPIN_UP and not PostRules.isWoundUp(post.triggerStartTime, now, stats.spinUpSec or data.SPIN_UP.SEC, PostWeaponsData.WINDUP_TOLERANCE_SEC) then
+		return false
+	end
+	if data.CHARGE then
+		if not PostRules.isWoundUp(post.triggerStartTime, now, stats.chargeSec or data.CHARGE.SEC, PostWeaponsData.WINDUP_TOLERANCE_SEC) then
+			return false
+		end
+		-- the release is the shot: the next one charges from nothing
+		post.triggerStartTime = nil
 	end
 	if data.HEAT then
 		local currentHeat = PostRules.cooledHeat(post.heat, post.lastFireTime, now, stats.fireIntervalSec, stats.coolSec or data.HEAT.COOL_SEC)
 		local isFired, newHeat, isOverheated = PostRules.heatAfterShot(currentHeat, post.isOverheated, data.HEAT, stats.fireIntervalSec)
 		if not isFired then
-			return
+			return false
 		end
 		post.heat = newHeat
 		post.isOverheated = isOverheated
@@ -556,107 +1051,87 @@ function PostManager:fire(player: Player, origin: Vector3, direction: Vector3)
 	if stats.reloadSec then
 		post.reloadEndTime = now + stats.reloadSec
 	end
-	local gunFrame = PostRules.gunFrame(PostRules.baseFrame(weaponModel.PrimaryPart.CFrame, post.yawDegrees), rig, post.pitchDegrees)
-	local muzzle = PostRules.muzzlePosition(gunFrame, rig)
-	if not WeaponRules.isOriginPlausible(muzzle, origin, PostWeaponsData.ORIGIN_TOLERANCE_STUDS) then
-		return
-	end
-	local unitDirection = direction.Unit
 	post.lastFireTime = now
 	self:replicateFireState(post)
-	if data.PROJECTILE then
-		self:launchRocket(post, player, origin, unitDirection, stats, data.PROJECTILE)
+	return true
+end
+
+function PostManager:fire(player: Player, origin: Vector3, direction: Vector3)
+	local post = self:getMannedPost(player)
+	local stats = if post then self:getStats(post) else nil
+	local data = if post then self:getWeaponData(post.weaponKind) else nil
+	if not post or not stats or not data then
 		return
 	end
-	local worldDistance = WeaponManager:getWorldDistance(origin, unitDirection, stats.rangeStuds, true)
-	local hitId, hitDistance = WeaponRules.findClosestHit(origin, unitDirection, worldDistance, DamageableManager:getHitBoxes())
-	local endDistance = hitDistance or worldDistance
-	if hitId then
-		DamageableManager:damage(hitId, stats.damage, player)
-	end
-	NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_WEAPON_FIRED, {
-		userId = player.UserId,
-		postIndex = post.index,
-		weaponKind = post.weaponKind,
-		origin = origin,
-		endPosition = origin + unitDirection * endDistance,
-		isImpact = hitId ~= nil or worldDistance < stats.rangeStuds,
-		hitId = hitId or NO_HIT_ID,
-	})
-end
-
-function PostManager:launchRocket(post: Post, player: Player, origin: Vector3, unitDirection: Vector3, stats: PostRules.Stats, projectile: PostRules.ProjectileData)
-	self.nextRocketId += 1
-	local rocket: Rocket = {
-		id = string.format(ROCKET_ID_FORMAT, self.nextRocketId),
-		gunner = player,
-		postIndex = post.index,
-		weaponKind = post.weaponKind,
-		position = origin,
-		unitDirection = unitDirection,
-		speedStudsPerSec = projectile.SPEED_STUDS_PER_SEC,
-		travelledStuds = 0,
-		rangeStuds = stats.rangeStuds,
-		damage = stats.damage,
-		splashRadiusStuds = projectile.SPLASH_RADIUS_STUDS,
-	}
-	table.insert(self.rockets, rocket)
-	NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_ROCKET_LAUNCHED, {
-		rocketId = rocket.id,
-		userId = player.UserId,
-		postIndex = post.index,
-		weaponKind = post.weaponKind,
-		origin = origin,
-		direction = unitDirection,
-		speed = rocket.speedStudsPerSec,
-	})
-end
-
--- the burst: everything within the radius of the point takes the damage
-function PostManager:explodeRocket(rocket: Rocket, position: Vector3)
-	local hitIds = PostRules.findSplashHits(position, rocket.splashRadiusStuds, DamageableManager:getHitBoxes())
-	for _, hitId in hitIds do
-		DamageableManager:damage(hitId, rocket.damage, rocket.gunner)
-	end
-	NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_ROCKET_EXPLODED, {
-		rocketId = rocket.id,
-		userId = rocket.gunner.UserId,
-		weaponKind = rocket.weaponKind,
-		position = position,
-		hitCount = #hitIds,
-	})
-end
-
--- one Heartbeat of flight for every rocket: the segment it would cover is
--- cast against the world and the damageables, and the first thing struck
--- (or the end of its range) is where it bursts
-function PostManager:stepRockets(deltaSec: number)
-	if #self.rockets == 0 then
+	if direction.Magnitude < MIN_DIRECTION_MAGNITUDE then
 		return
 	end
-	local hitBoxes = DamageableManager:getHitBoxes()
-	local survivors = {}
-	for _, rocket in self.rockets do
-		local step = math.min(rocket.speedStudsPerSec * deltaSec, rocket.rangeStuds - rocket.travelledStuds)
-		local worldDistance = WeaponManager:getWorldDistance(rocket.position, rocket.unitDirection, step, false)
-		local _hitId, hitDistance = WeaponRules.findClosestHit(rocket.position, rocket.unitDirection, worldDistance, hitBoxes)
-		local endDistance = hitDistance or worldDistance
-		local isBurst = hitDistance ~= nil or worldDistance < step or rocket.travelledStuds + step >= rocket.rangeStuds
-		rocket.position += rocket.unitDirection * endDistance
-		rocket.travelledStuds += endDistance
-		if isBurst then
-			self:explodeRocket(rocket, rocket.position)
-		else
-			table.insert(survivors, rocket)
+	local muzzle = self:getAim(post)
+	if not muzzle or not WeaponRules.isOriginPlausible(muzzle, origin, PostWeaponsData.ORIGIN_TOLERANCE_STUDS) then
+		return
+	end
+	local now = workspace:GetServerTimeNow()
+	if not self:tryBeginShot(post, data, stats, now) then
+		return
+	end
+	self:fireShot(post, player, origin, direction.Unit, stats, data)
+end
+
+-- an unmanned post (the Auto Machine Gun): every Heartbeat it turns
+-- toward the nearest target in range at its turn speed and fires once
+-- its barrel is on it, with the owner credited
+function PostManager:stepUnmanned(post: Post, data: PostRules.KindData, now: number, deltaSec: number)
+	local owner = post.owner
+	local stats = self:getStats(post)
+	local weaponModel = post.weaponModel
+	local muzzle, direction = self:getAim(post)
+	if not owner or not stats or not weaponModel or not weaponModel.PrimaryPart or not muzzle or not direction then
+		return
+	end
+	local target = TowerRules.pickTarget(muzzle, stats.rangeStuds, Enums.TargetPriority.CLOSEST, DamageableManager:getTargets(), ANY_TARGET_BEHAVIOR)
+	if not target then
+		return
+	end
+	local wantedYaw, wantedPitch = PostRules.aimAnglesToward(weaponModel.PrimaryPart.CFrame, target.position)
+	post.yawDegrees = PostRules.stepYawToward(post.yawDegrees, wantedYaw, stats.turnSpeedDegreesPerSec, deltaSec)
+	local maxPitchStep = PostRules.maxYawStep(stats.turnSpeedDegreesPerSec, deltaSec)
+	post.pitchDegrees = PostRules.clampPitch(post.pitchDegrees + math.clamp(wantedPitch - post.pitchDegrees, -maxPitchStep, maxPitchStep), data)
+	if now - post.lastAutoReplicateTime >= AUTO_REPLICATE_INTERVAL_SEC then
+		post.lastAutoReplicateTime = now
+		self:replicatePost(post)
+	end
+	local aimedMuzzle, aimedDirection = self:getAim(post)
+	if not aimedMuzzle or not aimedDirection then
+		return
+	end
+	if PostRules.angleToDegrees(aimedMuzzle, aimedDirection, target.position) > PostWeaponsData.UNMANNED_AIM_TOLERANCE_DEGREES then
+		return
+	end
+	if not self:tryBeginShot(post, data, stats, now) then
+		return
+	end
+	self:fireShot(post, owner, aimedMuzzle, aimedDirection, stats, data)
+end
+
+function PostManager:step(deltaSec: number)
+	if RunPauseManager:isPaused() or RunCycleRules.isRunOver(RunCycleManager:getRunState()) then
+		return
+	end
+	local now = workspace:GetServerTimeNow()
+	for _, post in self.postsByIndex do
+		local data = if post.owner then self:getWeaponData(post.weaponKind) else nil
+		if data and data.IS_UNMANNED then
+			self:stepUnmanned(post, data, now, deltaSec)
 		end
 	end
-	self.rockets = survivors
+	self:stepPools(now)
+	self:stepMines(now)
 end
 
 -- upgrades belong to the player, not the post (2026-10-06), and cost Iron
 -- (M63: Gold buys mining, Iron buys defense): they can be bought before a
--- claim, against the loadout weapon the claim would
--- spawn, and a claimed post fires with them from its first shot
+-- claim, against the class weapon the claim would spawn, and a claimed
+-- post fires with them from its first shot
 function PostManager:upgrade(player: Player, attribute: number)
 	if not GameController:isPlayerReady(player) then
 		return
@@ -727,7 +1202,7 @@ function PostManager:claim(player: Player, post: Post)
 end
 
 -- a claim ends only with the player (disconnect, or a dev-tool reset):
--- the weapon goes, the sign reads Unclaimed again
+-- the weapon goes, the sign reads Unclaimed again, and its mines fizzle
 function PostManager:release(player: Player)
 	self:dismount(player)
 	local post = self:getOwnedPost(player)
@@ -739,9 +1214,15 @@ function PostManager:release(player: Player)
 	if not post then
 		return
 	end
+	for index = #self.mines, 1, -1 do
+		if self.mines[index].owner == player then
+			self:removeMine(index, false)
+		end
+	end
 	post.owner = nil
 	post.gunner = nil
 	post.rig = nil
+	post.locksById = {}
 	for _, connection in post.promptConnections do
 		connection:Disconnect()
 	end
@@ -825,6 +1306,10 @@ function PostManager:bindPostModels()
 				heat = 0,
 				isOverheated = false,
 				reloadEndTime = 0,
+				triggerStartTime = nil,
+				locksById = {},
+				replicatedLocks = "",
+				lastAutoReplicateTime = 0,
 				gunner = nil,
 				ikControls = {},
 				promptConnections = {},
@@ -868,6 +1353,12 @@ function PostManager:getNetHandlers()
 				self:fire(player, payload.origin, payload.direction)
 			end,
 		},
+		[NetEventNames.TRY_SET_POST_TRIGGER] = {
+			shape = TRY_SET_POST_TRIGGER_SHAPE,
+			handler = function(player: Player, payload: { [string]: any })
+				self:setTrigger(player, payload.isHeld)
+			end,
+		},
 		[NetEventNames.TRY_UPGRADE_POST] = {
 			shape = TRY_UPGRADE_POST_SHAPE,
 			handler = function(player: Player, payload: { [string]: any })
@@ -892,16 +1383,28 @@ function PostManager:onRunStarted()
 		end
 	end
 	self.postsByIndex = {}
-	self.rockets = {}
+	self.pools = {}
+	self:clearMines()
+	ProjectileManager:clear()
 	for player, state in self.stateByPlayer do
 		state.postIndex = PostRules.NO_POST
 		state.upgrades = {}
+		state.salvageIronTonight = 0
 		if player.Parent then
 			self:replicatePlayer(player)
 		end
 	end
 	self:bindPostModels()
 	self:bindUpgradeTable()
+end
+
+-- dawn: the mines fizzle and the Salvage Gun's cap starts over
+function PostManager:onDayStarted()
+	self:clearMines()
+	self.pools = {}
+	for _, state in self.stateByPlayer do
+		state.salvageIronTonight = 0
+	end
 end
 
 function PostManager:onPlayerReady(player: Player)
@@ -914,7 +1417,8 @@ function PostManager:onPlayerRemoved(player: Player)
 	self:release(player)
 end
 
-function PostManager:init()
+function PostManager:init(monsterManagerIn: any)
+	monsterManager = monsterManagerIn
 	local kinds: { [number]: PostRules.KindData } = {}
 	for kind, data in PostWeaponsData.BY_KIND do
 		kinds[kind] = data
@@ -932,6 +1436,11 @@ function PostManager:init()
 			self:bindPostModels()
 		end
 	)
+	RunCycleManager:subscribeDayStarted(
+		function(_day: number, _scalingCount: number)
+			self:onDayStarted()
+		end
+	)
 	Players.PlayerRemoving:Connect(
 		function(player: Player)
 			self.stateByPlayer[player] = nil
@@ -939,7 +1448,7 @@ function PostManager:init()
 	)
 	RunService.Heartbeat:Connect(
 		function(deltaSec: number)
-			self:stepRockets(deltaSec)
+			self:step(deltaSec)
 		end
 	)
 end
@@ -955,8 +1464,10 @@ function PostManager.new(): PostManager
 	self.postsByIndex = {}
 	self.stateByPlayer = {}
 	self.warnedTemplates = {}
-	self.rockets = {}
-	self.nextRocketId = 0
+	self.pools = {}
+	self.mines = {}
+	self.nextPoolId = 0
+	self.nextMineId = 0
 	return self
 end
 

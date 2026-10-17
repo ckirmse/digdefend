@@ -7,6 +7,7 @@
 local HttpService = game:GetService("HttpService")
 
 local ProgressionData = require("@game/ServerScriptService/GameData/Characters/Progression")
+local ClassRosterData = require("@game/ServerScriptService/GameData/Classes/Roster")
 local HatsData = require("@game/ServerScriptService/GameData/Characters/Hats")
 local SkillsData = require("@game/ServerScriptService/GameData/Characters/Skills")
 local StarsData = require("@game/ServerScriptService/GameData/Characters/Stars")
@@ -70,6 +71,7 @@ end
 -- (defaults, star bounds, slot thresholds, the skill catalogue's ids) and
 -- the account shape around it
 local CHARACTER_DEFAULTS: CharacterSchema.Defaults = {
+	defaultClassKind = ClassRosterData.DEFAULT_CLASS,
 	defaultKindByGearSlot = {
 		[Enums.GearSlot.WEAPON] = HandheldData.DEFAULT_WEAPON,
 		[Enums.GearSlot.POST] = PostWeaponsData.DEFAULT_POST_WEAPON,

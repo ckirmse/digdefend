@@ -105,6 +105,10 @@ export type Monster = {
 	waypointBarrierId: string?,
 	waypointCellIndex: number?,
 	waypointPathVersion: number,
+	-- drawn to a point until this server time (the Magnet Gun, 2026-10-16)
+	pullPoint: Vector3?,
+	pullUntil: number,
+	pullSpeedStudsPerSec: number,
 }
 
 type Projectile = {
@@ -353,6 +357,9 @@ function MonsterManager:createMonster(kind: number, data: MonsterRules.MonsterDa
 		waypointBarrierId = nil,
 		waypointCellIndex = nil,
 		waypointPathVersion = -1,
+		pullPoint = nil,
+		pullUntil = 0,
+		pullSpeedStudsPerSec = 0,
 	}
 	if not isCrawler then
 		monster.position = Vector3.new(position.X, self:rootY(monster, groundY), position.Z)
@@ -732,8 +739,8 @@ function MonsterManager:isGroundClear(grid: FlowField.Grid, x: number, z: number
 	return index ~= nil and FlowField.isEnterable(grid, index, false) and not grid.barriers[index]
 end
 
-function MonsterManager:moveToward(monster: Monster, destination: Vector3, deltaSec: number)
-	local speed = monster.data.SPEED_STUDS_PER_SEC * DamageableManager:getSpeedMultiplier(monster.damageableId)
+function MonsterManager:moveToward(monster: Monster, destination: Vector3, deltaSec: number, speedOverride: number?)
+	local speed = (speedOverride or monster.data.SPEED_STUDS_PER_SEC) * DamageableManager:getSpeedMultiplier(monster.damageableId)
 	if speed <= 0 then
 		return
 	end
@@ -813,6 +820,27 @@ end
 -- it, so nothing is chased through a wall), attacking once in reach;
 -- with no target, follow its lane of the route, attacking any barrier
 -- that stands in the way
+-- draws every monster within the radius of a point to that point for a
+-- while (the Magnet Gun): it walks there at the pull's speed instead of
+-- at its target, and attacks nothing until let go
+function MonsterManager:applyPull(point: Vector3, radiusStuds: number, durationSec: number, speedStudsPerSec: number): number
+	local now = workspace:GetServerTimeNow()
+	local count = 0
+	for _, monster in self.monsters do
+		if monster.isDead or monster.isCrawler then
+			continue
+		end
+		if (monster.position - point).Magnitude > radiusStuds then
+			continue
+		end
+		monster.pullPoint = point
+		monster.pullUntil = now + durationSec
+		monster.pullSpeedStudsPerSec = speedStudsPerSec
+		count += 1
+	end
+	return count
+end
+
 function MonsterManager:stepMonster(monster: Monster, now: number, deltaSec: number)
 	if monster.isCrawler then
 		local stepper = self.crawlStepper
@@ -821,6 +849,13 @@ function MonsterManager:stepMonster(monster: Monster, now: number, deltaSec: num
 		end
 		return
 	end
+	local pullPoint = monster.pullPoint
+	if pullPoint and now < monster.pullUntil then
+		monster.action = Enums.MonsterAction.MOVING
+		self:moveToward(monster, pullPoint, deltaSec, monster.pullSpeedStudsPerSec)
+		return
+	end
+	monster.pullPoint = nil
 	local data = monster.data
 	local priorityOrder = self.priorityOrderByKind[monster.kind]
 	if not priorityOrder then

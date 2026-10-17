@@ -12,6 +12,33 @@ local Enums = require(script.Parent.Enums)
 
 local WeaponRules = {}
 
+-- a zoomed aim (the Sniper Rifle): the client's field of view while the
+-- scope is raised
+export type ScopeData = {
+	FIELD_OF_VIEW: number,
+}
+
+-- a stream (the Flamethrower): every tick hits everything within half the
+-- angle of the aim and within the range, and stacks a burn on each
+export type ConeData = {
+	ANGLE_DEGREES: number,
+	BURN_DAMAGE_PER_SEC: number,
+	BURN_SEC: number,
+}
+
+-- a second trigger that lobs a projectile with a splash (the Assault
+-- Rifle's grenade), on its own cooldown
+export type SecondaryData = {
+	DAMAGE: number,
+	COOLDOWN_SEC: number,
+	TEMPLATE: string,
+	BLAST_TEMPLATE: string?,
+	SPEED_STUDS_PER_SEC: number,
+	GRAVITY_STUDS_PER_SEC2: number,
+	RANGE_STUDS: number,
+	SPLASH_RADIUS_STUDS: number,
+}
+
 export type WeaponData = {
 	DAMAGE: number,
 	FIRE_INTERVAL_SEC: number,
@@ -19,6 +46,9 @@ export type WeaponData = {
 	RANGE_STUDS: number,
 	MAGAZINE_SIZE: number,
 	RELOAD_SEC: number,
+	SCOPE: ScopeData?,
+	CONE: ConeData?,
+	SECONDARY: SecondaryData?,
 }
 
 export type HitBox = {
@@ -125,6 +155,62 @@ function WeaponRules.findClosestHit(origin: Vector3, unitDirection: Vector3, max
 		end
 	end
 	return closestId, closestDistance
+end
+
+-- every box a cone reaches: its centre within the range and within half
+-- the cone angle of the direction, nearest first. A box the ray starts
+-- inside counts too, so a monster on top of the nozzle still burns
+function WeaponRules.findConeHits(origin: Vector3, unitDirection: Vector3, rangeStuds: number, coneAngleDegrees: number, boxes: { HitBox }): { string }
+	local cosHalfAngle = math.cos(math.rad(coneAngleDegrees / 2))
+	local hits: { { id: string, distance: number } } = {}
+	for _, box in boxes do
+		local offset = box.cframe.Position - origin
+		local distance = offset.Magnitude
+		if distance > rangeStuds then
+			continue
+		end
+		if distance > 1e-6 and offset.Unit:Dot(unitDirection) < cosHalfAngle and WeaponRules.rayBoxDistance(origin, unitDirection, box.cframe, box.size, rangeStuds) ~= 0 then
+			continue
+		end
+		table.insert(hits, { id = box.id, distance = distance })
+	end
+	table.sort(
+		hits,
+		function(a, b)
+			return a.distance < b.distance
+		end
+	)
+	local ids = {}
+	for _, hit in hits do
+		table.insert(ids, hit.id)
+	end
+	return ids
+end
+
+-- every box along the ray in order, no further than maxDistance, up to
+-- maxCount of them: a shot that carries on through what it hits
+function WeaponRules.findPierceHits(origin: Vector3, unitDirection: Vector3, maxDistance: number, boxes: { HitBox }, maxCount: number): { string }
+	local hits: { { id: string, distance: number } } = {}
+	for _, box in boxes do
+		local distance = WeaponRules.rayBoxDistance(origin, unitDirection, box.cframe, box.size, maxDistance)
+		if distance then
+			table.insert(hits, { id = box.id, distance = distance })
+		end
+	end
+	table.sort(
+		hits,
+		function(a, b)
+			return a.distance < b.distance
+		end
+	)
+	local ids = {}
+	for index, hit in hits do
+		if index > maxCount then
+			break
+		end
+		table.insert(ids, hit.id)
+	end
+	return ids
 end
 
 function WeaponRules.multiplier(bonusPerLevel: number, level: number): number

@@ -50,6 +50,10 @@ local SET_CHARACTER_NIGHTS_ARGS_SHAPE = {
 	nightsSurvived = "nonnegativeInteger",
 }
 
+local SET_CHARACTER_CLASS_ARGS_SHAPE = {
+	classKind = { type = "enum", name = "ClassKind" },
+}
+
 local SET_CHARACTER_GEAR_ARGS_SHAPE = {
 	gearSlot = { type = "enum", name = "GearSlot" },
 	kind = { type = "positiveInteger", optional = true },
@@ -168,6 +172,21 @@ function DevTools:setCharacterNights(player: Player, args: { [string]: any })
 	end
 	if characterManager:setNightsSurvived(player, nil, args.nightsSurvived) then
 		PlayerFeedbackManager:give(player, "Nights survived set to " .. tostring(args.nightsSurvived))
+	end
+end
+
+-- the class the active character is (M64); takes effect on the next run,
+-- since the gameplay managers read the kit at Ready
+function DevTools:setCharacterClass(player: Player, args: { [string]: any })
+	local isValid, err = Validate.isTableShape(args, SET_CHARACTER_CLASS_ARGS_SHAPE)
+	if not isValid then
+		warn("DevTools: setCharacterClass with invalid args:", err)
+		return
+	end
+	if characterManager:setClassKind(player, nil, args.classKind) then
+		PlayerFeedbackManager:give(player, "Class set to " .. Enums.getPublicName(Enums.ClassKind, args.classKind))
+	else
+		PlayerFeedbackManager:give(player, "That class is not in the roster")
 	end
 end
 

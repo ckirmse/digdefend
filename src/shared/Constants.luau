@@ -833,6 +833,9 @@ Constants.WEAPON_MUZZLE_ATTACHMENT = "Muzzle"
 -- smoke emitter the client turns on for a moment on every shot
 Constants.WEAPON_MUZZLE_FLASH_LIGHT = "MuzzleFlash"
 Constants.WEAPON_MUZZLE_SMOKE_EMITTER = "MuzzleSmoke"
+-- a stream weapon's flame, an emitter under the Muzzle pulsed every tick
+-- (the Flamethrower, 2026-10-16)
+Constants.WEAPON_MUZZLE_FLAME_EMITTER = "MuzzleFlame"
 
 -- GameAssets/Effects: designer-authored looks for effects the client
 -- builds, starting with the bullet hole Decal (ClientImpactManager)

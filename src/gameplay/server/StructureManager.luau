@@ -29,6 +29,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local ClassRules = require("@game/ReplicatedStorage/Shared/ClassRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PlacementRules = require("@game/ReplicatedStorage/Shared/PlacementRules")
@@ -43,6 +44,7 @@ local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
 local SpatialSoundManager = require(script.Parent.Parent.Server.SpatialSoundManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
+local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
 local MapManager = require(script.Parent.MapManager)
 local RefineryManager = require(script.Parent.RefineryManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
@@ -549,7 +551,10 @@ function StructureManager:handleRepair(player: Player, id: string)
 	if not StructureRules.canSwing(self.lastSwingTimeByPlayer[player], now, StructuresData.HAMMER_HIT_COOLDOWN_SEC) then
 		return
 	end
+	-- the class scales the chunk a swing gains and the Iron it costs (M64)
 	local chunkHp, chunkIron = self:getRepairChunk(structure)
+	chunkHp = ClassRules.scaleAmount(chunkHp, CharacterManager:getModifier(player, Enums.ClassModifier.REPAIR_SPEED))
+	chunkIron = ClassRules.scaleAmount(chunkIron, CharacterManager:getModifier(player, Enums.ClassModifier.REPAIR_COST))
 	local gained, cost = StructureRules.repairChunk(self:getMaxHp(structure), structure.hp, chunkHp, chunkIron)
 	if gained <= 0 then
 		return

@@ -121,7 +121,8 @@ describe(
 				for _, kind in Enums.getAllValues(Enums.TowerKind) do
 					expect(seenKinds[kind]).toBe(true)
 				end
-				expect(CharacterRules.rollGear(random, Enums.GearSlot.WEAPON, REROLL_PRICING).kind).toBe(Enums.WeaponKind.RIFLE)
+				-- the weapon roll draws from every weapon kind (five since the class weapons of 2026-10-16)
+				expect(Enums.isValidValue(Enums.WeaponKind, CharacterRules.rollGear(random, Enums.GearSlot.WEAPON, REROLL_PRICING).kind)).toBe(true)
 				expect(CharacterRules.rollGear(random, 99, REROLL_PRICING)).toBeNil()
 			end
 		)
@@ -180,7 +181,8 @@ describe(
 		it(
 			"describes the kind odds",
 			function()
-				expect(CharacterRules.describeKindOdds(Enums.GearSlot.WEAPON)).toBe("Only one kind exists so far")
+				expect(CharacterRules.describeKindOdds(Enums.GearSlot.WEAPON)).toBe("Each of the 5 kinds has a 20% chance")
+				expect(CharacterRules.describeKindOdds(Enums.GearSlot.POST)).toBe("Each of the 12 kinds has a 8% chance")
 				expect(CharacterRules.describeKindOdds(Enums.GearSlot.TOWER_2)).toBe("Each of the 6 kinds has a 17% chance")
 			end
 		)

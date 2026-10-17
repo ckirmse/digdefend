@@ -7,6 +7,7 @@
 -- crack state and the removal are seen by all.
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local BackpackRules = require("@game/ReplicatedStorage/Shared/BackpackRules")
+local ClassRules = require("@game/ReplicatedStorage/Shared/ClassRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local MineGenerator = require("@game/ReplicatedStorage/Shared/MineGenerator")
 local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
@@ -19,6 +20,7 @@ local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 local BackpackManager = require(script.Parent.BackpackManager)
+local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
 local MineManager = require(script.Parent.MineManager)
 local OrePickupManager = require(script.Parent.OrePickupManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
@@ -84,7 +86,11 @@ function MiningManager:handleHit(player: Player, depth: number, height: number, 
 	end
 	self.lastHitTimeByPlayer[player] = now
 
-	local damage = MiningRules.damageForLevel(PickAxeData.DAMAGE_BY_LEVEL, ToolManager:getPickAxeLevel(player))
+	-- the class's mining power scales the pick axe's rung (M64)
+	local damage = ClassRules.scaleAmount(
+		MiningRules.damageForLevel(PickAxeData.DAMAGE_BY_LEVEL, ToolManager:getPickAxeLevel(player)),
+		CharacterManager:getModifier(player, Enums.ClassModifier.MINING_POWER)
+	)
 	local isBroken, remainingHp = MineManager:applyDamage(depth, height, width, damage)
 	for _, handler in self.hitHandlers do
 		handler(player, depth, height, width, rock, isBroken)

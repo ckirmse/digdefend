@@ -138,9 +138,19 @@ module = {
 	-- double as the held template names ("WEAPON_<KEY>" under GameAssets/Tools)
 	WeaponKind = {
 		RIFLE = 1,
+		-- the four class weapons (GDD "Classes", 2026-10-16); the key is
+		-- also the designer's source model under GameAssets/Weapons
+		PISTOL = 2,
+		SNIPER = 3,
+		FLAMETHROWER = 4,
+		ASSAULT_RIFLE = 5,
 
 		PublicNames = {
 			RIFLE = "Rifle",
+			PISTOL = "Pistol",
+			SNIPER = "Sniper Rifle",
+			FLAMETHROWER = "Flamethrower",
+			ASSAULT_RIFLE = "Assault Rifle",
 		},
 	},
 	-- mounted post weapons (GDD "Posts"), M25. The POST loadout slot names
@@ -149,10 +159,32 @@ module = {
 	PostWeaponKind = {
 		MACHINE_GUN = 1,
 		ROCKET_LAUNCHER = 2,
+		-- the ten class posts (GDD "Classes", "Post Types", 2026-10-16),
+		-- named as the designer's models under GameAssets/PostWeapons
+		MINI_GUN = 3,
+		RAIL_GUN = 4,
+		MORTAR = 5,
+		AA_LAUNCHER = 6,
+		MACHINE_GUN_AUTOMATED = 7,
+		MINE_LAYER = 8,
+		TESLA_ARC = 9,
+		SALVAGE_GUN = 10,
+		SAW_GUN = 11,
+		MAGNET_GUN = 12,
 
 		PublicNames = {
 			MACHINE_GUN = "Machine Gun",
 			ROCKET_LAUNCHER = "Rocket Launcher",
+			MINI_GUN = "Minigun",
+			RAIL_GUN = "Railgun",
+			MORTAR = "Napalm Mortar",
+			AA_LAUNCHER = "AA Launcher",
+			MACHINE_GUN_AUTOMATED = "Auto Machine Gun",
+			MINE_LAYER = "Mine Layer",
+			TESLA_ARC = "Tesla Arc",
+			SALVAGE_GUN = "Salvage Gun",
+			SAW_GUN = "Saw Gun",
+			MAGNET_GUN = "Magnet Gun",
 		},
 	},
 	-- what a handheld weapon upgrade raises (GDD "Weapon Upgrades"): four
@@ -574,6 +606,119 @@ module = {
 			POST = "Post",
 			TOWER_1 = "Tower",
 			TOWER_2 = "Tower",
+		},
+	},
+	-- the launch classes (GDD "Classes", designed 2026-10-15; M64). A
+	-- character record is one of these; the class's kit and its buff and
+	-- debuff live in GameData/Classes/Roster. Saved by key name, so a value
+	-- may be renumbered. The Recruit is the free one every player starts as
+	ClassKind = {
+		RECRUIT = 1,
+		GUNNER = 2,
+		SNIPER = 3,
+		PYRO = 4,
+		AIR_DEFENSE = 5,
+		RANGER = 6,
+		ENGINEER = 7,
+		ELECTRICIAN = 8,
+		PROSPECTOR = 9,
+		DEMOLITIONIST = 10,
+		HAULER = 11,
+		MEDIC = 12,
+
+		PublicNames = {
+			RECRUIT = "Recruit",
+			GUNNER = "Gunner",
+			SNIPER = "Sniper",
+			PYRO = "Pyro",
+			AIR_DEFENSE = "Air Defense",
+			RANGER = "Ranger",
+			ENGINEER = "Engineer",
+			ELECTRICIAN = "Electrician",
+			PROSPECTOR = "Prospector",
+			DEMOLITIONIST = "Demolitionist",
+			HAULER = "Hauler",
+			MEDIC = "Medic",
+		},
+	},
+	-- the modifier table a class's buff and debuff are entries in (GDD
+	-- "Classes"; M64): every stat a class may scale, each defaulting to
+	-- 1.0 and read through ClassRules.modifier in the one place that stat
+	-- is computed. Applied as of 2026-10-16: MINING_POWER (MiningManager),
+	-- HANDHELD_DAMAGE (WeaponManager), POST_DAMAGE (PostManager),
+	-- TOWER_BUILD_COST and TRAP_COST (PlacementManager), REPAIR_SPEED and
+	-- REPAIR_COST (StructureManager, PlacementManager), BACKPACK_CAPACITY
+	-- (BackpackManager), MOVE_SPEED (BootsManager). The rest are recorded
+	-- in the roster for content that does not exist yet and do nothing
+	-- until their system reads them
+	ClassModifier = {
+		MINING_POWER = 1,
+		HANDHELD_DAMAGE = 2,
+		POST_DAMAGE = 3,
+		TOWER_BUILD_COST = 4,
+		TRAP_COST = 5,
+		REPAIR_SPEED = 6,
+		REPAIR_COST = 7,
+		BACKPACK_CAPACITY = 8,
+		MOVE_SPEED = 9,
+		-- not yet applied (see above)
+		ORE_YIELD = 10,
+		LARGE_MONSTER_DAMAGE = 11,
+		FLYER_DAMAGE = 12,
+		GROUND_DAMAGE = 13,
+		BURN_DURATION = 14,
+		TOWER_FIRE_RATE = 15,
+		DYNAMITE_DAMAGE = 16,
+
+		PublicNames = {
+			MINING_POWER = "Mining Power",
+			HANDHELD_DAMAGE = "Weapon Damage",
+			POST_DAMAGE = "Post Damage",
+			TOWER_BUILD_COST = "Tower Build Cost",
+			TRAP_COST = "Trap Cost",
+			REPAIR_SPEED = "Repair Speed",
+			REPAIR_COST = "Repair Cost",
+			BACKPACK_CAPACITY = "Backpack Capacity",
+			MOVE_SPEED = "Move Speed",
+			ORE_YIELD = "Ore Yield",
+			LARGE_MONSTER_DAMAGE = "Damage to Large Monsters",
+			FLYER_DAMAGE = "Damage to Flyers",
+			GROUND_DAMAGE = "Damage to Ground Monsters",
+			BURN_DURATION = "Burn Length",
+			TOWER_FIRE_RATE = "Tower Fire Rate",
+			DYNAMITE_DAMAGE = "Dynamite Damage",
+		},
+	},
+	-- the class-only tool each class carries (GDD "Classes"; M64). Named
+	-- here so the roster is data, but none is built yet: no tool bar slot,
+	-- no behaviour, no model. NONE is the Recruit's empty slot
+	GadgetKind = {
+		NONE = 1,
+		AUTO_TURRET = 2,
+		BINOCULARS = 3,
+		REMOTE_CHARGE = 4,
+		GROUNDING_NET = 5,
+		STIM_SHOT = 6,
+		BUILD_TABLET = 7,
+		STORM_ROD = 8,
+		ORE_SCANNER = 9,
+		DYNAMITE = 10,
+		ORE_CART = 11,
+		MEDKIT = 12,
+
+		PublicNames = {
+			NONE = "None",
+			AUTO_TURRET = "Auto Turret",
+			BINOCULARS = "Binoculars",
+			REMOTE_CHARGE = "Remote Charge",
+			GROUNDING_NET = "Grounding Net",
+			STIM_SHOT = "Stim Shot",
+			BUILD_TABLET = "Build Tablet",
+			STORM_ROD = "Storm Rod",
+			ORE_SCANNER = "Ore Scanner",
+			DYNAMITE = "Dynamite",
+			ORE_CART = "Ore Cart",
+			MEDKIT = "Medkit",
 		},
 	},
 	-- skill families (GDD "Characters"): every skill belongs to one; two of

@@ -1,10 +1,11 @@
 --!strict
 
--- Posts and post weapons (GDD "Posts"), M25. One entry per
--- Enums.PostWeaponKind; a new post weapon plugs in by adding its enum key,
--- an entry here, a model of that key's name under GameAssets/PostWeapons,
--- and its sound pair in shared SoundNames. Post weapons have no magazine
--- (decided 2026-09-18): the fire interval is the only limit on a hold.
+-- Posts and post weapons (GDD "Posts", "Post Types", "Classes"), M25 and
+-- the class posts of 2026-10-16. One entry per Enums.PostWeaponKind; a new
+-- post weapon plugs in by adding its enum key, an entry here, a model of
+-- that key's name under GameAssets/PostWeapons, and its sound set in
+-- shared SoundNames. Post weapons have no magazine (decided 2026-09-18):
+-- the fire interval is the only limit on a hold.
 -- FIRE_INTERVAL_SEC is how often a held input fires; FIRE_COOLDOWN_SEC is
 -- the faster rate the server refuses, so latency jitter never drops a
 -- legitimate shot. Every attribute can be upgraded four times; upgrade N
@@ -12,13 +13,57 @@
 -- the same share) and costs UPGRADE_PRICE_BY_LEVEL[N] Iron Bars (M63,
 -- 2026-10-11: Gold buys mining and Iron buys defense, so a post rung is
 -- never weighed against a pick; Gold until then); the menu opens at the
--- Post Upgrade Table. A kind with a PROJECTILE block fires a rocket
--- instead of a hitscan ray: the server flies it in a straight line at
--- SPEED and, where it first meets the world or a damageable, deals DAMAGE
--- to everything within SPLASH_RADIUS_STUDS; RANGE_STUDS is how far it flies
--- before bursting in the air. Placeholder numbers until enemies exist to
--- tune against.
+-- Post Upgrade Table.
+--
+-- The optional blocks, each read by PostManager where it applies:
+-- PROJECTILE: fires a projectile instead of a hitscan ray; it flies at
+--   SPEED, pulled down by GRAVITY_STUDS_PER_SEC2 when set (a lob), and
+--   where it first meets the world or a damageable deals DAMAGE to
+--   everything within SPLASH_RADIUS_STUDS; RANGE_STUDS is how far it
+--   flies before bursting in the air. IS_PIERCING flies on through every
+--   damageable it meets, hurting each once (the Saw Gun). HOMING turns
+--   it toward a locked target.
+-- HEAT: an overheating gun (see the Machine Gun).
+-- RELOAD_SEC: a gun that reloads after every shot.
+-- SPIN_UP: the first shot after the trigger has rested waits SEC after
+--   the trigger closes (the Minigun; Fire Rate shortens it).
+-- CHARGE: hold to charge for SEC, release to fire (the Railgun; Fire Rate
+--   shortens it). PIERCE: the shot carries on through COUNT damageables
+--   (plus one per Damage level) for full damage each.
+-- POOL: the burst leaves a pool for SEC that stacks a burn on everything
+--   standing in it (the Napalm Mortar; Damage widens the pool).
+-- LOCK: aiming near a flyer for SEC locks it (up to COUNT at once, each
+--   within ANGLE_DEGREES of the barrel); the shot fires one homing
+--   missile per lock, or one straight missile at DUMB_FIRE_DAMAGE_SHARE
+--   of the damage with no lock (the AA Launcher).
+-- IS_UNMANNED: nobody mans it; the server aims it at the nearest target
+--   and fires it (the Auto Machine Gun), its damage already scaled.
+-- MINES: the lob lands as an armed mine that blows when a ground monster
+--   comes within TRIGGER_RADIUS_STUDS; MAX_ARMED at once (the oldest
+--   fizzles past it) and every mine fizzles at dawn (the Mine Layer).
+-- CHAIN: the hit jumps to COUNT more targets, each within JUMP_STUDS of
+--   the last, for full damage each (the Tesla Arc; Range lengthens the jump).
+-- SALVAGE: every monster the shot kills drops IRON_PER_KILL Iron Bars at
+--   its feet, up to CAP_PER_NIGHT (the Salvage Gun).
+-- PULL: no damage; every monster within RADIUS_STUDS of where the shot
+--   lands is drawn to that point for SEC at SPEED_STUDS_PER_SEC (the
+--   Magnet Gun).
+-- Placeholder numbers until the classes are playtested.
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+
+local DAMAGE = Enums.PostAttribute.DAMAGE
+local FIRE_RATE = Enums.PostAttribute.FIRE_RATE
+local TURN_SPEED = Enums.PostAttribute.TURN_SPEED
+local RANGE = Enums.PostAttribute.RANGE
+local COOLDOWN = Enums.PostAttribute.COOLDOWN
+
+-- the gun sits a dozen studs over the ground, so a monster at the foot
+-- of the tower needs a steep look down (-70 since 2026-09-30, was -40);
+-- all the way up (designer, 2026-10-06: Flyers hovered over a post the
+-- gunner could not raise to; 89 rather than 90 so the gun's look
+-- direction never degenerates straight up)
+local PITCH_MIN_DEGREES = -70
+local PITCH_MAX_DEGREES = 89
 
 return {
 	-- every new player starts with this one unlocked and equipped
@@ -49,17 +94,17 @@ return {
 	-- the last night. First guess pending the designer's scan
 	UPGRADE_PRICE_BY_LEVEL = { 10, 40, 120, 300 },
 	BONUS_PER_LEVEL_BY_ATTRIBUTE = {
-		[Enums.PostAttribute.DAMAGE] = 0.25,
-		[Enums.PostAttribute.FIRE_RATE] = 0.2,
+		[DAMAGE] = 0.25,
+		[FIRE_RATE] = 0.2,
 		-- a base starts slow and an upgraded one turns twice as fast at
 		-- level 2, three times at level 4 (decided 2026-09-18)
-		[Enums.PostAttribute.TURN_SPEED] = 0.5,
-		[Enums.PostAttribute.RANGE] = 0.2,
+		[TURN_SPEED] = 0.5,
+		[RANGE] = 0.2,
 		-- the Machine Gun's fourth attribute (2026-09-29, replacing Range,
 		-- which its 350 studs never needed): each level takes this share of
 		-- the base cool time off, the same half second every rung, so the
 		-- overheated gun cools from full in 3 / 2.5 / 2 / 1.5 / 1 s
-		[Enums.PostAttribute.COOLDOWN] = 1 / 6,
+		[COOLDOWN] = 1 / 6,
 	},
 	-- how far from the muzzle the server lets a shot start: the client's
 	-- base may be a fraction of a second ahead of the last aim it sent
@@ -67,6 +112,11 @@ return {
 	-- how many degrees past the turn speed a yaw report may run, for the
 	-- same reason
 	YAW_TOLERANCE_DEGREES = 15,
+	-- how much under the full charge or spin-up the server still accepts a
+	-- shot, for the same clock jitter
+	WINDUP_TOLERANCE_SEC = 0.1,
+	-- an unmanned post fires once its barrel is within this of its target
+	UNMANNED_AIM_TOLERANCE_DEGREES = 4,
 	BY_KIND = {
 		-- about 69 DPS sustained through the overheat, against the rifle's
 		-- 55: a post is a stationary, exposed commitment and must be worth
@@ -74,25 +124,15 @@ return {
 		-- 150 while firing) made every enemy feel easy in the seventh
 		-- playtest, so 12 since 2026-09-29
 		[Enums.PostWeaponKind.MACHINE_GUN] = {
-			UPGRADE_ATTRIBUTES = {
-				Enums.PostAttribute.DAMAGE,
-				Enums.PostAttribute.FIRE_RATE,
-				Enums.PostAttribute.TURN_SPEED,
-				Enums.PostAttribute.COOLDOWN,
-			},
+			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, COOLDOWN },
 			DAMAGE = 12,
 			FIRE_INTERVAL_SEC = 0.1,
 			FIRE_COOLDOWN_SEC = 0.08,
 			TURN_SPEED_DEGREES_PER_SEC = 22,
 			RANGE_STUDS = 350,
 			FIELD_OF_VIEW = 30,
-			-- the gun sits a dozen studs over the ground, so a monster at the foot
-			-- of the tower needs a steep look down (-70 since 2026-09-30, was -40)
-			PITCH_MIN_DEGREES = -70,
-			-- all the way up (designer, 2026-10-06: Flyers hovered over a post
-			-- the gunner could not raise to; 89 rather than 90 so the gun's look
-			-- direction never degenerates straight up)
-			PITCH_MAX_DEGREES = 89,
+			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
+			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
 			-- overheat (decided 2026-09-18): holding the trigger for FULL_SEC
 			-- fills the heat; it then refuses to fire until fully cooled, which
 			-- takes COOL_SEC from full. Heat only cools once the trigger rests
@@ -102,15 +142,10 @@ return {
 			},
 		},
 		-- 33 DPS to one target, about a hundred into a group at the 12-stud
-		-- splash (2026-09-28)
+		-- splash (2026-09-28); the Demolitionist's since 2026-10-15
 		[Enums.PostWeaponKind.ROCKET_LAUNCHER] = {
 			-- Range matters here: it is how far a rocket flies before bursting
-			UPGRADE_ATTRIBUTES = {
-				Enums.PostAttribute.DAMAGE,
-				Enums.PostAttribute.FIRE_RATE,
-				Enums.PostAttribute.TURN_SPEED,
-				Enums.PostAttribute.RANGE,
-			},
+			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
 			DAMAGE = 200,
 			-- the reload is the launcher's fire rate (decided 2026-09-18): one
 			-- rocket every RELOAD_SEC, and Fire Rate upgrades shorten it
@@ -119,9 +154,8 @@ return {
 			TURN_SPEED_DEGREES_PER_SEC = 12,
 			RANGE_STUDS = 500,
 			FIELD_OF_VIEW = 40,
-			-- as the Machine Gun: a monster at the foot of the tower (was -35)
-			PITCH_MIN_DEGREES = -70,
-			PITCH_MAX_DEGREES = 89,
+			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
+			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
 			-- the reload bar's length, shortened by Fire Rate like the interval
 			RELOAD_SEC = 6,
 			PROJECTILE = {
@@ -131,6 +165,236 @@ return {
 				BLAST_TEMPLATE = "RocketBlast",
 				SPEED_STUDS_PER_SEC = 120,
 				SPLASH_RADIUS_STUDS = 12,
+			},
+		},
+		-- the Gunner: spins up for half a second, then a stream with more
+		-- damage per second than the Machine Gun, three times the heat
+		-- budget, a slower turn; Fire Rate shortens the spin-up
+		[Enums.PostWeaponKind.MINI_GUN] = {
+			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, COOLDOWN },
+			DAMAGE = 10,
+			FIRE_INTERVAL_SEC = 0.06,
+			FIRE_COOLDOWN_SEC = 0.045,
+			TURN_SPEED_DEGREES_PER_SEC = 16,
+			RANGE_STUDS = 350,
+			FIELD_OF_VIEW = 30,
+			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
+			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
+			HEAT = {
+				FULL_SEC = 12,
+				COOL_SEC = 4,
+			},
+			SPIN_UP = {
+				SEC = 0.5,
+			},
+		},
+		-- the Sniper: hold to charge, release to fire a shot that pierces
+		-- everything in a line for full damage, long reload; Fire Rate
+		-- shortens the charge, Damage raises the pierce count
+		[Enums.PostWeaponKind.RAIL_GUN] = {
+			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
+			DAMAGE = 260,
+			FIRE_INTERVAL_SEC = 4,
+			FIRE_COOLDOWN_SEC = 3.8,
+			TURN_SPEED_DEGREES_PER_SEC = 10,
+			RANGE_STUDS = 600,
+			FIELD_OF_VIEW = 25,
+			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
+			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
+			RELOAD_SEC = 4,
+			CHARGE = {
+				SEC = 1.2,
+			},
+			PIERCE = {
+				COUNT = 3,
+				COUNT_PER_DAMAGE_LEVEL = 1,
+			},
+		},
+		-- the Pyro: lobs a shell that bursts into a pool of fire where it
+		-- lands, burning for several seconds and stacking on anything that
+		-- stays; slow fire, the skill is the pool on the path; Range reaches
+		-- past the wall, Damage widens the pool
+		[Enums.PostWeaponKind.MORTAR] = {
+			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
+			DAMAGE = 60,
+			FIRE_INTERVAL_SEC = 5,
+			FIRE_COOLDOWN_SEC = 4.8,
+			TURN_SPEED_DEGREES_PER_SEC = 12,
+			RANGE_STUDS = 260,
+			FIELD_OF_VIEW = 45,
+			PITCH_MIN_DEGREES = -30,
+			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
+			RELOAD_SEC = 5,
+			PROJECTILE = {
+				TEMPLATE = "NapalmShell",
+				BLAST_TEMPLATE = "RocketBlast",
+				SPEED_STUDS_PER_SEC = 110,
+				GRAVITY_STUDS_PER_SEC2 = 60,
+				SPLASH_RADIUS_STUDS = 8,
+			},
+			POOL = {
+				RADIUS_STUDS = 10,
+				SEC = 6,
+				BURN_DAMAGE_PER_SEC = 12,
+				BURN_SEC = 3,
+				-- how often the pool stacks its burn on what stands in it
+				TICK_SEC = 0.5,
+			},
+		},
+		-- the Air Defense: hold the reticle near a flyer for a moment and it
+		-- locks with a tone, up to three at once, one missile each, bursting
+		-- near the target so a cluster is shredded; against the ground a
+		-- missile dumb-fires with a small splash weaker than a Rocket
+		[Enums.PostWeaponKind.AA_LAUNCHER] = {
+			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
+			DAMAGE = 90,
+			FIRE_INTERVAL_SEC = 3,
+			FIRE_COOLDOWN_SEC = 2.8,
+			TURN_SPEED_DEGREES_PER_SEC = 20,
+			RANGE_STUDS = 400,
+			FIELD_OF_VIEW = 40,
+			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
+			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
+			RELOAD_SEC = 3,
+			PROJECTILE = {
+				TEMPLATE = "AAMissile",
+				BLAST_TEMPLATE = "RocketBlast",
+				SPEED_STUDS_PER_SEC = 140,
+				SPLASH_RADIUS_STUDS = 8,
+				HOMING = {
+					TURN_DEGREES_PER_SEC = 240,
+				},
+			},
+			LOCK = {
+				SEC = 0.8,
+				ANGLE_DEGREES = 8,
+				COUNT = 3,
+				DUMB_FIRE_DAMAGE_SHARE = 0.5,
+			},
+		},
+		-- the Ranger's: nobody mans it; it picks the nearest target in
+		-- range, turns to it, and fires the Machine Gun's burst at 60% of
+		-- its damage (decided 2026-10-16), so the Ranger fights on foot
+		[Enums.PostWeaponKind.MACHINE_GUN_AUTOMATED] = {
+			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, COOLDOWN },
+			DAMAGE = 7.2,
+			FIRE_INTERVAL_SEC = 0.1,
+			FIRE_COOLDOWN_SEC = 0.08,
+			TURN_SPEED_DEGREES_PER_SEC = 30,
+			RANGE_STUDS = 200,
+			FIELD_OF_VIEW = 30,
+			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
+			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
+			HEAT = {
+				FULL_SEC = 4,
+				COOL_SEC = 3,
+			},
+			IS_UNMANNED = true,
+		},
+		-- the Engineer: lobs proximity mines onto the path that arm where
+		-- they land and blow when stepped on; a dozen armed at once, the
+		-- oldest fizzling past the cap, all fizzling at dawn
+		[Enums.PostWeaponKind.MINE_LAYER] = {
+			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
+			DAMAGE = 110,
+			FIRE_INTERVAL_SEC = 2,
+			FIRE_COOLDOWN_SEC = 1.8,
+			TURN_SPEED_DEGREES_PER_SEC = 16,
+			RANGE_STUDS = 180,
+			FIELD_OF_VIEW = 45,
+			PITCH_MIN_DEGREES = -30,
+			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
+			RELOAD_SEC = 2,
+			PROJECTILE = {
+				TEMPLATE = "ProximityMine",
+				BLAST_TEMPLATE = "RocketBlast",
+				SPEED_STUDS_PER_SEC = 80,
+				GRAVITY_STUDS_PER_SEC2 = 60,
+				SPLASH_RADIUS_STUDS = 9,
+			},
+			MINES = {
+				MAX_ARMED = 12,
+				TRIGGER_RADIUS_STUDS = 4,
+				-- a mine lies dormant this long after landing before it arms
+				ARM_SEC = 1,
+			},
+		},
+		-- the Electrician: a sustained arc on the target that jumps to the
+		-- nearest other monsters, so damage rises with how tightly they
+		-- bunch; worse than a Rocket on one big monster, best in the game at
+		-- a jammed gate; Range lengthens the jump
+		[Enums.PostWeaponKind.TESLA_ARC] = {
+			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
+			DAMAGE = 9,
+			FIRE_INTERVAL_SEC = 0.2,
+			FIRE_COOLDOWN_SEC = 0.16,
+			TURN_SPEED_DEGREES_PER_SEC = 20,
+			RANGE_STUDS = 160,
+			FIELD_OF_VIEW = 35,
+			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
+			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
+			CHAIN = {
+				COUNT = 3,
+				JUMP_STUDS = 12,
+			},
+		},
+		-- the Prospector: a weak fast shot, and every monster it kills drops
+		-- Iron Bars at its feet for anyone to pick up, capped per night so
+		-- it never prints money
+		[Enums.PostWeaponKind.SALVAGE_GUN] = {
+			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
+			DAMAGE = 8,
+			FIRE_INTERVAL_SEC = 0.12,
+			FIRE_COOLDOWN_SEC = 0.1,
+			TURN_SPEED_DEGREES_PER_SEC = 24,
+			RANGE_STUDS = 300,
+			FIELD_OF_VIEW = 30,
+			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
+			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
+			SALVAGE = {
+				IRON_PER_KILL = 2,
+				CAP_PER_NIGHT = 60,
+			},
+		},
+		-- the Hauler: launches a spinning saw blade that flies in a line and
+		-- cuts through every monster it meets for full damage until its
+		-- range runs out; slow fire, a long flat shot
+		[Enums.PostWeaponKind.SAW_GUN] = {
+			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
+			DAMAGE = 70,
+			FIRE_INTERVAL_SEC = 1.5,
+			FIRE_COOLDOWN_SEC = 1.3,
+			TURN_SPEED_DEGREES_PER_SEC = 14,
+			RANGE_STUDS = 220,
+			FIELD_OF_VIEW = 35,
+			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
+			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
+			RELOAD_SEC = 1.5,
+			PROJECTILE = {
+				TEMPLATE = "SawBlade",
+				SPEED_STUDS_PER_SEC = 100,
+				SPLASH_RADIUS_STUDS = 0,
+				IS_PIERCING = true,
+			},
+		},
+		-- the Medic: no damage; fire at a spot and every monster within a
+		-- radius of it is pulled there for a few seconds, off a crewmate, off
+		-- the gate, into the Saw Gun's line; Range widens the pull
+		[Enums.PostWeaponKind.MAGNET_GUN] = {
+			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
+			DAMAGE = 0,
+			FIRE_INTERVAL_SEC = 6,
+			FIRE_COOLDOWN_SEC = 5.8,
+			TURN_SPEED_DEGREES_PER_SEC = 18,
+			RANGE_STUDS = 250,
+			FIELD_OF_VIEW = 40,
+			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
+			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
+			RELOAD_SEC = 6,
+			PULL = {
+				RADIUS_STUDS = 18,
+				SEC = 3,
+				SPEED_STUDS_PER_SEC = 14,
 			},
 		},
 	},

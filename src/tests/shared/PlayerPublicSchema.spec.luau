@@ -16,6 +16,7 @@ local function makeCharacter()
 	return {
 		id = "char-1",
 		name = "Digger Dan",
+		classKind = "GUNNER",
 		nightsSurvived = 20,
 		gear = {
 			WEAPON = { kind = "RIFLE", stars = 2 },
@@ -79,6 +80,7 @@ describe(
 				expect(attributes[Attributes.CHARACTER_ID]).toBe("char-1")
 				expect(attributes[Attributes.CHARACTER_NAME]).toBe("Digger Dan")
 				expect(attributes[Attributes.CHARACTER_NIGHTS_SURVIVED]).toBe(20)
+				expect(attributes[Attributes.CHARACTER_CLASS_KIND]).toBe(Enums.ClassKind.GUNNER)
 				expect(attributes[Attributes.CHARACTER_WEAPON_KIND]).toBe(Enums.WeaponKind.RIFLE)
 				expect(attributes[Attributes.CHARACTER_WEAPON_STARS]).toBe(2)
 				expect(attributes[Attributes.CHARACTER_POST_KIND]).toBe(Enums.PostWeaponKind.ROCKET_LAUNCHER)

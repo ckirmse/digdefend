@@ -16,13 +16,30 @@ local WeaponRules = require(script.Parent.WeaponRules)
 
 local PostRules = {}
 
--- a kind that fires a rocket rather than a ray
+-- a kind that fires a projectile rather than a ray: straight, or a lob
+-- pulled down by GRAVITY_STUDS_PER_SEC2; IS_PIERCING flies on through
+-- what it hits (the Saw Gun); HOMING bends it toward a locked target
 export type ProjectileData = {
 	TEMPLATE: string,
 	BLAST_TEMPLATE: string?,
 	SPEED_STUDS_PER_SEC: number,
 	SPLASH_RADIUS_STUDS: number,
+	GRAVITY_STUDS_PER_SEC2: number?,
+	IS_PIERCING: boolean?,
+	HOMING: { TURN_DEGREES_PER_SEC: number }?,
 }
+
+-- the class posts' blocks (2026-10-16); GameData/Posts/PostWeapons says
+-- what each does
+export type SpinUpData = { SEC: number }
+export type ChargeData = { SEC: number }
+export type PierceData = { COUNT: number, COUNT_PER_DAMAGE_LEVEL: number }
+export type PoolData = { RADIUS_STUDS: number, SEC: number, BURN_DAMAGE_PER_SEC: number, BURN_SEC: number, TICK_SEC: number }
+export type LockData = { SEC: number, ANGLE_DEGREES: number, COUNT: number, DUMB_FIRE_DAMAGE_SHARE: number }
+export type MinesData = { MAX_ARMED: number, TRIGGER_RADIUS_STUDS: number, ARM_SEC: number }
+export type ChainData = { COUNT: number, JUMP_STUDS: number }
+export type SalvageData = { IRON_PER_KILL: number, CAP_PER_NIGHT: number }
+export type PullData = { RADIUS_STUDS: number, SEC: number, SPEED_STUDS_PER_SEC: number }
 
 -- a gun that overheats: full after FULL_SEC of fire, cool COOL_SEC later
 export type HeatData = {
@@ -33,6 +50,16 @@ export type HeatData = {
 export type KindData = {
 	PROJECTILE: ProjectileData?,
 	HEAT: HeatData?,
+	SPIN_UP: SpinUpData?,
+	CHARGE: ChargeData?,
+	PIERCE: PierceData?,
+	POOL: PoolData?,
+	LOCK: LockData?,
+	MINES: MinesData?,
+	CHAIN: ChainData?,
+	SALVAGE: SalvageData?,
+	PULL: PullData?,
+	IS_UNMANNED: boolean?,
 	-- the Enums.PostAttribute values this kind offers, in menu order
 	-- (decided 2026-09-29: the Machine Gun trades Range for Cooldown)
 	UPGRADE_ATTRIBUTES: { number },
@@ -71,6 +98,16 @@ export type Stats = {
 	rangeStuds: number,
 	-- nil for a kind that does not overheat; shortened by Cooldown
 	coolSec: number?,
+	-- the class posts (2026-10-16): nil where the kind has no such block.
+	-- Fire Rate shortens a spin-up and a charge, Damage adds pierces,
+	-- Range lengthens a chain's jump and widens a pull
+	spinUpSec: number?,
+	chargeSec: number?,
+	pierceCount: number?,
+	chainJumpStuds: number?,
+	pullRadiusStuds: number?,
+	-- Damage widens the pool
+	poolRadiusStuds: number?,
 }
 
 export type Offer = {
@@ -151,7 +188,53 @@ function PostRules.statsFor(catalog: Catalog, kind: number, upgrades: Upgrades):
 		-- 1.5 / 1 s), where a divide like Fire Rate's would give ever
 		-- smaller steps for ever dearer rungs (decided 2026-09-29)
 		coolSec = if data.HEAT then data.HEAT.COOL_SEC * math.max(1 - (bonuses[Enums.PostAttribute.COOLDOWN] or 0) * PostRules.upgradeLevel(upgrades, Enums.PostAttribute.COOLDOWN), MIN_COOL_SHARE) else nil,
+		spinUpSec = if data.SPIN_UP then data.SPIN_UP.SEC / fireRateMultiplier else nil,
+		chargeSec = if data.CHARGE then data.CHARGE.SEC / fireRateMultiplier else nil,
+		pierceCount = if data.PIERCE then data.PIERCE.COUNT + data.PIERCE.COUNT_PER_DAMAGE_LEVEL * PostRules.upgradeLevel(upgrades, Enums.PostAttribute.DAMAGE) else nil,
+		chainJumpStuds = if data.CHAIN then data.CHAIN.JUMP_STUDS * multiplierFor(Enums.PostAttribute.RANGE) else nil,
+		pullRadiusStuds = if data.PULL then data.PULL.RADIUS_STUDS * multiplierFor(Enums.PostAttribute.RANGE) else nil,
+		poolRadiusStuds = if data.POOL then data.POOL.RADIUS_STUDS * multiplierFor(Enums.PostAttribute.DAMAGE) else nil,
 	}
+end
+
+-- a wind-up (a spin-up or a charge) is done once the trigger has been
+-- held windupSec, less a tolerance for clock jitter
+function PostRules.isWoundUp(triggerStartTime: number?, now: number, windupSec: number, toleranceSec: number): boolean
+	return triggerStartTime ~= nil and now - triggerStartTime >= windupSec - toleranceSec
+end
+
+-- how far a wind-up has come, 0 to 1, for the status bar
+function PostRules.windupProgress(triggerStartTime: number?, now: number, windupSec: number): number
+	if triggerStartTime == nil or windupSec <= 0 then
+		return 0
+	end
+	return math.clamp((now - triggerStartTime) / windupSec, 0, 1)
+end
+
+-- the angle in degrees between the barrel and the line to a point
+function PostRules.angleToDegrees(muzzle: Vector3, unitDirection: Vector3, point: Vector3): number
+	local offset = point - muzzle
+	if offset.Magnitude < 1e-6 then
+		return 0
+	end
+	return math.deg(math.acos(math.clamp(offset.Unit:Dot(unitDirection), -1, 1)))
+end
+
+-- the yaw and pitch that point the barrel at a world position from a
+-- Spawn: the Spawn's X is up and its +Z faces out of the camp at yaw 0,
+-- and baseFrame turns the base about X by -yaw, so the barrel at a yaw
+-- lies along (sin yaw, cos yaw) in the Spawn's (Y, Z)
+function PostRules.aimAnglesToward(spawnCFrame: CFrame, targetPosition: Vector3): (number, number)
+	local localPosition = spawnCFrame:PointToObjectSpace(targetPosition)
+	local flat = math.sqrt(localPosition.Y * localPosition.Y + localPosition.Z * localPosition.Z)
+	local yaw = if flat > 1e-6 then math.deg(math.atan2(localPosition.Y, localPosition.Z)) else 0
+	local pitch = math.deg(math.atan2(localPosition.X, flat))
+	return PostRules.wrapDegrees(yaw), pitch
+end
+
+-- a yaw stepped toward a wanted yaw at the turn speed, the short way round
+function PostRules.stepYawToward(yawDegrees: number, wantedYawDegrees: number, turnSpeedDegreesPerSec: number, deltaSec: number): number
+	return PostRules.turnYaw(yawDegrees, PostRules.wrapDegrees(wantedYawDegrees - yawDegrees), turnSpeedDegreesPerSec, deltaSec)
 end
 
 -- where an attribute sits in a kind's upgrade menu, nil when the kind

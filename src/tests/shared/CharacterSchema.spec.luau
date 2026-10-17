@@ -9,6 +9,7 @@ local CharacterSchema = require(game:GetService("ReplicatedStorage").Shared.Char
 local Enums = require(game:GetService("ReplicatedStorage").Shared.Enums)
 
 local DEFAULTS = {
+	defaultClassKind = Enums.ClassKind.RECRUIT,
 	defaultKindByGearSlot = {
 		[Enums.GearSlot.WEAPON] = Enums.WeaponKind.RIFLE,
 		[Enums.GearSlot.POST] = Enums.PostWeaponKind.MACHINE_GUN,
@@ -28,6 +29,7 @@ local function makeValidCharacter()
 	return {
 		id = "abc",
 		name = "Digger Dan",
+		classKind = "GUNNER",
 		nightsSurvived = 16,
 		gear = {
 			WEAPON = { kind = "RIFLE", stars = 3 },
@@ -132,6 +134,23 @@ describe(
 					local validated, repairs = validate(record)
 					expect(validated.name).toBe("Character 1")
 					expect(#repairs).toBe(1)
+				end
+			end
+		)
+
+		it(
+			"keeps a known class and repairs a missing or unknown one to the default",
+			function()
+				local kept = validate(makeValidCharacter())
+				expect(kept.classKind).toBe("GUNNER")
+				expect(CharacterSchema.getClassKind(kept, DEFAULTS)).toBe(Enums.ClassKind.GUNNER)
+				for _, bad in { nil, "", "ARCHITECT", 3 } do
+					local record = makeValidCharacter()
+					record.classKind = bad
+					local validated, repairs = validate(record)
+					expect(validated.classKind).toBe("RECRUIT")
+					expect(CharacterSchema.getClassKind(validated, DEFAULTS)).toBe(Enums.ClassKind.RECRUIT)
+					expect(table.find(repairs, "c.classKind reset")).never.toBeNil()
 				end
 			end
 		)

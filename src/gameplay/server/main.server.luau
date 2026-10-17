@@ -32,6 +32,7 @@ local PlacementDevTools = require(script.Parent.PlacementDevTools)
 local PlacementManager = require(script.Parent.PlacementManager)
 local PostDevTools = require(script.Parent.PostDevTools)
 local PostManager = require(script.Parent.PostManager)
+local ProjectileManager = require(script.Parent.ProjectileManager)
 local RefineryManager = require(script.Parent.RefineryManager)
 local RescueDevTools = require(script.Parent.RescueDevTools)
 local RescueManager = require(script.Parent.RescueManager)
@@ -86,6 +87,8 @@ RunManager:subscribeRunStarted(
 	end
 )
 ToolManager:init()
+-- everything a weapon or post launches flies here; before both
+ProjectileManager:init()
 -- right after the tools, so the weapon is the second slot (GDD "Mining
 -- Tools": bought tools come after Pick Axe and Weapon)
 WeaponManager:init()
@@ -143,7 +146,9 @@ RunManager:subscribeRunStarted(
 -- and the refinery, which owns the Gold a claim and an upgrade spend.
 -- StructureManager subscribed to the run first, so the fresh post models
 -- exist by the time PostManager resets and binds them
-PostManager:init()
+-- the Magnet Gun pulls monsters, and MonsterManager reaches PostManager
+-- through ReviveManager, so it is handed in rather than required
+PostManager:init(MonsterManager)
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
 		PostManager:onRunStarted()

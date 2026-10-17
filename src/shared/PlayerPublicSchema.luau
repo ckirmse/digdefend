@@ -63,6 +63,7 @@ function PlayerPublicSchema.buildCharacterAttributes(record: CharacterSchema.Cha
 		[Attributes.CHARACTER_ID] = if record then record.id else "",
 		[Attributes.CHARACTER_NAME] = if record then record.name else "",
 		[Attributes.CHARACTER_NIGHTS_SURVIVED] = if record then record.nightsSurvived else 0,
+		[Attributes.CHARACTER_CLASS_KIND] = if record then (Enums.getValueByName(Enums.ClassKind, record.classKind) or 0) else 0,
 		[Attributes.CHARACTER_SKILL_SLOTS_OPEN] = if record then CharacterSchema.openSkillSlots(record.nightsSurvived, unlockNights) else 0,
 		[Attributes.CHARACTER_SKILLS] = if record then CharacterSchema.encodeSkills(record.skills, #unlockNights) else "",
 		[Attributes.CHARACTER_COSMETICS] = if record then CharacterSchema.encodeCosmetics(record.cosmetics) else "",

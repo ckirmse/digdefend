@@ -23,6 +23,7 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local HandheldData = require("@game/ServerScriptService/GameData/Weapons/Handheld")
@@ -34,6 +35,7 @@ local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedback
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 local DamageableManager = require(script.Parent.DamageableManager)
 local MapManager = require(script.Parent.MapManager)
+local ProjectileManager = require(script.Parent.ProjectileManager)
 local RefineryManager = require(script.Parent.RefineryManager)
 local ToolManager = require(script.Parent.ToolManager)
 
@@ -46,6 +48,8 @@ type WeaponState = {
 	-- server time the running reload ends; 0 when none
 	reloadEndTime: number,
 	lastFireTime: number?,
+	-- server time the second trigger is ready again; 0 when ready
+	secondaryReadyTime: number,
 	upgrades: WeaponRules.Upgrades,
 }
 
@@ -62,6 +66,10 @@ local TRY_FIRE_WEAPON_SHAPE = {
 	direction = "vector3",
 }
 local TRY_RELOAD_WEAPON_SHAPE = {}
+local TRY_FIRE_WEAPON_SECONDARY_SHAPE = {
+	origin = "vector3",
+	direction = "vector3",
+}
 local TRY_UPGRADE_WEAPON_SHAPE = {
 	attribute = { type = "enum", name = "WeaponAttribute" },
 }
@@ -95,6 +103,7 @@ function WeaponManager:replicate(player: Player)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.WEAPON_MAGAZINE_SIZE, stats.magazineSize)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.WEAPON_FIRE_INTERVAL_SEC, data.FIRE_INTERVAL_SEC)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.WEAPON_RANGE_STUDS, stats.rangeStuds)
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.WEAPON_SECONDARY_READY_TIME, state.secondaryReadyTime)
 	for attribute, attributeName in WeaponRules.UPGRADE_ATTRIBUTE_BY_WEAPON_ATTRIBUTE do
 		SplendidReplicationManager:setCurrentPlayerAttribute(player, attributeName, WeaponRules.upgradeLevel(state.upgrades, attribute))
 	end
@@ -197,25 +206,91 @@ function WeaponManager:fire(player: Player, origin: Vector3, direction: Vector3)
 	state.lastFireTime = now
 	state.ammo -= 1
 
+	-- the class's handheld damage scales every shot (M64)
+	local damageScale: number = CharacterManager:getModifier(player, Enums.ClassModifier.HANDHELD_DAMAGE)
 	local worldDistance = self:getWorldDistance(origin, unitDirection, stats.rangeStuds, true)
-	local hitId, hitDistance = WeaponRules.findClosestHit(origin, unitDirection, worldDistance, DamageableManager:getHitBoxes())
-	local endDistance = hitDistance or worldDistance
-	if hitId then
-		DamageableManager:damage(hitId, stats.damage, player)
+	local cone = data.CONE
+	if cone then
+		-- a stream: every box in the cone takes the tick's damage and a burn
+		-- stacked on it; nothing is traced, the client draws the flame
+		local hitIds = WeaponRules.findConeHits(origin, unitDirection, worldDistance, cone.ANGLE_DEGREES, DamageableManager:getHitBoxes())
+		for _, hitId in hitIds do
+			DamageableManager:applyBurn(hitId, cone.BURN_DAMAGE_PER_SEC * damageScale, cone.BURN_SEC)
+			DamageableManager:damage(hitId, stats.damage * damageScale, player)
+		end
+		NetManager:notifyAllClients(NetEventNames.NOTIFY_WEAPON_FIRED, {
+			userId = player.UserId,
+			weaponKind = state.weaponKind,
+			origin = origin,
+			endPosition = origin + unitDirection * worldDistance,
+			isImpact = false,
+			hitId = hitIds[1] or NO_HIT_ID,
+			hitIds = hitIds,
+		})
+	else
+		local hitId, hitDistance = WeaponRules.findClosestHit(origin, unitDirection, worldDistance, DamageableManager:getHitBoxes())
+		local endDistance = hitDistance or worldDistance
+		if hitId then
+			DamageableManager:damage(hitId, stats.damage * damageScale, player)
+		end
+		NetManager:notifyAllClients(NetEventNames.NOTIFY_WEAPON_FIRED, {
+			userId = player.UserId,
+			weaponKind = state.weaponKind,
+			origin = origin,
+			endPosition = origin + unitDirection * endDistance,
+			-- false when the shot ran out its range in open air: no dust puff
+			isImpact = hitId ~= nil or worldDistance < stats.rangeStuds,
+			hitId = hitId or NO_HIT_ID,
+		})
 	end
-	NetManager:notifyAllClients(NetEventNames.NOTIFY_WEAPON_FIRED, {
-		userId = player.UserId,
-		weaponKind = state.weaponKind,
-		origin = origin,
-		endPosition = origin + unitDirection * endDistance,
-		-- false when the shot ran out its range in open air: no dust puff
-		isImpact = hitId ~= nil or worldDistance < stats.rangeStuds,
-		hitId = hitId or NO_HIT_ID,
-	})
 	self:replicate(player)
 	if state.ammo <= 0 then
 		self:startReloadIfNeeded(player)
 	end
+end
+
+-- the second trigger (the Assault Rifle's grenade, 2026-10-16): a lob on
+-- its own cooldown, flown by ProjectileManager, bursting on everything
+-- within its splash where it lands; it needs no ammo and no reload
+function WeaponManager:fireSecondary(player: Player, origin: Vector3, direction: Vector3)
+	local state = self.stateByPlayer[player]
+	local data = if state then self:getWeaponData(state.weaponKind) else nil
+	local secondary = if data then data.SECONDARY else nil
+	if not state or not data or not secondary or ToolManager:getEquippedTool(player) ~= Enums.ToolKind.WEAPON then
+		return
+	end
+	if direction.Magnitude < MIN_DIRECTION_MAGNITUDE then
+		return
+	end
+	local now = workspace:GetServerTimeNow()
+	if state.secondaryReadyTime > now then
+		return
+	end
+	local headPosition = self:getHeadPosition(player)
+	if not headPosition or not WeaponRules.isOriginPlausible(headPosition, origin, HandheldData.ORIGIN_TOLERANCE_STUDS) then
+		return
+	end
+	state.secondaryReadyTime = now + secondary.COOLDOWN_SEC
+	self:replicate(player)
+	local damageScale: number = CharacterManager:getModifier(player, Enums.ClassModifier.HANDHELD_DAMAGE)
+	local damage = secondary.DAMAGE * damageScale
+	local weaponKind = state.weaponKind
+	ProjectileManager:launch({
+		owner = player,
+		templateName = secondary.TEMPLATE,
+		blastTemplateName = secondary.BLAST_TEMPLATE,
+		weaponKind = weaponKind,
+		origin = origin,
+		unitDirection = direction.Unit,
+		speedStudsPerSec = secondary.SPEED_STUDS_PER_SEC,
+		gravityStudsPerSec2 = secondary.GRAVITY_STUDS_PER_SEC2,
+		rangeStuds = secondary.RANGE_STUDS,
+		onEnd = function(position: Vector3, _hitId: string?)
+			for _, hitId in PostRules.findSplashHits(position, secondary.SPLASH_RADIUS_STUDS, DamageableManager:getHitBoxes()) do
+				DamageableManager:damage(hitId, damage, player)
+			end
+		end,
+	})
 end
 
 -- one upgrade of one attribute, paid in Iron (M63: Gold buys mining, Iron
@@ -255,6 +330,12 @@ function WeaponManager:getNetHandlers()
 			shape = TRY_FIRE_WEAPON_SHAPE,
 			handler = function(player: Player, payload: { [string]: any })
 				self:fire(player, payload.origin, payload.direction)
+			end,
+		},
+		[NetEventNames.TRY_FIRE_WEAPON_SECONDARY] = {
+			shape = TRY_FIRE_WEAPON_SECONDARY_SHAPE,
+			handler = function(player: Player, payload: { [string]: any })
+				self:fireSecondary(player, payload.origin, payload.direction)
 			end,
 		},
 		[NetEventNames.TRY_RELOAD_WEAPON] = {
@@ -335,6 +416,7 @@ function WeaponManager:onPlayerReady(player: Player)
 		ammo = data.MAGAZINE_SIZE,
 		reloadEndTime = 0,
 		lastFireTime = nil,
+		secondaryReadyTime = 0,
 		upgrades = {},
 	}
 	ToolManager:setWeaponKind(player, weaponKind)

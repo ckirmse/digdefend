@@ -444,3 +444,93 @@ describe(
 		)
 	end
 )
+
+describe(
+	"PostRules wind-ups and aim angles (the class posts)",
+	function()
+		it(
+			"counts a spin-up or charge from the trigger closing, less the tolerance",
+			function()
+				expect(PostRules.isWoundUp(nil, 10, 0.5, 0.1)).toBe(false)
+				expect(PostRules.isWoundUp(10, 10.3, 0.5, 0.1)).toBe(false)
+				expect(PostRules.isWoundUp(10, 10.4, 0.5, 0.1)).toBe(true)
+				expect(PostRules.windupProgress(nil, 10, 0.5)).toBe(0)
+				expect(PostRules.windupProgress(10, 10.25, 0.5)).toBeCloseTo(0.5, 5)
+				expect(PostRules.windupProgress(10, 12, 0.5)).toBe(1)
+			end
+		)
+
+		it(
+			"measures the angle from the barrel to a point",
+			function()
+				expect(PostRules.angleToDegrees(Vector3.zero, Vector3.zAxis, Vector3.new(0, 0, 10))).toBeCloseTo(0, 5)
+				expect(PostRules.angleToDegrees(Vector3.zero, Vector3.zAxis, Vector3.new(10, 0, 10))).toBeCloseTo(45, 5)
+				expect(PostRules.angleToDegrees(Vector3.zero, Vector3.zAxis, Vector3.zero)).toBe(0)
+			end
+		)
+
+		it(
+			"finds the yaw and pitch that point a Spawn's barrel at a target",
+			function()
+				-- a Spawn standing with X up and +Z out: a target straight out
+				-- is yaw 0, one to the Spawn's +Y is yaw 90, one above is pitch up
+				local spawn = CFrame.fromMatrix(Vector3.zero, Vector3.yAxis, Vector3.xAxis, Vector3.zAxis)
+				local yaw, pitch = PostRules.aimAnglesToward(spawn, spawn:PointToWorldSpace(Vector3.new(0, 0, 20)))
+				expect(yaw).toBeCloseTo(0, 4)
+				expect(pitch).toBeCloseTo(0, 4)
+				yaw, pitch = PostRules.aimAnglesToward(spawn, spawn:PointToWorldSpace(Vector3.new(0, 20, 0)))
+				expect(yaw).toBeCloseTo(90, 4)
+				yaw, pitch = PostRules.aimAnglesToward(spawn, spawn:PointToWorldSpace(Vector3.new(20, 0, 20)))
+				expect(yaw).toBeCloseTo(0, 4)
+				expect(pitch).toBeCloseTo(45, 4)
+			end
+		)
+
+		it(
+			"steps a yaw toward a wanted yaw at the turn speed, the short way round",
+			function()
+				expect(PostRules.stepYawToward(170, -170, 10, 1)).toBeCloseTo(180, 5)
+				expect(PostRules.stepYawToward(0, 5, 10, 1)).toBeCloseTo(5, 5)
+			end
+		)
+
+		it(
+			"derives the class posts' stats from their blocks and upgrades",
+			function()
+				local catalog = makeCatalog()
+				catalog.kinds[3] = {
+					UPGRADE_ATTRIBUTES = {},
+					DAMAGE = 100,
+					FIRE_INTERVAL_SEC = 1,
+					FIRE_COOLDOWN_SEC = 0.9,
+					TURN_SPEED_DEGREES_PER_SEC = 10,
+					RANGE_STUDS = 100,
+					FIELD_OF_VIEW = 30,
+					PITCH_MIN_DEGREES = -30,
+					PITCH_MAX_DEGREES = 60,
+					SPIN_UP = { SEC = 1 },
+					CHARGE = { SEC = 2 },
+					PIERCE = { COUNT = 3, COUNT_PER_DAMAGE_LEVEL = 1 },
+					CHAIN = { COUNT = 2, JUMP_STUDS = 10 },
+					PULL = { RADIUS_STUDS = 20, SEC = 3, SPEED_STUDS_PER_SEC = 10 },
+					POOL = { RADIUS_STUDS = 10, SEC = 5, BURN_DAMAGE_PER_SEC = 5, BURN_SEC = 2, TICK_SEC = 0.5 },
+				}
+				local base = PostRules.statsFor(catalog, 3, {})
+				expect(base.spinUpSec).toBe(1)
+				expect(base.chargeSec).toBe(2)
+				expect(base.pierceCount).toBe(3)
+				expect(base.chainJumpStuds).toBe(10)
+				expect(base.pullRadiusStuds).toBe(20)
+				expect(base.poolRadiusStuds).toBe(10)
+				local upgraded = PostRules.statsFor(catalog, 3, { [Enums.PostAttribute.FIRE_RATE] = 1, [Enums.PostAttribute.DAMAGE] = 2, [Enums.PostAttribute.RANGE] = 1 })
+				expect(upgraded.spinUpSec).toBeCloseTo(1 / 1.2, 5)
+				expect(upgraded.chargeSec).toBeCloseTo(2 / 1.2, 5)
+				expect(upgraded.pierceCount).toBe(5)
+				expect(upgraded.chainJumpStuds).toBeCloseTo(12, 5)
+				expect(upgraded.pullRadiusStuds).toBeCloseTo(24, 5)
+				expect(upgraded.poolRadiusStuds).toBeCloseTo(15, 5)
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.MACHINE_GUN, {}).spinUpSec).toBeNil()
+			end
+		)
+	end
+)

@@ -30,6 +30,9 @@ export type SkillSave = {
 export type CharacterSave = {
 	id: string,
 	name: string,
+	-- Enums.ClassKind key name (M64): the class this character is; its kit
+	-- comes from GameData/Classes/Roster, never from the record
+	classKind: string,
 	nightsSurvived: number,
 	-- Enums.GearSlot key name -> the row; every slot is always present
 	gear: { [string]: GearSave },
@@ -43,6 +46,9 @@ export type CharacterSave = {
 -- everything the schema needs from GameData, handed in so the module stays
 -- pure (PlayerData builds it once; tests build their own)
 export type Defaults = {
+	-- Enums.ClassKind value every new character is, and the class a record
+	-- with an unknown one is repaired to (M64)
+	defaultClassKind: number,
 	-- Enums.GearSlot value -> the kind a new character starts with
 	defaultKindByGearSlot: { [number]: number },
 	minStars: number,
@@ -102,6 +108,7 @@ function CharacterSchema.getDefault(defaults: Defaults, id: string, name: string
 	return {
 		id = id,
 		name = name,
+		classKind = Enums.getName(Enums.ClassKind, defaults.defaultClassKind) :: string,
 		nightsSurvived = 0,
 		gear = getDefaultGear(defaults),
 		skills = {},
@@ -234,6 +241,12 @@ function CharacterSchema.validate(record: any, defaults: Defaults, fallbackName:
 		record.name = fallbackName
 		table.insert(repairs, prefix .. "name reset")
 	end
+	if typeof(record.classKind) ~= "string" or Enums.getValueByName(Enums.ClassKind, record.classKind) == nil then
+		-- a save from before classes (M55) or a class since removed from the
+		-- enum: it becomes the default class rather than being dropped
+		record.classKind = Enums.getName(Enums.ClassKind, defaults.defaultClassKind)
+		table.insert(repairs, prefix .. "classKind reset")
+	end
 	if not Validate.isValueType(record.nightsSurvived, "nonnegativeInteger") then
 		record.nightsSurvived = 0
 		table.insert(repairs, prefix .. "nightsSurvived reset")
@@ -252,6 +265,12 @@ function CharacterSchema.validate(record: any, defaults: Defaults, fallbackName:
 	end
 
 	return record
+end
+
+-- the record's class as its Enums.ClassKind value; a record that passed
+-- validate always resolves, so the fallback only guards an unvalidated one
+function CharacterSchema.getClassKind(record: CharacterSave, defaults: Defaults): number
+	return Enums.getValueByName(Enums.ClassKind, record.classKind) or defaults.defaultClassKind
 end
 
 -- the gear row a GearSlot names, as (kind enum value, stars); the kind is

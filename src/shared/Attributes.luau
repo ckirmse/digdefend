@@ -109,6 +109,9 @@ module = {
 	PICKUP_AMOUNT = "PickupAmount",
 	-- a dropped consumable instead: the Enums.ToolKind lying there
 	PICKUP_TOOL = "PickupTool",
+	-- refined bars on the ground (the Salvage Gun's Iron, 2026-10-16): the
+	-- Enums.RefinedResource, credited straight to whoever walks over it
+	PICKUP_BARS = "PickupBars",
 	-- on each thrown dynamite part (Tags.DYNAMITE): server time it explodes
 	DYNAMITE_EXPLODE_TIME = "DynamiteExplodeTime",
 	-- on every helicopter model (Tags.HELICOPTER): Enums.HelicopterPhase
@@ -134,6 +137,8 @@ module = {
 	CHARACTER_ID = "CharacterId",
 	CHARACTER_NAME = "CharacterName",
 	CHARACTER_NIGHTS_SURVIVED = "CharacterNightsSurvived",
+	-- Enums.ClassKind value (M64)
+	CHARACTER_CLASS_KIND = "CharacterClassKind",
 	CHARACTER_WEAPON_KIND = "CharacterWeaponKind",
 	CHARACTER_WEAPON_STARS = "CharacterWeaponStars",
 	CHARACTER_POST_KIND = "CharacterPostKind",
@@ -313,6 +318,8 @@ module = {
 	WEAPON_MAGAZINE_SIZE = "WeaponMagazineSize",
 	WEAPON_FIRE_INTERVAL_SEC = "WeaponFireIntervalSec",
 	WEAPON_RANGE_STUDS = "WeaponRangeStuds",
+	-- server time the second trigger (a grenade) is ready again; 0 when ready
+	WEAPON_SECONDARY_READY_TIME = "WeaponSecondaryReadyTime",
 	-- CurrentPlayer (private): how many upgrades each weapon attribute has,
 	-- 0 to 4 (WeaponManager, bought at the Weapons Table, 2026-10-01)
 	WEAPON_UPGRADE_DAMAGE = "WeaponUpgradeDamage",
@@ -386,6 +393,13 @@ module = {
 	POST_WEAPON_IS_OVERHEATED = "PostWeaponIsOverheated",
 	-- server time a running reload ends; 0 when loaded
 	POST_WEAPON_RELOAD_END_TIME = "PostWeaponReloadEndTime",
+	-- the class posts (2026-10-16): server time the trigger closed (0 when
+	-- open), for the spin-up and charge bars; the AA Launcher's locks as
+	-- JSON ({ id, share } rows, share 1 once locked); whether nobody mans
+	-- the kind, so the client never offers its Use prompt
+	POST_WEAPON_TRIGGER_TIME = "PostWeaponTriggerTime",
+	POST_WEAPON_LOCKS = "PostWeaponLocks",
+	POST_WEAPON_IS_UNMANNED = "PostWeaponIsUnmanned",
 	-- placements (PlacementManager, M26). GameMetadata: the defense
 	-- catalogue as JSON (PlacementRules codec): every Tower's prices and
 	-- stats by level, every Trap's price and HP, footprints, the grid cell
@@ -444,6 +458,9 @@ module = {
 	-- on a ParticleEmitter in a burst effect template (GameAssets/Effects):
 	-- how many particles one burst emits
 	BURST_COUNT = "BurstCount",
+	-- on a client-flown projectile part: the GameAssets/Effects part to burst
+	-- at its end (ClientProjectileManager)
+	BLAST_TEMPLATE = "BlastTemplate",
 	-- icon capture pipeline (see docs/icon-capture.md, IconFramingFormat, ApplyIconFramings)
 	-- on the Loading ScreenGui; src/first/loading.client.luau uses the literals
 	-- because nothing in ReplicatedStorage has replicated when it runs

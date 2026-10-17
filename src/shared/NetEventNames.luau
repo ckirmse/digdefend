@@ -98,6 +98,8 @@ module = {
 	-- { attribute } at the Weapons Table; answered by { attribute, level, price }
 	TRY_UPGRADE_WEAPON = "TryUpgradeWeapon",
 	NOTIFY_WEAPON_UPGRADED = "NotifyWeaponUpgraded",
+	-- the second trigger (the Assault Rifle's grenade, 2026-10-16)
+	TRY_FIRE_WEAPON_SECONDARY = "TryFireWeaponSecondary",
 	-- where the player is looking, up or down, a few times a second while
 	-- it changes; comes back to everyone as the public AimPitchDegrees
 	TRY_SET_AIM = "TrySetAim",
@@ -114,11 +116,20 @@ module = {
 	TRY_UPGRADE_POST = "TryUpgradePost",
 	NOTIFY_POST_CLAIMED = "NotifyPostClaimed",
 	NOTIFY_POST_WEAPON_FIRED = "NotifyPostWeaponFired",
-	-- a projectile post weapon instead: every client flies the rocket from
-	-- the launch, and the burst says where it ended and how many it hit
-	NOTIFY_POST_ROCKET_LAUNCHED = "NotifyPostRocketLaunched",
-	NOTIFY_POST_ROCKET_EXPLODED = "NotifyPostRocketExploded",
 	NOTIFY_POST_UPGRADED = "NotifyPostUpgraded",
+	-- the class posts (2026-10-16): the trigger held or released (a
+	-- spin-up or a charge starts and ends with it), a pool of fire, an
+	-- armed mine laid and blown, and a magnet pull
+	TRY_SET_POST_TRIGGER = "TrySetPostTrigger",
+	NOTIFY_POST_POOL_STARTED = "NotifyPostPoolStarted",
+	NOTIFY_POST_MINE_PLACED = "NotifyPostMinePlaced",
+	NOTIFY_POST_MINE_REMOVED = "NotifyPostMineRemoved",
+	NOTIFY_POST_PULL = "NotifyPostPull",
+	-- every projectile a weapon or post launches (ProjectileManager,
+	-- 2026-10-16; the post rocket messages of M25 folded into these):
+	-- clients fly a copy from the launch and end it where the server says
+	NOTIFY_PROJECTILE_LAUNCHED = "NotifyProjectileLaunched",
+	NOTIFY_PROJECTILE_ENDED = "NotifyProjectileEnded",
 	-- placements (M26). Building is a request naming the kind, the area, and
 	-- the cell; the server checks Build Mode (the Defense Table), the
 	-- loadout, the Tower limit, the cells, and the Iron, then spawns a

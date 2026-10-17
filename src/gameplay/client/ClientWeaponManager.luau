@@ -16,6 +16,12 @@
 -- WeaponReloadEndTime attributes and as NotifyWeaponFired, which also draws
 -- every other player's shots and confirms this player's hits. R, gamepad X,
 -- or a tap on the ammo readout reloads; an empty magazine reloads by itself.
+-- The class weapons (2026-10-16) read their blocks from the catalogue the
+-- server publishes: a CONE kind (the Flamethrower) draws no tracer and
+-- pulses the flame emitter under its Muzzle every tick, a SCOPE kind (the
+-- Sniper Rifle) zooms the camera while the aim button is held, and a
+-- SECONDARY kind (the Assault Rifle's grenade) lobs on the aim button's
+-- press, on its own cooldown, flown by ClientProjectileManager.
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -62,6 +68,10 @@ export type ClientWeaponManager = typeof(setmetatable(
 		-- shot's timer never switches off a later shot's flash
 		pulseTokenByInstance: { [Instance]: number },
 		isOverlayActive: boolean,
+		catalog: WeaponRules.Catalog?,
+		isScoped: boolean,
+		savedFieldOfView: number?,
+		secondaryReadyTime: number,
 	},
 	ClientWeaponManager
 ))
@@ -100,7 +110,13 @@ local NOTIFY_WEAPON_FIRED_SHAPE = {
 	endPosition = "vector3",
 	isImpact = "boolean",
 	hitId = "string",
+	-- a cone's tick: every body it reached
+	hitIds = { type = "array", elementType = "string", optional = true },
 }
+-- how long a tick keeps the stream weapon's flame emitter on: a little
+-- past the interval, so a held trigger reads as one continuous flame
+local MUZZLE_FLAME_SEC = 0.15
+local DEFAULT_FIELD_OF_VIEW = 70
 
 function ClientWeaponManager:getIsWeaponMode(): boolean
 	return self.isWeaponMode
@@ -119,6 +135,107 @@ end
 
 function ClientWeaponManager:getIsReloading(): boolean
 	return WeaponRules.isReloading(self.reloadEndTime, workspace:GetServerTimeNow())
+end
+
+-- the catalogue entry of a weapon kind, for its class blocks
+function ClientWeaponManager:getKindData(weaponKind: any): WeaponRules.WeaponData?
+	local catalog = self.catalog
+	return if catalog and typeof(weaponKind) == "number" then catalog.kinds[weaponKind] else nil
+end
+
+function ClientWeaponManager:getOwnKindData(): WeaponRules.WeaponData?
+	return self:getKindData(ClientDataManager:getCurrentPlayerAttribute(Attributes.WEAPON_KIND))
+end
+
+-- the flame authored (or built) under a Muzzle attachment, pulsed per tick
+function ClientWeaponManager:playFlameEffects(muzzle: Attachment?)
+	if not muzzle then
+		return
+	end
+	local flame = muzzle:FindFirstChild(Constants.WEAPON_MUZZLE_FLAME_EMITTER)
+	if flame and flame:IsA("ParticleEmitter") then
+		self:pulse(flame, MUZZLE_FLAME_SEC)
+	end
+	local light = muzzle:FindFirstChild(Constants.WEAPON_MUZZLE_FLASH_LIGHT)
+	if light and light:IsA("PointLight") then
+		self:pulse(light, MUZZLE_FLAME_SEC)
+	end
+end
+
+-- the scope (the Sniper Rifle): the camera zooms to the kind's field of
+-- view while the aim button is held and the gun leaves the screen
+function ClientWeaponManager:setScoped(isScoped: boolean)
+	local kindData = self:getOwnKindData()
+	local scope = if kindData then kindData.SCOPE else nil
+	local camera = workspace.CurrentCamera
+	if isScoped == self.isScoped or not camera then
+		return
+	end
+	if isScoped and (not self.isWeaponMode or not scope or self:isManningPost()) then
+		return
+	end
+	self.isScoped = isScoped
+	if isScoped and scope then
+		self.savedFieldOfView = camera.FieldOfView
+		camera.FieldOfView = scope.FIELD_OF_VIEW
+		ClientViewModelManager:hide()
+	else
+		camera.FieldOfView = self.savedFieldOfView or DEFAULT_FIELD_OF_VIEW
+		self.savedFieldOfView = nil
+		self:renderViewModel()
+	end
+end
+
+-- the second trigger (the Assault Rifle's grenade): a request on the aim
+-- button, refused here while the cooldown runs so the hand never asks
+function ClientWeaponManager:fireSecondary()
+	local kindData = self:getOwnKindData()
+	local secondary = if kindData then kindData.SECONDARY else nil
+	local camera = workspace.CurrentCamera
+	if not secondary or not camera or not self.isWeaponMode or self:isManningPost() or self:getIsReloading() then
+		return
+	end
+	local now = workspace:GetServerTimeNow()
+	if self.secondaryReadyTime > now then
+		local weaponSfx = self:getOwnWeaponSfx()
+		if weaponSfx then
+			ClientSoundManager:playSfx(weaponSfx.EMPTY)
+		end
+		return
+	end
+	local origin = camera.CFrame.Position
+	local unitDirection = camera.CFrame.LookVector
+	ClientNetManager:fireServer(
+		NetEventNames.TRY_FIRE_WEAPON_SECONDARY,
+		{
+			origin = origin,
+			direction = unitDirection,
+		}
+	)
+	-- the cooldown is expected until the server's own lands
+	self.secondaryReadyTime = now + secondary.COOLDOWN_SEC
+	local muzzleAttachment = ClientViewModelManager:getMuzzle() or self:findHeldMuzzle(Players.LocalPlayer.Character)
+	self:playMuzzleEffects(muzzleAttachment)
+	ClientViewModelManager:kick()
+	local weaponSfx = self:getOwnWeaponSfx()
+	local launchSound = if weaponSfx then weaponSfx.SECONDARY_FIRE else nil
+	if launchSound then
+		ClientSoundManager:playSfxAt(if muzzleAttachment then muzzleAttachment.WorldPosition else origin, launchSound, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
+	end
+end
+
+-- the aim button: the scope while held on a scope kind, the grenade on
+-- its press on a secondary kind
+function ClientWeaponManager:onAimButton(isDown: boolean)
+	local kindData = self:getOwnKindData()
+	if not kindData then
+		return
+	end
+	if kindData.SCOPE then
+		self:setScoped(isDown)
+	elseif kindData.SECONDARY and isDown then
+		self:fireSecondary()
+	end
 end
 
 -- the weapon's Muzzle attachment on a character's held Tool
@@ -302,6 +419,17 @@ function ClientWeaponManager:fire(isFreshPress: boolean): boolean
 	-- the held Tool is hidden on this client
 	local muzzleAttachment = ClientViewModelManager:getMuzzle() or self:findHeldMuzzle(Players.LocalPlayer.Character)
 	local muzzle = if muzzleAttachment then muzzleAttachment.WorldPosition else origin + unitDirection * FALLBACK_MUZZLE_OFFSET_STUDS
+	local kindData = self:getKindData(weaponKind)
+	if kindData and kindData.CONE then
+		-- a stream: the flame at the nozzle and its roar, no tracer and no
+		-- impact; what it burns flashes when the server says so
+		self:playFlameEffects(muzzleAttachment)
+		local weaponSfx = self:getWeaponSfx(weaponKind)
+		if weaponSfx then
+			ClientSoundManager:playSfxAt(muzzle, weaponSfx.FIRE, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
+		end
+		return true
+	end
 	self:playMuzzleEffects(muzzleAttachment)
 	ClientViewModelManager:kick()
 	local endPosition, impactNormal, impactSurface = self:findLocalEnd(origin, unitDirection, self.rangeStuds)
@@ -327,13 +455,17 @@ function ClientWeaponManager:onWeaponFired(payload: any)
 		warn("ClientWeaponManager: malformed NotifyWeaponFired")
 		return
 	end
-	if payload.hitId ~= "" then
-		ClientDamageableManager:flashHit(payload.hitId)
+	local hitIds: { string } = payload.hitIds or {}
+	if #hitIds == 0 and payload.hitId ~= "" then
+		hitIds = { payload.hitId }
+	end
+	for _, hitId in hitIds do
+		ClientDamageableManager:flashHit(hitId)
 	end
 	if payload.userId == Players.LocalPlayer.UserId then
 		-- this client drew its own shot when it fired; the news is the hit
 		local weaponSfx = self:getWeaponSfx(payload.weaponKind)
-		if payload.hitId ~= "" and weaponSfx then
+		if #hitIds > 0 and weaponSfx then
 			ClientSoundManager:playSfx(weaponSfx.HIT)
 		end
 		return
@@ -345,6 +477,15 @@ function ClientWeaponManager:onWeaponFired(payload: any)
 	local shooter = Players:GetPlayerByUserId(payload.userId)
 	local muzzleAttachment = self:findHeldMuzzle(if shooter then shooter.Character else nil)
 	local muzzle = if muzzleAttachment then muzzleAttachment.WorldPosition else payload.origin
+	local kindData = self:getKindData(payload.weaponKind)
+	if kindData and kindData.CONE then
+		self:playFlameEffects(muzzleAttachment)
+		local weaponSfx = self:getWeaponSfx(payload.weaponKind)
+		if weaponSfx then
+			ClientSoundManager:playSfxAt(muzzle, weaponSfx.FIRE, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
+		end
+		return
+	end
 	self:playMuzzleEffects(muzzleAttachment)
 	-- the server sends no surface, so the same line is cast again here to
 	-- find what the shot landed on and which way it faces. When this
@@ -439,6 +580,9 @@ function ClientWeaponManager:setWeaponMode(isWeaponMode: boolean)
 	if self.isWeaponMode == isWeaponMode then
 		return
 	end
+	if not isWeaponMode then
+		self:setScoped(false)
+	end
 	self.isWeaponMode = isWeaponMode
 	ClientMiningManager:setReticleBorrowed(RETICLE_BORROWER, isWeaponMode)
 	if not isWeaponMode and self.holdInput then
@@ -465,6 +609,19 @@ function ClientWeaponManager:init()
 	else
 		warn("ClientWeaponManager: no WeaponHud ScreenGui with an AmmoButton; run scripts/studio/build_weapon_hud_gui.luau")
 	end
+
+	self.catalog = WeaponRules.decodeCatalog(ClientDataManager:getGameMetadata(Attributes.WEAPON_CATALOG))
+	ClientDataManager:subscribeGameMetadataAttribute(
+		Attributes.WEAPON_CATALOG,
+		function(value: any)
+			self.catalog = WeaponRules.decodeCatalog(value)
+		end
+	)
+	local function applySecondaryReady(value: any)
+		self.secondaryReadyTime = if typeof(value) == "number" then value else 0
+	end
+	applySecondaryReady(ClientDataManager:getCurrentPlayerAttribute(Attributes.WEAPON_SECONDARY_READY_TIME))
+	ClientDataManager:subscribeCurrentPlayerAttribute(Attributes.WEAPON_SECONDARY_READY_TIME, applySecondaryReady)
 
 	self:readTuning()
 	for _, key in { Attributes.WEAPON_MAGAZINE_SIZE, Attributes.WEAPON_FIRE_INTERVAL_SEC, Attributes.WEAPON_RANGE_STUDS } do
@@ -521,6 +678,17 @@ function ClientWeaponManager:init()
 			if input.KeyCode == Enum.KeyCode.R or input.KeyCode == Enum.KeyCode.ButtonX then
 				self:requestReload()
 			end
+			-- the aim button: the right mouse button, or the left trigger
+			if input.UserInputType == Enum.UserInputType.MouseButton2 or input.KeyCode == Enum.KeyCode.ButtonL2 then
+				self:onAimButton(true)
+			end
+		end
+	)
+	UserInputService.InputEnded:Connect(
+		function(input: InputObject)
+			if input.UserInputType == Enum.UserInputType.MouseButton2 or input.KeyCode == Enum.KeyCode.ButtonL2 then
+				self:onAimButton(false)
+			end
 		end
 	)
 
@@ -553,6 +721,10 @@ function ClientWeaponManager.new(): ClientWeaponManager
 	self.reloadRenderToken = 0
 	self.pulseTokenByInstance = {}
 	self.isOverlayActive = false
+	self.catalog = nil
+	self.isScoped = false
+	self.savedFieldOfView = nil
+	self.secondaryReadyTime = 0
 	return self
 end
 

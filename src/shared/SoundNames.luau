@@ -9,6 +9,10 @@ export type WeaponSfx = {
 	RELOAD: string,
 	EMPTY: string,
 	HIT: string,
+	-- a weapon with a secondary launcher (the Assault Rifle's grenade):
+	-- its launch and its burst
+	SECONDARY_FIRE: string?,
+	SECONDARY_EXPLODE: string?,
 }
 
 export type PostWeaponSfx = {
@@ -17,6 +21,9 @@ export type PostWeaponSfx = {
 	-- projectile kinds only: the 3D loop on the rocket in flight and the burst
 	FLIGHT: string?,
 	EXPLODE: string?,
+	-- the Minigun's spin-up, the Railgun's charge, the AA Launcher's lock
+	-- tone: the gunner's own, 2D, played where the mechanic starts
+	WINDUP: string?,
 }
 
 local sfx = {
@@ -49,6 +56,26 @@ local sfx = {
 	RIFLE_RELOAD = "RifleReload",
 	RIFLE_EMPTY = "RifleEmpty",
 	RIFLE_HIT = "RifleHit",
+	-- the class weapons (2026-10-16), the same four each; the Assault
+	-- Rifle's grenade adds a launch and a burst
+	PISTOL_FIRE = "PistolFire",
+	PISTOL_RELOAD = "PistolReload",
+	PISTOL_EMPTY = "PistolEmpty",
+	PISTOL_HIT = "PistolHit",
+	SNIPER_FIRE = "SniperFire",
+	SNIPER_RELOAD = "SniperReload",
+	SNIPER_EMPTY = "SniperEmpty",
+	SNIPER_HIT = "SniperHit",
+	FLAMETHROWER_FIRE = "FlamethrowerFire",
+	FLAMETHROWER_RELOAD = "FlamethrowerReload",
+	FLAMETHROWER_EMPTY = "FlamethrowerEmpty",
+	FLAMETHROWER_HIT = "FlamethrowerHit",
+	ASSAULT_RIFLE_FIRE = "AssaultRifleFire",
+	ASSAULT_RIFLE_RELOAD = "AssaultRifleReload",
+	ASSAULT_RIFLE_EMPTY = "AssaultRifleEmpty",
+	ASSAULT_RIFLE_HIT = "AssaultRifleHit",
+	ASSAULT_RIFLE_GRENADE_FIRE = "AssaultRifleGrenadeFire",
+	ASSAULT_RIFLE_GRENADE_EXPLODE = "AssaultRifleGrenadeExplode",
 	JET_PACK_BURN = "JetPackBurn",
 	-- M25: post weapons have no magazine, so two sounds each: fire (3D from
 	-- the muzzle, one clip per shot) and the gunner's hit confirm. Named
@@ -59,6 +86,40 @@ local sfx = {
 	ROCKET_LAUNCHER_HIT = "Post_RocketLauncher_Hit",
 	ROCKET_LAUNCHER_FLIGHT = "Post_RocketLauncher_Flight",
 	ROCKET_LAUNCHER_EXPLODE = "Post_RocketLauncher_Explode",
+	-- the class posts (2026-10-16): fire and hit each; a projectile kind
+	-- adds its flight loop and burst, the Minigun its spin-up, the Railgun
+	-- its charge, the AA Launcher its lock tone
+	MINI_GUN_FIRE = "Post_Minigun_Fire",
+	MINI_GUN_HIT = "Post_Minigun_Hit",
+	MINI_GUN_SPIN = "Post_Minigun_Spin",
+	RAIL_GUN_FIRE = "Post_Railgun_Fire",
+	RAIL_GUN_HIT = "Post_Railgun_Hit",
+	RAIL_GUN_CHARGE = "Post_Railgun_Charge",
+	MORTAR_FIRE = "Post_Mortar_Fire",
+	MORTAR_HIT = "Post_Mortar_Hit",
+	MORTAR_FLIGHT = "Post_Mortar_Flight",
+	MORTAR_EXPLODE = "Post_Mortar_Explode",
+	AA_LAUNCHER_FIRE = "Post_AALauncher_Fire",
+	AA_LAUNCHER_HIT = "Post_AALauncher_Hit",
+	AA_LAUNCHER_FLIGHT = "Post_AALauncher_Flight",
+	AA_LAUNCHER_EXPLODE = "Post_AALauncher_Explode",
+	AA_LAUNCHER_LOCK = "Post_AALauncher_Lock",
+	MACHINE_GUN_AUTOMATED_FIRE = "Post_AutoMachineGun_Fire",
+	MACHINE_GUN_AUTOMATED_HIT = "Post_AutoMachineGun_Hit",
+	MINE_LAYER_FIRE = "Post_MineLayer_Fire",
+	MINE_LAYER_HIT = "Post_MineLayer_Hit",
+	MINE_LAYER_FLIGHT = "Post_MineLayer_Flight",
+	MINE_LAYER_EXPLODE = "Post_MineLayer_Explode",
+	TESLA_ARC_FIRE = "Post_TeslaArc_Fire",
+	TESLA_ARC_HIT = "Post_TeslaArc_Hit",
+	SALVAGE_GUN_FIRE = "Post_SalvageGun_Fire",
+	SALVAGE_GUN_HIT = "Post_SalvageGun_Hit",
+	SAW_GUN_FIRE = "Post_SawGun_Fire",
+	SAW_GUN_HIT = "Post_SawGun_Hit",
+	SAW_GUN_FLIGHT = "Post_SawGun_Flight",
+	SAW_GUN_EXPLODE = "Post_SawGun_Explode",
+	MAGNET_GUN_FIRE = "Post_MagnetGun_Fire",
+	MAGNET_GUN_HIT = "Post_MagnetGun_Hit",
 	-- the machinery whirring while the gunner turns or tilts their post
 	-- weapon: a 2D loop for the gunner only, playing only while the aim
 	-- moves, so the slow view reads as the machine moving (decided 2026-09-18)
@@ -113,6 +174,32 @@ local weaponSfxByKindName: { [string]: WeaponSfx } = {
 		EMPTY = sfx.RIFLE_EMPTY,
 		HIT = sfx.RIFLE_HIT,
 	},
+	PISTOL = {
+		FIRE = sfx.PISTOL_FIRE,
+		RELOAD = sfx.PISTOL_RELOAD,
+		EMPTY = sfx.PISTOL_EMPTY,
+		HIT = sfx.PISTOL_HIT,
+	},
+	SNIPER = {
+		FIRE = sfx.SNIPER_FIRE,
+		RELOAD = sfx.SNIPER_RELOAD,
+		EMPTY = sfx.SNIPER_EMPTY,
+		HIT = sfx.SNIPER_HIT,
+	},
+	FLAMETHROWER = {
+		FIRE = sfx.FLAMETHROWER_FIRE,
+		RELOAD = sfx.FLAMETHROWER_RELOAD,
+		EMPTY = sfx.FLAMETHROWER_EMPTY,
+		HIT = sfx.FLAMETHROWER_HIT,
+	},
+	ASSAULT_RIFLE = {
+		FIRE = sfx.ASSAULT_RIFLE_FIRE,
+		RELOAD = sfx.ASSAULT_RIFLE_RELOAD,
+		EMPTY = sfx.ASSAULT_RIFLE_EMPTY,
+		HIT = sfx.ASSAULT_RIFLE_HIT,
+		SECONDARY_FIRE = sfx.ASSAULT_RIFLE_GRENADE_FIRE,
+		SECONDARY_EXPLODE = sfx.ASSAULT_RIFLE_GRENADE_EXPLODE,
+	},
 }
 
 -- each post weapon's sound set, by its Enums.PostWeaponKind key;
@@ -127,6 +214,57 @@ local postWeaponSfxByKindName: { [string]: PostWeaponSfx } = {
 		HIT = sfx.ROCKET_LAUNCHER_HIT,
 		FLIGHT = sfx.ROCKET_LAUNCHER_FLIGHT,
 		EXPLODE = sfx.ROCKET_LAUNCHER_EXPLODE,
+	},
+	MINI_GUN = {
+		FIRE = sfx.MINI_GUN_FIRE,
+		HIT = sfx.MINI_GUN_HIT,
+		WINDUP = sfx.MINI_GUN_SPIN,
+	},
+	RAIL_GUN = {
+		FIRE = sfx.RAIL_GUN_FIRE,
+		HIT = sfx.RAIL_GUN_HIT,
+		WINDUP = sfx.RAIL_GUN_CHARGE,
+	},
+	MORTAR = {
+		FIRE = sfx.MORTAR_FIRE,
+		HIT = sfx.MORTAR_HIT,
+		FLIGHT = sfx.MORTAR_FLIGHT,
+		EXPLODE = sfx.MORTAR_EXPLODE,
+	},
+	AA_LAUNCHER = {
+		FIRE = sfx.AA_LAUNCHER_FIRE,
+		HIT = sfx.AA_LAUNCHER_HIT,
+		FLIGHT = sfx.AA_LAUNCHER_FLIGHT,
+		EXPLODE = sfx.AA_LAUNCHER_EXPLODE,
+		WINDUP = sfx.AA_LAUNCHER_LOCK,
+	},
+	MACHINE_GUN_AUTOMATED = {
+		FIRE = sfx.MACHINE_GUN_AUTOMATED_FIRE,
+		HIT = sfx.MACHINE_GUN_AUTOMATED_HIT,
+	},
+	MINE_LAYER = {
+		FIRE = sfx.MINE_LAYER_FIRE,
+		HIT = sfx.MINE_LAYER_HIT,
+		FLIGHT = sfx.MINE_LAYER_FLIGHT,
+		EXPLODE = sfx.MINE_LAYER_EXPLODE,
+	},
+	TESLA_ARC = {
+		FIRE = sfx.TESLA_ARC_FIRE,
+		HIT = sfx.TESLA_ARC_HIT,
+	},
+	SALVAGE_GUN = {
+		FIRE = sfx.SALVAGE_GUN_FIRE,
+		HIT = sfx.SALVAGE_GUN_HIT,
+	},
+	SAW_GUN = {
+		FIRE = sfx.SAW_GUN_FIRE,
+		HIT = sfx.SAW_GUN_HIT,
+		FLIGHT = sfx.SAW_GUN_FLIGHT,
+		EXPLODE = sfx.SAW_GUN_EXPLODE,
+	},
+	MAGNET_GUN = {
+		FIRE = sfx.MAGNET_GUN_FIRE,
+		HIT = sfx.MAGNET_GUN_HIT,
 	},
 }
 

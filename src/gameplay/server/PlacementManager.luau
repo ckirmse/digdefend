@@ -33,6 +33,7 @@ local Players = game:GetService("Players")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local ClassRules = require("@game/ReplicatedStorage/Shared/ClassRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PlacementRules = require("@game/ReplicatedStorage/Shared/PlacementRules")
@@ -192,12 +193,11 @@ function PlacementManager:resolveTowerLoadout(player: Player): { number }
 	if override and #override > 0 then
 		return override
 	end
-	-- the character's two Tower rows (GDD "Characters", 2026-10-12); the
-	-- same kind in both rows is offered once
-	local kinds = { CharacterManager:getGearKind(player, Enums.GearSlot.TOWER_1, TowersData.DEFAULT_TOWER) }
-	local second = CharacterManager:getGearKind(player, Enums.GearSlot.TOWER_2, TowersData.DEFAULT_SECOND_TOWER)
-	if not table.find(kinds, second) then
-		table.insert(kinds, second)
+	-- the class's towers (GDD "Classes", M64): one or two kinds, each once;
+	-- a player with no class data builds the default tower
+	local kinds = CharacterManager:getClassTowerKinds(player)
+	if #kinds == 0 then
+		table.insert(kinds, TowersData.DEFAULT_TOWER)
 	end
 	return kinds
 end
@@ -394,7 +394,10 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 			return
 		end
 	end
-	local price = PlacementRules.buildPrice(self.catalog, placementKind, typeKind)
+	-- the class scales the build price, a tower's and a trap's each by its
+	-- own modifier (M64); the Build Mode menu still shows the catalog price
+	local priceModifier = if placementKind == Enums.PlacementKind.TOWER then Enums.ClassModifier.TOWER_BUILD_COST else Enums.ClassModifier.TRAP_COST
+	local price = ClassRules.scaleAmount(PlacementRules.buildPrice(self.catalog, placementKind, typeKind), CharacterManager:getModifier(player, priceModifier))
 	if not PlacementRules.canAfford(RefineryManager:getIronBars(player), price) or not RefineryManager:spendIronBars(player, price) then
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_IRON)
 		return
@@ -531,8 +534,11 @@ function PlacementManager:repairPlacement(player: Player, id: string)
 	if not StructureRules.canSwing(self.lastSwingTimeByPlayer[player], now, StructuresData.HAMMER_HIT_COOLDOWN_SEC) then
 		return
 	end
-	-- a placement repairs at the first tier's chunk whatever its level
+	-- a placement repairs at the first tier's chunk whatever its level; the
+	-- class scales the chunk a swing gains and the Iron it costs (M64)
 	local chunkHp, chunkIron = StructureRules.repairChunkForTier(StructuresData.REPAIR_CHUNK_HP_BY_TIER, StructuresData.REPAIR_CHUNK_IRON_BY_TIER, 1)
+	chunkHp = ClassRules.scaleAmount(chunkHp, CharacterManager:getModifier(player, Enums.ClassModifier.REPAIR_SPEED))
+	chunkIron = ClassRules.scaleAmount(chunkIron, CharacterManager:getModifier(player, Enums.ClassModifier.REPAIR_COST))
 	local gained, cost = StructureRules.repairChunk(placement.maxHp, placement.hp, chunkHp, chunkIron)
 	if gained <= 0 then
 		return

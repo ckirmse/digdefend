@@ -54,6 +54,8 @@ export type GearData = {
 export type CharacterData = {
 	id: string,
 	name: string,
+	-- Enums.ClassKind value (M64); 0 before the attribute lands
+	classKind: number,
 	nightsSurvived: number,
 	-- Enums.GearSlot value -> the kind's enum value and its stars
 	gear: { [number]: GearData },
@@ -166,6 +168,7 @@ local function readCharacter(instance: Instance): CharacterData
 	return {
 		id = (instance:GetAttribute(Attributes.CHARACTER_ID) :: string?) or "",
 		name = (instance:GetAttribute(Attributes.CHARACTER_NAME) :: string?) or "",
+		classKind = (instance:GetAttribute(Attributes.CHARACTER_CLASS_KIND) :: number?) or 0,
 		nightsSurvived = (instance:GetAttribute(Attributes.CHARACTER_NIGHTS_SURVIVED) :: number?) or 0,
 		gear = gear,
 		skillSlotsOpen = (instance:GetAttribute(Attributes.CHARACTER_SKILL_SLOTS_OPEN) :: number?) or 0,

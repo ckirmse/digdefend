@@ -38,6 +38,7 @@ local ClientTowerBehaviorManager = require(script.Parent.ClientTowerBehaviorMana
 local ClientTrapBehaviorManager = require(script.Parent.ClientTrapBehaviorManager)
 local ClientPostDevTools = require(script.Parent.ClientPostDevTools)
 local ClientPostManager = require(script.Parent.ClientPostManager)
+local ClientProjectileManager = require(script.Parent.ClientProjectileManager)
 local ClientPostUpgradeManager = require(script.Parent.ClientPostUpgradeManager)
 local ClientRefineryHpManager = require(script.Parent.ClientRefineryHpManager)
 local ClientRefineryManager = require(script.Parent.ClientRefineryManager)
@@ -86,6 +87,8 @@ ClientImpactManager:init()
 ClientWeaponManager:init()
 ClientAimManager:init()
 -- after the weapon manager, whose tracer and muzzle effects it borrows
+-- flies every launched projectile the posts and the weapon announce
+ClientProjectileManager:init()
 ClientPostManager:init()
 ClientPostUpgradeManager:init()
 ClientWeaponUpgradeManager:init()

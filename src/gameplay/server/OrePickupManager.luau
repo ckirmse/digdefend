@@ -7,15 +7,20 @@
 -- and amount attributes; clients draw the visual. Pickups expire, and the
 -- oldest go first past a cap. A torch knocked off a broken block is the same
 -- thing with a tool attribute instead of a resource; anyone can take those.
+-- Refined bars (the Salvage Gun's Iron, 2026-10-16) are the same again
+-- with a bars attribute: they need no backpack room and go straight to
+-- the taker's Refinery balance.
 local CollectionService = game:GetService("CollectionService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local BackpackData = require("@game/ServerScriptService/GameData/Mining/Backpack")
 local GameController = require(script.Parent.Parent.Server.GameController)
 local BackpackManager = require(script.Parent.BackpackManager)
 local MineManager = require(script.Parent.MineManager)
+local RefineryManager = require(script.Parent.RefineryManager)
 local ToolManager = require(script.Parent.ToolManager)
 
 local OrePickupManager = {}
@@ -26,6 +31,8 @@ type Pickup = {
 	-- exactly one of these is set
 	resource: number?,
 	tool: number?,
+	-- Enums.RefinedResource
+	bars: number?,
 	amount: number,
 	createdAt: number,
 }
@@ -126,6 +133,24 @@ function OrePickupManager:drop(position: Vector3, resource: number, amount: numb
 		part = part,
 		resource = resource,
 		tool = nil,
+		bars = nil,
+		amount = amount,
+		createdAt = workspace:GetServerTimeNow(),
+	})
+end
+
+-- refined bars on the ground (the Salvage Gun's Iron)
+function OrePickupManager:dropBars(position: Vector3, refinedResource: number, amount: number)
+	if amount <= 0 then
+		return
+	end
+	local part = self:makePart(position)
+	part:SetAttribute(Attributes.PICKUP_BARS, refinedResource)
+	self:addPickup({
+		part = part,
+		resource = nil,
+		tool = nil,
+		bars = refinedResource,
 		amount = amount,
 		createdAt = workspace:GetServerTimeNow(),
 	})
@@ -142,22 +167,31 @@ function OrePickupManager:dropTool(position: Vector3, tool: number, amount: numb
 		part = part,
 		resource = nil,
 		tool = tool,
+		bars = nil,
 		amount = amount,
 		createdAt = workspace:GetServerTimeNow(),
 	})
 end
 
--- tool pickups need no backpack room, so they are taken by anyone passing
+-- tool and bar pickups need no backpack room, so they are taken by anyone
+-- passing: a tool into the tool bar, bars onto the Refinery balance
 function OrePickupManager:pollTools(player: Player, rootPosition: Vector3, radius: number)
 	local index = 1
 	while index <= #self.pickups do
 		local pickup = self.pickups[index]
 		local tool = pickup.tool
-		if not tool or (pickup.part.Position - rootPosition).Magnitude > radius then
+		local bars = pickup.bars
+		if (not tool and not bars) or (pickup.part.Position - rootPosition).Magnitude > radius then
 			index += 1
 			continue
 		end
-		ToolManager:addConsumable(player, tool, pickup.amount)
+		if tool then
+			ToolManager:addConsumable(player, tool, pickup.amount)
+		elseif bars == Enums.RefinedResource.IRON_BAR then
+			RefineryManager:addIronBars(player, pickup.amount)
+		elseif bars == Enums.RefinedResource.GOLD_BAR then
+			RefineryManager:addGoldBars(player, pickup.amount)
+		end
 		self:remove(index)
 	end
 end
