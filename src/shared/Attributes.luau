@@ -43,6 +43,21 @@ module = {
 	-- on the held Tool instance ToolManager builds: the GameAssets/Tools
 	-- template it came from, so an upgrade rebuilds it
 	TOOL_TEMPLATE = "ToolTemplate",
+	-- the Enums.GadgetKind in the GADGET slot (M66), public and private
+	-- like the weapon kind, so the bar names it ("AUTO TURRET")
+	GADGET_KIND = "GadgetKind",
+	-- CurrentPlayer (M66): true from an Auto Turret's loss until the next
+	-- dawn, when it may be placed again
+	AUTO_TURRET_IS_LOST = "AutoTurretIsLost",
+	-- CurrentPlayer (M67): the class gadget's level this run, from 1
+	GADGET_LEVEL = "GadgetLevel",
+	-- GameMetadata (M67): JSON of each upgradable gadget's Iron prices
+	-- (GadgetRules codec); a gadget absent from it has no upgrade row
+	GADGET_UPGRADE_CATALOG = "GadgetUpgradeCatalog",
+	-- GameMetadata (M66): the ghost's distance ahead of the player and the
+	-- flattest slope that counts as ground
+	AUTO_TURRET_PLACE_DISTANCE_STUDS = "AutoTurretPlaceDistanceStuds",
+	AUTO_TURRET_MIN_GROUND_NORMAL_Y = "AutoTurretMinGroundNormalY",
 	-- Mining Supplies Store upgrade tracks (M21): private run state
 	BOOTS_LEVEL = "BootsLevel",
 	JET_PACK_LEVEL = "JetPackLevel",
@@ -455,6 +470,13 @@ module = {
 	PLACEMENT_IS_ATTACKING = "PlacementIsAttacking",
 	PLACEMENT_TRAP_STATE = "PlacementTrapState",
 	PLACEMENT_DRAWS_ATTACKS = "PlacementDrawsAttacks",
+	-- on an Auto Turret shadow (AutoTurretManager, M66): whose it is, its
+	-- HP, and its head's yaw about its base (as a Tower's)
+	AUTO_TURRET_OWNER_USER_ID = "AutoTurretOwnerUserId",
+	AUTO_TURRET_HP = "AutoTurretHp",
+	AUTO_TURRET_MAX_HP = "AutoTurretMaxHp",
+	AUTO_TURRET_YAW_DEGREES = "AutoTurretYawDegrees",
+	AUTO_TURRET_LEVEL = "AutoTurretLevel",
 	-- on a ParticleEmitter in a burst effect template (GameAssets/Effects):
 	-- how many particles one burst emits
 	BURST_COUNT = "BurstCount",

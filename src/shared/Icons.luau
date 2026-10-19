@@ -31,6 +31,8 @@ Icons.REFINED_RESOURCE = {
 -- without one borrows the mining dot (ClientPostManager)
 Icons.POST_WEAPON_RETICLE = {
 	[Enums.PostWeaponKind.MACHINE_GUN] = "rbxassetid://134742178329103",
+	-- the Minigun shares the Machine Gun's reticle (2026-10-19)
+	[Enums.PostWeaponKind.MINI_GUN] = "rbxassetid://134742178329103",
 	[Enums.PostWeaponKind.ROCKET_LAUNCHER] = "rbxassetid://105502906242582",
 }
 
@@ -44,6 +46,11 @@ Icons.TOOL = {
 -- the WEAPON slot's picture, by the Enums.WeaponKind carried
 Icons.WEAPON = {
 	[Enums.WeaponKind.RIFLE] = "rbxassetid://71757532147550",
+}
+
+-- the GADGET slot's picture, by the Enums.GadgetKind carried (M66)
+Icons.GADGET = {
+	[Enums.GadgetKind.AUTO_TURRET] = "rbxassetid://84791820127176",
 }
 
 -- the character sheet's gear cards show the item, never its type (designer,

@@ -41,6 +41,7 @@ local PartyRules = require("@game/ReplicatedStorage/Shared/PartyRules")
 local ReviveRules = require("@game/ReplicatedStorage/Shared/ReviveRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local RevivesData = require("@game/ServerScriptService/GameData/Run/Revives")
+local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -294,14 +295,38 @@ function ReviveManager:announce(message: string, isAlert: boolean)
 	end
 end
 
+-- the class scales the base health (M64, 2026-10-19), rounded so the HP
+-- bar never shows a fraction
+function ReviveManager:getMaxHealth(player: Player): number
+	local healthScale: number = CharacterManager:getModifier(player, Enums.ClassModifier.MAX_HEALTH)
+	return math.max(1, math.floor(RevivesData.PLAYER_MAX_HEALTH * healthScale + 0.5))
+end
+
+-- a class change mid-run (the dev tool): the maximum follows, and the
+-- health keeps its share of the bar so a swap never heals or wounds
+function ReviveManager:applyClass(player: Player)
+	local character = player.Character
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	if not humanoid or humanoid.MaxHealth <= 0 then
+		return
+	end
+	local share = humanoid.Health / humanoid.MaxHealth
+	local maxHealth = self:getMaxHealth(player)
+	humanoid.MaxHealth = maxHealth
+	if humanoid.Health > 0 then
+		humanoid.Health = math.max(1, math.floor(maxHealth * share + 0.5))
+	end
+end
+
 -- full health, and no regeneration: there is no healing in a run
 function ReviveManager:setUpCharacter(player: Player, character: Model)
 	local humanoid = character:WaitForChild("Humanoid", CHARACTER_WAIT_SEC)
 	if not humanoid or not humanoid:IsA("Humanoid") then
 		return
 	end
-	humanoid.MaxHealth = RevivesData.PLAYER_MAX_HEALTH
-	humanoid.Health = RevivesData.PLAYER_MAX_HEALTH
+	local maxHealth = self:getMaxHealth(player)
+	humanoid.MaxHealth = maxHealth
+	humanoid.Health = maxHealth
 	task.spawn(
 		function()
 			local regeneration = character:WaitForChild(REGENERATION_SCRIPT, CHARACTER_WAIT_SEC)
@@ -962,6 +987,13 @@ function ReviveManager:fetchPrices()
 end
 
 function ReviveManager:init()
+	CharacterManager:subscribeClassChanged(
+		function(player: Player, _classKind: number)
+			self:applyClass(player)
+		end
+	)
+	-- the base before any class scale; a client wanting a player's own
+	-- maximum reads their Humanoid
 	SplendidReplicationManager:setGameMetadata(Attributes.PLAYER_MAX_HEALTH, RevivesData.PLAYER_MAX_HEALTH)
 	SplendidReplicationManager:setGameMetadata(Attributes.IS_CREW_WIPED, false)
 	SplendidReplicationManager:setGameMetadata(Attributes.GAME_OVER_HOLD_SEC, RevivesData.GAME_OVER_HOLD_SEC)

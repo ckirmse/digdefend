@@ -124,6 +124,9 @@ module = {
 		-- equipping it is Repair Mode (M23): structure HP shows and every
 		-- swing repairs what the reticle is on
 		HAMMER = 5,
+		-- the class's gadget (GDD "Classes", M66): one slot, filled by the
+		-- Enums.GadgetKind the class carries (the GadgetKind attribute)
+		GADGET = 6,
 
 		PublicNames = {
 			PICK_AXE = "Pick Axe",
@@ -131,6 +134,7 @@ module = {
 			TORCH = "Torch",
 			DYNAMITE = "Dynamite",
 			HAMMER = "Hammer",
+			GADGET = "Gadget",
 		},
 	},
 	-- handheld weapons (GDD S12), M24. The WEAPON tool slot holds one of
@@ -648,9 +652,12 @@ module = {
 	-- HANDHELD_DAMAGE (WeaponManager), POST_DAMAGE (PostManager),
 	-- TOWER_BUILD_COST and TRAP_COST (PlacementManager), REPAIR_SPEED and
 	-- REPAIR_COST (StructureManager, PlacementManager), BACKPACK_CAPACITY
-	-- (BackpackManager), MOVE_SPEED (BootsManager). The rest are recorded
-	-- in the roster for content that does not exist yet and do nothing
-	-- until their system reads them
+	-- (BackpackManager), MOVE_SPEED (BootsManager), MAX_HEALTH
+	-- (ReviveManager, 2026-10-19). The rest are recorded in the roster for
+	-- content that does not exist yet and do nothing until their system
+	-- reads them. MOVE_SPEED and MINING_POWER are the core stats every
+	-- class states outright (ClassRules.CORE_MODIFIERS); MAX_HEALTH is
+	-- applied but no class sets it (dropped as a core stat 2026-10-19)
 	ClassModifier = {
 		MINING_POWER = 1,
 		HANDHELD_DAMAGE = 2,
@@ -669,6 +676,7 @@ module = {
 		BURN_DURATION = 14,
 		TOWER_FIRE_RATE = 15,
 		DYNAMITE_DAMAGE = 16,
+		MAX_HEALTH = 17,
 
 		PublicNames = {
 			MINING_POWER = "Mining Power",
@@ -687,6 +695,7 @@ module = {
 			BURN_DURATION = "Burn Length",
 			TOWER_FIRE_RATE = "Tower Fire Rate",
 			DYNAMITE_DAMAGE = "Dynamite Damage",
+			MAX_HEALTH = "Health",
 		},
 	},
 	-- the class-only tool each class carries (GDD "Classes"; M64). Named

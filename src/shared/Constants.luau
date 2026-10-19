@@ -353,6 +353,10 @@ Constants.POST_WEAPON_HANDLE_LEFT_PART = "HandleLeft"
 Constants.POST_WEAPON_HANDLE_RIGHT_PART = "HandleRight"
 Constants.POST_WEAPON_CAMERA_PART = "CameraLocation"
 Constants.POST_WEAPON_MUZZLE_ATTACHMENT = "MuzzleAttachment"
+-- optional: a part that rides the gun and spins about its own X axis while
+-- the post fires (the Minigun's barrel cluster, 2026-10-19); a template
+-- without one has nothing that spins
+Constants.POST_WEAPON_BARREL_PART = "Barrel"
 -- projectile models under GameAssets (a rocket): one part with a
 -- TailAttachment; the nose is the far end from it. The trail is authored
 -- as ParticleEmitters (and lights) under the attachment; a bare attachment
@@ -922,5 +926,23 @@ Constants.GIVE_CURRENCY_IRON_AMOUNT = "IronAmount"
 Constants.GIVE_CURRENCY_AMOUNT_VALUE_LABEL = "Value"
 Constants.GIVE_CURRENCY_CONFIRM_BUTTON = "ConfirmButton"
 Constants.GIVE_CURRENCY_BACK_BUTTON = "BackButton"
+
+-- gadgets (M66): the template folder under GameAssets and the Auto
+-- Turret's parts (the designer's model: the head carries the muzzle, the
+-- Stand is the base), its server shadow folder, and its prompt text
+Constants.GADGET_TEMPLATES_FOLDER = "Gadgets"
+Constants.AUTO_TURRET_TEMPLATE = "AUTO_TURRET"
+Constants.AUTO_TURRET_HEAD_PART = "MachineGun"
+Constants.AUTO_TURRET_BASE_PART = "Stand"
+Constants.AUTO_TURRET_MUZZLE_ATTACHMENT = "MuzzleAttachment"
+Constants.AUTO_TURRET_SHADOW_FOLDER = "AutoTurretShadows"
+Constants.AUTO_TURRET_PICK_UP_ACTION_TEXT = "Pick Up"
+-- the tool bar's grey cooldown sheet over a slot (build_tool_bar_gui)
+Constants.TOOL_SLOT_COOLDOWN_OVERLAY = "CooldownOverlay"
+-- the gadget block of the Post & Gadget Upgrades menu (M67): its heading
+-- in the List, authored by build_post_upgrade_menu_gui; the row is a
+-- RowTemplate clone named here
+Constants.UPGRADE_MENU_GADGET_TITLE_LABEL = "GadgetTitle"
+Constants.UPGRADE_MENU_GADGET_ROW = "Gadget"
 
 return Constants

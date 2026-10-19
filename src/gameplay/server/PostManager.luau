@@ -1041,7 +1041,8 @@ function PostManager:tryBeginShot(post: Post, data: PostRules.KindData, stats: P
 	end
 	if data.HEAT then
 		local currentHeat = PostRules.cooledHeat(post.heat, post.lastFireTime, now, stats.fireIntervalSec, stats.coolSec or data.HEAT.COOL_SEC)
-		local isFired, newHeat, isOverheated = PostRules.heatAfterShot(currentHeat, post.isOverheated, data.HEAT, stats.fireIntervalSec)
+		local elapsedSec = if post.lastFireTime then now - post.lastFireTime else nil
+		local isFired, newHeat, isOverheated = PostRules.heatAfterShot(currentHeat, post.isOverheated, data.HEAT, stats.fireIntervalSec, elapsedSec)
 		if not isFired then
 			return false
 		end
@@ -1199,6 +1200,42 @@ function PostManager:claim(player: Player, post: Post)
 		price = price,
 	})
 	print(`[PostManager] {player.Name} claimed post {post.index} with a {Enums.getPublicName(Enums.PostWeaponKind, post.weaponKind)} for {price} Gold`)
+end
+
+-- a class change mid-run (the dev tool): the loadout attribute follows,
+-- and a claimed post is rebuilt as the new class's weapon in place. The
+-- gunner is dismounted first, since the rig and prompt belong to the model
+function PostManager:applyClass(player: Player)
+	local post = self:getOwnedPost(player)
+	if not post then
+		if player.Parent then
+			self:replicatePlayer(player)
+		end
+		return
+	end
+	local weaponKind = self:resolveWeaponKind(player)
+	if weaponKind == post.weaponKind then
+		self:replicatePlayer(player)
+		return
+	end
+	if post.gunner then
+		self:dismount(post.gunner)
+	end
+	for _, connection in post.promptConnections do
+		connection:Disconnect()
+	end
+	post.promptConnections = {}
+	if post.weaponModel then
+		post.weaponModel:Destroy()
+		post.weaponModel = nil
+	end
+	post.rig = nil
+	post.weaponKind = weaponKind
+	self:spawnWeapon(post)
+	self:renderSign(post)
+	self:replicatePost(post)
+	self:replicatePlayer(player)
+	print(`[PostManager] {player.Name}'s post {post.index} is now a {Enums.getPublicName(Enums.PostWeaponKind, post.weaponKind)}`)
 end
 
 -- a claim ends only with the player (disconnect, or a dev-tool reset):
@@ -1431,6 +1468,11 @@ function PostManager:init(monsterManagerIn: any)
 	}
 	SplendidReplicationManager:setGameMetadata(Attributes.POST_CATALOG, PostRules.encodeCatalog(self.catalog))
 	GameController:registerPlaceManager(self)
+	CharacterManager:subscribeClassChanged(
+		function(player: Player, _classKind: number)
+			self:applyClass(player)
+		end
+	)
 	StructureManager:subscribePostModelsFilled(
 		function()
 			self:bindPostModels()

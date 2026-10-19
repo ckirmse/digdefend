@@ -156,6 +156,22 @@ captionStroke.Color = UiStyle.PANEL_COLOR
 captionStroke.Parent = captionLabel
 captionLabel.Parent = template
 
+-- the cooldown sheet (M66): a grey pane over the square, anchored to its
+-- bottom, that ClientToolBarManager sizes to the share of the Auto
+-- Turret's cooldown still to run and hides at zero
+local cooldownOverlay = Instance.new("Frame")
+cooldownOverlay.Name = "CooldownOverlay"
+cooldownOverlay.AnchorPoint = Vector2.new(0, 1)
+cooldownOverlay.Position = UDim2.fromScale(0, 1)
+cooldownOverlay.Size = UDim2.fromScale(1, 1)
+cooldownOverlay.BackgroundColor3 = UiStyle.DISABLED_COLOR
+cooldownOverlay.BackgroundTransparency = 0.35
+cooldownOverlay.BorderSizePixel = 0
+cooldownOverlay.ZIndex = 5
+cooldownOverlay.Visible = false
+addCorner(cooldownOverlay)
+cooldownOverlay.Parent = template
+
 gui.Parent = StarterGui
 ChangeHistoryService:SetWaypoint("After ToolBar gui")
 print("build_tool_bar_gui: built StarterGui.ToolBar")

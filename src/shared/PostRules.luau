@@ -99,8 +99,8 @@ export type Stats = {
 	-- nil for a kind that does not overheat; shortened by Cooldown
 	coolSec: number?,
 	-- the class posts (2026-10-16): nil where the kind has no such block.
-	-- Fire Rate shortens a spin-up and a charge, Damage adds pierces,
-	-- Range lengthens a chain's jump and widens a pull
+	-- Fire Rate shortens a charge but never a spin-up (2026-10-19), Damage
+	-- adds pierces, Range lengthens a chain's jump and widens a pull
 	spinUpSec: number?,
 	chargeSec: number?,
 	pierceCount: number?,
@@ -188,7 +188,7 @@ function PostRules.statsFor(catalog: Catalog, kind: number, upgrades: Upgrades):
 		-- 1.5 / 1 s), where a divide like Fire Rate's would give ever
 		-- smaller steps for ever dearer rungs (decided 2026-09-29)
 		coolSec = if data.HEAT then data.HEAT.COOL_SEC * math.max(1 - (bonuses[Enums.PostAttribute.COOLDOWN] or 0) * PostRules.upgradeLevel(upgrades, Enums.PostAttribute.COOLDOWN), MIN_COOL_SHARE) else nil,
-		spinUpSec = if data.SPIN_UP then data.SPIN_UP.SEC / fireRateMultiplier else nil,
+		spinUpSec = if data.SPIN_UP then data.SPIN_UP.SEC else nil,
 		chargeSec = if data.CHARGE then data.CHARGE.SEC / fireRateMultiplier else nil,
 		pierceCount = if data.PIERCE then data.PIERCE.COUNT + data.PIERCE.COUNT_PER_DAMAGE_LEVEL * PostRules.upgradeLevel(upgrades, Enums.PostAttribute.DAMAGE) else nil,
 		chainJumpStuds = if data.CHAIN then data.CHAIN.JUMP_STUDS * multiplierFor(Enums.PostAttribute.RANGE) else nil,
@@ -310,13 +310,31 @@ function PostRules.isYawStepAllowed(previousYawDegrees: number, newYawDegrees: n
 end
 
 -- heat cools only once the trigger has rested longer than the fire
--- interval (plus a little slack), so holding the trigger never cools
+-- interval (plus a little slack), so holding the trigger never cools. The
+-- slack has a floor in seconds (2026-10-19): shots are sent once a frame
+-- at most, so a fast gun's shots arrive a frame or two late on a slow
+-- machine, and a slack of 1.5 intervals (0.09 s for the Minigun) read
+-- every such gap as a rest, cooling the gun between its own shots
 PostRules.HEAT_REST_SLACK = 1.5
+PostRules.HEAT_REST_MIN_SEC = 0.25
 local HEAT_FULL_TOLERANCE = 1e-6
 
--- the heat one shot adds: FULL_SEC of shots at the interval reaches 1
-function PostRules.heatPerShot(heat: HeatData, fireIntervalSec: number): number
-	return fireIntervalSec / heat.FULL_SEC
+-- how long the trigger may go between shots and still count as held
+function PostRules.heatRestSlackSec(fireIntervalSec: number): number
+	return math.max(fireIntervalSec * PostRules.HEAT_REST_SLACK, PostRules.HEAT_REST_MIN_SEC)
+end
+
+-- the heat one shot adds: the time the trigger has been held since the
+-- last shot, so FULL_SEC of holding reaches 1 whatever the frame rate
+-- delivers; a shot with no held time behind it (the first, or one after a
+-- rest) adds one interval's worth, which is what FULL_SEC / interval
+-- shots at the interval add up to
+function PostRules.heatPerShot(heat: HeatData, fireIntervalSec: number, elapsedSec: number?): number
+	local heldSec = fireIntervalSec
+	if elapsedSec ~= nil and elapsedSec <= PostRules.heatRestSlackSec(fireIntervalSec) then
+		heldSec = elapsedSec
+	end
+	return heldSec / heat.FULL_SEC
 end
 
 -- the heat now, cooled for the time the trigger has rested since the last
@@ -325,7 +343,7 @@ function PostRules.cooledHeat(heatAtLastShot: number, lastShotTime: number?, now
 	if lastShotTime == nil then
 		return 0
 	end
-	local restingSec = now - lastShotTime - fireIntervalSec * PostRules.HEAT_REST_SLACK
+	local restingSec = now - lastShotTime - PostRules.heatRestSlackSec(fireIntervalSec)
 	if restingSec <= 0 then
 		return heatAtLastShot
 	end
@@ -333,12 +351,13 @@ function PostRules.cooledHeat(heatAtLastShot: number, lastShotTime: number?, now
 end
 
 -- what a shot does to the heat: the new heat, whether the gun just
--- overheated, and whether it may fire at all (an overheated gun waits for 0)
-function PostRules.heatAfterShot(currentHeat: number, isOverheated: boolean, heat: HeatData, fireIntervalSec: number): (boolean, number, boolean)
+-- overheated, and whether it may fire at all (an overheated gun waits for 0);
+-- elapsedSec is the time since the last shot, nil for the first
+function PostRules.heatAfterShot(currentHeat: number, isOverheated: boolean, heat: HeatData, fireIntervalSec: number, elapsedSec: number?): (boolean, number, boolean)
 	if isOverheated and currentHeat > 0 then
 		return false, currentHeat, true
 	end
-	local newHeat = currentHeat + PostRules.heatPerShot(heat, fireIntervalSec)
+	local newHeat = currentHeat + PostRules.heatPerShot(heat, fireIntervalSec, elapsedSec)
 	-- FULL_SEC / interval shots must reach 1 exactly; the sum lands a hair
 	-- under it in floating point
 	if newHeat >= 1 - HEAT_FULL_TOLERANCE then

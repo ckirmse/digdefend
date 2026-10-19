@@ -99,7 +99,7 @@ padding.PaddingTop = UDim.new(0.03, 0)
 padding.PaddingBottom = UDim.new(0.04, 0)
 padding.Parent = dialog
 
-local title = makeLabel("Title", UiStyle.formatTitle("Upgrade Machine Gun"), UiStyle.TITLE_FONT, UiStyle.ACCENT_COLOR, UiStyle.TITLE_TEXT_MIN_PX, 44)
+local title = makeLabel("Title", UiStyle.formatTitle("Upgrade Minigun"), UiStyle.TITLE_FONT, UiStyle.ACCENT_COLOR, UiStyle.TITLE_TEXT_MIN_PX, 44)
 title.AnchorPoint = Vector2.new(0.5, 0)
 title.Position = UDim2.fromScale(0.5, 0)
 title.Size = UDim2.fromScale(0.8, 0.14)
@@ -154,6 +154,15 @@ local rowPadding = Instance.new("UIPadding")
 rowPadding.PaddingLeft = UDim.new(0.02, 0)
 rowPadding.PaddingRight = UDim.new(0.02, 0)
 rowPadding.Parent = row
+
+-- the gadget block's heading (M67): under the post rows in the same List,
+-- hidden until ClientPostUpgradeManager shows it for a class whose gadget
+-- scales, with a RowTemplate clone named "Gadget" beneath it
+local gadgetTitle = makeLabel("GadgetTitle", UiStyle.formatTitle("Upgrade Auto Turret"), UiStyle.TITLE_FONT, UiStyle.ACCENT_COLOR, UiStyle.LABEL_TEXT_MIN_PX, 32)
+gadgetTitle.Size = UDim2.fromScale(1, 0.1)
+gadgetTitle.LayoutOrder = 100
+gadgetTitle.Visible = false
+gadgetTitle.Parent = list
 
 local name = makeLabel("Name", UiStyle.formatTitle("Damage"), UiStyle.TITLE_FONT, UiStyle.TEXT_COLOR, UiStyle.LABEL_TEXT_MIN_PX, 26)
 name.AnchorPoint = Vector2.new(0, 0.5)

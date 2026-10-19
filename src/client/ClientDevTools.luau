@@ -37,7 +37,9 @@ export type ClientDevTools = typeof(setmetatable(
 		diamondsInput: any,
 		-- the Character section (M55): Iris states for its inputs
 		characterNightsInput: any,
-		characterClassInput: any,
+		characterClassOption: any,
+		characterClassOptions: { string },
+		lastSentClassName: string?,
 		characterGearSlotInput: any,
 		characterGearKindInput: any,
 		characterGearStarsInput: any,
@@ -423,13 +425,23 @@ function ClientDevTools:renderCharacterSection()
 		sendDevTool("setCharacterNights", { nightsSurvived = math.max(0, math.floor(self.characterNightsInput:get())) })
 	end
 
-	-- the class picker (M64): the enum value, with its name shown so the
-	-- number is never a guess; takes effect on the next run
-	local classCount = Enums.getCount(Enums.ClassKind)
-	Iris.InputNum({ "Class (enum value)", 1, 1, classCount }, { number = self.characterClassInput })
-	local pickedClass = math.clamp(math.floor(self.characterClassInput:get()), 1, classCount)
-	if Iris.Button({ `Set class: {Enums.getPublicName(Enums.ClassKind, pickedClass)}` }).clicked() then
-		sendDevTool("setCharacterClass", { classKind = pickedClass })
+	-- the class picker (M64): a dropdown of every class that applies the
+	-- moment it changes. It starts on the character's current class, and
+	-- a change made elsewhere (another character picked) resets it, so the
+	-- dropdown never sends a class the character already is
+	local currentClassName = Enums.getName(Enums.ClassKind, character.classKind)
+	if self.lastSentClassName == nil or (currentClassName ~= nil and currentClassName ~= self.lastSentClassName and self.characterClassOption:get() == self.lastSentClassName) then
+		self.lastSentClassName = currentClassName
+		self.characterClassOption:set(currentClassName)
+	end
+	Iris.ComboArray({ "Class" }, { index = self.characterClassOption }, self.characterClassOptions)
+	local pickedClassName = self.characterClassOption:get()
+	if pickedClassName ~= self.lastSentClassName then
+		local pickedClass = Enums.getValueByName(Enums.ClassKind, pickedClassName)
+		if pickedClass then
+			self.lastSentClassName = pickedClassName
+			sendDevTool("setCharacterClass", { classKind = pickedClass })
+		end
 	end
 
 	Iris.InputNum({ "Gear slot (1 weapon, 2 post, 3-4 towers)", 1, 1, 4 }, { number = self.characterGearSlotInput })
@@ -646,7 +658,11 @@ function ClientDevTools:init()
 	self.framingHeight = Iris.State(0)
 	self.framingFov = Iris.State(30)
 	self.characterNightsInput = Iris.State(0)
-	self.characterClassInput = Iris.State(1)
+	self.characterClassOptions = {}
+	for _, classKind in Enums.getAllValues(Enums.ClassKind) do
+		table.insert(self.characterClassOptions, Enums.getName(Enums.ClassKind, classKind) or "?")
+	end
+	self.characterClassOption = Iris.State(self.characterClassOptions[1])
 	self.characterGearSlotInput = Iris.State(1)
 	self.characterGearKindInput = Iris.State(1)
 	self.characterGearStarsInput = Iris.State(1)
@@ -690,7 +706,9 @@ function ClientDevTools.new(): ClientDevTools
 	self.confirmReset = nil
 	self.diamondsInput = nil
 	self.characterNightsInput = nil
-	self.characterClassInput = nil
+	self.characterClassOption = nil
+	self.characterClassOptions = {}
+	self.lastSentClassName = nil
 	self.characterGearSlotInput = nil
 	self.characterGearKindInput = nil
 	self.characterGearStarsInput = nil

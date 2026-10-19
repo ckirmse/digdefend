@@ -6,7 +6,9 @@
 -- and the gamepad bumpers do the same. Consumables show how many are held
 -- in a corner badge and leave the bar at zero. The bar only asks (TryEquipTool);
 -- what it shows is the server's answer in the CurrentPlayer attributes.
--- Slides away while a menu is open.
+-- Slides away while a menu is open. The gadget slot (M66) is named for the
+-- class's gadget and, while a destroyed Auto Turret waits for dawn, wears
+-- a grey sheet and refuses the tap with a line.
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -18,10 +20,13 @@ local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local MiningRules = require("@game/ReplicatedStorage/Shared/MiningRules")
 local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
+local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
+local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 
 local ClientToolBarManager = {}
 ClientToolBarManager.__index = ClientToolBarManager
@@ -44,9 +49,16 @@ export type ClientToolBarManager = typeof(setmetatable(
 		-- Build Mode (ClientDefenseTableManager) stands in for the bar:
 		-- the row hides and the number keys are its to read
 		isHidden: boolean,
+		-- the gadget slot (M66): what fills it, and whether the Auto Turret
+		-- is lost until dawn
+		gadgetKind: number,
+		isAutoTurretLost: boolean,
 	},
 	ClientToolBarManager
 ))
+
+local FEEDBACK_NOT_AVAILABLE = "Auto Turret not available yet."
+local FEEDBACK_DISPLAY_SEC = 2
 
 local NUMBER_KEYS = {
 	Enum.KeyCode.One,
@@ -69,8 +81,19 @@ function ClientToolBarManager:requestEquip(tool: number)
 	)
 end
 
+-- the gadget slot while its turret is lost until dawn: every path to it
+-- (tap, key, bumper) is told once instead of equipping
+function ClientToolBarManager:isGadgetLost(tool: number): boolean
+	return tool == Enums.ToolKind.GADGET and self.gadgetKind == Enums.GadgetKind.AUTO_TURRET and self.isAutoTurretLost
+end
+
 -- tapping the equipped tool unequips it (GDD)
 function ClientToolBarManager:toggleTool(tool: number)
+	if self:isGadgetLost(tool) then
+		ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
+		ClientPlayerFeedbackManager:giveLocal(FEEDBACK_NOT_AVAILABLE, FEEDBACK_DISPLAY_SEC)
+		return
+	end
 	if self.equipped == tool then
 		self:requestEquip(MiningRules.NO_TOOL)
 	else
@@ -133,6 +156,12 @@ function ClientToolBarManager:renderSlots()
 			publicName = Enums.getPublicName(Enums.WeaponKind, weaponKind)
 			imageId = Icons.WEAPON[weaponKind]
 		end
+		-- the gadget slot is pictured and captioned for the class's gadget
+		-- ("AUTO TURRET" under the square, decided 2026-10-19)
+		if tool == Enums.ToolKind.GADGET and Enums.isValidValue(Enums.GadgetKind, self.gadgetKind) then
+			publicName = Enums.getPublicName(Enums.GadgetKind, self.gadgetKind)
+			imageId = Icons.GADGET[self.gadgetKind]
+		end
 		local hasImage = not Icons.isPlaceholder(imageId)
 		local icon = frame:FindFirstChild(Constants.TOOL_SLOT_ICON)
 		if icon and icon:IsA("ImageLabel") then
@@ -163,6 +192,19 @@ function ClientToolBarManager:renderSlots()
 	end
 	self:renderCounts()
 	self:renderEquipped()
+	self:renderLost()
+end
+
+-- the grey sheet covers the gadget slot while its turret is lost
+function ClientToolBarManager:renderLost()
+	for _, view in self.slotViews do
+		local overlay = view.frame:FindFirstChild(Constants.TOOL_SLOT_COOLDOWN_OVERLAY)
+		if not overlay or not overlay:IsA("Frame") then
+			continue
+		end
+		overlay.Visible = self:isGadgetLost(view.tool)
+		overlay.Size = UDim2.fromScale(1, 1)
+	end
 end
 
 function ClientToolBarManager:renderCounts()
@@ -269,6 +311,9 @@ function ClientToolBarManager:init()
 	self.countByTool = MiningRules.decodeToolCounts(ClientDataManager:getCurrentPlayerAttribute(Attributes.TOOL_COUNTS))
 	local equipped = ClientDataManager:getCurrentPlayerAttribute(Attributes.EQUIPPED_TOOL)
 	self.equipped = if typeof(equipped) == "number" then equipped else MiningRules.NO_TOOL
+	local gadgetKind = ClientDataManager:getCurrentPlayerAttribute(Attributes.GADGET_KIND)
+	self.gadgetKind = if typeof(gadgetKind) == "number" then gadgetKind else Enums.GadgetKind.NONE
+	self.isAutoTurretLost = ClientDataManager:getCurrentPlayerAttribute(Attributes.AUTO_TURRET_IS_LOST) == true
 	self:renderSlots()
 
 	ClientDataManager:subscribeCurrentPlayerAttribute(
@@ -292,6 +337,20 @@ function ClientToolBarManager:init()
 			self:renderEquipped()
 		end
 	)
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.GADGET_KIND,
+		function(value: any)
+			self.gadgetKind = if typeof(value) == "number" then value else Enums.GadgetKind.NONE
+			self:renderSlots()
+		end
+	)
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.AUTO_TURRET_IS_LOST,
+		function(value: any)
+			self.isAutoTurretLost = value == true
+			self:renderLost()
+		end
+	)
 	UserInputService.InputBegan:Connect(
 		function(input: InputObject, isGameProcessed: boolean)
 			self:onInputBegan(input, isGameProcessed)
@@ -311,6 +370,8 @@ function ClientToolBarManager.new(): ClientToolBarManager
 	self.equipped = MiningRules.NO_TOOL
 	self.slotViews = {}
 	self.isHidden = false
+	self.gadgetKind = Enums.GadgetKind.NONE
+	self.isAutoTurretLost = false
 	return self
 end
 

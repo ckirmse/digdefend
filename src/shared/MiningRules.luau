@@ -16,8 +16,11 @@ local MiningRules = {}
 MiningRules.CRACK_THRESHOLDS = { 0.6, 0.3 }
 MiningRules.NO_TOOL = 0
 
--- tools that are a mode rather than a thing in the hand: no GameAssets/Tools model
-local TOOLS_WITHOUT_MODEL: { [number]: boolean } = {}
+-- tools that are a mode rather than a thing in the hand: no GameAssets/Tools
+-- model. The gadget slot shows its ghost in the world instead (M66)
+local TOOLS_WITHOUT_MODEL: { [number]: boolean } = {
+	[Enums.ToolKind.GADGET] = true,
+}
 
 function MiningRules.hasHeldModel(tool: number): boolean
 	return not TOOLS_WITHOUT_MODEL[tool]

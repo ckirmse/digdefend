@@ -38,6 +38,7 @@ local RosterData = require("@game/ServerScriptService/GameData/Monsters/Roster")
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
+local AutoTurretManager = require(script.Parent.AutoTurretManager)
 local DamageableManager = require(script.Parent.DamageableManager)
 local MonsterPathManager = require(script.Parent.MonsterPathManager)
 local PlacementManager = require(script.Parent.PlacementManager)
@@ -471,6 +472,26 @@ function MonsterManager:buildCandidates()
 			position = root.Position,
 		})
 	end
+	-- an Auto Turret is a player to them (M66, decided 2026-10-19): the
+	-- hunters chew on it, the tower destroyers walk past it. One standing
+	-- by the Refinery is also weighed against the Refinery itself, since
+	-- every kind checks the Refinery first and would never look past it
+	for _, turret in AutoTurretManager:getTurrets() do
+		local shadow = turret.shadow
+		local candidate: MonsterRules.Candidate = {
+			id = turret.id,
+			targetType = Enums.MonsterTargetType.PLAYERS,
+			position = shadow.Position,
+			cframe = shadow.CFrame,
+			size = shadow.Size,
+			radiusStuds = MonsterRules.boxRadius(shadow.Size),
+			drawRangeStuds = AutoTurretManager:getDrawRangeStuds(),
+		}
+		add(candidate)
+		if AutoTurretManager:isGuardingRefinery(turret) then
+			table.insert(candidatesByType[Enums.MonsterTargetType.REFINERY], candidate)
+		end
+	end
 	for _, box in StructureManager:getStructureBoxes() do
 		if box.isDestroyed then
 			continue
@@ -530,6 +551,8 @@ function MonsterManager:hurt(candidate: MonsterRules.Candidate, amount: number, 
 		local player = self.playerByCandidateId[candidate.id]
 		if player then
 			ReviveManager:damagePlayer(player, amount, kind)
+		else
+			AutoTurretManager:damage(candidate.id, amount, kind)
 		end
 	elseif targetType == Enums.MonsterTargetType.TOWERS or targetType == Enums.MonsterTargetType.TRAPS then
 		PlacementManager:damagePlacement(candidate.id, amount, kind)

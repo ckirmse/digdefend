@@ -26,7 +26,8 @@
 -- HEAT: an overheating gun (see the Machine Gun).
 -- RELOAD_SEC: a gun that reloads after every shot.
 -- SPIN_UP: the first shot after the trigger has rested waits SEC after
---   the trigger closes (the Minigun; Fire Rate shortens it).
+--   the trigger closes (the Minigun; fixed, no upgrade shortens it, so
+--   letting go to re-aim always costs the spin-up; decided 2026-10-19).
 -- CHARGE: hold to charge for SEC, release to fire (the Railgun; Fire Rate
 --   shortens it). PIERCE: the shot carries on through COUNT damageables
 --   (plus one per Damage level) for full damage each.
@@ -83,8 +84,9 @@ return {
 	-- the Post Upgrade Table in the defense building (2026-10-01), where the
 	-- upgrade menu now opens; anyone may trigger it, a player without a
 	-- post is told to claim one first
-	TABLE_PROMPT_ACTION_TEXT = "Upgrade Post",
-	TABLE_PROMPT_OBJECT_TEXT = "Post Table",
+	-- the table upgrades the class's post and its gadget (M67, 2026-10-19)
+	TABLE_PROMPT_ACTION_TEXT = "Post & Gadget Upgrades",
+	TABLE_PROMPT_OBJECT_TEXT = "Upgrade Table",
 	TABLE_PROMPT_MAX_DISTANCE_STUDS = 10,
 	-- Iron since M63 (2026-10-11; 15 / 90 / 270 / 800 Gold before, the pick
 	-- axe's ladder after a cheap first rung). Day 1 refines no Iron by
@@ -172,7 +174,10 @@ return {
 		-- budget, a slower turn; Fire Rate shortens the spin-up
 		[Enums.PostWeaponKind.MINI_GUN] = {
 			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, COOLDOWN },
-			DAMAGE = 10,
+			-- 9 from 10 (2026-10-19): with the Gunner's 1.25 and the 11 s cycle
+			-- (1 s spin, 6 s fire, 4 s cool) a burst averages about 102 a
+			-- second against the Machine Gun's 69, the +50% the designer asked for
+			DAMAGE = 9,
 			FIRE_INTERVAL_SEC = 0.06,
 			FIRE_COOLDOWN_SEC = 0.045,
 			TURN_SPEED_DEGREES_PER_SEC = 16,
@@ -180,12 +185,15 @@ return {
 			FIELD_OF_VIEW = 30,
 			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
 			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
+			-- a burst weapon, not a sprinkler (2026-10-19, from 12 s of fire
+			-- and a 0.5 s spin-up after the first Gunner playtest): half
+			-- again the Machine Gun's budget, and a full second to spin up
 			HEAT = {
-				FULL_SEC = 12,
+				FULL_SEC = 6,
 				COOL_SEC = 4,
 			},
 			SPIN_UP = {
-				SEC = 0.5,
+				SEC = 1,
 			},
 		},
 		-- the Sniper: hold to charge, release to fire a shot that pierces

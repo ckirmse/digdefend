@@ -46,6 +46,10 @@ module = {
 	-- part on a Cemetery plot carrying the Tombstone* attributes and the
 	-- Friend Revive prompt; clients clone the stone onto it
 	TOMBSTONE = "Tombstone",
+	-- a standing Auto Turret (AutoTurretManager, M66): an invisible server
+	-- part on the ground carrying the AutoTurret* attributes; clients clone
+	-- the model onto it and the owner's client adds the Pick Up prompt
+	AUTO_TURRET = "AutoTurret",
 }
 
 return module

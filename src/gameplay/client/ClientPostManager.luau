@@ -20,9 +20,10 @@
 -- comes back as NotifyPostWeaponFired, which also draws everyone else's.
 -- A projectile kind's shot is drawn by ClientProjectileManager from the
 -- launch message (2026-10-16). The class posts add their own showings
--- here: the Minigun's spin-up and the Railgun's charge as the status bar
--- filling while the trigger is held (the trigger is reported to the
--- server as TrySetPostTrigger, and the Railgun fires on its release), the
+-- here: the Railgun's charge as the status bar filling while the trigger
+-- is held (the Minigun's bar stays on its heat; its spin-up is heard), the
+-- trigger reported to the server as TrySetPostTrigger (the Railgun fires
+-- on its release), the
 -- AA Launcher's locks as the reticle's readout from the PostWeaponLocks
 -- attribute, the Tesla Arc's chain as bolts between the bodies it jumped
 -- to, the Napalm Mortar's pool of fire, the Mine Layer's armed mines,
@@ -78,6 +79,13 @@ type WeaponView = {
 	shownYaw: number,
 	shownPitch: number,
 	prompt: ProximityPrompt?,
+	-- the spinning barrel, where the template has one: its rest pose
+	-- relative to the gun (so it tilts with it), its spin angle, and how
+	-- fast it is turning as a share of full speed (0 to 1)
+	barrel: BasePart?,
+	barrelOffset: CFrame?,
+	barrelAngleDegrees: number,
+	barrelSpinShare: number,
 }
 
 export type ClientPostManager = typeof(setmetatable(
@@ -226,6 +234,13 @@ local BOLT_THICKNESS_STUDS = 0.3
 local BOLT_LIFE_SEC = 0.15
 -- the status bar's words for the class posts
 local STATUS_SPINNING_TEXT = "Spinning up"
+-- the barrel at full speed, how long after the last shot it still counts
+-- as firing, and how long it takes to wind down once it stops; it winds
+-- up over the kind's spin-up so the first shot lands at full speed
+local BARREL_SPIN_DEGREES_PER_SEC = 1080
+local BARREL_SPIN_LINGER_SEC = 0.2
+local BARREL_SPIN_DOWN_SEC = 1.2
+local BARREL_SPIN_UP_FALLBACK_SEC = 1
 local STATUS_CHARGING_TEXT = "Charging"
 local STATUS_LOCKED_FORMAT = "Locked x%d"
 -- the fire pool: flames across the radius, and the mine's blink
@@ -351,6 +366,7 @@ function ClientPostManager:bindWeapon(model: Instance)
 	if not gun or not gun:IsA("BasePart") then
 		return
 	end
+	local barrel = model:FindFirstChild(Constants.POST_WEAPON_BARREL_PART)
 	local view: WeaponView = {
 		model = model,
 		gun = gun,
@@ -360,6 +376,12 @@ function ClientPostManager:bindWeapon(model: Instance)
 		shownYaw = readNumber(model:GetAttribute(Attributes.POST_WEAPON_YAW_DEGREES), 0),
 		shownPitch = readNumber(model:GetAttribute(Attributes.POST_WEAPON_PITCH_DEGREES), 0),
 		prompt = nil,
+		barrel = if barrel and barrel:IsA("BasePart") then barrel else nil,
+		-- the template is authored at pitch 0, so the barrel's pose against
+		-- the gun now is its rest pose
+		barrelOffset = if barrel and barrel:IsA("BasePart") then gun.CFrame:ToObjectSpace(barrel.CFrame) else nil,
+		barrelAngleDegrees = 0,
+		barrelSpinShare = 0,
 	}
 	self.viewsByModel[model] = view
 	local function bindPrompt(prompt: Instance)
@@ -410,6 +432,49 @@ function ClientPostManager:applyView(view: WeaponView)
 	local base = PostRules.baseFrame(view.baseCFrame, view.shownYaw)
 	view.model:PivotTo(base)
 	view.gun.CFrame = PostRules.gunFrame(base, view.rig, view.shownPitch)
+	local barrel = view.barrel
+	local barrelOffset = view.barrelOffset
+	if barrel and barrelOffset then
+		barrel.CFrame = view.gun.CFrame * barrelOffset * CFrame.Angles(math.rad(view.barrelAngleDegrees), 0, 0)
+	end
+end
+
+-- whether a post is firing right now, as every client can tell from the
+-- server's fire-state echo: the trigger closed (a spin-up or charge kind)
+-- or a shot within the linger. The gunner's own view answers from its
+-- own trigger and shots, a beat ahead of the echo
+function ClientPostManager:isViewFiring(view: WeaponView, now: number): boolean
+	if view == self.mountedView and self.isMounted then
+		if self.isTriggerHeld then
+			return true
+		end
+		local predictedTime = self.predictedHeatTime
+		if typeof(predictedTime) == "number" and now - predictedTime < BARREL_SPIN_LINGER_SEC then
+			return true
+		end
+	end
+	if readNumber(view.model:GetAttribute(Attributes.POST_WEAPON_TRIGGER_TIME), 0) > 0 then
+		return true
+	end
+	local lastShotTime = readNumber(view.model:GetAttribute(Attributes.POST_WEAPON_HEAT_TIME), 0)
+	return lastShotTime > 0 and now - lastShotTime < BARREL_SPIN_LINGER_SEC
+end
+
+-- the barrel winds up while the post fires and down when it stops, and
+-- turns at its share of full speed
+function ClientPostManager:stepBarrel(view: WeaponView, deltaTime: number, now: number)
+	if not view.barrel then
+		return
+	end
+	local isFiring = self:isViewFiring(view, now)
+	local stats = if view == self.mountedView then self.stats else nil
+	local spinUpSec: number = BARREL_SPIN_UP_FALLBACK_SEC
+	if stats and typeof(stats.spinUpSec) == "number" then
+		spinUpSec = stats.spinUpSec
+	end
+	local step = deltaTime / (if isFiring then math.max(spinUpSec, 0.01) else BARREL_SPIN_DOWN_SEC)
+	view.barrelSpinShare = math.clamp(view.barrelSpinShare + (if isFiring then step else -step), 0, 1)
+	view.barrelAngleDegrees = (view.barrelAngleDegrees + view.barrelSpinShare * BARREL_SPIN_DEGREES_PER_SEC * deltaTime) % 360
 end
 
 -- the machinery whirs in the gunner's ears while their aim moves: the
@@ -519,6 +584,7 @@ function ClientPostManager:onRenderStep(deltaTime: number)
 		self:updateTurnSound(previousYaw, previousPitch, deltaTime)
 		self:sendAimIfNeeded()
 	end
+	local now = workspace:GetServerTimeNow()
 	for _, view in self.viewsByModel do
 		if view ~= mountedView or not self.isMounted then
 			local targetYaw = readNumber(view.model:GetAttribute(Attributes.POST_WEAPON_YAW_DEGREES), 0)
@@ -527,6 +593,7 @@ function ClientPostManager:onRenderStep(deltaTime: number)
 			view.shownYaw = PostRules.wrapDegrees(view.shownYaw + PostRules.wrapDegrees(targetYaw - view.shownYaw) * follow)
 			view.shownPitch += (targetPitch - view.shownPitch) * follow
 		end
+		self:stepBarrel(view, deltaTime, now)
 		self:applyView(view)
 	end
 	self:stepTrigger()
@@ -545,7 +612,7 @@ function ClientPostManager:findLocalEnd(origin: Vector3, unitDirection: Vector3,
 end
 
 function ClientPostManager:playFireEffects(weaponKind: number, from: Vector3, to: Vector3, impactNormal: Vector3?, impactSurface: Instance?)
-	local travelSec = ClientWeaponManager:drawTracer(from, to)
+	local travelSec = ClientWeaponManager:drawTracer(from, to, UiStyle.POST_TRACER_COLORS[weaponKind])
 	local weaponSfx = self:getPostWeaponSfx(weaponKind)
 	if weaponSfx then
 		ClientSoundManager:playSfxAt(from, weaponSfx.FIRE, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
@@ -586,8 +653,9 @@ function ClientPostManager:fire(isFreshPress: boolean): boolean
 	end
 	local heatData = kindData.HEAT
 	if heatData then
-		local currentHeat, isOverheated = self:getCurrentHeat()
-		local isFired, newHeat, isNowOverheated = PostRules.heatAfterShot(currentHeat, isOverheated, heatData, stats.fireIntervalSec)
+		local currentHeat, isOverheated, heatTime = self:getCurrentHeat()
+		local elapsedSec = if typeof(heatTime) == "number" then workspace:GetServerTimeNow() - heatTime else nil
+		local isFired, newHeat, isNowOverheated = PostRules.heatAfterShot(currentHeat, isOverheated, heatData, stats.fireIntervalSec, elapsedSec)
 		if not isFired then
 			-- a fresh pull on a locked gun is told once; a held one stays quiet
 			if isFreshPress then
@@ -734,13 +802,14 @@ function ClientPostManager:readFireState(): (number, number?, boolean, number)
 end
 
 -- the heat right now: the newer of the server's echo and this client's
--- own prediction, cooled for the rest since
-function ClientPostManager:getCurrentHeat(): (number, boolean)
+-- own prediction, cooled for the rest since; the third value is when that
+-- last shot was, for the next shot's held time
+function ClientPostManager:getCurrentHeat(): (number, boolean, number?)
 	local kindData = self.kindData
 	local stats = self.stats
 	local heatData = if kindData then kindData.HEAT else nil
 	if not heatData or not stats then
-		return 0, false
+		return 0, false, nil
 	end
 	local serverHeat, serverTime, isServerOverheated = self:readFireState()
 	local heat, heatTime, isOverheated = serverHeat, serverTime, isServerOverheated
@@ -750,7 +819,7 @@ function ClientPostManager:getCurrentHeat(): (number, boolean)
 	end
 	local now = workspace:GetServerTimeNow()
 	local cooled = PostRules.cooledHeat(heat, heatTime, now, stats.fireIntervalSec, stats.coolSec or heatData.COOL_SEC)
-	return cooled, isOverheated and cooled > 0
+	return cooled, isOverheated and cooled > 0, heatTime
 end
 
 function ClientPostManager:getIsReloading(): boolean
@@ -1046,7 +1115,10 @@ function ClientPostManager:renderStatusBar()
 	local label = self.statusLabel
 	local now = workspace:GetServerTimeNow()
 	local stats = self.stats
-	local windupSec = if kindData.SPIN_UP then (if stats and stats.spinUpSec then stats.spinUpSec else kindData.SPIN_UP.SEC) elseif kindData.CHARGE then (if stats and stats.chargeSec then stats.chargeSec else kindData.CHARGE.SEC) else nil
+	-- a spin-up that also overheats (the Minigun) keeps the bar on its heat,
+	-- which is the number the gunner manages; the half-second spin-up is
+	-- heard, not drawn (decided 2026-10-19). A charge is always drawn
+	local windupSec = if kindData.CHARGE then (if stats and stats.chargeSec then stats.chargeSec else kindData.CHARGE.SEC) elseif kindData.SPIN_UP and not kindData.HEAT then (if stats and stats.spinUpSec then stats.spinUpSec else kindData.SPIN_UP.SEC) else nil
 	if windupSec and self.isTriggerHeld then
 		-- the trigger is held: the bar is the spin-up or charge filling
 		local progress = PostRules.windupProgress(self.triggerStartTime, now, windupSec)

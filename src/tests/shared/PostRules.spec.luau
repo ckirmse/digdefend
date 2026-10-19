@@ -329,16 +329,51 @@ describe(
 		)
 
 		it(
+			"counts held time, so a slow frame rate still fills the heat in FULL_SEC",
+			function()
+				-- the Minigun: a 0.06 s interval, 12 s of fire; a client at
+				-- 15 frames a second lands a shot every 0.133 s
+				local MINIGUN_HEAT = { FULL_SEC = 12, COOL_SEC = 4 }
+				local interval = 0.06
+				local frameSec = 0.133
+				local heat = 0
+				local isOverheated = false
+				local now = 100
+				local lastShotTime = nil
+				while not isOverheated and now < 200 do
+					local cooled = PostRules.cooledHeat(heat, lastShotTime, now, interval, MINIGUN_HEAT.COOL_SEC)
+					local elapsed = if lastShotTime then now - lastShotTime else nil
+					local _isFired, newHeat, overheated = PostRules.heatAfterShot(cooled, isOverheated, MINIGUN_HEAT, interval, elapsed)
+					heat = newHeat
+					isOverheated = overheated
+					lastShotTime = now
+					now += frameSec
+				end
+				expect(isOverheated).toBe(true)
+				-- the first shot adds one interval, the rest add their frame
+				expect(now - 100).toBeCloseTo(12, 0)
+				-- a gap past the slack is a rest: one interval's worth, never the whole gap
+				expect(PostRules.heatPerShot(MINIGUN_HEAT, interval, 5)).toBeCloseTo(interval / 12, 6)
+				expect(PostRules.heatPerShot(MINIGUN_HEAT, interval, nil)).toBeCloseTo(interval / 12, 6)
+				expect(PostRules.heatPerShot(MINIGUN_HEAT, interval, 0.2)).toBeCloseTo(0.2 / 12, 6)
+			end
+		)
+
+		it(
 			"holds heat while the trigger is held and cools once it rests",
 			function()
 				-- a shot every 0.1 s: the next shot comes before the rest slack, no cooling
 				expect(PostRules.cooledHeat(0.5, 100, 100.1, 0.1, HEAT.COOL_SEC)).toBe(0.5)
-				-- resting 1.65 s: 1.5 s past the slack, half of COOL_SEC
-				expect(PostRules.cooledHeat(1, 100, 101.65, 0.1, HEAT.COOL_SEC)).toBeCloseTo(0.5, 5)
+				-- the slack floor: a 0.1 s gun rests only past 0.25 s, a 1 s gun past 1.5 s
+				expect(PostRules.heatRestSlackSec(0.1)).toBeCloseTo(0.25, 6)
+				expect(PostRules.heatRestSlackSec(1)).toBeCloseTo(1.5, 6)
+				expect(PostRules.cooledHeat(0.5, 100, 100.24, 0.1, HEAT.COOL_SEC)).toBe(0.5)
+				-- resting 1.75 s: 1.5 s past the slack, half of COOL_SEC
+				expect(PostRules.cooledHeat(1, 100, 101.75, 0.1, HEAT.COOL_SEC)).toBeCloseTo(0.5, 5)
 				expect(PostRules.cooledHeat(1, 100, 110, 0.1, HEAT.COOL_SEC)).toBe(0)
 				expect(PostRules.cooledHeat(1, nil, 110, 0.1, HEAT.COOL_SEC)).toBe(0)
 				-- an upgraded Cooldown: the same rest clears twice the heat
-				expect(PostRules.cooledHeat(1, 100, 101.65, 0.1, HEAT.COOL_SEC / 2)).toBeCloseTo(0, 5)
+				expect(PostRules.cooledHeat(1, 100, 101.75, 0.1, HEAT.COOL_SEC / 2)).toBeCloseTo(0, 5)
 			end
 		)
 
@@ -523,7 +558,8 @@ describe(
 				expect(base.pullRadiusStuds).toBe(20)
 				expect(base.poolRadiusStuds).toBe(10)
 				local upgraded = PostRules.statsFor(catalog, 3, { [Enums.PostAttribute.FIRE_RATE] = 1, [Enums.PostAttribute.DAMAGE] = 2, [Enums.PostAttribute.RANGE] = 1 })
-				expect(upgraded.spinUpSec).toBeCloseTo(1 / 1.2, 5)
+				-- a spin-up is fixed: Fire Rate never shortens it (2026-10-19)
+				expect(upgraded.spinUpSec).toBe(1)
 				expect(upgraded.chargeSec).toBeCloseTo(2 / 1.2, 5)
 				expect(upgraded.pierceCount).toBe(5)
 				expect(upgraded.chainJumpStuds).toBeCloseTo(12, 5)

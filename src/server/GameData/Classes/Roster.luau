@@ -2,10 +2,16 @@
 
 -- The launch classes (GDD "Classes", designed 2026-10-15), M64. One entry
 -- per Enums.ClassKind: the fixed kit a character of that class brings
--- into a run (KIT: the handheld weapon, the post weapon, one or two
--- towers, the gadget) and its buff and debuff as MODIFIERS, entries in the
+-- into a run (KIT: one handheld weapon, one post weapon, one tower, one
+-- gadget; exactly one of each, decided 2026-10-19, so no class is better
+-- at building by kit alone) and its buff and debuff as MODIFIERS, entries in the
 -- Enums.ClassModifier table scaled from a default of 1.0 (a key that is
--- absent is 1.0). A buff is a modifier on something shared, never a
+-- absent is 1.0, except the two core stats, speed and mining strength,
+-- which every class states outright since 2026-10-19 so they read side
+-- by side; a row missing one is a startup error. Health was a third core
+-- stat for an afternoon and was dropped the same day as one variable too
+-- many: every class has the same health). A buff is a
+-- modifier on something shared, never a
 -- tuning number on the class's own kit.
 --
 -- Every weapon and post exists since 2026-10-16. The four new towers and
@@ -27,22 +33,32 @@ return {
 			KIT = {
 				WEAPON = Enums.WeaponKind.PISTOL,
 				POST = Enums.PostWeaponKind.MACHINE_GUN,
-				TOWERS = { Enums.TowerKind.SENTRY_GUN },
+				TOWER = Enums.TowerKind.SENTRY_GUN,
 				GADGET = Enums.GadgetKind.NONE,
 			},
-			MODIFIERS = {},
+			MODIFIERS = {
+				-- core stats
+				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
+				[Enums.ClassModifier.MINING_POWER] = 1.0,
+			},
 		},
 		-- Combat: Balanced / Building: Tower
 		[Enums.ClassKind.GUNNER] = {
 			KIT = {
 				WEAPON = Enums.WeaponKind.RIFLE,
 				POST = Enums.PostWeaponKind.MINI_GUN,
-				TOWERS = { Enums.TowerKind.SENTRY_GUN, Enums.TowerKind.SNIPER_TOWER },
+				TOWER = Enums.TowerKind.SENTRY_GUN,
 				GADGET = Enums.GadgetKind.AUTO_TURRET,
 			},
 			MODIFIERS = {
+				-- core stats. Mining 0.75 (2026-10-19, after 0.8 then 0.6 for a
+				-- day each; a 0.7 move speed was tried the same day and felt
+				-- like friction with no decision in it, so speed stays 1.0).
+				-- The pick's damage rounds, so 0.75 reads as 0.8 at the low
+				-- rungs (5 to 4, 15 to 11) and bites more from rung 3 up
+				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
+				[Enums.ClassModifier.MINING_POWER] = 0.75,
 				[Enums.ClassModifier.POST_DAMAGE] = 1.25,
-				[Enums.ClassModifier.MINING_POWER] = 0.8,
 			},
 		},
 		-- Combat: Tank Destroyer / Support
@@ -50,10 +66,13 @@ return {
 			KIT = {
 				WEAPON = Enums.WeaponKind.SNIPER,
 				POST = Enums.PostWeaponKind.RAIL_GUN,
-				TOWERS = { Enums.TowerKind.SNIPER_TOWER },
+				TOWER = Enums.TowerKind.SNIPER_TOWER,
 				GADGET = Enums.GadgetKind.BINOCULARS,
 			},
 			MODIFIERS = {
+				-- core stats
+				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
+				[Enums.ClassModifier.MINING_POWER] = 1.0,
 				[Enums.ClassModifier.LARGE_MONSTER_DAMAGE] = 1.5,
 				[Enums.ClassModifier.TOWER_BUILD_COST] = 1.3,
 			},
@@ -63,13 +82,15 @@ return {
 			KIT = {
 				WEAPON = Enums.WeaponKind.FLAMETHROWER,
 				POST = Enums.PostWeaponKind.MORTAR,
-				TOWERS = { Enums.TowerKind.FLAMETHROWER },
+				TOWER = Enums.TowerKind.FLAMETHROWER,
 				GADGET = Enums.GadgetKind.REMOTE_CHARGE,
 			},
 			MODIFIERS = {
+				-- core stats
+				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
+				[Enums.ClassModifier.MINING_POWER] = 0.8,
 				[Enums.ClassModifier.BURN_DURATION] = 1.5,
 				[Enums.ClassModifier.TRAP_COST] = 0.5,
-				[Enums.ClassModifier.MINING_POWER] = 0.8,
 			},
 		},
 		-- Combat: Air Defender / Building: Tower
@@ -77,10 +98,13 @@ return {
 			KIT = {
 				WEAPON = Enums.WeaponKind.RIFLE,
 				POST = Enums.PostWeaponKind.AA_LAUNCHER,
-				TOWERS = { Enums.TowerKind.AA_TURRET },
+				TOWER = Enums.TowerKind.AA_TURRET,
 				GADGET = Enums.GadgetKind.GROUNDING_NET,
 			},
 			MODIFIERS = {
+				-- core stats
+				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
+				[Enums.ClassModifier.MINING_POWER] = 1.0,
 				[Enums.ClassModifier.FLYER_DAMAGE] = 1.5,
 				[Enums.ClassModifier.GROUND_DAMAGE] = 0.85,
 			},
@@ -90,12 +114,14 @@ return {
 			KIT = {
 				WEAPON = Enums.WeaponKind.ASSAULT_RIFLE,
 				POST = Enums.PostWeaponKind.MACHINE_GUN_AUTOMATED,
-				TOWERS = { Enums.TowerKind.SENTRY_GUN },
+				TOWER = Enums.TowerKind.SENTRY_GUN,
 				GADGET = Enums.GadgetKind.STIM_SHOT,
 			},
 			MODIFIERS = {
-				[Enums.ClassModifier.HANDHELD_DAMAGE] = 1.3,
+				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.1,
+				[Enums.ClassModifier.MINING_POWER] = 1.0,
+				[Enums.ClassModifier.HANDHELD_DAMAGE] = 1.3,
 				[Enums.ClassModifier.TOWER_BUILD_COST] = 1.3,
 			},
 		},
@@ -104,12 +130,14 @@ return {
 			KIT = {
 				WEAPON = Enums.WeaponKind.RIFLE,
 				POST = Enums.PostWeaponKind.MINE_LAYER,
-				TOWERS = { Enums.TowerKind.SENTRY_GUN }, -- designed: Mortar Tower
+				TOWER = Enums.TowerKind.SENTRY_GUN, -- designed: Mortar Tower
 				GADGET = Enums.GadgetKind.BUILD_TABLET,
 			},
 			MODIFIERS = {
-				[Enums.ClassModifier.TOWER_BUILD_COST] = 0.7,
+				-- core stats
+				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
 				[Enums.ClassModifier.MINING_POWER] = 0.8,
+				[Enums.ClassModifier.TOWER_BUILD_COST] = 0.7,
 			},
 		},
 		-- Building: Tower / Combat: Group Destroyer
@@ -117,12 +145,14 @@ return {
 			KIT = {
 				WEAPON = Enums.WeaponKind.RIFLE,
 				POST = Enums.PostWeaponKind.TESLA_ARC,
-				TOWERS = { Enums.TowerKind.TESLA_COIL },
+				TOWER = Enums.TowerKind.TESLA_COIL,
 				GADGET = Enums.GadgetKind.STORM_ROD,
 			},
 			MODIFIERS = {
-				[Enums.ClassModifier.TOWER_FIRE_RATE] = 1.2,
+				-- core stats
+				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
 				[Enums.ClassModifier.MINING_POWER] = 0.8,
+				[Enums.ClassModifier.TOWER_FIRE_RATE] = 1.2,
 			},
 		},
 		-- Mining: Balanced / Combat: Group Destroyer
@@ -130,10 +160,12 @@ return {
 			KIT = {
 				WEAPON = Enums.WeaponKind.PISTOL,
 				POST = Enums.PostWeaponKind.SALVAGE_GUN,
-				TOWERS = { Enums.TowerKind.SENTRY_GUN }, -- designed: Drill Rig
+				TOWER = Enums.TowerKind.SENTRY_GUN, -- designed: Drill Rig
 				GADGET = Enums.GadgetKind.ORE_SCANNER,
 			},
 			MODIFIERS = {
+				-- core stats
+				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
 				[Enums.ClassModifier.MINING_POWER] = 1.4,
 				[Enums.ClassModifier.ORE_YIELD] = 1.2,
 				[Enums.ClassModifier.TOWER_BUILD_COST] = 1.3,
@@ -146,10 +178,13 @@ return {
 			KIT = {
 				WEAPON = Enums.WeaponKind.RIFLE,
 				POST = Enums.PostWeaponKind.ROCKET_LAUNCHER,
-				TOWERS = { Enums.TowerKind.FLAMETHROWER },
+				TOWER = Enums.TowerKind.FLAMETHROWER,
 				GADGET = Enums.GadgetKind.DYNAMITE,
 			},
 			MODIFIERS = {
+				-- core stats
+				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
+				[Enums.ClassModifier.MINING_POWER] = 1.0,
 				[Enums.ClassModifier.DYNAMITE_DAMAGE] = 2.0,
 				[Enums.ClassModifier.TOWER_BUILD_COST] = 1.3,
 			},
@@ -159,10 +194,13 @@ return {
 			KIT = {
 				WEAPON = Enums.WeaponKind.PISTOL,
 				POST = Enums.PostWeaponKind.SAW_GUN,
-				TOWERS = { Enums.TowerKind.FROST_TOWER }, -- designed: Rock Slide
+				TOWER = Enums.TowerKind.FROST_TOWER, -- designed: Rock Slide
 				GADGET = Enums.GadgetKind.ORE_CART,
 			},
 			MODIFIERS = {
+				-- core stats
+				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
+				[Enums.ClassModifier.MINING_POWER] = 1.0,
 				[Enums.ClassModifier.BACKPACK_CAPACITY] = 2.0,
 				[Enums.ClassModifier.HANDHELD_DAMAGE] = 0.7,
 			},
@@ -172,13 +210,15 @@ return {
 			KIT = {
 				WEAPON = Enums.WeaponKind.PISTOL,
 				POST = Enums.PostWeaponKind.MAGNET_GUN,
-				TOWERS = { Enums.TowerKind.FROST_TOWER }, -- designed: Repair Tower
+				TOWER = Enums.TowerKind.FROST_TOWER, -- designed: Repair Tower
 				GADGET = Enums.GadgetKind.MEDKIT,
 			},
 			MODIFIERS = {
+				-- core stats
+				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
+				[Enums.ClassModifier.MINING_POWER] = 0.8,
 				[Enums.ClassModifier.REPAIR_SPEED] = 2.0,
 				[Enums.ClassModifier.REPAIR_COST] = 0.5,
-				[Enums.ClassModifier.MINING_POWER] = 0.8,
 			},
 		},
 	},

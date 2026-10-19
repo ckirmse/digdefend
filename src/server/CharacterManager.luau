@@ -51,6 +51,7 @@ export type CharacterManager = typeof(setmetatable(
 	{} :: {
 		pendingGearRollByPlayer: { [Player]: PendingGearRoll },
 		pendingSkillRollByPlayer: { [Player]: PendingSkillRoll },
+		classChangedCallbacks: { (player: Player, classKind: number) -> () },
 		random: Random,
 	},
 	CharacterManager
@@ -217,14 +218,39 @@ function CharacterManager:getClassTowerKinds(player: Player): { number }
 	return ClassRules.towerKinds(self:getClassData(player))
 end
 
+-- the gadget the player's class carries (M66); NONE without data
+function CharacterManager:getGadgetKind(player: Player): number
+	return ClassRules.gadgetKind(self:getClassData(player))
+end
+
+-- the gameplay managers hand out a class's kit at Ready; this is how they
+-- hear that the active character's class changed mid-run (the dev tool),
+-- so the weapon in hand and a claimed post can follow it
+function CharacterManager:subscribeClassChanged(callback: (player: Player, classKind: number) -> ())
+	table.insert(self.classChangedCallbacks, callback)
+end
+
+function CharacterManager:notifyClassChangedIfNeeded(player: Player, previousClassKind: number)
+	local classKind = self:getClassKind(player)
+	if classKind == previousClassKind then
+		return
+	end
+	local callbacks: { (player: Player, classKind: number) -> () } = self.classChangedCallbacks
+	for _, callback in callbacks do
+		callback(player, classKind)
+	end
+end
+
 function CharacterManager:setClassKind(player: Player, characterId: string?, classKind: number): boolean
 	local record = self:getCharacter(player, characterId)
 	local className = Enums.getName(Enums.ClassKind, classKind)
 	if not record or not className or not ClassRosterData.BY_KIND[classKind] then
 		return false
 	end
+	local previousClassKind = self:getClassKind(player)
 	record.classKind = className
 	self:replicate(player)
+	self:notifyClassChangedIfNeeded(player, previousClassKind)
 	return true
 end
 
@@ -473,12 +499,14 @@ end
 
 function CharacterManager:setActiveCharacter(player: Player, characterId: string): boolean
 	local playerData = self:getPlayerData(player)
+	local previousClassKind = self:getClassKind(player)
 	if not playerData or not playerData:setActiveCharacterId(characterId) then
 		return false
 	end
 	self:replicate(player)
 	-- the live character wears the picked character's cosmetics
 	hatManager:refresh(player)
+	self:notifyClassChangedIfNeeded(player, previousClassKind)
 	return true
 end
 
@@ -723,6 +751,7 @@ function CharacterManager.new(): CharacterManager
 	local self = setmetatable({}, CharacterManager) :: CharacterManager
 	self.pendingGearRollByPlayer = {}
 	self.pendingSkillRollByPlayer = {}
+	self.classChangedCallbacks = {}
 	self.random = Random.new()
 	return self
 end

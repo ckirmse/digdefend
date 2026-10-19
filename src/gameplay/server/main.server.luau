@@ -4,6 +4,9 @@
 -- ServerScriptService/Server/main; this script wires the gameplay's own managers.
 local AimManager = require(script.Parent.AimManager)
 local ArrivalManager = require(script.Parent.ArrivalManager)
+local AutoTurretDevTools = require(script.Parent.AutoTurretDevTools)
+local AutoTurretManager = require(script.Parent.AutoTurretManager)
+local GadgetUpgradeManager = require(script.Parent.GadgetUpgradeManager)
 local BackpackManager = require(script.Parent.BackpackManager)
 local BalanceAudit = require(script.Parent.BalanceAudit)
 local BootsManager = require(script.Parent.BootsManager)
@@ -175,6 +178,22 @@ RunManager:subscribeRunStarted(
 -- they hurt, slow, and (the Traps) block
 TowerBehaviorManager:init()
 TrapBehaviorManager:init()
+-- gadget upgrades (M67): after the refinery that takes the Iron, before
+-- the gadgets that read their level
+GadgetUpgradeManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		GadgetUpgradeManager:onRunStarted()
+	end
+)
+-- the Gunner's Auto Turret (M66): after the tools (its slot) and the
+-- targets it fires at; the monsters below list it among their player targets
+AutoTurretManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		AutoTurretManager:onRunStarted()
+	end
+)
 -- the monsters (M29): the path grid reads the fresh camp once the
 -- structures stand and the last run's placements are gone (both subscribed
 -- above), then the monsters themselves register in the target registry and
@@ -298,5 +317,6 @@ WeaponDevTools:init()
 PostDevTools:init()
 PlacementDevTools:init()
 MonsterDevTools:init()
+AutoTurretDevTools:init()
 -- last, so a missed balance target is the final startup line
 BalanceAudit:init()

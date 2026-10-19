@@ -215,8 +215,12 @@ end
 -- the target a monster at `position` goes for, or nil to keep walking.
 -- `reachStuds` is how far past its range its own body reaches (half its
 -- width), so a big monster does not have to stand inside a wall. The first
--- type in priority order with anything detected wins; within a type the
--- nearest does. A detected target out of attack range is walked to
+-- type in priority order with anything detected wins; within a type a
+-- candidate that draws attacks (a Decoy, an Auto Turret) and has the
+-- monster inside its draw range beats every plain one, since a plain box
+-- the monster is touching is at distance zero and would always win on
+-- distance (2026-10-19); among equals the nearest does. A detected target
+-- out of attack range is walked to
 -- `priorityOrder` is the kind's MonsterRules.priorityOrder when the caller
 -- has it cached, so a tick allocates nothing per monster
 function MonsterRules.pickTarget(position: Vector3, data: MonsterData, reachStuds: number, candidatesByType: CandidatesByType, priorityOrder: { number }?): Candidate?
@@ -228,13 +232,23 @@ function MonsterRules.pickTarget(position: Vector3, data: MonsterData, reachStud
 		end
 		local best: Candidate? = nil
 		local bestDistance = math.huge
+		local isBestDrawing = false
 		for _, candidate in candidates do
-			local limit = math.max(range, candidate.drawRangeStuds or 0)
+			local drawRange = candidate.drawRangeStuds or 0
+			local limit = math.max(range, drawRange)
 			if MonsterRules.roughDistanceTo(position, candidate) > limit then
 				continue
 			end
 			local distance = MonsterRules.distanceTo(position, candidate)
-			if distance <= limit and distance < bestDistance then
+			if distance > limit then
+				continue
+			end
+			local isDrawing = drawRange > 0 and distance <= drawRange
+			if isDrawing and not isBestDrawing then
+				best = candidate
+				bestDistance = distance
+				isBestDrawing = true
+			elseif isDrawing == isBestDrawing and distance < bestDistance then
 				best = candidate
 				bestDistance = distance
 			end

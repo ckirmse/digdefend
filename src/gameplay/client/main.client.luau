@@ -8,6 +8,8 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientDevConsoleManager = require(script.Parent.Parent.Client.ClientDevConsoleManager)
 local ClientActionButtonManager = require(script.Parent.ClientActionButtonManager)
 local ClientAimManager = require(script.Parent.ClientAimManager)
+local ClientAutoTurretDevTools = require(script.Parent.ClientAutoTurretDevTools)
+local ClientAutoTurretManager = require(script.Parent.ClientAutoTurretManager)
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
 local ClientCampMapManager = require(script.Parent.ClientCampMapManager)
 local ClientDiamondTapManager = require(script.Parent.ClientDiamondTapManager)
@@ -101,6 +103,9 @@ ClientPlacementManager:init()
 -- after the placements and the targets, whose bodies the effects run between
 ClientTowerBehaviorManager:init()
 ClientTrapBehaviorManager:init()
+-- the Auto Turret (M66): after the targets its tracers end on and the
+-- weapon manager that draws them
+ClientAutoTurretManager:init()
 -- the day clock reads GameMetadata the server set before anyone was Ready
 ClientRunCycleManager:init()
 -- the Refinery HP bar that takes the clock's place at night
@@ -139,4 +144,5 @@ if ClientDataManager:getIsAdmin() then
 	ClientPostDevTools:init()
 	ClientPlacementDevTools:init()
 	ClientMonsterDevTools:init()
+	ClientAutoTurretDevTools:init()
 end

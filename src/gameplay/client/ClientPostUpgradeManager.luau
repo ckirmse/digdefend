@@ -10,6 +10,10 @@
 -- a button showing the Iron price, gone when maxed. Everything is drawn
 -- from the catalogue in GameMetadata, the upgrade counts on CurrentPlayer,
 -- and the Iron balance; a tap sends TryUpgradePost and the server decides.
+-- Under the post rows, a class whose gadget scales (M67) sees a heading
+-- and one more row of the same shape for the gadget: one level like a
+-- Tower, its pips the levels bought, its button the next price
+-- (TryUpgradeGadget); a class whose gadget is fixed sees no gadget block.
 -- The table also carries a display: the designer's DisplayPost model sets
 -- the spot and size, and this client redraws it locally as the current
 -- fortification tier's post with its own loadout post weapon standing on
@@ -22,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local GadgetRules = require("@game/ReplicatedStorage/Shared/GadgetRules")
 local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
@@ -53,6 +58,12 @@ export type ClientPostUpgradeManager = typeof(setmetatable(
 		menuDialog: GuiObject?,
 		titleLabel: TextLabel?,
 		rows: { Row },
+		-- the gadget block (M67): its heading and its one row
+		gadgetTitleLabel: TextLabel?,
+		gadgetRow: Row?,
+		-- the row height the designer authored; the rows shrink to this
+		-- share of it while the gadget block needs the room
+		rowHeightScale: number,
 		overlay: ClientOverlayManager.Overlay?,
 		isMenuOpen: boolean,
 		-- the display on the table: where the designer's post stood, how
@@ -71,6 +82,16 @@ local NOTIFY_POST_UPGRADED_SHAPE = {
 	level = "positiveInteger",
 	price = "nonnegativeInteger",
 }
+local NOTIFY_GADGET_UPGRADED_SHAPE = {
+	level = "positiveInteger",
+	price = "nonnegativeInteger",
+}
+-- the gadget block sits under the four post rows
+local GADGET_TITLE_LAYOUT_ORDER = 100
+local GADGET_ROW_LAYOUT_ORDER = 101
+-- four post rows fill the list; with the heading and a fifth row every row
+-- takes this share of its authored height so the block still fits
+local GADGET_COMPACT_ROW_SHARE = 0.68
 
 local TITLE_FORMAT = "Upgrade %s"
 local MAXED_TEXT = "MAX"
@@ -98,11 +119,16 @@ end
 function ClientPostUpgradeManager:renderRow(row: Row, catalog: PostRules.Catalog, upgrades: PostRules.Upgrades, iron: number)
 	local offer = PostRules.getUpgradeOffer(catalog, upgrades, row.attribute)
 	local level = PostRules.upgradeLevel(upgrades, row.attribute)
+	self:renderOffer(row, offer.status == Enums.StoreOffer.MAXED, offer.price or 0, level, iron)
+end
+
+-- pips, button, price, and icon from an offer: shared by the post rows
+-- and the gadget row, which differ only in where the offer comes from
+function ClientPostUpgradeManager:renderOffer(row: Row, isMaxed: boolean, price: number, filledPips: number, iron: number)
+	local level = filledPips
 	for index, pip in row.pips do
 		pip.BackgroundColor3 = if index <= level then UiStyle.ACCENT_COLOR else UiStyle.EMPTY_SLOT_COLOR
 	end
-	local isMaxed = offer.status == Enums.StoreOffer.MAXED
-	local price = offer.price or 0
 	local button = row.button
 	if button then
 		button.Active = not isMaxed
@@ -123,6 +149,38 @@ function ClientPostUpgradeManager:renderRow(row: Row, catalog: PostRules.Catalog
 		row.resourceIcon.Image = if Icons.isPlaceholder(imageId) then "" else imageId
 		row.resourceIcon.Visible = not isMaxed
 	end
+end
+
+-- the gadget block shows only for a class whose gadget has prices
+function ClientPostUpgradeManager:renderGadgetBlock(iron: number)
+	local titleLabel = self.gadgetTitleLabel
+	local row = self.gadgetRow
+	if not titleLabel or not row then
+		return
+	end
+	local catalog = GadgetRules.decodeCatalog(ClientDataManager:getGameMetadata(Attributes.GADGET_UPGRADE_CATALOG))
+	local gadgetKind = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.GADGET_KIND), Enums.GadgetKind.NONE)
+	local isShown = catalog ~= nil and GadgetRules.isUpgradable(catalog, gadgetKind)
+	titleLabel.Visible = isShown
+	row.frame.Visible = isShown
+	local rowHeight = if isShown then self.rowHeightScale * GADGET_COMPACT_ROW_SHARE else self.rowHeightScale
+	for _, postRow in self.rows do
+		postRow.frame.Size = UDim2.fromScale(postRow.frame.Size.X.Scale, rowHeight)
+	end
+	row.frame.Size = UDim2.fromScale(row.frame.Size.X.Scale, rowHeight)
+	if not isShown or not catalog then
+		return
+	end
+	local gadgetName = Enums.getPublicName(Enums.GadgetKind, gadgetKind) or "Gadget"
+	titleLabel.Text = UiStyle.formatTitle(string.format(TITLE_FORMAT, gadgetName))
+	local nameLabel = row.frame:FindFirstChild(Constants.UPGRADE_MENU_ROW_NAME_LABEL)
+	if nameLabel and nameLabel:IsA("TextLabel") then
+		nameLabel.Text = UiStyle.formatTitle(gadgetName)
+	end
+	local level = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.GADGET_LEVEL), GadgetRules.STARTING_LEVEL)
+	local offer = GadgetRules.getUpgradeOffer(catalog, gadgetKind, level)
+	-- the pips are the levels bought: level 2 fills one
+	self:renderOffer(row, offer.status == Enums.StoreOffer.MAXED, offer.price or 0, level - GadgetRules.STARTING_LEVEL, iron)
 end
 
 function ClientPostUpgradeManager:renderMenu()
@@ -150,6 +208,24 @@ function ClientPostUpgradeManager:renderMenu()
 			self:renderRow(row, catalog, upgrades, iron)
 		end
 	end
+	self:renderGadgetBlock(iron)
+end
+
+-- the gadget's buy, refused here first like a post's (the server checks again)
+function ClientPostUpgradeManager:requestGadgetUpgrade()
+	local catalog = GadgetRules.decodeCatalog(ClientDataManager:getGameMetadata(Attributes.GADGET_UPGRADE_CATALOG))
+	local gadgetKind = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.GADGET_KIND), Enums.GadgetKind.NONE)
+	if catalog then
+		local level = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.GADGET_LEVEL), GadgetRules.STARTING_LEVEL)
+		local offer = GadgetRules.getUpgradeOffer(catalog, gadgetKind, level)
+		local iron = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_IRON_BARS), 0)
+		if offer.status == Enums.StoreOffer.AVAILABLE and not GadgetRules.canAfford(iron, offer.price or 0) then
+			ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
+			ClientPlayerFeedbackManager:giveLocal(FEEDBACK_NOT_ENOUGH_IRON)
+			return
+		end
+	end
+	ClientNetManager:fireServer(NetEventNames.TRY_UPGRADE_GADGET, {})
 end
 
 function ClientPostUpgradeManager:closeMenu()
@@ -329,6 +405,7 @@ function ClientPostUpgradeManager:findMenu()
 		warn("ClientPostUpgradeManager: the PostUpgrade menu has no List.RowTemplate")
 		return
 	end
+	self.rowHeightScale = template.Size.Y.Scale
 	for order, attribute in Enums.getAllValues(Enums.PostAttribute) do
 		local frame = template:Clone()
 		frame.Name = Enums.getName(Enums.PostAttribute, attribute) or tostring(attribute)
@@ -372,6 +449,52 @@ function ClientPostUpgradeManager:findMenu()
 		end
 		table.insert(self.rows, row)
 	end
+	-- the gadget block (M67): the authored heading and one more row clone
+	local gadgetTitle = if list then list:FindFirstChild(Constants.UPGRADE_MENU_GADGET_TITLE_LABEL) else nil
+	if gadgetTitle and gadgetTitle:IsA("TextLabel") then
+		gadgetTitle.LayoutOrder = GADGET_TITLE_LAYOUT_ORDER
+		gadgetTitle.Visible = false
+		self.gadgetTitleLabel = gadgetTitle
+		local frame = template:Clone()
+		frame.Name = Constants.UPGRADE_MENU_GADGET_ROW
+		frame.LayoutOrder = GADGET_ROW_LAYOUT_ORDER
+		frame.Visible = false
+		frame.Parent = list
+		local pipsFrame = frame:FindFirstChild(Constants.UPGRADE_MENU_ROW_PIPS)
+		local pips: { GuiObject } = {}
+		local pipIndex = 1
+		while pipsFrame do
+			local pip = pipsFrame:FindFirstChild(Constants.UPGRADE_MENU_ROW_PIP_PREFIX .. pipIndex)
+			if not pip or not pip:IsA("GuiObject") then
+				break
+			end
+			table.insert(pips, pip)
+			pipIndex += 1
+		end
+		local button = frame:FindFirstChild(Constants.UPGRADE_MENU_ROW_BUTTON)
+		local priceLabel = if button then button:FindFirstChild(Constants.UPGRADE_MENU_ROW_PRICE_LABEL) else nil
+		local resourceIcon = if button then button:FindFirstChild(Constants.UPGRADE_MENU_ROW_RESOURCE_ICON) else nil
+		local gadgetRow: Row = {
+			attribute = 0,
+			frame = frame,
+			pips = pips,
+			button = if button and button:IsA("GuiButton") then button else nil,
+			priceLabel = if priceLabel and priceLabel:IsA("TextLabel") then priceLabel else nil,
+			resourceIcon = if resourceIcon and resourceIcon:IsA("ImageLabel") then resourceIcon else nil,
+		}
+		if gadgetRow.button then
+			gadgetRow.button.Activated:Connect(
+				function()
+					if gadgetRow.button and gadgetRow.button.Active then
+						self:requestGadgetUpgrade()
+					end
+				end
+			)
+		end
+		self.gadgetRow = gadgetRow
+	else
+		warn("ClientPostUpgradeManager: the PostUpgrade menu has no List.GadgetTitle; run scripts/studio/build_post_upgrade_menu_gui.luau")
+	end
 	local closeButton = if dialog then dialog:FindFirstChild(Constants.UPGRADE_MENU_CLOSE_BUTTON) else nil
 	if closeButton and closeButton:IsA("GuiButton") then
 		closeButton.Activated:Connect(
@@ -411,7 +534,7 @@ function ClientPostUpgradeManager:init()
 			end
 		end
 	)
-	local watched = { Attributes.BALANCE_IRON_BARS, Attributes.POST_WEAPON_KIND }
+	local watched = { Attributes.BALANCE_IRON_BARS, Attributes.POST_WEAPON_KIND, Attributes.GADGET_KIND, Attributes.GADGET_LEVEL }
 	for _, attributeName in PostRules.UPGRADE_ATTRIBUTE_BY_POST_ATTRIBUTE do
 		table.insert(watched, attributeName)
 	end
@@ -447,6 +570,16 @@ function ClientPostUpgradeManager:init()
 			ClientSoundManager:playSfx(SoundNames.Sfx.STORE_PURCHASE)
 		end
 	)
+	ClientNetManager:registerHandler(
+		NetEventNames.NOTIFY_GADGET_UPGRADED,
+		function(payload: any)
+			if not Validate.isTableShape(payload, NOTIFY_GADGET_UPGRADED_SHAPE) then
+				warn("ClientPostUpgradeManager: malformed NotifyGadgetUpgraded")
+				return
+			end
+			ClientSoundManager:playSfx(SoundNames.Sfx.STORE_PURCHASE)
+		end
+	)
 end
 
 function ClientPostUpgradeManager.new(): ClientPostUpgradeManager
@@ -455,6 +588,9 @@ function ClientPostUpgradeManager.new(): ClientPostUpgradeManager
 	self.menuDialog = nil
 	self.titleLabel = nil
 	self.rows = {}
+	self.gadgetTitleLabel = nil
+	self.gadgetRow = nil
+	self.rowHeightScale = 0.22
 	self.overlay = nil
 	self.isMenuOpen = false
 	self.displayParent = nil

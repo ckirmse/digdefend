@@ -207,6 +207,17 @@ module = {
 	-- to one client: Diamonds was earned ({ amount, reason }), for the toast;
 	-- the balance itself is the Diamonds attribute
 	NOTIFY_DIAMONDS_EARNED = "NotifyDiamondsEarned",
+	-- the Auto Turret (M66): place it where the ghost stands ({ position,
+	-- yawDegrees }), pick up the one standing, and to every client: a
+	-- turret fired at a target id (the tracer)
+	TRY_PLACE_AUTO_TURRET = "TryPlaceAutoTurret",
+	TRY_PICK_UP_AUTO_TURRET = "TryPickUpAutoTurret",
+	NOTIFY_AUTO_TURRET_FIRED = "NotifyAutoTurretFired",
+	-- gadget upgrades (M67): buy the class gadget's next level at the Post
+	-- & Gadget Upgrades table, and to that client: it went through
+	-- ({ level, price }), for the sound
+	TRY_UPGRADE_GADGET = "TryUpgradeGadget",
+	NOTIFY_GADGET_UPGRADED = "NotifyGadgetUpgraded",
 }
 
 return module

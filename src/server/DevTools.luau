@@ -175,8 +175,8 @@ function DevTools:setCharacterNights(player: Player, args: { [string]: any })
 	end
 end
 
--- the class the active character is (M64); takes effect on the next run,
--- since the gameplay managers read the kit at Ready
+-- the class the active character is (M64); takes effect at once, since
+-- the gameplay managers listen for the change and swap the kit in hand
 function DevTools:setCharacterClass(player: Player, args: { [string]: any })
 	local isValid, err = Validate.isTableShape(args, SET_CHARACTER_CLASS_ARGS_SHAPE)
 	if not isValid then

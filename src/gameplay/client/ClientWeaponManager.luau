@@ -87,7 +87,7 @@ local RELOADING_TEXT = "Reloading"
 local TRACER_THICKNESS_STUDS = 0.08
 local TRACER_LENGTH_STUDS = 10
 local TRACER_SPEED_STUDS_PER_SEC = 900
-local TRACER_COLOR = Color3.fromRGB(255, 230, 140)
+local TRACER_COLOR = UiStyle.TRACER_COLOR
 -- a tracer starts this far ahead of the camera when no held weapon is found
 local FALLBACK_MUZZLE_OFFSET_STUDS = 2
 -- other players' shots are drawn and heard only this close
@@ -278,8 +278,9 @@ function ClientWeaponManager:playMuzzleEffects(muzzle: Attachment?)
 	end
 end
 
--- returns how long the streak takes to arrive, so the impact can wait for it
-function ClientWeaponManager:drawTracer(from: Vector3, to: Vector3): number
+-- returns how long the streak takes to arrive, so the impact can wait for
+-- it; a caller with a kind of its own passes that kind's colour
+function ClientWeaponManager:drawTracer(from: Vector3, to: Vector3, color: Color3?): number
 	local length = (to - from).Magnitude
 	if length < 0.5 then
 		return 0
@@ -296,7 +297,7 @@ function ClientWeaponManager:drawTracer(from: Vector3, to: Vector3): number
 	tracer.CanTouch = false
 	tracer.CastShadow = false
 	tracer.Material = Enum.Material.Neon
-	tracer.Color = TRACER_COLOR
+	tracer.Color = color or TRACER_COLOR
 	tracer.Size = Vector3.new(TRACER_THICKNESS_STUDS, TRACER_THICKNESS_STUDS, streakLength)
 	tracer.CFrame = aim * CFrame.new(0, 0, -streakLength / 2)
 	tracer.Parent = workspace

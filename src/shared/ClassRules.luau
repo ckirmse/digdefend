@@ -15,8 +15,8 @@ export type Kit = {
 	WEAPON: number,
 	-- Enums.PostWeaponKind
 	POST: number,
-	-- Enums.TowerKind, one or two
-	TOWERS: { number },
+	-- Enums.TowerKind, exactly one (decided 2026-10-19)
+	TOWER: number,
 	-- Enums.GadgetKind
 	GADGET: number,
 }
@@ -28,6 +28,16 @@ export type ClassData = {
 }
 
 ClassRules.DEFAULT_MODIFIER = 1.0
+
+-- the two stats every class states outright, 1.0 included (decided
+-- 2026-10-19): speed and mining strength are the body of a class and a
+-- designer reading the roster should see both side by side, where every
+-- other modifier appears only when a class moves it. Health was a third
+-- for an afternoon and dropped as one variable too many
+ClassRules.CORE_MODIFIERS = {
+	Enums.ClassModifier.MOVE_SPEED,
+	Enums.ClassModifier.MINING_POWER,
+}
 
 -- the scale a class puts on one stat; 1.0 for a stat it leaves alone and
 -- for no class at all, so a caller never needs a nil check
@@ -45,8 +55,9 @@ function ClassRules.scaleAmount(amount: number, scale: number): number
 	return math.floor(amount * scale + 0.5)
 end
 
--- the kit item a gear slot names, as its kind enum value; nil when the
--- class has no second tower (a one-tower class fills one row only)
+-- the kit item a gear slot names, as its kind enum value; nil for the
+-- second tower row, which no class fills (one tower each; the row stays
+-- in the save schema until the menus are redrawn for classes)
 function ClassRules.kitKind(classData: ClassData?, gearSlot: number): number?
 	if not classData then
 		return nil
@@ -57,25 +68,26 @@ function ClassRules.kitKind(classData: ClassData?, gearSlot: number): number?
 	elseif gearSlot == Enums.GearSlot.POST then
 		return kit.POST
 	elseif gearSlot == Enums.GearSlot.TOWER_1 then
-		return kit.TOWERS[1]
-	elseif gearSlot == Enums.GearSlot.TOWER_2 then
-		return kit.TOWERS[2]
+		return kit.TOWER
 	end
 	return nil
 end
 
--- the towers a class may build, each kind once, in the roster's order
+-- the towers a class may build: its one tower, as a list because the
+-- placement code reads a loadout of kinds (empty for no class)
 function ClassRules.towerKinds(classData: ClassData?): { number }
-	local kinds: { number } = {}
 	if not classData then
-		return kinds
+		return {}
 	end
-	for _, kind in classData.KIT.TOWERS do
-		if not table.find(kinds, kind) then
-			table.insert(kinds, kind)
-		end
+	return { classData.KIT.TOWER }
+end
+
+-- the gadget a class carries (Enums.GadgetKind); NONE for no class
+function ClassRules.gadgetKind(classData: ClassData?): number
+	if not classData then
+		return Enums.GadgetKind.NONE
 	end
-	return kinds
+	return classData.KIT.GADGET
 end
 
 -- every problem with a roster row, as messages naming the field, so the
@@ -94,14 +106,11 @@ function ClassRules.rosterRowProblems(classData: any, isKindKnown: (gearSlot: nu
 	if not Enums.isValidValue(Enums.PostWeaponKind, kit.POST) or not isKindKnown(Enums.GearSlot.POST, kit.POST) then
 		table.insert(problems, "KIT.POST is not a built post weapon")
 	end
-	if typeof(kit.TOWERS) ~= "table" or #kit.TOWERS < 1 or #kit.TOWERS > 2 then
-		table.insert(problems, "KIT.TOWERS must list one or two towers")
-	else
-		for index, kind in kit.TOWERS do
-			if not Enums.isValidValue(Enums.TowerKind, kind) or not isKindKnown(Enums.GearSlot.TOWER_1, kind) then
-				table.insert(problems, "KIT.TOWERS[" .. tostring(index) .. "] is not a built tower")
-			end
-		end
+	if kit.TOWERS ~= nil then
+		table.insert(problems, "KIT.TOWERS is gone: a class carries exactly one TOWER")
+	end
+	if not Enums.isValidValue(Enums.TowerKind, kit.TOWER) or not isKindKnown(Enums.GearSlot.TOWER_1, kit.TOWER) then
+		table.insert(problems, "KIT.TOWER is not a built tower")
 	end
 	if not Enums.isValidValue(Enums.GadgetKind, kit.GADGET) then
 		table.insert(problems, "KIT.GADGET is not a gadget")
@@ -114,6 +123,11 @@ function ClassRules.rosterRowProblems(classData: any, isKindKnown: (gearSlot: nu
 				table.insert(problems, "MODIFIERS has an unknown key " .. tostring(classModifier))
 			elseif typeof(scale) ~= "number" or scale < 0 then
 				table.insert(problems, "MODIFIERS[" .. tostring(classModifier) .. "] is not a non-negative number")
+			end
+		end
+		for _, coreModifier in ClassRules.CORE_MODIFIERS do
+			if classData.MODIFIERS[coreModifier] == nil then
+				table.insert(problems, "MODIFIERS does not state the core stat " .. (Enums.getName(Enums.ClassModifier, coreModifier) or tostring(coreModifier)))
 			end
 		end
 	end

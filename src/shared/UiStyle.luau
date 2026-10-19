@@ -42,6 +42,14 @@ UiStyle.ANNOUNCEMENT_COLOR = Color3.fromRGB(40, 100, 200)
 -- the alert box: danger, red (2026-09-25)
 UiStyle.ALERT_COLOR = Color3.fromRGB(190, 40, 40)
 
+-- bullet streaks: every hitscan weapon draws the default, and a post kind
+-- listed here draws its own so two guns that fire alike still look
+-- different (the Minigun's light blue, 2026-10-19)
+UiStyle.TRACER_COLOR = Color3.fromRGB(255, 230, 140)
+UiStyle.POST_TRACER_COLORS = {
+	[Enums.PostWeaponKind.MINI_GUN] = Color3.fromRGB(150, 210, 255),
+}
+
 -- the compass dot of each crew member, by the colour index the server
 -- hands out (GameData/Mining/Compass.PLAYER_COLOR_COUNT of them)
 UiStyle.COMPASS_PLAYER_COLORS = {

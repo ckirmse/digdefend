@@ -37,6 +37,8 @@ type ToolState = {
 	pickAxeLevel: number,
 	-- the Enums.WeaponKind in the WEAPON slot; 0 until WeaponManager sets it
 	weaponKind: number,
+	-- the Enums.GadgetKind in the GADGET slot (M66); NONE until the class says
+	gadgetKind: number,
 	-- consumables only: how many of each are held
 	countByTool: { [number]: number },
 	-- true while the player mans a post: nothing can be equipped, so the
@@ -116,6 +118,34 @@ function ToolManager:setWeaponKind(player: Player, weaponKind: number)
 	self:replicate(player)
 end
 
+-- which gadget the GADGET slot holds (M66); the class decides
+function ToolManager:setGadgetKind(player: Player, gadgetKind: number)
+	local state = self.stateByPlayer[player]
+	if not state or state.gadgetKind == gadgetKind then
+		return
+	end
+	state.gadgetKind = gadgetKind
+	self:replicate(player)
+end
+
+-- the slot leaves the bar (a placed Auto Turret, a class without a
+-- gadget); unequipped first if it was in hand
+function ToolManager:revokeTool(player: Player, tool: number)
+	local state = self.stateByPlayer[player]
+	if not state then
+		return
+	end
+	local index = table.find(state.slots, tool)
+	if not index then
+		return
+	end
+	table.remove(state.slots, index)
+	if state.equipped == tool then
+		state.equipped = MiningRules.NO_TOOL
+	end
+	self:replicate(player)
+end
+
 -- a purchase or a pickup: the slot appears with the first one held
 function ToolManager:addConsumable(player: Player, tool: number, amount: number)
 	local state = self.stateByPlayer[player]
@@ -165,6 +195,10 @@ function ToolManager:templateNameFor(player: Player, tool: number): string
 	end
 	if tool == Enums.ToolKind.WEAPON then
 		return WeaponRules.templateNameFor(self:getWeaponKind(player))
+	end
+	if tool == Enums.ToolKind.GADGET then
+		local state = self.stateByPlayer[player]
+		return `{key}_{Enums.getName(Enums.GadgetKind, if state then state.gadgetKind else Enums.GadgetKind.NONE) or "?"}`
 	end
 	return key
 end
@@ -263,6 +297,8 @@ function ToolManager:replicate(player: Player)
 	SplendidReplicationManager:setPublicAttribute(player, Attributes.PICK_AXE_LEVEL, state.pickAxeLevel)
 	SplendidReplicationManager:setPublicAttribute(player, Attributes.WEAPON_KIND, state.weaponKind)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.WEAPON_KIND, state.weaponKind)
+	SplendidReplicationManager:setPublicAttribute(player, Attributes.GADGET_KIND, state.gadgetKind)
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.GADGET_KIND, state.gadgetKind)
 end
 
 function ToolManager:grantTool(player: Player, tool: number)
@@ -337,6 +373,7 @@ function ToolManager:onPlayerReady(player: Player)
 		isLocked = false,
 		pickAxeLevel = STARTING_PICK_AXE_LEVEL,
 		weaponKind = 0,
+		gadgetKind = Enums.GadgetKind.NONE,
 		countByTool = {},
 	}
 	-- a respawn arrives with the Roblox side of the old Tool gone; the

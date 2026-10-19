@@ -141,6 +141,29 @@ describe(
 			end
 		)
 		it(
+			"prefers a drawing turret listed beside the Refinery even while touching the Refinery",
+			function()
+				-- a guarding Auto Turret rides in the REFINERY list with its own
+				-- PLAYERS type (so the hit still reaches the turret) and a draw
+				-- range; the monster stands against the Refinery's wall
+				local refinery = box("Refinery", REFINERY, CFrame.new(6, 0, 0), Vector3.new(10, 4, 10))
+				local turret = point("AutoTurret1", PLAYERS, Vector3.new(8, 0, 12))
+				turret.drawRangeStuds = 30
+				local candidates = {
+					[REFINERY] = { refinery, turret },
+					[PLAYERS] = { turret },
+				}
+				local data = monster({ DETECTION_RANGE_STUDS = 20 })
+				expect(MonsterRules.distanceTo(Vector3.zero, refinery)).toBeCloseTo(1, 5)
+				local target = MonsterRules.pickTarget(Vector3.zero, data, 0, candidates)
+				expect(target and target.id).toBe("AutoTurret1")
+				expect(target and target.targetType).toBe(PLAYERS)
+				-- outside the draw range the Refinery is the plain nearest again
+				local far = MonsterRules.pickTarget(Vector3.new(-5, 0, -40), monster({ DETECTION_RANGE_STUDS = 60 }), 0, candidates)
+				expect(far and far.id).toBe("Refinery")
+			end
+		)
+		it(
 			"lets a Decoy draw a player hunter from its own range",
 			function()
 				local decoy = point("Decoy", PLAYERS, Vector3.new(30, 0, 0))

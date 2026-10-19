@@ -424,7 +424,36 @@ function WeaponManager:onPlayerReady(player: Player)
 	self:replicate(player)
 end
 
+-- a class change mid-run (the dev tool): the hand weapon becomes the new
+-- class's, with a full magazine; the run's upgrades are attribute levels,
+-- not weapon-specific, so they carry over
+function WeaponManager:applyClass(player: Player)
+	local state = self.stateByPlayer[player]
+	if not state then
+		return
+	end
+	local weaponKind = CharacterManager:getGearKind(player, Enums.GearSlot.WEAPON, HandheldData.DEFAULT_WEAPON)
+	local data = self:getWeaponData(weaponKind)
+	if not data or weaponKind == state.weaponKind then
+		return
+	end
+	state.weaponKind = weaponKind
+	state.ammo = data.MAGAZINE_SIZE
+	state.reloadEndTime = 0
+	state.lastFireTime = nil
+	state.secondaryReadyTime = 0
+	ToolManager:setWeaponKind(player, weaponKind)
+	-- the held Tool is built from the kind's template, so a held weapon is rebuilt
+	ToolManager:syncHeldTool(player)
+	self:replicate(player)
+end
+
 function WeaponManager:init()
+	CharacterManager:subscribeClassChanged(
+		function(player: Player, _classKind: number)
+			self:applyClass(player)
+		end
+	)
 	local kinds: { [number]: WeaponRules.WeaponData } = {}
 	for kind, data in HandheldData.BY_KIND do
 		kinds[kind] = data
