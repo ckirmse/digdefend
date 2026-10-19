@@ -231,6 +231,12 @@ function MonsterManager:subscribeKilled(handler: (kind: number) -> ())
 	table.insert(self.killedHandlers, handler)
 end
 
+-- whether a damageable id names a living monster (the Binoculars tag
+-- only monsters, never a turret or a placement)
+function MonsterManager:isMonsterDamageable(damageableId: string): boolean
+	return self.monsterByDamageableId[damageableId] ~= nil
+end
+
 function MonsterManager:getRosterData(kind: number): MonsterRules.MonsterData?
 	return ROSTER_BY_KIND[kind]
 end

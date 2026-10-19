@@ -24,6 +24,7 @@
 -- press, on its own cooldown, flown by ClientProjectileManager.
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -31,6 +32,7 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
@@ -42,9 +44,11 @@ local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayMa
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientCameraView = require(script.Parent.ClientCameraView)
 local ClientDamageableManager = require(script.Parent.ClientDamageableManager)
+local ClientHeadshotManager = require(script.Parent.ClientHeadshotManager)
 local ClientHoldInput = require(script.Parent.ClientHoldInput)
 local ClientImpactManager = require(script.Parent.ClientImpactManager)
 local ClientMiningManager = require(script.Parent.ClientMiningManager)
+local ClientScopeGlassManager = require(script.Parent.ClientScopeGlassManager)
 local ClientViewModelManager = require(script.Parent.ClientViewModelManager)
 
 local ClientWeaponManager = {}
@@ -71,6 +75,15 @@ export type ClientWeaponManager = typeof(setmetatable(
 		catalog: WeaponRules.Catalog?,
 		isScoped: boolean,
 		savedFieldOfView: number?,
+		-- the scope's look (2026-10-19): Roblox's camera turns the same
+		-- angle per mouse pixel at any zoom, so after it has moved each
+		-- frame the turn is scaled down by the zoom and re-applied from the
+		-- look the player last saw; the module reads its heading back from
+		-- the camera, so it carries on from the scaled look
+		scopeLastLook: Vector3?,
+		scopeTurnScale: number,
+		-- the picture on the glass while scoped
+		scopeImageId: string?,
 		secondaryReadyTime: number,
 	},
 	ClientWeaponManager
@@ -112,11 +125,16 @@ local NOTIFY_WEAPON_FIRED_SHAPE = {
 	hitId = "string",
 	-- a cone's tick: every body it reached
 	hitIds = { type = "array", elementType = "string", optional = true },
+	-- the shot landed in the head zone (the shooter's callout)
+	isHeadshot = "boolean",
 }
 -- how long a tick keeps the stream weapon's flame emitter on: a little
 -- past the interval, so a held trigger reads as one continuous flame
 local MUZZLE_FLAME_SEC = 0.15
 local DEFAULT_FIELD_OF_VIEW = 70
+-- the scope look step (see stepScopeLook) and how far it may pitch
+local SCOPE_LOOK_BINDING = "WeaponScopeLook"
+local SCOPE_PITCH_LIMIT = math.rad(80)
 
 function ClientWeaponManager:getIsWeaponMode(): boolean
 	return self.isWeaponMode
@@ -167,23 +185,93 @@ end
 function ClientWeaponManager:setScoped(isScoped: boolean)
 	local kindData = self:getOwnKindData()
 	local scope = if kindData then kindData.SCOPE else nil
-	local camera = workspace.CurrentCamera
-	if isScoped == self.isScoped or not camera then
+	if isScoped == self.isScoped then
 		return
 	end
 	if isScoped and (not self.isWeaponMode or not scope or self:isManningPost()) then
 		return
 	end
-	self.isScoped = isScoped
 	if isScoped and scope then
-		self.savedFieldOfView = camera.FieldOfView
-		camera.FieldOfView = scope.FIELD_OF_VIEW
-		ClientViewModelManager:hide()
+		local weaponKind = ClientDataManager:getCurrentPlayerAttribute(Attributes.WEAPON_KIND)
+		local imageId = if typeof(weaponKind) == "number" then Icons.WEAPON_SCOPE[weaponKind] else nil
+		self:enterScope(scope.FIELD_OF_VIEW, if typeof(imageId) == "string" then imageId else nil)
 	else
-		camera.FieldOfView = self.savedFieldOfView or DEFAULT_FIELD_OF_VIEW
-		self.savedFieldOfView = nil
-		self:renderViewModel()
+		self:exitScope()
 	end
+end
+
+function ClientWeaponManager:enterScope(fieldOfView: number, imageId: string?)
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return
+	end
+	self.isScoped = true
+	self.scopeImageId = imageId
+	self.savedFieldOfView = camera.FieldOfView
+	camera.FieldOfView = fieldOfView
+	-- a hand movement covers the same screen distance scoped as
+	-- unscoped: the turn is scaled by the zoom (see stepScopeLook)
+	self.scopeTurnScale = fieldOfView / math.max(self.savedFieldOfView, 1)
+	self.scopeLastLook = camera.CFrame.LookVector
+	RunService:BindToRenderStep(SCOPE_LOOK_BINDING, Enum.RenderPriority.Camera.Value + 1,
+		function()
+			self:stepScopeLook()
+		end
+	)
+	ClientViewModelManager:hide()
+	self:renderScopeGlass()
+end
+
+function ClientWeaponManager:exitScope()
+	if not self.isScoped then
+		return
+	end
+	self.isScoped = false
+	self.scopeImageId = nil
+	RunService:UnbindFromRenderStep(SCOPE_LOOK_BINDING)
+	self.scopeLastLook = nil
+	local camera = workspace.CurrentCamera
+	if camera then
+		camera.FieldOfView = self.savedFieldOfView or DEFAULT_FIELD_OF_VIEW
+	end
+	self.savedFieldOfView = nil
+	self:renderViewModel()
+	self:renderScopeGlass()
+end
+
+-- right after Roblox's camera has turned for the frame: the yaw and pitch
+-- it added since the look the player last saw are scaled down by the zoom
+-- and applied from that look instead, so a mouse pixel moves the reticle
+-- the same distance across the glass as it moves the crosshair unscoped
+function ClientWeaponManager:stepScopeLook()
+	local camera = workspace.CurrentCamera
+	local lastLook = self.scopeLastLook
+	if not camera or not lastLook then
+		return
+	end
+	local look = camera.CFrame.LookVector
+	local lastYaw = math.atan2(-lastLook.X, -lastLook.Z)
+	local lastPitch = math.asin(math.clamp(lastLook.Y, -1, 1))
+	local yaw = math.atan2(-look.X, -look.Z)
+	local pitch = math.asin(math.clamp(look.Y, -1, 1))
+	local yawDelta = (yaw - lastYaw + math.pi) % (2 * math.pi) - math.pi
+	local pitchDelta = pitch - lastPitch
+	local newYaw = lastYaw + yawDelta * self.scopeTurnScale
+	local newPitch = math.clamp(lastPitch + pitchDelta * self.scopeTurnScale, -SCOPE_PITCH_LIMIT, SCOPE_PITCH_LIMIT)
+	local newLook = Vector3.new(-math.sin(newYaw) * math.cos(newPitch), math.sin(newPitch), -math.cos(newYaw) * math.cos(newPitch))
+	local position = camera.CFrame.Position
+	camera.CFrame = CFrame.lookAt(position, position + newLook)
+	self.scopeLastLook = newLook
+end
+
+-- the scope glass: the kind's reticle picture with black all round it,
+-- shown only while scoped (decided 2026-10-19)
+function ClientWeaponManager:renderScopeGlass()
+	if not self.isScoped then
+		ClientScopeGlassManager:hide()
+		return
+	end
+	ClientScopeGlassManager:show(self.scopeImageId)
 end
 
 -- the second trigger (the Assault Rifle's grenade): a request on the aim
@@ -279,15 +367,15 @@ function ClientWeaponManager:playMuzzleEffects(muzzle: Attachment?)
 end
 
 -- returns how long the streak takes to arrive, so the impact can wait for
--- it; a caller with a kind of its own passes that kind's colour
-function ClientWeaponManager:drawTracer(from: Vector3, to: Vector3, color: Color3?): number
+-- it; a caller with a kind of its own passes that kind's colour and speed
+function ClientWeaponManager:drawTracer(from: Vector3, to: Vector3, color: Color3?, speedStudsPerSec: number?): number
 	local length = (to - from).Magnitude
 	if length < 0.5 then
 		return 0
 	end
 	local streakLength = math.min(TRACER_LENGTH_STUDS, length)
 	local travelStuds = length - streakLength
-	local travelSec = travelStuds / TRACER_SPEED_STUDS_PER_SEC
+	local travelSec = travelStuds / (speedStudsPerSec or TRACER_SPEED_STUDS_PER_SEC)
 	local aim = CFrame.lookAt(from, to)
 	local tracer = Instance.new("Part")
 	tracer.Name = "Tracer"
@@ -468,6 +556,9 @@ function ClientWeaponManager:onWeaponFired(payload: any)
 		local weaponSfx = self:getWeaponSfx(payload.weaponKind)
 		if #hitIds > 0 and weaponSfx then
 			ClientSoundManager:playSfx(weaponSfx.HIT)
+		end
+		if payload.isHeadshot and payload.hitId ~= "" then
+			ClientHeadshotManager:showBonus(payload.hitId)
 		end
 		return
 	end
@@ -724,6 +815,9 @@ function ClientWeaponManager.new(): ClientWeaponManager
 	self.isOverlayActive = false
 	self.catalog = nil
 	self.isScoped = false
+	self.scopeLastLook = nil
+	self.scopeTurnScale = 1
+	self.scopeImageId = nil
 	self.savedFieldOfView = nil
 	self.secondaryReadyTime = 0
 	return self

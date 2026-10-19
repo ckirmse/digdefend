@@ -961,6 +961,21 @@ function ClientMonsterManager:onBlast(payload: any)
 	Debris:AddItem(ball, BLAST_PLACEHOLDER_SEC)
 end
 
+-- the instance a monster is drawn with right now (its rig, or its one-part
+-- body), for a Highlight that must follow it; nil before its first frame
+function ClientMonsterManager:getBodyInstance(damageableId: string): Instance?
+	local monster = self.monsterByDamageableId[damageableId]
+	if not monster then
+		return nil
+	end
+	local rig = monster.rig
+	if rig and monster.mode == MODE_ANIMATED then
+		return rig.model
+	end
+	local body = monster.held or monster.proxy
+	return if body then body.part else nil
+end
+
 -- the ids a Tower or a weapon hit name the monster by its damageable id
 function ClientMonsterManager:getBodyPosition(damageableId: string): Vector3?
 	local monster = self.monsterByDamageableId[damageableId]
@@ -1011,10 +1026,10 @@ end
 
 -- the ground location of every monster drawn so far, for the Camp Map
 -- (M33); a monster whose first sample has not arrived is skipped
-function ClientMonsterManager:forEachRenderedLocation(callback: (x: number, z: number) -> ())
+function ClientMonsterManager:forEachRenderedLocation(callback: (x: number, z: number, damageableId: string) -> ())
 	for _, monster in self.monstersById do
 		if monster.renderCFrame ~= nil then
-			callback(monster.renderX, monster.renderZ)
+			callback(monster.renderX, monster.renderZ, monster.damageableId)
 		end
 	end
 end

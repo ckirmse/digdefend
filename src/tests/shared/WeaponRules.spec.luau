@@ -249,9 +249,31 @@ describe(
 			"pierces through boxes along the ray in order, up to the count",
 			function()
 				local boxes = { box("third", 0, 30), box("first", 0, 10), box("second", 0, 20), box("miss", 10, 15) }
-				expect(WeaponRules.findPierceHits(Vector3.zero, Vector3.zAxis, 100, boxes, 2)).toEqual({ "first", "second" })
-				expect(WeaponRules.findPierceHits(Vector3.zero, Vector3.zAxis, 100, boxes, 10)).toEqual({ "first", "second", "third" })
-				expect(WeaponRules.findPierceHits(Vector3.zero, Vector3.zAxis, 15, boxes, 10)).toEqual({ "first" })
+				expect((WeaponRules.findPierceHits(Vector3.zero, Vector3.zAxis, 100, boxes, 2))).toEqual({ "first", "second" })
+				expect((WeaponRules.findPierceHits(Vector3.zero, Vector3.zAxis, 100, boxes, 10))).toEqual({ "first", "second", "third" })
+				expect((WeaponRules.findPierceHits(Vector3.zero, Vector3.zAxis, 15, boxes, 10))).toEqual({ "first" })
+				local _ids, distances = WeaponRules.findPierceHits(Vector3.zero, Vector3.zAxis, 100, boxes, 2)
+				expect(#distances).toBe(2)
+				expect(distances[1] < distances[2]).toBe(true)
+			end
+		)
+	end
+)
+
+describe(
+	"WeaponRules.isHeadshot",
+	function()
+		it(
+			"calls the top slice of a box the head, in the box's own frame",
+			function()
+				local box = CFrame.new(10, 5, 0) * CFrame.Angles(0, math.rad(90), 0)
+				local size = Vector3.new(4, 10, 4)
+				-- the box runs from y 0 to y 10; the top 30% starts at y 7
+				expect(WeaponRules.isHeadshot(Vector3.new(10, 9, 0), box, size, 0.3)).toBe(true)
+				expect(WeaponRules.isHeadshot(Vector3.new(10, 7, 0), box, size, 0.3)).toBe(true)
+				expect(WeaponRules.isHeadshot(Vector3.new(10, 6.9, 0), box, size, 0.3)).toBe(false)
+				expect(WeaponRules.isHeadshot(Vector3.new(10, 1, 0), box, size, 0.3)).toBe(false)
+				expect(WeaponRules.isHeadshot(Vector3.new(10, 1, 0), box, size, 1)).toBe(true)
 			end
 		)
 	end

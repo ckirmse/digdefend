@@ -93,6 +93,8 @@ type Damageable = {
 export type DamageableManager = typeof(setmetatable(
 	{} :: {
 		damageableById: { [string]: Damageable },
+		-- a tagged body's scale on every hit (setDamageTakenMultiplier)
+		damageTakenMultiplierById: { [string]: number },
 		-- every id in registration order (ids only ever grow, so this is
 		-- also sorted order); rebuilt only after an id leaves
 		orderedIds: { string },
@@ -183,6 +185,7 @@ function DamageableManager:unregister(id: string)
 		return
 	end
 	self.damageableById[id] = nil
+	self.damageTakenMultiplierById[id] = nil
 	self.isOrderDirty = true
 	self.targetsCache = nil
 	if damageable.shadow then
@@ -351,10 +354,24 @@ function DamageableManager:getSpeedMultiplier(id: string): number
 end
 
 -- returns the HP left, or nil for an unknown id
+-- a tagged body (the Binoculars, 2026-10-19) takes every hit scaled by
+-- this until it is cleared; nil clears it. Applied here so a player, a
+-- Tower, a Trap, and a turret all honour it without knowing of tags
+function DamageableManager:setDamageTakenMultiplier(id: string, multiplier: number?)
+	if not self.damageableById[id] then
+		return
+	end
+	self.damageTakenMultiplierById[id] = multiplier
+end
+
 function DamageableManager:damage(id: string, amount: number, attacker: Player?): number?
 	local damageable = self.damageableById[id]
 	if not damageable or amount <= 0 then
 		return nil
+	end
+	local multiplier = self.damageTakenMultiplierById[id]
+	if multiplier then
+		amount *= multiplier
 	end
 	local taken = math.min(amount, damageable.hp)
 	damageable.hp = math.max(0, damageable.hp - amount)
@@ -456,6 +473,7 @@ end
 function DamageableManager.new(): DamageableManager
 	local self = setmetatable({}, DamageableManager) :: DamageableManager
 	self.damageableById = {}
+	self.damageTakenMultiplierById = {}
 	self.orderedIds = {}
 	self.isOrderDirty = false
 	self.targetsCache = nil

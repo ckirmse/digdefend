@@ -226,11 +226,19 @@ function WeaponManager:fire(player: Player, origin: Vector3, direction: Vector3)
 			isImpact = false,
 			hitId = hitIds[1] or NO_HIT_ID,
 			hitIds = hitIds,
+			isHeadshot = false,
 		})
 	else
 		local hitId, hitDistance = WeaponRules.findClosestHit(origin, unitDirection, worldDistance, DamageableManager:getHitBoxes())
 		local endDistance = hitDistance or worldDistance
-		if hitId then
+		local isHeadshot = false
+		if hitId and hitDistance then
+			-- a hit in the head zone does the kind's headshot multiple (2026-10-19)
+			local target = DamageableManager:getTarget(hitId)
+			if target and WeaponRules.isHeadshot(origin + unitDirection * hitDistance, target.cframe, target.size, WeaponRules.HEAD_SHARE) then
+				isHeadshot = true
+				damageScale *= data.HEADSHOT_MULTIPLIER or HandheldData.HEADSHOT_MULTIPLIER
+			end
 			DamageableManager:damage(hitId, stats.damage * damageScale, player)
 		end
 		NetManager:notifyAllClients(NetEventNames.NOTIFY_WEAPON_FIRED, {
@@ -241,6 +249,7 @@ function WeaponManager:fire(player: Player, origin: Vector3, direction: Vector3)
 			-- false when the shot ran out its range in open air: no dust puff
 			isImpact = hitId ~= nil or worldDistance < stats.rangeStuds,
 			hitId = hitId or NO_HIT_ID,
+			isHeadshot = isHeadshot,
 		})
 	end
 	self:replicate(player)

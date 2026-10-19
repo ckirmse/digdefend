@@ -56,6 +56,7 @@ local DAMAGE = Enums.PostAttribute.DAMAGE
 local FIRE_RATE = Enums.PostAttribute.FIRE_RATE
 local TURN_SPEED = Enums.PostAttribute.TURN_SPEED
 local RANGE = Enums.PostAttribute.RANGE
+local HEADSHOT = Enums.PostAttribute.HEADSHOT
 local COOLDOWN = Enums.PostAttribute.COOLDOWN
 
 -- the gun sits a dozen studs over the ground, so a monster at the foot
@@ -107,10 +108,17 @@ return {
 		-- the base cool time off, the same half second every rung, so the
 		-- overheated gun cools from full in 3 / 2.5 / 2 / 1.5 / 1 s
 		[COOLDOWN] = 1 / 6,
+		-- the Railgun's Headshot (2026-10-19): a quarter added to the
+		-- multiple per level, 3x to 4x, so a maxed gun still needs several
+		-- landed heads for a Launcher or a Titan
+		[HEADSHOT] = 0.25,
 	},
 	-- how far from the muzzle the server lets a shot start: the client's
 	-- base may be a fraction of a second ahead of the last aim it sent
 	ORIGIN_TOLERANCE_STUDS = 8,
+	-- headshots (2026-10-19): a hitscan shot (a plain one or a pierce) in
+	-- the head does this much more; a kind may set its own HEADSHOT_MULTIPLIER
+	HEADSHOT_MULTIPLIER = 1.5,
 	-- how many degrees past the turn speed a yaw report may run, for the
 	-- same reason
 	YAW_TOLERANCE_DEGREES = 15,
@@ -196,26 +204,38 @@ return {
 				SEC = 1,
 			},
 		},
-		-- the Sniper: hold to charge, release to fire a shot that pierces
-		-- everything in a line for full damage, long reload; Fire Rate
-		-- shortens the charge, Damage raises the pierce count
+		-- the Sniper: hold to charge, release to fire a shot that goes
+		-- through two bodies in a line for the share of full damage the
+		-- charge reached; Fire Rate shortens the charge. The pierce no
+		-- longer grows with Damage (2026-10-19): with the headshot and a
+		-- shorter charge a level 4 gun through seven bodies was the Saw
+		-- Gun's lane with the Sniper's damage
 		[Enums.PostWeaponKind.RAIL_GUN] = {
-			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
+			-- Headshot in place of Range (2026-10-19): 600 studs already
+			-- reaches past every spawn, so Range bought nothing
+			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, HEADSHOT },
+			-- the Sniper Rifle's headshot: a full charge in the head is 780
+			HEADSHOT_MULTIPLIER = 3,
 			DAMAGE = 260,
-			FIRE_INTERVAL_SEC = 4,
-			FIRE_COOLDOWN_SEC = 3.8,
+			-- the charge is the only pace (2026-10-19): no reload, and an
+			-- interval short enough that a snap shot can follow a snap shot
+			FIRE_INTERVAL_SEC = 0.5,
+			FIRE_COOLDOWN_SEC = 0.4,
 			TURN_SPEED_DEGREES_PER_SEC = 10,
 			RANGE_STUDS = 600,
-			FIELD_OF_VIEW = 25,
+			-- the Sniper Rifle's zoom, behind the same scope glass (2026-10-19)
+			FIELD_OF_VIEW = 13,
 			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
 			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
-			RELOAD_SEC = 4,
+			-- a full charge takes this long and the shot does the share of
+			-- full damage the trigger was held to (2026-10-19, from 1.2 s and
+			-- all-or-nothing): a snap shot is a weak shot, a held one the full
 			CHARGE = {
-				SEC = 1.2,
+				SEC = 4,
 			},
 			PIERCE = {
-				COUNT = 3,
-				COUNT_PER_DAMAGE_LEVEL = 1,
+				COUNT = 2,
+				COUNT_PER_DAMAGE_LEVEL = 0,
 			},
 		},
 		-- the Pyro: lobs a shell that bursts into a pool of fire where it

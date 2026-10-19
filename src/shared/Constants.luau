@@ -396,6 +396,13 @@ Constants.POST_HUD_STATUS_BAR = "StatusBar"
 Constants.POST_HUD_STATUS_FILL = "Fill"
 -- above the bar: "OVERHEATED" or "RELOADING" while that is so, else hidden
 Constants.POST_HUD_STATUS_LABEL = "StatusLabel"
+-- beside the bar, for a Sniper (2026-10-19): the Binoculars' tag icon with
+-- the button that tags under it, a sheet shrinking down it while the
+-- cooldown runs (ClientBinocularsManager)
+Constants.POST_HUD_TAG_HINT = "TagHint"
+Constants.POST_HUD_TAG_HINT_ICON = "Icon"
+Constants.POST_HUD_TAG_HINT_COOLDOWN = "Cooldown"
+Constants.POST_HUD_TAG_HINT_LABEL = "Label"
 -- the upgrade menu ScreenGuis: PostUpgrade
 -- (scripts/studio/build_post_upgrade_menu_gui.luau) and WeaponUpgrade, a
 -- copy of it (scripts/studio/build_weapon_upgrade_menu_gui.luau); both
@@ -646,6 +653,12 @@ Constants.HUD_FLY_ICON_TEMPLATE = "FlyIconTemplate"
 -- strand them (2026-09-29). The clones ride throwaway parts in a
 -- workspace folder of this name
 Constants.FLIGHT_ICON_BILLBOARD = "FlightIcon"
+-- the "HEADSHOT BONUS" callout (scripts/studio/build_headshot_billboard.luau,
+-- 2026-10-19): the template, its label, and the workspace folder its
+-- throwaway anchors live in
+Constants.HEADSHOT_BILLBOARD = "HeadshotBonus"
+Constants.HEADSHOT_LABEL = "Label"
+Constants.HEADSHOT_FOLDER = "HeadshotBonuses"
 -- the dev tool's marker over a sleeping lurker pocket (M62); the folder
 -- the markers live in while they are shown
 Constants.SPIDER_SPAWN_BILLBOARD = "SpiderSpawn"
@@ -853,6 +866,11 @@ Constants.DAMAGEABLE_BODIES_FOLDER = "DamageableBodies"
 Constants.WEAPON_HUD_GUI_NAME = "WeaponHud"
 Constants.WEAPON_HUD_AMMO_BUTTON = "AmmoButton"
 Constants.WEAPON_HUD_AMMO_LABEL = "AmmoLabel"
+-- the scope view (scripts/studio/build_scope_hud_gui.luau, 2026-10-19):
+-- a full-screen gui shown while a scope kind's scope is raised, its
+-- Reticle picture set from Icons.WEAPON_SCOPE by weapon kind
+Constants.SCOPE_HUD_GUI_NAME = "ScopeHud"
+Constants.SCOPE_HUD_RETICLE = "Reticle"
 
 -- the Results Menu (M32; scripts/studio/build_results_menu_gui.luau): the
 -- run's stats, shown at death with the Revive and Spectate buttons and at
@@ -937,6 +955,13 @@ Constants.AUTO_TURRET_BASE_PART = "Stand"
 Constants.AUTO_TURRET_MUZZLE_ATTACHMENT = "MuzzleAttachment"
 Constants.AUTO_TURRET_SHADOW_FOLDER = "AutoTurretShadows"
 Constants.AUTO_TURRET_PICK_UP_ACTION_TEXT = "Pick Up"
+-- the Binoculars' tag callout (scripts/studio/build_tag_billboard.luau,
+-- 2026-10-19): the billboard template over a tagged monster, its icon and
+-- label, and the workspace folder its anchors live in
+Constants.TAG_BILLBOARD = "TagCallout"
+Constants.TAG_ICON = "Icon"
+Constants.TAG_LABEL = "Label"
+Constants.TAG_FOLDER = "TagCallouts"
 -- the tool bar's grey cooldown sheet over a slot (build_tool_bar_gui)
 Constants.TOOL_SLOT_COOLDOWN_OVERLAY = "CooldownOverlay"
 -- the gadget block of the Post & Gadget Upgrades menu (M67): its heading

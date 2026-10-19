@@ -58,8 +58,6 @@ local sfx = {
 	RIFLE_HIT = "RifleHit",
 	-- the class weapons (2026-10-16), the same four each; the Assault
 	-- Rifle's grenade adds a launch and a burst
-	PISTOL_FIRE = "PistolFire",
-	PISTOL_RELOAD = "PistolReload",
 	PISTOL_EMPTY = "PistolEmpty",
 	PISTOL_HIT = "PistolHit",
 	SNIPER_FIRE = "SniperFire",
@@ -77,6 +75,8 @@ local sfx = {
 	ASSAULT_RIFLE_GRENADE_FIRE = "AssaultRifleGrenadeFire",
 	ASSAULT_RIFLE_GRENADE_EXPLODE = "AssaultRifleGrenadeExplode",
 	JET_PACK_BURN = "JetPackBurn",
+	-- the Binoculars' tag landing (2026-10-19), the tagger's own
+	BINOCULARS_TAG = "BinocularsTag",
 	-- M25: post weapons have no magazine, so two sounds each: fire (3D from
 	-- the muzzle, one clip per shot) and the gunner's hit confirm. Named
 	-- Post_<Weapon>_<Action> (decided 2026-09-18)
@@ -174,9 +174,10 @@ local weaponSfxByKindName: { [string]: WeaponSfx } = {
 		EMPTY = sfx.RIFLE_EMPTY,
 		HIT = sfx.RIFLE_HIT,
 	},
+	-- the Pistol fires and reloads with the Rifle's sounds (decided 2026-10-19)
 	PISTOL = {
-		FIRE = sfx.PISTOL_FIRE,
-		RELOAD = sfx.PISTOL_RELOAD,
+		FIRE = sfx.RIFLE_FIRE,
+		RELOAD = sfx.RIFLE_RELOAD,
 		EMPTY = sfx.PISTOL_EMPTY,
 		HIT = sfx.PISTOL_HIT,
 	},

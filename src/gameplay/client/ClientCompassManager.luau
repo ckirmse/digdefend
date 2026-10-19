@@ -19,6 +19,7 @@ local CompassRules = require("@game/ReplicatedStorage/Shared/CompassRules")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
+local ClientBinocularsManager = require(script.Parent.ClientBinocularsManager)
 
 local ClientCompassManager = {}
 ClientCompassManager.__index = ClientCompassManager
@@ -43,6 +44,10 @@ export type ClientCompassManager = typeof(setmetatable(
 		homeMarker: Marker?,
 		dotTemplate: GuiObject?,
 		dotByUserId: { [number]: PlayerDot },
+		-- the Binoculars' tags (2026-10-19): one accent dot per tagged
+		-- monster, pooled, the first `tagMarkersShown` visible
+		tagMarkers: { Marker },
+		tagMarkersShown: number,
 		stepConnection: RBXScriptConnection?,
 	},
 	ClientCompassManager
@@ -200,6 +205,49 @@ function ClientCompassManager:step()
 		local scale = CompassRules.dotScale((position - viewerPosition).Magnitude, fullSizeStuds, smallestStuds, smallestScale)
 		self:placeMarker(dot.marker, share, scale, CompassRules.verticalHint(position.Y - viewerPosition.Y, verticalHintStuds))
 	end
+
+	local shown = 0
+	ClientBinocularsManager:forEachTagPosition(
+		function(position: Vector3)
+			shown += 1
+			local marker = self:getTagMarker(shown)
+			if not marker then
+				return
+			end
+			local yaw = CompassRules.relativeYawDegrees(forwardX, forwardZ, viewerPosition, position)
+			local share = CompassRules.barShare(yaw, fieldOfViewDegrees, false)
+			local scale = CompassRules.dotScale((position - viewerPosition).Magnitude, fullSizeStuds, smallestStuds, smallestScale)
+			self:placeMarker(marker, share, scale, CompassRules.verticalHint(position.Y - viewerPosition.Y, verticalHintStuds))
+		end
+	)
+	for index = shown + 1, self.tagMarkersShown do
+		local marker = self.tagMarkers[index]
+		if marker then
+			marker.frame.Visible = false
+		end
+	end
+	self.tagMarkersShown = shown
+end
+
+-- a tagged monster's mark: the player dot template in the accent, pooled
+function ClientCompassManager:getTagMarker(index: number): Marker?
+	local marker = self.tagMarkers[index]
+	if marker then
+		return marker
+	end
+	local template = self.dotTemplate
+	local markersFrame = self.markersFrame
+	if not template or not markersFrame then
+		return nil
+	end
+	local frame = template:Clone()
+	frame.Name = `Tag{index}`
+	frame.Visible = false
+	frame.BackgroundColor3 = UiStyle.ACCENT_COLOR
+	frame.Parent = markersFrame
+	marker = buildMarker(frame)
+	self.tagMarkers[index] = marker
+	return marker
 end
 
 -- the bar is drawn, and stepped, only while the compass is owned
@@ -254,6 +302,8 @@ function ClientCompassManager.new(): ClientCompassManager
 	self.homeMarker = nil
 	self.dotTemplate = nil
 	self.dotByUserId = {}
+	self.tagMarkers = {}
+	self.tagMarkersShown = 0
 	self.stepConnection = nil
 	return self
 end

@@ -213,6 +213,8 @@ module = {
 	TRY_PLACE_AUTO_TURRET = "TryPlaceAutoTurret",
 	TRY_PICK_UP_AUTO_TURRET = "TryPickUpAutoTurret",
 	NOTIFY_AUTO_TURRET_FIRED = "NotifyAutoTurretFired",
+	-- the Binoculars (2026-10-19): tag the monster under the reticle
+	TRY_TAG_MONSTER = "TryTagMonster",
 	-- gadget upgrades (M67): buy the class gadget's next level at the Post
 	-- & Gadget Upgrades table, and to that client: it went through
 	-- ({ level, price }), for the sound

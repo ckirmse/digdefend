@@ -64,7 +64,9 @@ return {
 		-- Combat: Tank Destroyer / Support
 		[Enums.ClassKind.SNIPER] = {
 			KIT = {
-				WEAPON = Enums.WeaponKind.SNIPER,
+				-- the sidearm, not a second scope (2026-10-19): the Railgun
+				-- post is the Sniper's gun, the Pistol is for the walk to it
+				WEAPON = Enums.WeaponKind.PISTOL,
 				POST = Enums.PostWeaponKind.RAIL_GUN,
 				TOWER = Enums.TowerKind.SNIPER_TOWER,
 				GADGET = Enums.GadgetKind.BINOCULARS,

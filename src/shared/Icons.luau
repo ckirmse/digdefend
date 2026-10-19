@@ -46,11 +46,29 @@ Icons.TOOL = {
 -- the WEAPON slot's picture, by the Enums.WeaponKind carried
 Icons.WEAPON = {
 	[Enums.WeaponKind.RIFLE] = "rbxassetid://71757532147550",
+	-- the sidearm of the Recruit, Sniper, Prospector, Hauler, and Medic (2026-10-19)
+	[Enums.WeaponKind.PISTOL] = "rbxassetid://126590023979777",
 }
 
 -- the GADGET slot's picture, by the Enums.GadgetKind carried (M66)
 Icons.GADGET = {
 	[Enums.GadgetKind.AUTO_TURRET] = "rbxassetid://84791820127176",
+}
+
+-- the Binoculars' tag callout over a tagged monster (2026-10-19): the
+-- Sniper's reticle stands in until the Binoculars' own art lands
+Icons.TAG_RETICLE = "rbxassetid://75294207181536"
+
+-- the scope glass drawn over the screen while a scope kind's scope is
+-- raised (ScopeHud, 2026-10-19): the designer's reticle, black outside it
+Icons.WEAPON_SCOPE = {
+	[Enums.WeaponKind.SNIPER] = "rbxassetid://122058676594142",
+}
+
+-- the same glass while a scoped post is manned (the Railgun, the Sniper's
+-- post, looks through the rifle's scope, decided 2026-10-19)
+Icons.POST_WEAPON_SCOPE = {
+	[Enums.PostWeaponKind.RAIL_GUN] = "rbxassetid://122058676594142",
 }
 
 -- the character sheet's gear cards show the item, never its type (designer,

@@ -49,6 +49,13 @@ module = {
 	-- CurrentPlayer (M66): true from an Auto Turret's loss until the next
 	-- dawn, when it may be placed again
 	AUTO_TURRET_IS_LOST = "AutoTurretIsLost",
+	-- the Binoculars (BinocularsManager, 2026-10-19): the tagger's live tag
+	-- as BinocularsRules JSON on their AllPlayers entry ("" for none), and
+	-- the server time their next tag may be made (CurrentPlayer)
+	BINOCULARS_TAG = "BinocularsTag",
+	BINOCULARS_COOLDOWN_END_TIME = "BinocularsCooldownEndTime",
+	-- the cooldown's length (GameMetadata), so the hint can show its share
+	BINOCULARS_COOLDOWN_SEC = "BinocularsCooldownSec",
 	-- CurrentPlayer (M67): the class gadget's level this run, from 1
 	GADGET_LEVEL = "GadgetLevel",
 	-- GameMetadata (M67): JSON of each upgradable gadget's Iron prices
@@ -387,6 +394,7 @@ module = {
 	POST_UPGRADE_TURN_SPEED = "PostUpgradeTurnSpeed",
 	POST_UPGRADE_RANGE = "PostUpgradeRange",
 	POST_UPGRADE_COOLDOWN = "PostUpgradeCooldown",
+	POST_UPGRADE_HEADSHOT = "PostUpgradeHeadshot",
 	-- GameMetadata: the post catalogue as JSON (PostRules codec): claim
 	-- price, per-kind base stats, and upgrade prices
 	POST_CATALOG = "PostCatalog",

@@ -11,6 +11,7 @@ local ClientAimManager = require(script.Parent.ClientAimManager)
 local ClientAutoTurretDevTools = require(script.Parent.ClientAutoTurretDevTools)
 local ClientAutoTurretManager = require(script.Parent.ClientAutoTurretManager)
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
+local ClientBinocularsManager = require(script.Parent.ClientBinocularsManager)
 local ClientCampMapManager = require(script.Parent.ClientCampMapManager)
 local ClientDiamondTapManager = require(script.Parent.ClientDiamondTapManager)
 local ClientCompassManager = require(script.Parent.ClientCompassManager)
@@ -20,6 +21,7 @@ local ClientDefenseTableManager = require(script.Parent.ClientDefenseTableManage
 local ClientDynamiteManager = require(script.Parent.ClientDynamiteManager)
 local ClientGeigerCounterManager = require(script.Parent.ClientGeigerCounterManager)
 local ClientGiveCurrencyManager = require(script.Parent.ClientGiveCurrencyManager)
+local ClientHeadshotManager = require(script.Parent.ClientHeadshotManager)
 local ClientIconFlightManager = require(script.Parent.ClientIconFlightManager)
 local ClientImpactManager = require(script.Parent.ClientImpactManager)
 local ClientJetPackManager = require(script.Parent.Parent.Client.ClientJetPackManager)
@@ -36,6 +38,7 @@ local ClientPlacementManager = require(script.Parent.ClientPlacementManager)
 local ClientRescueManager = require(script.Parent.ClientRescueManager)
 local ClientReviveManager = require(script.Parent.ClientReviveManager)
 local ClientRunCycleManager = require(script.Parent.ClientRunCycleManager)
+local ClientScopeGlassManager = require(script.Parent.ClientScopeGlassManager)
 local ClientTowerBehaviorManager = require(script.Parent.ClientTowerBehaviorManager)
 local ClientTrapBehaviorManager = require(script.Parent.ClientTrapBehaviorManager)
 local ClientPostDevTools = require(script.Parent.ClientPostDevTools)
@@ -85,7 +88,11 @@ ClientTorchManager:init()
 ClientStructureManager:init()
 ClientWorkbenchManager:init()
 ClientDamageableManager:init()
+-- the headshot callout hangs over the bodies the targets draw
+ClientHeadshotManager:init()
 ClientImpactManager:init()
+-- the scope glass both the rifle and the Railgun look through
+ClientScopeGlassManager:init()
 ClientWeaponManager:init()
 ClientAimManager:init()
 -- after the weapon manager, whose tracer and muzzle effects it borrows
@@ -106,6 +113,9 @@ ClientTrapBehaviorManager:init()
 -- the Auto Turret (M66): after the targets its tracers end on and the
 -- weapon manager that draws them
 ClientAutoTurretManager:init()
+-- the Binoculars (2026-10-19): the scope, the tag callouts, and the marks
+-- the Camp Map and compass read from it below
+ClientBinocularsManager:init()
 -- the day clock reads GameMetadata the server set before anyone was Ready
 ClientRunCycleManager:init()
 -- the Refinery HP bar that takes the clock's place at night

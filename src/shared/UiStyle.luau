@@ -48,6 +48,14 @@ UiStyle.ALERT_COLOR = Color3.fromRGB(190, 40, 40)
 UiStyle.TRACER_COLOR = Color3.fromRGB(255, 230, 140)
 UiStyle.POST_TRACER_COLORS = {
 	[Enums.PostWeaponKind.MINI_GUN] = Color3.fromRGB(150, 210, 255),
+	-- the Railgun's bolt is a laser, so red (2026-10-19)
+	[Enums.PostWeaponKind.RAIL_GUN] = Color3.fromRGB(255, 60, 60),
+}
+-- how fast a post kind's streak crosses the world when the default (the
+-- hand weapons' 900 studs a second) reads too slow: the Railgun's bolt is
+-- twice that, since a sniper's shot should feel instant (2026-10-19)
+UiStyle.POST_TRACER_SPEEDS = {
+	[Enums.PostWeaponKind.RAIL_GUN] = 1800,
 }
 
 -- the compass dot of each crew member, by the colour index the server

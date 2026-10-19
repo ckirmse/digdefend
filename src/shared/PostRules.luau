@@ -48,6 +48,8 @@ export type HeatData = {
 }
 
 export type KindData = {
+	-- scales a hitscan shot that lands in the head; the data's default when absent
+	HEADSHOT_MULTIPLIER: number?,
 	PROJECTILE: ProjectileData?,
 	HEAT: HeatData?,
 	SPIN_UP: SpinUpData?,
@@ -82,6 +84,8 @@ export type Catalog = {
 	upgradePriceByLevel: { number },
 	-- the share of the base stat each upgrade adds, by Enums.PostAttribute
 	bonusPerLevelByAttribute: { [number]: number },
+	-- what a hit in the head does for a kind without its own HEADSHOT_MULTIPLIER
+	headshotMultiplier: number,
 	kinds: { [number]: KindData },
 }
 
@@ -104,6 +108,9 @@ export type Stats = {
 	spinUpSec: number?,
 	chargeSec: number?,
 	pierceCount: number?,
+	-- what a hit in the head does (2026-10-19): the kind's own multiple or
+	-- the catalogue's default, plus the Headshot bonus per level
+	headshotMultiplier: number,
 	chainJumpStuds: number?,
 	pullRadiusStuds: number?,
 	-- Damage widens the pool
@@ -142,6 +149,7 @@ PostRules.UPGRADE_ATTRIBUTE_BY_POST_ATTRIBUTE = {
 	[Enums.PostAttribute.TURN_SPEED] = Attributes.POST_UPGRADE_TURN_SPEED,
 	[Enums.PostAttribute.RANGE] = Attributes.POST_UPGRADE_RANGE,
 	[Enums.PostAttribute.COOLDOWN] = Attributes.POST_UPGRADE_COOLDOWN,
+	[Enums.PostAttribute.HEADSHOT] = Attributes.POST_UPGRADE_HEADSHOT,
 }
 
 PostRules.NO_POST = 0
@@ -191,6 +199,9 @@ function PostRules.statsFor(catalog: Catalog, kind: number, upgrades: Upgrades):
 		spinUpSec = if data.SPIN_UP then data.SPIN_UP.SEC else nil,
 		chargeSec = if data.CHARGE then data.CHARGE.SEC / fireRateMultiplier else nil,
 		pierceCount = if data.PIERCE then data.PIERCE.COUNT + data.PIERCE.COUNT_PER_DAMAGE_LEVEL * PostRules.upgradeLevel(upgrades, Enums.PostAttribute.DAMAGE) else nil,
+		-- an added quarter per level (3x, 3.25x ... 4x), not a share of the
+		-- base, so the step reads the same on every rung
+		headshotMultiplier = (data.HEADSHOT_MULTIPLIER or catalog.headshotMultiplier) + (bonuses[Enums.PostAttribute.HEADSHOT] or 0) * PostRules.upgradeLevel(upgrades, Enums.PostAttribute.HEADSHOT),
 		chainJumpStuds = if data.CHAIN then data.CHAIN.JUMP_STUDS * multiplierFor(Enums.PostAttribute.RANGE) else nil,
 		pullRadiusStuds = if data.PULL then data.PULL.RADIUS_STUDS * multiplierFor(Enums.PostAttribute.RANGE) else nil,
 		poolRadiusStuds = if data.POOL then data.POOL.RADIUS_STUDS * multiplierFor(Enums.PostAttribute.DAMAGE) else nil,
@@ -209,6 +220,29 @@ function PostRules.windupProgress(triggerStartTime: number?, now: number, windup
 		return 0
 	end
 	return math.clamp((now - triggerStartTime) / windupSec, 0, 1)
+end
+
+-- a charge shot's damage as a share of full: the square of the charge
+-- reached (decided 2026-10-19), so a half charge does a quarter and a
+-- snap shot a sliver. Proportional damage made a tap every half second
+-- worth exactly a full four-second hold; the square makes holding pay
+function PostRules.chargeDamageShare(chargeProgress: number): number
+	local progress = math.clamp(chargeProgress, 0, 1)
+	return progress * progress
+end
+
+-- how many bodies a charge shot goes through: one under half charge, one
+-- short of the full count until full, the full count at full. The column
+-- shot is the patient Sniper's
+PostRules.CHARGE_PIERCE_HALF = 0.5
+function PostRules.chargePierceCount(chargeProgress: number, fullCount: number): number
+	if chargeProgress >= 1 then
+		return fullCount
+	end
+	if chargeProgress >= PostRules.CHARGE_PIERCE_HALF then
+		return math.max(1, fullCount - 1)
+	end
+	return 1
 end
 
 -- the angle in degrees between the barrel and the line to a point
@@ -532,6 +566,7 @@ function PostRules.encodeCatalog(catalog: Catalog): string
 		claimPriceGold = catalog.claimPriceGold,
 		upgradePriceByLevel = catalog.upgradePriceByLevel,
 		bonusPerLevelByAttribute = encodeNumberKeys(catalog.bonusPerLevelByAttribute),
+		headshotMultiplier = catalog.headshotMultiplier,
 		kinds = encodeNumberKeys(catalog.kinds),
 	})
 end
@@ -549,6 +584,7 @@ function PostRules.decodeCatalog(json: any): Catalog?
 		claimPriceGold = decoded.claimPriceGold,
 		upgradePriceByLevel = decoded.upgradePriceByLevel or {},
 		bonusPerLevelByAttribute = decodeNumberKeys(decoded.bonusPerLevelByAttribute),
+		headshotMultiplier = decoded.headshotMultiplier or 1,
 		kinds = decodeNumberKeys(decoded.kinds),
 	}
 end

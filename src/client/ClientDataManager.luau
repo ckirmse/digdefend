@@ -34,6 +34,8 @@ export type PublicData = {
 	-- post being manned; 0 for none
 	postIndex: number,
 	postWeaponKind: number,
+	-- the Binoculars tag this player holds, as BinocularsRules JSON ("" for none)
+	binocularsTag: string,
 	mannedPostIndex: number,
 	-- the compass (CompassManager): where the player stands, nil until first
 	-- published, and which dot colour is theirs
@@ -103,6 +105,7 @@ local function readPublicData(folder: Instance): PublicData
 		aimPitchDegrees = (folder:GetAttribute(Attributes.AIM_PITCH_DEGREES) :: number?) or 0,
 		postIndex = (folder:GetAttribute(Attributes.POST_INDEX) :: number?) or 0,
 		postWeaponKind = (folder:GetAttribute(Attributes.POST_WEAPON_KIND) :: number?) or 0,
+		binocularsTag = (folder:GetAttribute(Attributes.BINOCULARS_TAG) :: string?) or "",
 		mannedPostIndex = (folder:GetAttribute(Attributes.MANNED_POST_INDEX) :: number?) or 0,
 		compassPosition = folder:GetAttribute(Attributes.COMPASS_POSITION) :: Vector3?,
 		compassColorIndex = (folder:GetAttribute(Attributes.COMPASS_COLOR_INDEX) :: number?) or 1,

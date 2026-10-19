@@ -7,7 +7,9 @@
 -- player always has an aim point, and Roblox's own arrow whenever
 -- anything frees the mouse (a menu's modal backdrop, the dev tools, the
 -- Developer Console, the Defense Table). Gameplay only: the lobby is
--- third person and keeps the arrow.
+-- third person and keeps the arrow. Behind a scope glass
+-- (ClientScopeGlassManager) the dot stands down: the glass has its own
+-- reticle, and a dot over it read as a stray cursor (2026-10-19).
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -16,11 +18,21 @@ local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local ClientCursorManager = {}
 ClientCursorManager.__index = ClientCursorManager
 
-export type ClientCursorManager = typeof(setmetatable({} :: {}, ClientCursorManager))
+export type ClientCursorManager = typeof(setmetatable(
+	{} :: {
+		isDotHidden: boolean,
+	},
+	ClientCursorManager
+))
 
 local CURSOR_STEP = "CursorFollowsMouseLock"
 -- after every system that sets the mouse behaviour for the frame
 local CURSOR_PRIORITY = Enum.RenderPriority.Last.Value + 1
+
+-- while hidden, a locked mouse shows no dot at all; a freed mouse keeps its arrow
+function ClientCursorManager:setDotHidden(isHidden: boolean)
+	self.isDotHidden = isHidden
+end
 
 function ClientCursorManager:init()
 	RunService:BindToRenderStep(
@@ -33,8 +45,9 @@ function ClientCursorManager:init()
 			if UserInputService.MouseIcon ~= icon then
 				UserInputService.MouseIcon = icon
 			end
-			if not UserInputService.MouseIconEnabled then
-				UserInputService.MouseIconEnabled = true
+			local isIconWanted = not (isLocked and self.isDotHidden)
+			if UserInputService.MouseIconEnabled ~= isIconWanted then
+				UserInputService.MouseIconEnabled = isIconWanted
 			end
 		end
 	)
@@ -42,6 +55,7 @@ end
 
 function ClientCursorManager.new(): ClientCursorManager
 	local self = setmetatable({}, ClientCursorManager) :: ClientCursorManager
+	self.isDotHidden = false
 	return self
 end
 

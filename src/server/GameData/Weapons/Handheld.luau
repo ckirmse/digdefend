@@ -23,6 +23,11 @@ return {
 	-- how far from the shooter's head the server lets a shot start: the
 	-- first-person camera is in the head, the rest is latency
 	ORIGIN_TOLERANCE_STUDS = 12,
+	-- headshots (2026-10-19): a hit in the head (WeaponRules.HEAD_SHARE of
+	-- the target's box) does this much more; a kind may set its own
+	-- HEADSHOT_MULTIPLIER (the Sniper Rifle's lands the GDD's "one shot
+	-- for anything not large")
+	HEADSHOT_MULTIPLIER = 1.5,
 	BY_KIND = {
 		-- a lever-action, to match the art (decided 2026-09-17): five
 		-- deliberate, heavy shots, one per lever stroke, then a slow reload
@@ -47,6 +52,9 @@ return {
 		-- bolt action: one shot takes most of anything that is not large,
 		-- slow between shots and slow to reload, and the scope is the aim
 		[Enums.WeaponKind.SNIPER] = {
+			-- 660 on a headshot: every Zombie, Runner, Bomber, and the Brute 1
+			-- in one, nothing from the Brute 2 up
+			HEADSHOT_MULTIPLIER = 3,
 			DAMAGE = 220,
 			FIRE_INTERVAL_SEC = 1.4,
 			FIRE_COOLDOWN_SEC = 1.2,
@@ -54,8 +62,10 @@ return {
 			MAGAZINE_SIZE = 4,
 			RELOAD_SEC = 3,
 			SCOPE = {
-				-- the camera's field of view while the scope is raised
-				FIELD_OF_VIEW = 20,
+				-- the camera's field of view while the scope is raised; 13 from
+				-- 20 on 2026-10-19 (half again the magnification) with the
+				-- scope glass drawn over the screen
+				FIELD_OF_VIEW = 13,
 			},
 		},
 		-- a short continuous cone: DAMAGE lands on everything in the cone

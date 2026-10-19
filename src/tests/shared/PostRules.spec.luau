@@ -39,7 +39,9 @@ local function makeCatalog()
 			[Enums.PostAttribute.TURN_SPEED] = 0.5,
 			[Enums.PostAttribute.RANGE] = 0.2,
 			[Enums.PostAttribute.COOLDOWN] = 1 / 6,
+			[Enums.PostAttribute.HEADSHOT] = 0.25,
 		},
+		headshotMultiplier = 1.5,
 		kinds = {
 			[Enums.PostWeaponKind.MACHINE_GUN] = MACHINE_GUN,
 		},
@@ -566,6 +568,58 @@ describe(
 				expect(upgraded.pullRadiusStuds).toBeCloseTo(24, 5)
 				expect(upgraded.poolRadiusStuds).toBeCloseTo(15, 5)
 				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.MACHINE_GUN, {}).spinUpSec).toBeNil()
+			end
+		)
+	end
+)
+
+describe(
+	"PostRules charge curve",
+	function()
+		it(
+			"scales damage by the square of the charge",
+			function()
+				expect(PostRules.chargeDamageShare(1)).toBe(1)
+				expect(PostRules.chargeDamageShare(0.5)).toBeCloseTo(0.25, 5)
+				expect(PostRules.chargeDamageShare(0.125)).toBeCloseTo(0.015625, 6)
+				expect(PostRules.chargeDamageShare(0)).toBe(0)
+				expect(PostRules.chargeDamageShare(1.5)).toBe(1)
+			end
+		)
+
+		it(
+			"pierces one body under half charge, one short of full until full, the full count at full",
+			function()
+				expect(PostRules.chargePierceCount(0.1, 3)).toBe(1)
+				expect(PostRules.chargePierceCount(0.49, 3)).toBe(1)
+				expect(PostRules.chargePierceCount(0.5, 3)).toBe(2)
+				expect(PostRules.chargePierceCount(0.99, 3)).toBe(2)
+				expect(PostRules.chargePierceCount(1, 3)).toBe(3)
+				expect(PostRules.chargePierceCount(1, 5)).toBe(5)
+				expect(PostRules.chargePierceCount(0.7, 1)).toBe(1)
+			end
+		)
+	end
+)
+
+describe(
+	"PostRules headshot multiple",
+	function()
+		it(
+			"takes the catalogue default, the kind's own, and a quarter per Headshot level",
+			function()
+				local catalog = makeCatalog()
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.MACHINE_GUN, {}).headshotMultiplier).toBeCloseTo(1.5, 5)
+				local railGun = table.clone(MACHINE_GUN)
+				railGun.HEADSHOT_MULTIPLIER = 3
+				railGun.UPGRADE_ATTRIBUTES = { Enums.PostAttribute.DAMAGE, Enums.PostAttribute.FIRE_RATE, Enums.PostAttribute.TURN_SPEED, Enums.PostAttribute.HEADSHOT }
+				catalog.kinds[Enums.PostWeaponKind.RAIL_GUN] = railGun
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.RAIL_GUN, {}).headshotMultiplier).toBeCloseTo(3, 5)
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.RAIL_GUN, { [Enums.PostAttribute.HEADSHOT] = 2 }).headshotMultiplier).toBeCloseTo(3.5, 5)
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.RAIL_GUN, { [Enums.PostAttribute.HEADSHOT] = 4 }).headshotMultiplier).toBeCloseTo(4, 5)
+				-- the decoded catalogue carries the default across
+				local decoded = PostRules.decodeCatalog(PostRules.encodeCatalog(catalog))
+				expect(decoded and decoded.headshotMultiplier).toBeCloseTo(1.5, 5)
 			end
 		)
 	end

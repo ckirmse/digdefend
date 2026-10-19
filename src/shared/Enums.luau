@@ -215,6 +215,9 @@ module = {
 		-- how fast an overheated gun cools (2026-09-29); each kind lists
 		-- which four of these it offers in GameData/Posts/PostWeapons
 		COOLDOWN = 5,
+		-- the Railgun's headshot multiple (2026-10-19), in place of a Range
+		-- no monster ever spawns beyond
+		HEADSHOT = 6,
 
 		PublicNames = {
 			DAMAGE = "Damage",
@@ -222,6 +225,7 @@ module = {
 			TURN_SPEED = "Turn Speed",
 			RANGE = "Range",
 			COOLDOWN = "Cooldown",
+			HEADSHOT = "Headshot",
 		},
 	},
 	-- automated defense units (GDD "Defenses"), M26. The three DEFENSE

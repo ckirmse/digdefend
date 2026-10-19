@@ -89,6 +89,15 @@ function ClientSoundManager:playSfx(name: string, playbackSpeed: number?)
 	player:Play()
 end
 
+-- cuts a 2D sound that is still going (a charge let go before it was
+-- full, 2026-10-19); a sound that already ended is left alone
+function ClientSoundManager:stopSfx(name: string)
+	local player = self:findPlayer(self:getSfxFolder(), name)
+	if player and player.IsPlaying then
+		player:Stop()
+	end
+end
+
 -- a 2D track from the Music folder, always from the top; once through
 -- unless the caller asks for a loop, whatever the authored player says
 -- (the dusk song was authored looping and ran through the night and into

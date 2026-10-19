@@ -40,6 +40,8 @@ export type SecondaryData = {
 }
 
 export type WeaponData = {
+	-- scales a shot that lands in the head zone; the data's default when absent
+	HEADSHOT_MULTIPLIER: number?,
 	DAMAGE: number,
 	FIRE_INTERVAL_SEC: number,
 	FIRE_COOLDOWN_SEC: number,
@@ -144,6 +146,18 @@ end
 
 -- the first box along the ray, no further than maxDistance (the world the
 -- ray would have struck first, or the weapon's range)
+-- the head is the top share of a target's box (2026-10-19): every target
+-- is one box, so the head is its top slice, the same for a hand weapon
+-- and a post weapon
+WeaponRules.HEAD_SHARE = 0.3
+
+-- a headshot: the hit point lies in the top `headShare` of the box's height
+function WeaponRules.isHeadshot(hitPoint: Vector3, boxCFrame: CFrame, boxSize: Vector3, headShare: number): boolean
+	local localPoint = boxCFrame:PointToObjectSpace(hitPoint)
+	local headBottom = boxSize.Y / 2 - boxSize.Y * math.clamp(headShare, 0, 1)
+	return localPoint.Y >= headBottom
+end
+
 function WeaponRules.findClosestHit(origin: Vector3, unitDirection: Vector3, maxDistance: number, boxes: { HitBox }): (string?, number?)
 	local closestId: string? = nil
 	local closestDistance: number? = nil
@@ -189,7 +203,9 @@ end
 
 -- every box along the ray in order, no further than maxDistance, up to
 -- maxCount of them: a shot that carries on through what it hits
-function WeaponRules.findPierceHits(origin: Vector3, unitDirection: Vector3, maxDistance: number, boxes: { HitBox }, maxCount: number): { string }
+-- the ids nearest first, and each hit's distance along the ray in a
+-- second list (so a headshot check can find the hit point)
+function WeaponRules.findPierceHits(origin: Vector3, unitDirection: Vector3, maxDistance: number, boxes: { HitBox }, maxCount: number): ({ string }, { number })
 	local hits: { { id: string, distance: number } } = {}
 	for _, box in boxes do
 		local distance = WeaponRules.rayBoxDistance(origin, unitDirection, box.cframe, box.size, maxDistance)
@@ -204,13 +220,15 @@ function WeaponRules.findPierceHits(origin: Vector3, unitDirection: Vector3, max
 		end
 	)
 	local ids = {}
+	local distances = {}
 	for index, hit in hits do
 		if index > maxCount then
 			break
 		end
 		table.insert(ids, hit.id)
+		table.insert(distances, hit.distance)
 	end
-	return ids
+	return ids, distances
 end
 
 function WeaponRules.multiplier(bonusPerLevel: number, level: number): number

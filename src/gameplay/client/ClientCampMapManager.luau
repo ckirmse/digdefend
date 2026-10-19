@@ -27,6 +27,7 @@ local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientHudSlide = require(script.Parent.Parent.Client.ClientHudSlide)
+local ClientBinocularsManager = require(script.Parent.ClientBinocularsManager)
 local ClientMonsterManager = require(script.Parent.ClientMonsterManager)
 
 local ClientCampMapManager = {}
@@ -70,6 +71,8 @@ export type ClientCampMapManager = typeof(setmetatable(
 local MARGIN_SHARE = 0.04
 -- the dots move this often; the structures redraw as their attributes change
 local STEP_INTERVAL_SEC = 0.1
+-- a tagged monster's dot against a plain one
+local TAGGED_DOT_SCALE = 1.8
 -- more monsters than this are not drawn; the nearest hundred-odd dots say enough
 local MAX_MONSTER_DOTS = 150
 -- a structure is drawn at least this share of the square on each side, so
@@ -389,8 +392,9 @@ function ClientCampMapManager:stepMonsters()
 		return
 	end
 	local shown = 0
+	local baseSize = template.Size
 	ClientMonsterManager:forEachRenderedLocation(
-		function(x: number, z: number)
+		function(x: number, z: number, damageableId: string)
 			if shown >= MAX_MONSTER_DOTS then
 				return
 			end
@@ -403,6 +407,12 @@ function ClientCampMapManager:stepMonsters()
 				dot.Parent = canvas
 				self.monsterDots[shown] = dot
 			end
+			-- a tagged monster (the Binoculars, 2026-10-19) is the accent
+			-- and bigger, so the crew can find the call on the map
+			local isTagged = ClientBinocularsManager:isTagged(damageableId)
+			dot.BackgroundColor3 = if isTagged then UiStyle.ACCENT_COLOR else UiStyle.CAMP_MAP_MONSTER_COLOR
+			dot.Size = if isTagged then UDim2.fromScale(baseSize.X.Scale * TAGGED_DOT_SCALE, baseSize.Y.Scale * TAGGED_DOT_SCALE) else baseSize
+			dot.ZIndex = if isTagged then 7 else 6
 			self:placeDot(dot, x, z)
 		end
 	)

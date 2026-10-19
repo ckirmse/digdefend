@@ -969,11 +969,18 @@ function PostManager:fireShot(post: Post, attacker: Player?, origin: Vector3, un
 		})
 		return
 	end
+	local headshotMultiplier = stats.headshotMultiplier
 	local pierceCount = stats.pierceCount
 	if pierceCount then
-		local hitIds = WeaponRules.findPierceHits(origin, unitDirection, worldDistance, hitBoxes, pierceCount)
-		for _, hitId in hitIds do
-			self:damageTarget(post, hitId, stats.damage, attacker)
+		local hitIds, hitDistances = WeaponRules.findPierceHits(origin, unitDirection, worldDistance, hitBoxes, pierceCount)
+		local headshotIds = {}
+		for index, hitId in hitIds do
+			local damage = stats.damage
+			if self:isHeadshot(hitId, origin + unitDirection * hitDistances[index]) then
+				damage *= headshotMultiplier
+				table.insert(headshotIds, hitId)
+			end
+			self:damageTarget(post, hitId, damage, attacker)
 		end
 		NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_WEAPON_FIRED, {
 			userId = userId,
@@ -984,13 +991,15 @@ function PostManager:fireShot(post: Post, attacker: Player?, origin: Vector3, un
 			isImpact = worldDistance < stats.rangeStuds,
 			hitId = hitIds[1] or NO_HIT_ID,
 			hitIds = hitIds,
+			headshotIds = headshotIds,
 		})
 		return
 	end
 	local hitId, hitDistance = WeaponRules.findClosestHit(origin, unitDirection, worldDistance, hitBoxes)
 	local endDistance = hitDistance or worldDistance
 	local chainIds: { string }? = nil
-	if hitId then
+	local headshotIds: { string } = {}
+	if hitId and hitDistance then
 		local chain = data.CHAIN
 		local first = if chain then DamageableManager:getTarget(hitId) else nil
 		if chain and first then
@@ -1004,7 +1013,12 @@ function PostManager:fireShot(post: Post, attacker: Player?, origin: Vector3, un
 				self:damageTarget(post, id, stats.damage, attacker)
 			end
 		else
-			self:damageTarget(post, hitId, stats.damage, attacker)
+			local damage = stats.damage
+			if self:isHeadshot(hitId, origin + unitDirection * hitDistance) then
+				damage *= headshotMultiplier
+				table.insert(headshotIds, hitId)
+			end
+			self:damageTarget(post, hitId, damage, attacker)
 		end
 	end
 	NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_WEAPON_FIRED, {
@@ -1016,26 +1030,42 @@ function PostManager:fireShot(post: Post, attacker: Player?, origin: Vector3, un
 		isImpact = hitId ~= nil or worldDistance < stats.rangeStuds,
 		hitId = hitId or NO_HIT_ID,
 		hitIds = chainIds,
+		headshotIds = headshotIds,
 	})
+end
+
+-- whether a shot's hit point lies in the target's head (WeaponRules.HEAD_SHARE)
+function PostManager:isHeadshot(hitId: string, hitPoint: Vector3): boolean
+	local target = DamageableManager:getTarget(hitId)
+	if not target then
+		return false
+	end
+	return WeaponRules.isHeadshot(hitPoint, target.cframe, target.size, WeaponRules.HEAD_SHARE)
 end
 
 -- whether the post may fire now, and the heat and reload a shot sets;
 -- shared by the gunner's request and the unmanned step
-function PostManager:tryBeginShot(post: Post, data: PostRules.KindData, stats: PostRules.Stats, now: number): boolean
+-- whether the shot may happen now, and how far a charge had come (0 to 1;
+-- 1 for every kind without one): a released charge fires at any point,
+-- and fire() scales the shot by it (2026-10-19)
+function PostManager:tryBeginShot(post: Post, data: PostRules.KindData, stats: PostRules.Stats, now: number): (boolean, number)
 	if not WeaponRules.canFire(post.lastFireTime, now, stats.fireCooldownSec) then
-		return false
+		return false, 0
 	end
 	-- a reloading gun is empty; an overheated one waits for cool
 	if data.RELOAD_SEC and WeaponRules.isReloading(post.reloadEndTime, now) then
-		return false
+		return false, 0
 	end
 	if data.SPIN_UP and not PostRules.isWoundUp(post.triggerStartTime, now, stats.spinUpSec or data.SPIN_UP.SEC, PostWeaponsData.WINDUP_TOLERANCE_SEC) then
-		return false
+		return false, 0
 	end
+	local chargeProgress = 1
 	if data.CHARGE then
-		if not PostRules.isWoundUp(post.triggerStartTime, now, stats.chargeSec or data.CHARGE.SEC, PostWeaponsData.WINDUP_TOLERANCE_SEC) then
-			return false
+		-- no trigger closed means no charge at all: the press is the only way in
+		if post.triggerStartTime == nil then
+			return false, 0
 		end
+		chargeProgress = PostRules.windupProgress(post.triggerStartTime, now + PostWeaponsData.WINDUP_TOLERANCE_SEC, stats.chargeSec or data.CHARGE.SEC)
 		-- the release is the shot: the next one charges from nothing
 		post.triggerStartTime = nil
 	end
@@ -1044,7 +1074,7 @@ function PostManager:tryBeginShot(post: Post, data: PostRules.KindData, stats: P
 		local elapsedSec = if post.lastFireTime then now - post.lastFireTime else nil
 		local isFired, newHeat, isOverheated = PostRules.heatAfterShot(currentHeat, post.isOverheated, data.HEAT, stats.fireIntervalSec, elapsedSec)
 		if not isFired then
-			return false
+			return false, 0
 		end
 		post.heat = newHeat
 		post.isOverheated = isOverheated
@@ -1054,7 +1084,7 @@ function PostManager:tryBeginShot(post: Post, data: PostRules.KindData, stats: P
 	end
 	post.lastFireTime = now
 	self:replicateFireState(post)
-	return true
+	return true, chargeProgress
 end
 
 function PostManager:fire(player: Player, origin: Vector3, direction: Vector3)
@@ -1072,8 +1102,20 @@ function PostManager:fire(player: Player, origin: Vector3, direction: Vector3)
 		return
 	end
 	local now = workspace:GetServerTimeNow()
-	if not self:tryBeginShot(post, data, stats, now) then
+	local isFired, chargeProgress = self:tryBeginShot(post, data, stats, now)
+	if not isFired then
 		return
+	end
+	if chargeProgress < 1 then
+		-- a part-charged shot: damage by the square of the charge, fewer
+		-- bodies pierced; the stats table is fresh per call, so this never compounds
+		local partStats: PostRules.Stats = table.clone(stats :: any)
+		partStats.damage = partStats.damage * PostRules.chargeDamageShare(chargeProgress)
+		local pierceCount = partStats.pierceCount
+		if pierceCount then
+			partStats.pierceCount = PostRules.chargePierceCount(chargeProgress, pierceCount)
+		end
+		stats = partStats
 	end
 	self:fireShot(post, player, origin, direction.Unit, stats, data)
 end
@@ -1464,6 +1506,7 @@ function PostManager:init(monsterManagerIn: any)
 		claimPriceGold = PostWeaponsData.CLAIM_PRICE_GOLD,
 		upgradePriceByLevel = PostWeaponsData.UPGRADE_PRICE_BY_LEVEL,
 		bonusPerLevelByAttribute = PostWeaponsData.BONUS_PER_LEVEL_BY_ATTRIBUTE,
+		headshotMultiplier = PostWeaponsData.HEADSHOT_MULTIPLIER,
 		kinds = kinds,
 	}
 	SplendidReplicationManager:setGameMetadata(Attributes.POST_CATALOG, PostRules.encodeCatalog(self.catalog))
@@ -1501,6 +1544,7 @@ function PostManager.new(): PostManager
 		claimPriceGold = 0,
 		upgradePriceByLevel = {},
 		bonusPerLevelByAttribute = {},
+		headshotMultiplier = 1,
 		kinds = {},
 	}
 	self.postsByIndex = {}

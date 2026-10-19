@@ -10,6 +10,7 @@
 local StarterGui = game:GetService("StarterGui")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
+local Icons = require(game.ReplicatedStorage.Shared.Icons)
 local UiStyle = require(game.ReplicatedStorage.Shared.UiStyle)
 
 ChangeHistoryService:SetWaypoint("Before PostHud gui")
@@ -184,6 +185,75 @@ local statusLabelSize = Instance.new("UISizeConstraint")
 statusLabelSize.MaxSize = Vector2.new(480, 50)
 statusLabelSize.Parent = statusLabel
 statusLabel.Parent = gui
+
+-- the Binoculars' tag hint (2026-10-19), against the right edge at the
+-- screen's vertical centre: the tag icon on a panel, a grey sheet that
+-- ClientBinocularsManager shrinks down it while the cooldown runs, and
+-- the button under it ("RIGHT CLICK TO TAG", "LT TO TAG", "RECHARGING").
+-- The outline is green when ready and red while recharging, the icon
+-- half transparent while recharging (ClientBinocularsManager). Shown
+-- only to a mounted Sniper on keyboard or gamepad
+local tagHint = Instance.new("Frame")
+tagHint.Name = "TagHint"
+tagHint.AnchorPoint = Vector2.new(1, 0.5)
+tagHint.Position = UDim2.fromScale(0.96, 0.5)
+tagHint.Size = UDim2.fromScale(0.13, 0.13)
+tagHint.BackgroundColor3 = UiStyle.PANEL_COLOR
+tagHint.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
+tagHint.BorderSizePixel = 0
+tagHint.Visible = false
+local tagAspect = Instance.new("UIAspectRatioConstraint")
+tagAspect.AspectRatio = 1
+tagAspect.DominantAxis = Enum.DominantAxis.Height
+tagAspect.Parent = tagHint
+local tagSize = Instance.new("UISizeConstraint")
+tagSize.MaxSize = Vector2.new(144, 144)
+tagSize.Parent = tagHint
+addCorner(tagHint)
+local tagStroke = Instance.new("UIStroke")
+tagStroke.Thickness = UiStyle.STROKE_PX
+tagStroke.Color = UiStyle.POSITIVE_COLOR
+tagStroke.Parent = tagHint
+local tagIcon = Instance.new("ImageLabel")
+tagIcon.Name = "Icon"
+tagIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+tagIcon.Position = UDim2.fromScale(0.5, 0.5)
+tagIcon.Size = UDim2.fromScale(0.8, 0.8)
+tagIcon.BackgroundTransparency = 1
+tagIcon.Image = Icons.TAG_RETICLE
+tagIcon.ScaleType = Enum.ScaleType.Fit
+tagIcon.Parent = tagHint
+local tagCooldown = Instance.new("Frame")
+tagCooldown.Name = "Cooldown"
+tagCooldown.AnchorPoint = Vector2.new(0, 1)
+tagCooldown.Position = UDim2.fromScale(0, 1)
+tagCooldown.Size = UDim2.fromScale(1, 0)
+tagCooldown.BackgroundColor3 = UiStyle.BACKGROUND_COLOR
+tagCooldown.BackgroundTransparency = 0.35
+tagCooldown.BorderSizePixel = 0
+tagCooldown.ZIndex = 2
+tagCooldown.Visible = false
+addCorner(tagCooldown)
+tagCooldown.Parent = tagHint
+local tagLabel = Instance.new("TextLabel")
+tagLabel.Name = "Label"
+-- centred under the panel on two lines, no wider than the panel itself
+tagLabel.AnchorPoint = Vector2.new(0.5, 0)
+tagLabel.Position = UDim2.fromScale(0.5, 1.08)
+tagLabel.Size = UDim2.fromScale(1.2, 0.45)
+tagLabel.BackgroundTransparency = 1
+tagLabel.TextWrapped = true
+tagLabel.Text = UiStyle.formatTitle("Right click\nto tag")
+tagLabel.TextColor3 = UiStyle.TEXT_COLOR
+tagLabel.TextScaled = true
+tagLabel.FontFace = UiStyle.TITLE_FONT
+addTextSizeBounds(tagLabel, UiStyle.LABEL_TEXT_MIN_PX, 18)
+local tagLabelStroke = Instance.new("UIStroke")
+tagLabelStroke.Thickness = UiStyle.STROKE_PX
+tagLabelStroke.Color = UiStyle.BACKGROUND_COLOR
+tagLabelStroke.Parent = tagLabel
+tagLabel.Parent = tagHint
+tagHint.Parent = gui
 
 gui.Parent = StarterGui
 ChangeHistoryService:SetWaypoint("After PostHud gui")

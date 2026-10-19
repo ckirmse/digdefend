@@ -52,10 +52,12 @@ local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayMa
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientDamageableManager = require(script.Parent.ClientDamageableManager)
+local ClientHeadshotManager = require(script.Parent.ClientHeadshotManager)
 local ClientHoldInput = require(script.Parent.ClientHoldInput)
 local ClientImpactManager = require(script.Parent.ClientImpactManager)
 local ClientMiningManager = require(script.Parent.ClientMiningManager)
 local ClientProjectileManager = require(script.Parent.ClientProjectileManager)
+local ClientScopeGlassManager = require(script.Parent.ClientScopeGlassManager)
 local ClientTouchLayoutManager = require(script.Parent.ClientTouchLayoutManager)
 local ClientWeaponManager = require(script.Parent.ClientWeaponManager)
 
@@ -86,6 +88,11 @@ type WeaponView = {
 	barrelOffset: CFrame?,
 	barrelAngleDegrees: number,
 	barrelSpinShare: number,
+	-- the parts the designer nested under the gun part (the Railgun's neon
+	-- rails), with their rest pose against it: PivotTo turns them with the
+	-- base, but the gun's own pitch has to be carried to them by hand
+	-- (seen 2026-10-19: they floated level while the gun looked down)
+	gunChildOffsets: { [BasePart]: CFrame },
 }
 
 export type ClientPostManager = typeof(setmetatable(
@@ -129,6 +136,9 @@ export type ClientPostManager = typeof(setmetatable(
 		-- kind), and when it closed, for the bar ahead of the server's echo
 		isTriggerHeld: boolean,
 		triggerStartTime: number?,
+		-- true only inside the release of a charge, the one moment a charge
+		-- kind may fire (the press used to slip a shot past, 2026-10-19)
+		isReleasingCharge: boolean,
 		-- the lock ids already announced with the tone, so each sounds once
 		announcedLockIds: { [string]: boolean },
 		isTouchOnly: boolean,
@@ -203,6 +213,8 @@ local NOTIFY_POST_WEAPON_FIRED_SHAPE = {
 	hitId = "string",
 	-- a pierce or a chain: every body hit, in order
 	hitIds = { type = "array", elementType = "string", optional = true },
+	-- the bodies the shot took in the head (the gunner's callout)
+	headshotIds = { type = "array", elementType = "string", optional = true },
 }
 local NOTIFY_POST_POOL_STARTED_SHAPE = {
 	poolId = "string",
@@ -382,7 +394,13 @@ function ClientPostManager:bindWeapon(model: Instance)
 		barrelOffset = if barrel and barrel:IsA("BasePart") then gun.CFrame:ToObjectSpace(barrel.CFrame) else nil,
 		barrelAngleDegrees = 0,
 		barrelSpinShare = 0,
+		gunChildOffsets = {},
 	}
+	for _, descendant in gun:GetDescendants() do
+		if descendant:IsA("BasePart") and descendant ~= barrel then
+			view.gunChildOffsets[descendant] = gun.CFrame:ToObjectSpace(descendant.CFrame)
+		end
+	end
 	self.viewsByModel[model] = view
 	local function bindPrompt(prompt: Instance)
 		if prompt:IsA("ProximityPrompt") then
@@ -432,6 +450,9 @@ function ClientPostManager:applyView(view: WeaponView)
 	local base = PostRules.baseFrame(view.baseCFrame, view.shownYaw)
 	view.model:PivotTo(base)
 	view.gun.CFrame = PostRules.gunFrame(base, view.rig, view.shownPitch)
+	for part, offset in view.gunChildOffsets do
+		part.CFrame = view.gun.CFrame * offset
+	end
 	local barrel = view.barrel
 	local barrelOffset = view.barrelOffset
 	if barrel and barrelOffset then
@@ -612,7 +633,7 @@ function ClientPostManager:findLocalEnd(origin: Vector3, unitDirection: Vector3,
 end
 
 function ClientPostManager:playFireEffects(weaponKind: number, from: Vector3, to: Vector3, impactNormal: Vector3?, impactSurface: Instance?)
-	local travelSec = ClientWeaponManager:drawTracer(from, to, UiStyle.POST_TRACER_COLORS[weaponKind])
+	local travelSec = ClientWeaponManager:drawTracer(from, to, UiStyle.POST_TRACER_COLORS[weaponKind], UiStyle.POST_TRACER_SPEEDS[weaponKind])
 	local weaponSfx = self:getPostWeaponSfx(weaponKind)
 	if weaponSfx then
 		ClientSoundManager:playSfxAt(from, weaponSfx.FIRE, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
@@ -640,12 +661,9 @@ function ClientPostManager:fire(isFreshPress: boolean): boolean
 	if self:getIsReloading() then
 		return false
 	end
-	-- a charge kind fires on the trigger's release (stepTrigger), never on
-	-- the hold's interval; a spin-up kind fires only once spun up
-	if kindData.CHARGE and not isFreshPress then
-		return false
-	end
-	if kindData.CHARGE and self.isTriggerHeld then
+	-- a charge kind fires on the trigger's release (stepTrigger) and never
+	-- from the press or the hold's interval; a spin-up kind only once spun up
+	if kindData.CHARGE and not self.isReleasingCharge then
 		return false
 	end
 	if kindData.SPIN_UP and not PostRules.isWoundUp(self.triggerStartTime, workspace:GetServerTimeNow(), stats.spinUpSec or kindData.SPIN_UP.SEC, 0) then
@@ -675,6 +693,19 @@ function ClientPostManager:fire(isFreshPress: boolean): boolean
 	local gunFrame = PostRules.gunFrame(base, view.rig, view.shownPitch)
 	local origin = PostRules.muzzlePosition(gunFrame, view.rig)
 	local unitDirection = PostRules.barrelDirection(gunFrame, view.rig)
+	-- the camera sits above the barrel, so a shot parallel to its look
+	-- landed below the reticle by that offset (seen 2026-10-19): the shot
+	-- leaves the muzzle toward the point the reticle's own ray reaches
+	-- (the server checks only that the origin is at the muzzle)
+	local camera = workspace.CurrentCamera
+	if camera then
+		local cameraPosition = camera.CFrame.Position
+		local aimPoint = self:findLocalEnd(cameraPosition, camera.CFrame.LookVector, stats.rangeStuds + (origin - cameraPosition).Magnitude)
+		local toAimPoint = aimPoint - origin
+		if toAimPoint.Magnitude > 0 then
+			unitDirection = toAimPoint.Unit
+		end
+	end
 	ClientNetManager:fireServer(
 		NetEventNames.TRY_FIRE_POST_WEAPON,
 		{
@@ -733,6 +764,9 @@ function ClientPostManager:onPostWeaponFired(payload: any)
 		local weaponSfx = self:getPostWeaponSfx(payload.weaponKind)
 		if #hitIds > 0 and weaponSfx then
 			ClientSoundManager:playSfx(weaponSfx.HIT)
+		end
+		for _, headshotId in (payload.headshotIds or {}) :: { string } do
+			ClientHeadshotManager:showBonus(headshotId)
 		end
 	end
 	if isOwnMannedShot then
@@ -893,8 +927,8 @@ function ClientPostManager:stepTrigger()
 	end
 	self.isTriggerHeld = isHeld
 	local now = workspace:GetServerTimeNow()
-	ClientNetManager:fireServer(NetEventNames.TRY_SET_POST_TRIGGER, { isHeld = isHeld })
 	if isHeld then
+		ClientNetManager:fireServer(NetEventNames.TRY_SET_POST_TRIGGER, { isHeld = true })
 		self.triggerStartTime = now
 		local weaponSfx = self:getPostWeaponSfx(readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.POST_WEAPON_KIND), 0))
 		if weaponSfx and weaponSfx.WINDUP then
@@ -902,10 +936,22 @@ function ClientPostManager:stepTrigger()
 		end
 		return
 	end
-	local stats = self.stats
-	if kindData.CHARGE and PostRules.isWoundUp(self.triggerStartTime, now, if stats and stats.chargeSec then stats.chargeSec else kindData.CHARGE.SEC, 0) then
+	-- the shot goes before the release: a client's messages arrive in order,
+	-- and the server forgets the charge the moment the trigger opens, so a
+	-- release sent first left every Railgun shot refused (fixed 2026-10-19)
+	-- any release fires: the server scales the damage by how far the
+	-- charge had come, so a snap shot is a weak shot, not a refused one;
+	-- the charge sound stops with the hold whether or not it had finished
+	if kindData.CHARGE then
+		local weaponSfx = self:getPostWeaponSfx(readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.POST_WEAPON_KIND), 0))
+		if weaponSfx and weaponSfx.WINDUP then
+			ClientSoundManager:stopSfx(weaponSfx.WINDUP)
+		end
+		self.isReleasingCharge = true
 		self:fire(true)
+		self.isReleasingCharge = false
 	end
+	ClientNetManager:fireServer(NetEventNames.TRY_SET_POST_TRIGGER, { isHeld = false })
 	self.triggerStartTime = nil
 end
 
@@ -1168,12 +1214,15 @@ function ClientPostManager:renderReticle()
 	local kind = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.POST_WEAPON_KIND), 0)
 	local imageId = Icons.POST_WEAPON_RETICLE[kind]
 	local reticle = self.reticle
-	local hasImage = self.isMounted and reticle ~= nil and imageId ~= nil and not Icons.isPlaceholder(imageId)
+	-- a scoped post is aimed through the glass's own reticle: no picture
+	-- here and no centre dot borrowed (2026-10-19)
+	local isScoped = Icons.POST_WEAPON_SCOPE[kind] ~= nil
+	local hasImage = self.isMounted and not isScoped and reticle ~= nil and imageId ~= nil and not Icons.isPlaceholder(imageId)
 	if reticle then
 		reticle.Image = if hasImage then imageId :: string else ""
 		reticle.Visible = hasImage
 	end
-	ClientMiningManager:setReticleBorrowed(RETICLE_BORROWER, self.isMounted and not hasImage)
+	ClientMiningManager:setReticleBorrowed(RETICLE_BORROWER, self.isMounted and not hasImage and not isScoped)
 end
 
 function ClientPostManager:renderHud()
@@ -1235,6 +1284,12 @@ function ClientPostManager:enterMode()
 		local kindData = self.kindData
 		camera.FieldOfView = if kindData then kindData.FIELD_OF_VIEW else DEFAULT_FIELD_OF_VIEW
 	end
+	-- a scoped post (the Railgun) is manned behind the rifle's glass
+	local weaponKind = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.POST_WEAPON_KIND), 0)
+	local scopeImage = Icons.POST_WEAPON_SCOPE[weaponKind]
+	if scopeImage then
+		ClientScopeGlassManager:show(scopeImage)
+	end
 	UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 	self.lastSentYaw = nil
 	self.lastSentPitch = nil
@@ -1250,6 +1305,7 @@ function ClientPostManager:exitMode()
 		camera.CameraType = self.savedCameraType or Enum.CameraType.Custom
 		camera.FieldOfView = self.savedFieldOfView or DEFAULT_FIELD_OF_VIEW
 	end
+	ClientScopeGlassManager:hide()
 	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 	local root = self.anchoredRoot
 	if root then
@@ -1557,6 +1613,7 @@ function ClientPostManager.new(): ClientPostManager
 	self.lastTurnTime = 0
 	self.turnLevel = 0
 	self.isTriggerHeld = false
+	self.isReleasingCharge = false
 	self.triggerStartTime = nil
 	self.announcedLockIds = {}
 	self.isTouchOnly = false

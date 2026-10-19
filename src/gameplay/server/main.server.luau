@@ -8,6 +8,7 @@ local AutoTurretDevTools = require(script.Parent.AutoTurretDevTools)
 local AutoTurretManager = require(script.Parent.AutoTurretManager)
 local GadgetUpgradeManager = require(script.Parent.GadgetUpgradeManager)
 local BackpackManager = require(script.Parent.BackpackManager)
+local BinocularsManager = require(script.Parent.BinocularsManager)
 local BalanceAudit = require(script.Parent.BalanceAudit)
 local BootsManager = require(script.Parent.BootsManager)
 local DiamondTapManager = require(script.Parent.DiamondTapManager)
@@ -192,6 +193,14 @@ AutoTurretManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
 		AutoTurretManager:onRunStarted()
+	end
+)
+-- the Sniper's Binoculars (2026-10-19): a tag on a monster, scaled in the
+-- target registry so every weapon and Tower honours it
+BinocularsManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		BinocularsManager:onRunStarted()
 	end
 )
 -- the monsters (M29): the path grid reads the fresh camp once the
