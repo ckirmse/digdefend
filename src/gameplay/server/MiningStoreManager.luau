@@ -170,6 +170,16 @@ function MiningStoreManager:bindStands()
 		return
 	end
 	for _, item in Enums.getAllValues(Enums.StoreItem) do
+		if not StoreRules.hasItem(self.catalog, item) then
+			-- an item the store no longer sells (dynamite since 2026-10-20):
+			-- its authored stand leaves this run's camp copy, the map untouched
+			local standName = StoreRules.standNameForItem(item)
+			local stand = if standName then stands:FindFirstChild(standName) else nil
+			if stand then
+				stand:Destroy()
+			end
+			continue
+		end
 		self:bindStand(stands, item)
 	end
 end

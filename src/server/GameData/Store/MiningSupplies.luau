@@ -41,10 +41,12 @@ return {
 		-- price and triples on the pick axe's curve (2026-09-30)
 		[Enums.StoreItem.GEIGER_COUNTER] = { priceByLevel = { 0, 90, 270, 800 }, startsUnowned = true },
 	},
-	-- one buy grants `amount` of the tool; never capped by Camp Level
+	-- one buy grants `amount` of the tool; never capped by Camp Level.
+	-- Dynamite left the store on 2026-10-20 (12 Gold for one until then):
+	-- it is the Demolitionist's gadget (GameData/Mining/Dynamite), and a
+	-- stand for an item with no entry here is hidden at run start
 	CONSUMABLES = {
 		[Enums.StoreItem.TORCH] = { tool = Enums.ToolKind.TORCH, price = 5, amount = 4 },
-		[Enums.StoreItem.DYNAMITE] = { tool = Enums.ToolKind.DYNAMITE, price = 12, amount = 1 },
 	},
 	-- the stand's proximity prompt: held for a second so a walk-past never buys
 	PROMPT_ACTION_TEXT = "Buy",

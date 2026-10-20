@@ -11,6 +11,7 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
@@ -45,10 +46,17 @@ local SMOKE_COUNT = 40
 local SMOKE_LIFETIME_SEC = 2.5
 local FLASH_SEC = 0.15
 local SPARK_RATE = 30
+-- how long the thrower's client keeps pressing the launch velocity onto
+-- its own stick after it appears: the network ownership arrives a few
+-- frames after the part, and a velocity set before that is lost
+local LAUNCH_HOLD_SEC = 0.3
 -- the thrown stick's look: the designer's TntStick mesh under
 -- GameAssets/Gadgets, scaled to the stick the server throws (invisible, a
 -- cylinder along its X) and welded on so it tumbles with it (2026-10-20)
 local STICK_SOURCE_NAME = "TntStick"
+-- the thrown stick is drawn this many times the physics body's length
+-- (the hand's stick); it read as tiny at one (2026-10-20)
+local THROWN_STICK_SCALE = 3
 
 local function isUseInput(input: InputObject): boolean
 	return input.UserInputType == Enum.UserInputType.MouseButton1
@@ -93,7 +101,7 @@ function ClientDynamiteManager:dressStick(stick: BasePart)
 	end
 	local mesh = source:Clone()
 	mesh.Name = "Look"
-	mesh.Size = mesh.Size * (stick.Size.X / mesh.Size.Y)
+	mesh.Size = mesh.Size * (stick.Size.X * THROWN_STICK_SCALE / mesh.Size.Y)
 	mesh.Anchored = false
 	mesh.CanCollide = false
 	mesh.CanQuery = false
@@ -107,12 +115,39 @@ function ClientDynamiteManager:dressStick(stick: BasePart)
 	mesh.Parent = stick
 end
 
+-- the thrower's own stick leaves at the launch velocity the server
+-- stamped on it, set from here for the first few frames, since this
+-- client simulates the stick and the server's own set can be lost in the
+-- handover (2026-10-20)
+function ClientDynamiteManager:launchOwnStick(stick: BasePart)
+	local launchVelocity = stick:GetAttribute(Attributes.DYNAMITE_LAUNCH_VELOCITY)
+	if typeof(launchVelocity) ~= "Vector3" then
+		return
+	end
+	local endTime = workspace:GetServerTimeNow() + LAUNCH_HOLD_SEC
+	local connection: RBXScriptConnection? = nil
+	connection = RunService.Heartbeat:Connect(
+		function()
+			if not stick.Parent or workspace:GetServerTimeNow() >= endTime then
+				if connection then
+					connection:Disconnect()
+				end
+				return
+			end
+			stick.AssemblyLinearVelocity = launchVelocity
+		end
+	)
+end
+
 -- a lit stick: its look, sparks from its fuse end, and the hiss if it is close
 function ClientDynamiteManager:onStickAdded(stick: Instance)
 	if not stick:IsA("BasePart") then
 		return
 	end
 	self:dressStick(stick)
+	if stick:GetAttribute(Attributes.DYNAMITE_THROWER_USER_ID) == Players.LocalPlayer.UserId then
+		self:launchOwnStick(stick)
+	end
 	local sparks = Instance.new("ParticleEmitter")
 	sparks.Name = "FuseSparks"
 	sparks.Color = ColorSequence.new(Color3.fromRGB(255, 220, 120), Color3.fromRGB(255, 120, 40))

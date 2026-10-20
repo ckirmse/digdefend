@@ -44,6 +44,9 @@ type ToolState = {
 	gadgetVariant: string?,
 	-- consumables only: how many of each are held
 	countByTool: { [number]: number },
+	-- consumable slots that stay in the bar at zero, greyed, instead of
+	-- leaving with the last one (the Demolitionist's dynamite, 2026-10-20)
+	keptWhenEmptyByTool: { [number]: boolean },
 	-- true while the player mans a post: nothing can be equipped, so the
 	-- rifle cannot be fired beside the post gun (2026-09-29)
 	isLocked: boolean,
@@ -175,6 +178,39 @@ function ToolManager:addConsumable(player: Player, tool: number, amount: number)
 	self:replicate(player)
 end
 
+-- the count set outright (the Demolitionist's sticks at a run's start,
+-- none for a class that lost them, 2026-10-20): the slot appears with
+-- the first and goes with the last, unequipping it
+function ToolManager:setConsumableCount(player: Player, tool: number, count: number)
+	local state = self.stateByPlayer[player]
+	if not state or not MiningRules.isConsumable(tool) then
+		return
+	end
+	local index = table.find(state.slots, tool)
+	if count > 0 then
+		state.countByTool[tool] = count
+		if not index then
+			table.insert(state.slots, tool)
+		end
+	else
+		if state.equipped == tool then
+			state.equipped = MiningRules.NO_TOOL
+		end
+		if state.keptWhenEmptyByTool[tool] then
+			state.countByTool[tool] = 0
+			if not index then
+				table.insert(state.slots, tool)
+			end
+		else
+			state.countByTool[tool] = nil
+			if index then
+				table.remove(state.slots, index)
+			end
+		end
+	end
+	self:replicate(player)
+end
+
 -- spends one; the slot goes with the last one, unequipping it. Returns
 -- false when none are held, so a use never goes through unpaid
 function ToolManager:consume(player: Player, tool: number): boolean
@@ -188,19 +224,33 @@ function ToolManager:consume(player: Player, tool: number): boolean
 	end
 	count -= 1
 	if count == 0 then
-		state.countByTool[tool] = nil
-		local index = table.find(state.slots, tool)
-		if index then
-			table.remove(state.slots, index)
-		end
 		if state.equipped == tool then
 			state.equipped = MiningRules.NO_TOOL
+		end
+		if state.keptWhenEmptyByTool[tool] then
+			-- the slot stays, reading x0, until the next grant
+			state.countByTool[tool] = 0
+		else
+			state.countByTool[tool] = nil
+			local index = table.find(state.slots, tool)
+			if index then
+				table.remove(state.slots, index)
+			end
 		end
 	else
 		state.countByTool[tool] = count
 	end
 	self:replicate(player)
 	return true
+end
+
+-- whether a consumable's slot stays in the bar at zero (see the state)
+function ToolManager:setKeptWhenEmpty(player: Player, tool: number, isKept: boolean)
+	local state = self.stateByPlayer[player]
+	if not state then
+		return
+	end
+	state.keptWhenEmptyByTool[tool] = if isKept then true else nil
 end
 
 -- "PICK_AXE_3", "WEAPON_RIFLE", "TORCH": the GameAssets/Tools model for what a player holds
@@ -343,6 +393,10 @@ function ToolManager:setEquippedTool(player: Player, tool: number)
 		warn(`ToolManager: {player.Name} tried to equip tool {tool} they do not have`)
 		return
 	end
+	-- an empty consumable slot (kept at zero) cannot be taken in hand
+	if tool ~= MiningRules.NO_TOOL and MiningRules.isConsumable(tool) and (state.countByTool[tool] or 0) <= 0 then
+		return
+	end
 	if state.equipped == tool then
 		return
 	end
@@ -395,6 +449,7 @@ function ToolManager:onPlayerReady(player: Player)
 		gadgetKind = Enums.GadgetKind.NONE,
 		gadgetVariant = nil,
 		countByTool = {},
+		keptWhenEmptyByTool = {},
 	}
 	-- a respawn arrives with the Roblox side of the old Tool gone; the
 	-- equipped kind is still held here, so the Tool is rebuilt on the new body

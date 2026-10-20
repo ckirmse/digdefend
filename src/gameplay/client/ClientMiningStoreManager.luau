@@ -101,7 +101,7 @@ function ClientMiningStoreManager:findTemplate(item: number, templateName: strin
 	if not gameAssets then
 		return nil
 	end
-	local folderName = if item == Enums.StoreItem.PICK_AXE or item == Enums.StoreItem.TORCH or item == Enums.StoreItem.DYNAMITE
+	local folderName = if item == Enums.StoreItem.PICK_AXE or item == Enums.StoreItem.TORCH
 		then Constants.TOOL_TEMPLATES_FOLDER
 		else Constants.STORE_DISPLAY_TEMPLATES_FOLDER
 	local folder = gameAssets:FindFirstChild(folderName)
@@ -213,6 +213,11 @@ end
 -- placeholder text (seen live 2026-10-02). The camp's models are also
 -- marked persistent by MapManager, so the wait is short
 function ClientMiningStoreManager:bindStand(store: Instance, item: number)
+	-- the server removes the stand of an item the store does not sell
+	local catalog = self.catalog
+	if catalog and not StoreRules.hasItem(catalog, item) then
+		return
+	end
 	local stand = store:WaitForChild(StoreRules.standNameForItem(item) :: string, STAND_WAIT_SEC)
 	local base = if stand then stand:WaitForChild(Constants.STAND_BASE_PART, STAND_WAIT_SEC) else nil
 	if not stand or not base or not base:IsA("BasePart") then

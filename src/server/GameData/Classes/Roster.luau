@@ -177,7 +177,9 @@ return {
 		-- on dynamite becoming the gadget
 		[Enums.ClassKind.DEMOLITIONIST] = {
 			KIT = {
-				WEAPON = Enums.WeaponKind.RIFLE,
+				-- the sidearm (2026-10-20; the Rifle until then): the post and
+				-- the dynamite are the class's weapons
+				WEAPON = Enums.WeaponKind.PISTOL,
 				-- the lob, a TNT bomb in the air (2026-10-20, from the Pyro)
 				POST = Enums.PostWeaponKind.MORTAR,
 				TOWER = Enums.TowerKind.FLAMETHROWER,

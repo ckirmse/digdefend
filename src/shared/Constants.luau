@@ -984,6 +984,11 @@ Constants.REMOTE_CHARGE_SHADOW_FOLDER = "RemoteChargeShadows"
 -- planted: the "GADGET_REMOTE_CHARGE_DETONATOR" template, and the slot's name
 Constants.REMOTE_CHARGE_DETONATOR_VARIANT = "DETONATOR"
 Constants.REMOTE_CHARGE_DETONATOR_NAME = "Detonator"
+-- collision groups (PhysicsService, registered by DynamiteManager,
+-- 2026-10-20): every character's parts, and a thrown stick, which passes
+-- through them so it leaves the thrower's own body cleanly
+Constants.COLLISION_GROUP_CHARACTER = "Character"
+Constants.COLLISION_GROUP_DYNAMITE = "Dynamite"
 -- the Binoculars' tag callout (scripts/studio/build_tag_billboard.luau,
 -- 2026-10-19): the billboard template over a tagged monster, its icon and
 -- label, and the workspace folder its anchors live in

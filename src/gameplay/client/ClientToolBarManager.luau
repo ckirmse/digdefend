@@ -65,6 +65,10 @@ export type ClientToolBarManager = typeof(setmetatable(
 		remoteChargeCooldownSec: number,
 		-- the gadget's held variant ("" for the gadget itself), which renames the slot
 		gadgetVariant: string,
+		-- the Demolitionist's next stick (2026-10-20): when it is in hand and
+		-- the wait's length, the slot's sheet draining over it
+		dynamiteReadyTime: number,
+		dynamiteRespawnSec: number,
 		stimCountdownConnection: RBXScriptConnection?,
 	},
 	ClientToolBarManager
@@ -75,6 +79,9 @@ local FEEDBACK_NOT_AVAILABLE_BY_GADGET: { [number]: string } = {
 	[Enums.GadgetKind.STIM_SHOT] = "You'll receive another STIM in the morning",
 	[Enums.GadgetKind.REMOTE_CHARGE] = "Next charge is on its way",
 }
+-- the Demolitionist's empty dynamite slot while the next stick comes (2026-10-20)
+local FEEDBACK_DYNAMITE_COMING = "Next stick in %d s"
+local FEEDBACK_DYNAMITE_EMPTY = "No dynamite yet"
 -- a used Stim Shot's icon while the slot waits for dawn
 local USED_STIM_ICON_TRANSPARENCY = 0.7
 local FEEDBACK_DISPLAY_SEC = 2
@@ -103,7 +110,14 @@ end
 -- the gadget slot while its gadget is spent until dawn (a lost turret, a
 -- used Stim Shot): every path to it (tap, key, bumper) is told once
 -- instead of equipping
+function ClientToolBarManager:isConsumableEmpty(tool: number): boolean
+	return MiningRules.isConsumable(tool) and self.countByTool[tool] ~= nil and self.countByTool[tool] <= 0
+end
+
 function ClientToolBarManager:isGadgetLost(tool: number): boolean
+	if self:isConsumableEmpty(tool) then
+		return true
+	end
 	if tool ~= Enums.ToolKind.GADGET then
 		return false
 	end
@@ -136,6 +150,10 @@ function ClientToolBarManager:getRemoteChargeSecondsLeft(): number
 	return math.max(0, self.remoteChargeReadyTime - workspace:GetServerTimeNow())
 end
 
+function ClientToolBarManager:getDynamiteSecondsLeft(): number
+	return math.max(0, self.dynamiteReadyTime - workspace:GetServerTimeNow())
+end
+
 -- the gadget slot's countdown: the Stim Shot while used (a dimmed icon,
 -- the seconds of the effect left in a number the icon's size over it,
 -- then the grey sheet once they are gone) and the Remote Charge while
@@ -144,6 +162,11 @@ end
 function ClientToolBarManager:renderStim()
 	local secondsLeft = 0
 	for _, view in self.slotViews do
+		-- the dynamite slot drains its sheet while the next stick comes, no number
+		if view.tool == Enums.ToolKind.DYNAMITE then
+			secondsLeft = math.max(secondsLeft, self:getDynamiteSecondsLeft())
+			continue
+		end
 		if view.tool ~= Enums.ToolKind.GADGET then
 			continue
 		end
@@ -186,7 +209,12 @@ end
 function ClientToolBarManager:toggleTool(tool: number)
 	if self:isGadgetSpent(tool) then
 		ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
-		ClientPlayerFeedbackManager:giveLocal(FEEDBACK_NOT_AVAILABLE_BY_GADGET[self.gadgetKind] or "Not available yet.", FEEDBACK_DISPLAY_SEC)
+		local message = FEEDBACK_NOT_AVAILABLE_BY_GADGET[self.gadgetKind]
+		if tool == Enums.ToolKind.DYNAMITE then
+			local secondsLeft = self:getDynamiteSecondsLeft()
+			message = if secondsLeft > 0 then string.format(FEEDBACK_DYNAMITE_COMING, math.ceil(secondsLeft)) else FEEDBACK_DYNAMITE_EMPTY
+		end
+		ClientPlayerFeedbackManager:giveLocal(message or "Not available yet.", FEEDBACK_DISPLAY_SEC)
 		return
 	end
 	if self.equipped == tool then
@@ -303,6 +331,9 @@ function ClientToolBarManager:getLostShare(tool: number): number
 	if tool == Enums.ToolKind.GADGET and self.gadgetKind == Enums.GadgetKind.REMOTE_CHARGE then
 		return math.clamp(self:getRemoteChargeSecondsLeft() / math.max(self.remoteChargeCooldownSec, 1e-3), 0, 1)
 	end
+	if tool == Enums.ToolKind.DYNAMITE and self.dynamiteReadyTime > 0 then
+		return math.clamp(self:getDynamiteSecondsLeft() / math.max(self.dynamiteRespawnSec, 1e-3), 0, 1)
+	end
 	return 1
 end
 
@@ -418,7 +449,7 @@ function ClientToolBarManager:init()
 	self.basePosition = slotsFrame.Position
 	template.Visible = false
 
-	self.slots = MiningRules.decodeToolSlots(ClientDataManager:getCurrentPlayerAttribute(Attributes.TOOL_SLOTS))
+	self.slots = MiningRules.sortToolSlots(MiningRules.decodeToolSlots(ClientDataManager:getCurrentPlayerAttribute(Attributes.TOOL_SLOTS)))
 	self.countByTool = MiningRules.decodeToolCounts(ClientDataManager:getCurrentPlayerAttribute(Attributes.TOOL_COUNTS))
 	local equipped = ClientDataManager:getCurrentPlayerAttribute(Attributes.EQUIPPED_TOOL)
 	self.equipped = if typeof(equipped) == "number" then equipped else MiningRules.NO_TOOL
@@ -432,6 +463,10 @@ function ClientToolBarManager:init()
 	self.remoteChargeCooldownSec = if typeof(cooldownSec) == "number" then cooldownSec else self.remoteChargeCooldownSec
 	local gadgetVariant = ClientDataManager:getCurrentPlayerAttribute(Attributes.GADGET_VARIANT)
 	self.gadgetVariant = if typeof(gadgetVariant) == "string" then gadgetVariant else ""
+	local dynamiteReadyTime = ClientDataManager:getCurrentPlayerAttribute(Attributes.DYNAMITE_READY_TIME)
+	self.dynamiteReadyTime = if typeof(dynamiteReadyTime) == "number" then dynamiteReadyTime else 0
+	local dynamiteRespawnSec = ClientDataManager:getGameMetadata(Attributes.DYNAMITE_RESPAWN_SEC)
+	self.dynamiteRespawnSec = if typeof(dynamiteRespawnSec) == "number" then dynamiteRespawnSec else self.dynamiteRespawnSec
 	local effectEndTime = ClientDataManager:getCurrentPlayerAttribute(Attributes.STIM_SHOT_EFFECT_END_TIME)
 	self.stimShotEffectEndTime = if typeof(effectEndTime) == "number" then effectEndTime else 0
 	self:renderSlots()
@@ -439,7 +474,7 @@ function ClientToolBarManager:init()
 	ClientDataManager:subscribeCurrentPlayerAttribute(
 		Attributes.TOOL_SLOTS,
 		function(value: any)
-			self.slots = MiningRules.decodeToolSlots(value)
+			self.slots = MiningRules.sortToolSlots(MiningRules.decodeToolSlots(value))
 			self:renderSlots()
 		end
 	)
@@ -448,6 +483,7 @@ function ClientToolBarManager:init()
 		function(value: any)
 			self.countByTool = MiningRules.decodeToolCounts(value)
 			self:renderCounts()
+			self:renderLost()
 		end
 	)
 	ClientDataManager:subscribeCurrentPlayerAttribute(
@@ -475,6 +511,13 @@ function ClientToolBarManager:init()
 		Attributes.REMOTE_CHARGE_READY_TIME,
 		function(value: any)
 			self.remoteChargeReadyTime = if typeof(value) == "number" then value else 0
+			self:renderStim()
+		end
+	)
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.DYNAMITE_READY_TIME,
+		function(value: any)
+			self.dynamiteReadyTime = if typeof(value) == "number" then value else 0
 			self:renderStim()
 		end
 	)
@@ -525,6 +568,8 @@ function ClientToolBarManager.new(): ClientToolBarManager
 	self.remoteChargeReadyTime = 0
 	self.remoteChargeCooldownSec = 15
 	self.gadgetVariant = ""
+	self.dynamiteReadyTime = 0
+	self.dynamiteRespawnSec = 90
 	self.stimCountdownConnection = nil
 	return self
 end

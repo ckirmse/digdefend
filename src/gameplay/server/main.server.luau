@@ -120,6 +120,12 @@ GeigerCounterManager:init()
 OrePickupManager:init()
 MiningManager:init()
 DynamiteManager:init()
+-- the Demolitionist's sticks (2026-10-20): the start count at every run's start
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		DynamiteManager:onRunStarted()
+	end
+)
 TorchManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)

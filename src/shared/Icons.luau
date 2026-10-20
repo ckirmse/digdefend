@@ -41,6 +41,7 @@ Icons.POST_WEAPON_RETICLE = {
 Icons.TOOL = {
 	[Enums.ToolKind.PICK_AXE] = "rbxassetid://80581106612931",
 	[Enums.ToolKind.HAMMER] = "rbxassetid://96069694494045",
+	[Enums.ToolKind.DYNAMITE] = "rbxassetid://75555443248313",
 }
 
 -- the WEAPON slot's picture, by the Enums.WeaponKind carried

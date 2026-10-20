@@ -452,7 +452,8 @@ module = {
 		BACKPACK = 3,
 		JET_PACK = 4,
 		TORCH = 5,
-		DYNAMITE = 6,
+		-- dynamite was 6 until 2026-10-20, when it became the
+		-- Demolitionist's gadget and its stand left the store
 		COMPASS = 7,
 		GEIGER_COUNTER = 8,
 
@@ -462,7 +463,6 @@ module = {
 			BACKPACK = "Backpack",
 			JET_PACK = "Jet Pack",
 			TORCH = "Torch",
-			DYNAMITE = "Dynamite",
 			COMPASS = "Compass",
 			GEIGER_COUNTER = "Geiger Counter",
 		},

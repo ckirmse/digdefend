@@ -150,6 +150,17 @@ module = {
 	PICKUP_BARS = "PickupBars",
 	-- on each thrown dynamite part (Tags.DYNAMITE): server time it explodes
 	DYNAMITE_EXPLODE_TIME = "DynamiteExplodeTime",
+	-- the Demolitionist's next stick (DynamiteManager, 2026-10-20): the
+	-- server time it is in hand (CurrentPlayer; 0 when it is) and the wait's
+	-- length (GameMetadata), so the slot's sheet drains by its share
+	DYNAMITE_READY_TIME = "DynamiteReadyTime",
+	DYNAMITE_RESPAWN_SEC = "DynamiteRespawnSec",
+	-- on a thrown stick (2026-10-20): whose it is and the velocity it left
+	-- with, so the thrower's client, which simulates it, can launch it
+	-- itself once the ownership lands (a velocity set before the handover
+	-- was lost now and then, and the stick dropped at the thrower's feet)
+	DYNAMITE_THROWER_USER_ID = "DynamiteThrowerUserId",
+	DYNAMITE_LAUNCH_VELOCITY = "DynamiteLaunchVelocity",
 	-- on every helicopter model (Tags.HELICOPTER): Enums.HelicopterPhase
 	HELICOPTER_PHASE = "HelicopterPhase",
 	-- on each helicopter pad model: PadIndex is Studio-authored, the rest is

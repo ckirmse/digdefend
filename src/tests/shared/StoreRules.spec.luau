@@ -53,6 +53,20 @@ describe(
 )
 
 describe(
+	"StoreRules.hasItem",
+	function()
+		it(
+			"knows a track, a consumable, and an item the store does not sell",
+			function()
+				expect(StoreRules.hasItem(CATALOG, Enums.StoreItem.PICK_AXE)).toBe(true)
+				expect(StoreRules.hasItem(CATALOG, Enums.StoreItem.TORCH)).toBe(true)
+				expect(StoreRules.hasItem(CATALOG, Enums.StoreItem.COMPASS)).toBe(false)
+			end
+		)
+	end
+)
+
+describe(
 	"StoreRules.getOffer and text",
 	function()
 		it(

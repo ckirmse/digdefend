@@ -114,6 +114,12 @@ function StoreRules.getConsumableOffer(consumable: Consumable): Offer
 	}
 end
 
+-- whether the store sells the item at all: a stand for one it does not is
+-- hidden (dynamite, the Demolitionist's gadget since 2026-10-20)
+function StoreRules.hasItem(catalog: Catalog, item: number): boolean
+	return catalog.upgrades[item] ~= nil or catalog.consumables[item] ~= nil
+end
+
 -- what a stand shows a player: nil when the catalogue has no such item
 function StoreRules.getOffer(catalog: Catalog, item: number, ownedLevel: number): Offer?
 	local track = catalog.upgrades[item]

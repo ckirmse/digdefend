@@ -74,6 +74,15 @@ describe(
 	"MiningRules tool slots codec",
 	function()
 		it(
+			"sorts the bar with dynamite last, after repair, whatever the grant order",
+			function()
+				local sorted = MiningRules.sortToolSlots({ Enums.ToolKind.DYNAMITE, Enums.ToolKind.HAMMER, Enums.ToolKind.WEAPON, Enums.ToolKind.PICK_AXE })
+				expect(sorted).toEqual({ Enums.ToolKind.PICK_AXE, Enums.ToolKind.WEAPON, Enums.ToolKind.HAMMER, Enums.ToolKind.DYNAMITE })
+				expect(MiningRules.sortToolSlots({ Enums.ToolKind.GADGET, Enums.ToolKind.TORCH })).toEqual({ Enums.ToolKind.TORCH, Enums.ToolKind.GADGET })
+			end
+		)
+
+		it(
 			"round-trips a slot list and drops anything that is not a tool",
 			function()
 				local slots = { Enums.ToolKind.PICK_AXE, Enums.ToolKind.WEAPON }
@@ -118,16 +127,19 @@ describe(
 		it(
 			"round-trips counts with numeric tool keys",
 			function()
-				local decoded = MiningRules.decodeToolCounts(MiningRules.encodeToolCounts({ [Enums.ToolKind.TORCH] = 4, [Enums.ToolKind.DYNAMITE] = 1 }))
+				local decoded = MiningRules.decodeToolCounts(MiningRules.encodeToolCounts({ [Enums.ToolKind.TORCH] = 4, [Enums.ToolKind.DYNAMITE] = 1, [Enums.ToolKind.HAMMER] = 0 }))
+				expect(decoded[Enums.ToolKind.HAMMER]).toBe(0)
 				expect(decoded[Enums.ToolKind.TORCH]).toBe(4)
 				expect(decoded[Enums.ToolKind.DYNAMITE]).toBe(1)
 			end
 		)
 		it(
-			"drops zero counts, unknown tools, and garbage",
+			"keeps zero counts and drops unknown tools and garbage",
 			function()
+				-- a zero is a slot held at x0 (the Demolitionist's dynamite, 2026-10-20)
 				local decoded = MiningRules.decodeToolCounts(MiningRules.encodeToolCounts({ [Enums.ToolKind.TORCH] = 0, [99] = 3 }))
-				expect(next(decoded)).toBe(nil)
+				expect(decoded[Enums.ToolKind.TORCH]).toBe(0)
+				expect(decoded[99]).toBe(nil)
 				expect(next(MiningRules.decodeToolCounts("nope"))).toBe(nil)
 				expect(next(MiningRules.decodeToolCounts(nil))).toBe(nil)
 			end

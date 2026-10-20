@@ -87,6 +87,32 @@ function MiningRules.decodeToolSlots(encoded: any): { number }
 	return slots
 end
 
+-- the order the tool bar shows its slots in, whatever order they were
+-- granted (2026-10-20: dynamite always sits last, after repair); a tool
+-- not listed here comes after every listed one
+MiningRules.TOOL_BAR_ORDER = {
+	Enums.ToolKind.PICK_AXE,
+	Enums.ToolKind.WEAPON,
+	Enums.ToolKind.TORCH,
+	Enums.ToolKind.GADGET,
+	Enums.ToolKind.HAMMER,
+	Enums.ToolKind.DYNAMITE,
+}
+
+function MiningRules.sortToolSlots(slots: { number }): { number }
+	local sorted = table.clone(slots)
+	local function rankOf(tool: number): number
+		return table.find(MiningRules.TOOL_BAR_ORDER, tool) or (#MiningRules.TOOL_BAR_ORDER + tool)
+	end
+	table.sort(
+		sorted,
+		function(a: number, b: number): boolean
+			return rankOf(a) < rankOf(b)
+		end
+	)
+	return sorted
+end
+
 -- consumable counts travel as JSON { [toolKind] = count }; JSON keys are
 -- strings, so they are restored to numbers on decode
 function MiningRules.encodeToolCounts(countByTool: { [number]: number }): string
@@ -108,7 +134,8 @@ function MiningRules.decodeToolCounts(encoded: any): { [number]: number }
 	end
 	for key, count in decoded :: { [any]: any } do
 		local tool = tonumber(key)
-		if tool and Enums.isValidValue(Enums.ToolKind, tool) and typeof(count) == "number" and count > 0 then
+		-- a zero is kept: a slot held at x0 (the Demolitionist's dynamite, 2026-10-20)
+		if tool and Enums.isValidValue(Enums.ToolKind, tool) and typeof(count) == "number" and count >= 0 then
 			counts[tool] = count
 		end
 	end

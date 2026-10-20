@@ -265,7 +265,10 @@ return {
 			DAMAGE = 48,
 			FIRE_INTERVAL_SEC = 5,
 			FIRE_COOLDOWN_SEC = 4.8,
-			TURN_SPEED_DEGREES_PER_SEC = 12,
+			-- 20 from 12 (2026-10-20): the turn speed is also the pitch
+			-- speed, and the lob aims by pitch, from the horizon down to the
+			-- post's feet at -85, so 12 made every target a long swing
+			TURN_SPEED_DEGREES_PER_SEC = 20,
 			RANGE_STUDS = 260,
 			FIELD_OF_VIEW = 45,
 			-- steep enough to drop a shell at the post's own feet (2026-10-20)
