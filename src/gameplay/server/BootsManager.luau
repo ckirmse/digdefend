@@ -16,9 +16,16 @@ local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidR
 local BootsManager = {}
 BootsManager.__index = BootsManager
 
+type SpeedBoost = {
+	multiplier: number,
+	endTime: number,
+}
+
 export type BootsManager = typeof(setmetatable(
 	{} :: {
 		levelByPlayer: { [Player]: number },
+		-- a timed multiple on the walk speed (the Stim Shot, 2026-10-19)
+		boostByPlayer: { [Player]: SpeedBoost },
 	},
 	BootsManager
 ))
@@ -34,7 +41,31 @@ function BootsManager:getWalkSpeed(player: Player): number
 	local level = math.clamp(self:getLevel(player), 1, #speeds)
 	-- the class scales the boots' speed (M64)
 	local speedScale: number = CharacterManager:getModifier(player, Enums.ClassModifier.MOVE_SPEED)
-	return speeds[level] * speedScale
+	local boost = self.boostByPlayer[player]
+	local boostScale = if boost and workspace:GetServerTimeNow() < boost.endTime then boost.multiplier else 1
+	return speeds[level] * speedScale * boostScale
+end
+
+-- a timed multiple on the walk speed, applied now and taken off when its
+-- time is up (a later boost replaces an earlier one)
+function BootsManager:setSpeedBoost(player: Player, multiplier: number, endTime: number)
+	self.boostByPlayer[player] = {
+		multiplier = multiplier,
+		endTime = endTime,
+	}
+	self:apply(player)
+	task.delay(
+		math.max(0, endTime - workspace:GetServerTimeNow()),
+		function()
+			local boost = self.boostByPlayer[player]
+			if boost and boost.endTime == endTime then
+				self.boostByPlayer[player] = nil
+				if player.Parent then
+					self:apply(player)
+				end
+			end
+		end
+	)
 end
 
 function BootsManager:applyToCharacter(player: Player, character: Model)
@@ -92,6 +123,7 @@ end
 function BootsManager.new(): BootsManager
 	local self = setmetatable({}, BootsManager) :: BootsManager
 	self.levelByPlayer = {}
+	self.boostByPlayer = {}
 	return self
 end
 

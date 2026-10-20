@@ -624,3 +624,21 @@ describe(
 		)
 	end
 )
+
+describe(
+	"PostRules.pitchDegreesToward",
+	function()
+		it(
+			"pitches up to a target above, down to one below, level to one level, from the barrel itself",
+			function()
+				local muzzle = Vector3.new(0, 10, 0)
+				expect(PostRules.pitchDegreesToward(muzzle, Vector3.new(0, 10, -20))).toBeCloseTo(0, 5)
+				expect(PostRules.pitchDegreesToward(muzzle, Vector3.new(0, 30, -20))).toBeCloseTo(45, 5)
+				expect(PostRules.pitchDegreesToward(muzzle, Vector3.new(0, 0, -10))).toBeCloseTo(-45, 5)
+				expect(PostRules.pitchDegreesToward(muzzle, Vector3.new(0, 0, 0))).toBeCloseTo(-90, 5)
+				-- the same target reads steeper from a higher barrel
+				expect(PostRules.pitchDegreesToward(Vector3.new(0, 14, 0), Vector3.new(0, 0, -10)) < -45).toBe(true)
+			end
+		)
+	end
+)

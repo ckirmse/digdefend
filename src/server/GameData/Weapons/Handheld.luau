@@ -24,10 +24,11 @@ return {
 	-- first-person camera is in the head, the rest is latency
 	ORIGIN_TOLERANCE_STUDS = 12,
 	-- headshots (2026-10-19): a hit in the head (WeaponRules.HEAD_SHARE of
-	-- the target's box) does this much more; a kind may set its own
-	-- HEADSHOT_MULTIPLIER (the Sniper Rifle's lands the GDD's "one shot
-	-- for anything not large")
-	HEADSHOT_MULTIPLIER = 1.5,
+	-- the target's box) does this much more. 1 is no headshot at all, no
+	-- bonus and no callout: the headshot is the Railgun's alone (decided
+	-- 2026-10-19), so no hand weapon has one; a kind may still set its own
+	-- HEADSHOT_MULTIPLIER
+	HEADSHOT_MULTIPLIER = 1,
 	BY_KIND = {
 		-- a lever-action, to match the art (decided 2026-09-17): five
 		-- deliberate, heavy shots, one per lever stroke, then a slow reload
@@ -52,9 +53,6 @@ return {
 		-- bolt action: one shot takes most of anything that is not large,
 		-- slow between shots and slow to reload, and the scope is the aim
 		[Enums.WeaponKind.SNIPER] = {
-			-- 660 on a headshot: every Zombie, Runner, Bomber, and the Brute 1
-			-- in one, nothing from the Brute 2 up
-			HEADSHOT_MULTIPLIER = 3,
 			DAMAGE = 220,
 			FIRE_INTERVAL_SEC = 1.4,
 			FIRE_COOLDOWN_SEC = 1.2,

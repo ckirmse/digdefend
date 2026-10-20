@@ -318,7 +318,29 @@ function ReviveManager:applyClass(player: Player)
 	end
 end
 
--- full health, and no regeneration: there is no healing in a run
+-- the one way health goes up in a run (the Stim Shot, 2026-10-19):
+-- raised to a share of the maximum, never down and never on the dead
+function ReviveManager:healUpTo(player: Player, share: number)
+	if self.deadByPlayer[player] then
+		return
+	end
+	local character = player.Character
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	if not humanoid or humanoid.Health <= 0 then
+		return
+	end
+	humanoid.Health = math.max(humanoid.Health, self:getMaxHealth(player) * share)
+end
+
+-- a window in which this player alone takes no damage (the Stim Shot,
+-- 2026-10-19), the same window a revive opens; a longer one already
+-- running is kept
+function ReviveManager:setInvulnerableFor(player: Player, seconds: number)
+	local endTime = workspace:GetServerTimeNow() + seconds
+	self.invulnerableUntilByPlayer[player] = math.max(self.invulnerableUntilByPlayer[player] or 0, endTime)
+end
+
+-- full health, and no regeneration apart from the Stim Shot's one heal
 function ReviveManager:setUpCharacter(player: Player, character: Model)
 	local humanoid = character:WaitForChild("Humanoid", CHARACTER_WAIT_SEC)
 	if not humanoid or not humanoid:IsA("Humanoid") then

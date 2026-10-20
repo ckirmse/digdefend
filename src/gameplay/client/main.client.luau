@@ -12,6 +12,7 @@ local ClientAutoTurretDevTools = require(script.Parent.ClientAutoTurretDevTools)
 local ClientAutoTurretManager = require(script.Parent.ClientAutoTurretManager)
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
 local ClientBinocularsManager = require(script.Parent.ClientBinocularsManager)
+local ClientStimShotManager = require(script.Parent.ClientStimShotManager)
 local ClientCampMapManager = require(script.Parent.ClientCampMapManager)
 local ClientDiamondTapManager = require(script.Parent.ClientDiamondTapManager)
 local ClientCompassManager = require(script.Parent.ClientCompassManager)
@@ -116,6 +117,7 @@ ClientAutoTurretManager:init()
 -- the Binoculars (2026-10-19): the scope, the tag callouts, and the marks
 -- the Camp Map and compass read from it below
 ClientBinocularsManager:init()
+ClientStimShotManager:init()
 -- the day clock reads GameMetadata the server set before anyone was Ready
 ClientRunCycleManager:init()
 -- the Refinery HP bar that takes the clock's place at night

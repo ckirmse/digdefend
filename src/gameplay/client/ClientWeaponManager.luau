@@ -60,6 +60,9 @@ export type ClientWeaponManager = typeof(setmetatable(
 		holdInput: ClientHoldInput.ClientHoldInput?,
 		ammoButton: GuiButton?,
 		ammoLabel: TextLabel?,
+		-- the secondary's cooldown bar above the ammo (2026-10-19)
+		secondaryBar: GuiObject?,
+		secondaryFill: GuiObject?,
 		-- rounds left as this client expects them: the server's count, less
 		-- shots sent since it last arrived, so a hold never outruns the magazine
 		predictedAmmo: number,
@@ -100,6 +103,8 @@ local RELOADING_TEXT = "Reloading"
 local TRACER_THICKNESS_STUDS = 0.08
 local TRACER_LENGTH_STUDS = 10
 local TRACER_SPEED_STUDS_PER_SEC = 900
+-- one frame's grace on the streak's life for the frame it holds at the muzzle
+local TRACER_HOLD_SEC = 0.05
 local TRACER_COLOR = UiStyle.TRACER_COLOR
 -- a tracer starts this far ahead of the camera when no held weapon is found
 local FALLBACK_MUZZLE_OFFSET_STUDS = 2
@@ -291,7 +296,11 @@ function ClientWeaponManager:fireSecondary()
 		end
 		return
 	end
-	local origin = camera.CFrame.Position
+	-- the grenade leaves the launcher under the barrel (the template's
+	-- Grenade attachment, 2026-10-19), toward where the camera looks; the
+	-- server allows the launcher's distance from the head
+	local secondaryMuzzle = ClientViewModelManager:getSecondaryMuzzle() or self:findHeldAttachment(Players.LocalPlayer.Character, Constants.WEAPON_SECONDARY_ATTACHMENT)
+	local origin = if secondaryMuzzle then secondaryMuzzle.WorldPosition else camera.CFrame.Position
 	local unitDirection = camera.CFrame.LookVector
 	ClientNetManager:fireServer(
 		NetEventNames.TRY_FIRE_WEAPON_SECONDARY,
@@ -303,12 +312,12 @@ function ClientWeaponManager:fireSecondary()
 	-- the cooldown is expected until the server's own lands
 	self.secondaryReadyTime = now + secondary.COOLDOWN_SEC
 	local muzzleAttachment = ClientViewModelManager:getMuzzle() or self:findHeldMuzzle(Players.LocalPlayer.Character)
-	self:playMuzzleEffects(muzzleAttachment)
+	self:playMuzzleEffects(secondaryMuzzle or muzzleAttachment)
 	ClientViewModelManager:kick()
 	local weaponSfx = self:getOwnWeaponSfx()
 	local launchSound = if weaponSfx then weaponSfx.SECONDARY_FIRE else nil
 	if launchSound then
-		ClientSoundManager:playSfxAt(if muzzleAttachment then muzzleAttachment.WorldPosition else origin, launchSound, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
+		ClientSoundManager:playSfxAt(origin, launchSound, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
 	end
 end
 
@@ -328,8 +337,14 @@ end
 
 -- the weapon's Muzzle attachment on a character's held Tool
 function ClientWeaponManager:findHeldMuzzle(character: Model?): Attachment?
+	return self:findHeldAttachment(character, Constants.WEAPON_MUZZLE_ATTACHMENT)
+end
+
+-- a named attachment on the Tool in a character's hand (another player's
+-- shot, or this player's in third person)
+function ClientWeaponManager:findHeldAttachment(character: Model?, attachmentName: string): Attachment?
 	local tool = if character then character:FindFirstChildOfClass("Tool") else nil
-	local muzzle = if tool then tool:FindFirstChild(Constants.WEAPON_MUZZLE_ATTACHMENT, true) else nil
+	local muzzle = if tool then tool:FindFirstChild(attachmentName, true) else nil
 	return if muzzle and muzzle:IsA("Attachment") then muzzle else nil
 end
 
@@ -391,8 +406,20 @@ function ClientWeaponManager:drawTracer(from: Vector3, to: Vector3, color: Color
 	tracer.Parent = workspace
 	-- a point-blank shot has nowhere to fly: the streak just shows for a frame or two
 	local lifeSec = math.max(travelSec, 0.03)
-	TweenService:Create(tracer, TweenInfo.new(lifeSec, Enum.EasingStyle.Linear), { CFrame = aim * CFrame.new(0, 0, -(travelStuds + streakLength / 2)) }):Play()
-	Debris:AddItem(tracer, lifeSec)
+	local tween = TweenService:Create(tracer, TweenInfo.new(lifeSec, Enum.EasingStyle.Linear), { CFrame = aim * CFrame.new(0, 0, -(travelStuds + streakLength / 2)) })
+	-- the streak is drawn once at the muzzle before it flies (2026-10-19):
+	-- at 900 studs a second one frame is 15 studs, so a tween started this
+	-- frame put the first frame anyone saw well down range, and the shot
+	-- read as leaving a point ahead of the barrel
+	task.spawn(
+		function()
+			RunService.RenderStepped:Wait()
+			if tracer.Parent then
+				tween:Play()
+			end
+		end
+	)
+	Debris:AddItem(tracer, lifeSec + TRACER_HOLD_SEC)
 	return travelSec
 end
 
@@ -598,6 +625,27 @@ function ClientWeaponManager:onWeaponFired(payload: any)
 	self:playFireEffects(payload.weaponKind, muzzle, endPosition, impactNormal, impactSurface)
 end
 
+-- the secondary's bar: shown with the ammo for a weapon that has one,
+-- its Fill the share of the cooldown that has run (full when ready)
+function ClientWeaponManager:renderSecondaryBar()
+	local bar = self.secondaryBar
+	if not bar then
+		return
+	end
+	local kindData = self:getOwnKindData()
+	local secondary = if kindData then kindData.SECONDARY else nil
+	local isShown = self.isWeaponMode and secondary ~= nil and not self.isOverlayActive
+	bar.Visible = isShown
+	local fill = self.secondaryFill
+	if not isShown or not fill or not secondary then
+		return
+	end
+	local remaining = math.max(0, self.secondaryReadyTime - workspace:GetServerTimeNow())
+	local share = if secondary.COOLDOWN_SEC > 0 then 1 - math.clamp(remaining / secondary.COOLDOWN_SEC, 0, 1) else 1
+	fill.Size = UDim2.fromScale(share, 1)
+	fill.BackgroundColor3 = if share >= 1 then UiStyle.POSITIVE_COLOR else UiStyle.NEGATIVE_COLOR
+end
+
 function ClientWeaponManager:renderAmmo()
 	local button = self.ammoButton
 	local label = self.ammoLabel
@@ -687,6 +735,15 @@ end
 function ClientWeaponManager:init()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local gui = playerGui:WaitForChild(Constants.WEAPON_HUD_GUI_NAME, 10)
+	local secondaryBar = if gui then gui:FindFirstChild(Constants.WEAPON_HUD_SECONDARY_BAR, true) else nil
+	if secondaryBar and secondaryBar:IsA("GuiObject") then
+		self.secondaryBar = secondaryBar
+		local fill = secondaryBar:FindFirstChild(Constants.WEAPON_HUD_SECONDARY_FILL, true)
+		self.secondaryFill = if fill and fill:IsA("GuiObject") then fill else nil
+		secondaryBar.Visible = false
+	else
+		warn("ClientWeaponManager: WeaponHud has no SecondaryBar; run scripts/studio/build_weapon_hud_gui.luau")
+	end
 	local button = if gui then gui:FindFirstChild(Constants.WEAPON_HUD_AMMO_BUTTON) else nil
 	if button and button:IsA("GuiButton") then
 		self.ammoButton = button
@@ -762,6 +819,12 @@ function ClientWeaponManager:init()
 	holdInput:connect()
 	self.holdInput = holdInput
 
+	-- the secondary's bar fills with the clock, so it is drawn every frame
+	RunService.RenderStepped:Connect(
+		function()
+			self:renderSecondaryBar()
+		end
+	)
 	UserInputService.InputBegan:Connect(
 		function(input: InputObject, isGameProcessed: boolean)
 			if isGameProcessed or ClientOverlayManager:isOverlayActive() then
@@ -805,6 +868,8 @@ function ClientWeaponManager.new(): ClientWeaponManager
 	self.holdInput = nil
 	self.ammoButton = nil
 	self.ammoLabel = nil
+	self.secondaryBar = nil
+	self.secondaryFill = nil
 	self.predictedAmmo = 0
 	self.magazineSize = 0
 	self.fireIntervalSec = DEFAULT_FIRE_INTERVAL_SEC

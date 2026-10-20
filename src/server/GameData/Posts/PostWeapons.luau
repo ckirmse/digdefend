@@ -117,8 +117,10 @@ return {
 	-- base may be a fraction of a second ahead of the last aim it sent
 	ORIGIN_TOLERANCE_STUDS = 8,
 	-- headshots (2026-10-19): a hitscan shot (a plain one or a pierce) in
-	-- the head does this much more; a kind may set its own HEADSHOT_MULTIPLIER
-	HEADSHOT_MULTIPLIER = 1.5,
+	-- the head does this much more; 1 is no headshot at all, no bonus and
+	-- no callout. The headshot is the Railgun's alone (decided 2026-10-19),
+	-- which sets its own HEADSHOT_MULTIPLIER
+	HEADSHOT_MULTIPLIER = 1,
 	-- how many degrees past the turn speed a yaw report may run, for the
 	-- same reason
 	YAW_TOLERANCE_DEGREES = 15,
@@ -214,7 +216,7 @@ return {
 			-- Headshot in place of Range (2026-10-19): 600 studs already
 			-- reaches past every spawn, so Range bought nothing
 			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, HEADSHOT },
-			-- the Sniper Rifle's headshot: a full charge in the head is 780
+			-- the one headshot in the game: a full charge in the head is 780
 			HEADSHOT_MULTIPLIER = 3,
 			DAMAGE = 260,
 			-- the charge is the only pace (2026-10-19): no reload, and an
@@ -305,7 +307,12 @@ return {
 		-- its damage (decided 2026-10-16), so the Ranger fights on foot
 		[Enums.PostWeaponKind.MACHINE_GUN_AUTOMATED] = {
 			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, COOLDOWN },
-			DAMAGE = 7.2,
+			-- half the Machine Gun's shot and a shorter burst between longer
+			-- cools (2026-10-19, from 7.2 and 4 s on / 3 s off): once its aim
+			-- was fixed, a gun nobody mans that never misses all night was
+			-- worth more than the Gunner at the Minigun; about 26 a second
+			-- sustained now, a third of a manned Machine Gun
+			DAMAGE = 6,
 			FIRE_INTERVAL_SEC = 0.1,
 			FIRE_COOLDOWN_SEC = 0.08,
 			TURN_SPEED_DEGREES_PER_SEC = 30,
@@ -314,8 +321,8 @@ return {
 			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
 			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
 			HEAT = {
-				FULL_SEC = 4,
-				COOL_SEC = 3,
+				FULL_SEC = 3,
+				COOL_SEC = 4,
 			},
 			IS_UNMANNED = true,
 		},

@@ -486,6 +486,8 @@ Constants.TOOL_SLOT_ICON = "Icon"
 Constants.TOOL_SLOT_LABEL = "Label"
 Constants.TOOL_SLOT_KEY_LABEL = "KeyLabel"
 Constants.TOOL_SLOT_COUNT_LABEL = "CountLabel"
+-- a number the size of the icon, over it: the Stim Shot's effect countdown (2026-10-19)
+Constants.TOOL_SLOT_TIMER_LABEL = "TimerLabel"
 -- the action word under each slot ("MINE", "SHOOT", ...), outside the square
 Constants.TOOL_SLOT_CAPTION_LABEL = "CaptionLabel"
 Constants.MAX_TOOL_SLOTS = 9
@@ -846,6 +848,15 @@ end
 -- on every weapon template: an Attachment at the barrel tip, where tracers
 -- start (scripts/studio/build_tool_templates.luau)
 Constants.WEAPON_MUZZLE_ATTACHMENT = "Muzzle"
+-- on a weapon with a SECONDARY (the Assault Rifle's grenade): the
+-- designer's GrenadeAttachment under the barrel, carried into the held
+-- template under this name, where the grenade leaves (2026-10-19)
+Constants.WEAPON_SECONDARY_ATTACHMENT = "Grenade"
+-- the designer's own muzzle mark on the source art under GameAssets/Weapons;
+-- when present the built template's Muzzle sits there instead of at the
+-- measured barrel tip
+Constants.WEAPON_SOURCE_MUZZLE_ATTACHMENT = "MuzzleAttachment"
+Constants.WEAPON_SOURCE_SECONDARY_ATTACHMENT = "GrenadeAttachment"
 -- under the Muzzle attachment, both authored switched off: a light and a
 -- smoke emitter the client turns on for a moment on every shot
 Constants.WEAPON_MUZZLE_FLASH_LIGHT = "MuzzleFlash"
@@ -866,6 +877,14 @@ Constants.DAMAGEABLE_BODIES_FOLDER = "DamageableBodies"
 Constants.WEAPON_HUD_GUI_NAME = "WeaponHud"
 Constants.WEAPON_HUD_AMMO_BUTTON = "AmmoButton"
 Constants.WEAPON_HUD_AMMO_LABEL = "AmmoLabel"
+-- above the ammo readout, for a weapon with a SECONDARY (the Assault
+-- Rifle's grenade launcher, 2026-10-19): its icon, its name, and a bar
+-- that empties on the shot and refills over the cooldown
+Constants.WEAPON_HUD_SECONDARY_BAR = "SecondaryBar"
+Constants.WEAPON_HUD_SECONDARY_ICON = "Icon"
+Constants.WEAPON_HUD_SECONDARY_LABEL = "Label"
+Constants.WEAPON_HUD_SECONDARY_TRACK = "Track"
+Constants.WEAPON_HUD_SECONDARY_FILL = "Fill"
 -- the scope view (scripts/studio/build_scope_hud_gui.luau, 2026-10-19):
 -- a full-screen gui shown while a scope kind's scope is raised, its
 -- Reticle picture set from Icons.WEAPON_SCOPE by weapon kind
@@ -962,6 +981,8 @@ Constants.TAG_BILLBOARD = "TagCallout"
 Constants.TAG_ICON = "Icon"
 Constants.TAG_LABEL = "Label"
 Constants.TAG_FOLDER = "TagCallouts"
+-- the Stim Shot's white edge flash (scripts/studio/build_stim_vignette_gui.luau, 2026-10-19)
+Constants.STIM_VIGNETTE_GUI_NAME = "StimVignette"
 -- the tool bar's grey cooldown sheet over a slot (build_tool_bar_gui)
 Constants.TOOL_SLOT_COOLDOWN_OVERLAY = "CooldownOverlay"
 -- the gadget block of the Post & Gadget Upgrades menu (M67): its heading

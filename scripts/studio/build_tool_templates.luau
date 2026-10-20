@@ -7,12 +7,15 @@
 -- Repair Mode tool, and every "WEAPON_<KEY>" (M24, the class weapons of
 -- 2026-10-16) is made from the designer's art under GameAssets/Weapons,
 -- a Model named for the Enums.WeaponKind key, which this script reads and
--- never changes. Run in the gameplay place from the command bar or the MCP
+-- never changes. A held gadget ("GADGET_<KEY>", the Stim Shot, 2026-10-19)
+-- is made the same way from its art under GameAssets/Gadgets, held
+-- upright by its middle. Run in the gameplay place from the command bar or the MCP
 -- execute_luau tool; it replaces any existing copy. Real art replaces the
 -- placeholders at M46.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
+local Attributes = require(ReplicatedStorage.Shared.Attributes)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local Enums = require(ReplicatedStorage.Shared.Enums)
 
@@ -34,8 +37,12 @@ local NEON_FROM_LEVEL = 6
 -- up, back), how long the held copy is in studs, where the barrel's axis
 -- sits above the body's centre as a share of its height, the child part
 -- that marks the front when the art's front is not -Z (the Flamethrower
--- lies along X, its Barrel part out front), and whether it is a stream
--- weapon (a flame emitter under the Muzzle instead of smoke)
+-- lies along X, its Barrel part out front), whether it is a stream
+-- weapon (a flame emitter under the Muzzle instead of smoke), and the
+-- first-person hold offset the view model applies (the Assault Rifle sat
+-- too far forward, 2026-10-19). A designer's MuzzleAttachment on the art
+-- places the Muzzle; a GrenadeAttachment is carried over as the Grenade
+-- attachment the secondary launches from
 local WEAPONS = {
 	{
 		key = "RIFLE",
@@ -69,6 +76,7 @@ local WEAPONS = {
 		gripShare = Vector3.new(0, -0.2, 0.2),
 		lengthStuds = 3.6,
 		muzzleHeightShare = 0.45,
+		viewModelOffset = CFrame.new(0, 0, 0.5),
 	},
 }
 
@@ -296,10 +304,25 @@ local function buildWeapon(spec)
 	end
 	local muzzle = Instance.new("Attachment")
 	muzzle.Name = Constants.WEAPON_MUZZLE_ATTACHMENT
-	muzzle.Position = frontLocal * (lengthStuds / 2) + Vector3.new(0, bodySize.Y * spec.muzzleHeightShare, 0)
+	-- the designer's own mark wins over the measured barrel tip
+	local sourceMuzzle = weapon:FindFirstChild(Constants.WEAPON_SOURCE_MUZZLE_ATTACHMENT, true)
+	if sourceMuzzle and sourceMuzzle:IsA("Attachment") then
+		muzzle.Position = body.CFrame:PointToObjectSpace(sourceMuzzle.WorldPosition)
+		sourceMuzzle:Destroy()
+	else
+		muzzle.Position = frontLocal * (lengthStuds / 2) + Vector3.new(0, bodySize.Y * spec.muzzleHeightShare, 0)
+	end
 	-- the attachment's own front is where the smoke and flame leave
 	muzzle.CFrame = CFrame.lookAt(muzzle.Position, muzzle.Position + frontLocal)
 	muzzle.Parent = body
+	local sourceSecondary = weapon:FindFirstChild(Constants.WEAPON_SOURCE_SECONDARY_ATTACHMENT, true)
+	if sourceSecondary and sourceSecondary:IsA("Attachment") then
+		sourceSecondary.Name = Constants.WEAPON_SECONDARY_ATTACHMENT
+		sourceSecondary.CFrame = CFrame.lookAt(sourceSecondary.Position, sourceSecondary.Position + frontLocal)
+	end
+	if spec.viewModelOffset then
+		weapon:SetAttribute(Attributes.VIEW_MODEL_OFFSET, spec.viewModelOffset)
+	end
 	addMuzzleFlash(muzzle)
 	if spec.isStream then
 		addMuzzleFlame(muzzle)
@@ -317,6 +340,56 @@ for _, spec in WEAPONS do
 		continue
 	end
 	buildWeapon(spec)
+end
+
+-- a held gadget: the designer's art as it is, every part welded to an
+-- invisible Handle at the middle of its bounds, standing the way the art
+-- stands (the Stim Shot is an upright injector); the hand closes on the middle
+local GADGETS = {
+	{
+		key = "STIM_SHOT",
+		sourceName = "Stim",
+	},
+}
+local gadgetsFolder = gameAssets:FindFirstChild(Constants.GADGET_TEMPLATES_FOLDER)
+local function buildGadget(spec)
+	local source = if gadgetsFolder then gadgetsFolder:FindFirstChild(spec.sourceName) else nil
+	if not source or not source:IsA("Model") then
+		warn("build_tool_templates: no GameAssets." .. Constants.GADGET_TEMPLATES_FOLDER .. "." .. spec.sourceName .. "; GADGET_" .. spec.key .. " not built")
+		return
+	end
+	local gadget = source:Clone()
+	gadget.Name = "GADGET_" .. spec.key
+	for _, descendant in gadget:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = true
+			descendant.CanCollide = false
+			descendant.CanQuery = false
+			descendant.Massless = true
+			descendant.Parent = gadget
+		elseif descendant:IsA("JointInstance") or descendant:IsA("WeldConstraint") then
+			descendant:Destroy()
+		end
+	end
+	local boundsCFrame = gadget:GetBoundingBox()
+	local handle = makePart(Constants.TOOL_HANDLE_PART, Vector3.new(0.2, 0.2, 0.2), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, boundsCFrame, gadget)
+	handle.Transparency = 1
+	for _, child in gadget:GetChildren() do
+		if child:IsA("BasePart") and child ~= handle then
+			weldTo(handle, child)
+		end
+	end
+	gadget.PrimaryPart = handle
+	gadget:PivotTo(CFrame.new(0, 0, 0))
+	gadget.Parent = tools
+end
+
+for _, spec in GADGETS do
+	if Enums.GadgetKind[spec.key] == nil then
+		warn("build_tool_templates: " .. spec.key .. " is not an Enums.GadgetKind; skipped")
+		continue
+	end
+	buildGadget(spec)
 end
 
 ChangeHistoryService:SetWaypoint("After tool templates")

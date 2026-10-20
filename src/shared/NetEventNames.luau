@@ -215,6 +215,9 @@ module = {
 	NOTIFY_AUTO_TURRET_FIRED = "NotifyAutoTurretFired",
 	-- the Binoculars (2026-10-19): tag the monster under the reticle
 	TRY_TAG_MONSTER = "TryTagMonster",
+	-- the Stim Shot (2026-10-19): use it, and the word back that it landed
+	TRY_USE_STIM_SHOT = "TryUseStimShot",
+	NOTIFY_STIM_SHOT_USED = "NotifyStimShotUsed",
 	-- gadget upgrades (M67): buy the class gadget's next level at the Post
 	-- & Gadget Upgrades table, and to that client: it went through
 	-- ({ level, price }), for the sound

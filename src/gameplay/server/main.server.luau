@@ -9,6 +9,7 @@ local AutoTurretManager = require(script.Parent.AutoTurretManager)
 local GadgetUpgradeManager = require(script.Parent.GadgetUpgradeManager)
 local BackpackManager = require(script.Parent.BackpackManager)
 local BinocularsManager = require(script.Parent.BinocularsManager)
+local StimShotManager = require(script.Parent.StimShotManager)
 local BalanceAudit = require(script.Parent.BalanceAudit)
 local BootsManager = require(script.Parent.BootsManager)
 local DiamondTapManager = require(script.Parent.DiamondTapManager)
@@ -201,6 +202,14 @@ BinocularsManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
 		BinocularsManager:onRunStarted()
+	end
+)
+-- the Ranger's Stim Shot (2026-10-19): after the turret, which hands the
+-- gadget slot over to any class without a turret
+StimShotManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		StimShotManager:onRunStarted()
 	end
 )
 -- the monsters (M29): the path grid reads the fresh camp once the

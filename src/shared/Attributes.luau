@@ -52,6 +52,10 @@ module = {
 	-- the Binoculars (BinocularsManager, 2026-10-19): the tagger's live tag
 	-- as BinocularsRules JSON on their AllPlayers entry ("" for none), and
 	-- the server time their next tag may be made (CurrentPlayer)
+	-- the Stim Shot (StimShotManager, 2026-10-19): used since dawn, and the
+	-- server time its effect ends (0 when none is running), for the slot's countdown
+	STIM_SHOT_IS_USED = "StimShotIsUsed",
+	STIM_SHOT_EFFECT_END_TIME = "StimShotEffectEndTime",
 	BINOCULARS_TAG = "BinocularsTag",
 	BINOCULARS_COOLDOWN_END_TIME = "BinocularsCooldownEndTime",
 	-- the cooldown's length (GameMetadata), so the hint can show its share
@@ -395,6 +399,10 @@ module = {
 	POST_UPGRADE_RANGE = "PostUpgradeRange",
 	POST_UPGRADE_COOLDOWN = "PostUpgradeCooldown",
 	POST_UPGRADE_HEADSHOT = "PostUpgradeHeadshot",
+	-- on a Tools/WEAPON_* template (ClientViewModelManager, 2026-10-19): a
+	-- CFrame the designer sets in the Explorer to move that gun from the
+	-- shared first-person hold (the Assault Rifle sat too far forward)
+	VIEW_MODEL_OFFSET = "ViewModelOffset",
 	-- GameMetadata: the post catalogue as JSON (PostRules codec): claim
 	-- price, per-kind base stats, and upgrade prices
 	POST_CATALOG = "PostCatalog",

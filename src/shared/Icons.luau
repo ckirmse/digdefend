@@ -48,11 +48,13 @@ Icons.WEAPON = {
 	[Enums.WeaponKind.RIFLE] = "rbxassetid://71757532147550",
 	-- the sidearm of the Recruit, Sniper, Prospector, Hauler, and Medic (2026-10-19)
 	[Enums.WeaponKind.PISTOL] = "rbxassetid://126590023979777",
+	[Enums.WeaponKind.ASSAULT_RIFLE] = "rbxassetid://104253125783801",
 }
 
 -- the GADGET slot's picture, by the Enums.GadgetKind carried (M66)
 Icons.GADGET = {
 	[Enums.GadgetKind.AUTO_TURRET] = "rbxassetid://84791820127176",
+	[Enums.GadgetKind.STIM_SHOT] = "rbxassetid://136139239798345",
 }
 
 -- the Binoculars' tag callout over a tagged monster (2026-10-19): the
@@ -142,6 +144,8 @@ Icons.UI = {
 	CLOCK_NIGHT = "rbxassetid://72038436524050",
 	-- the compass's Refinery marker (designer's art, 2026-09-30)
 	COMPASS_HOME = "rbxassetid://98277990053980",
+	-- the Assault Rifle's grenade launcher on the weapon HUD's cooldown bar (2026-10-19)
+	GRENADE_LAUNCHER = "rbxassetid://74594220753133",
 	-- Diamonds, the lobby currency (M33): the lobby HUD wallet and the
 	-- Results Menu row; the art the in-run Diamond had before it was retired
 	DIAMONDS = "rbxassetid://101719152234191",

@@ -976,7 +976,7 @@ function PostManager:fireShot(post: Post, attacker: Player?, origin: Vector3, un
 		local headshotIds = {}
 		for index, hitId in hitIds do
 			local damage = stats.damage
-			if self:isHeadshot(hitId, origin + unitDirection * hitDistances[index]) then
+			if headshotMultiplier > 1 and self:isHeadshot(hitId, origin + unitDirection * hitDistances[index]) then
 				damage *= headshotMultiplier
 				table.insert(headshotIds, hitId)
 			end
@@ -1014,7 +1014,7 @@ function PostManager:fireShot(post: Post, attacker: Player?, origin: Vector3, un
 			end
 		else
 			local damage = stats.damage
-			if self:isHeadshot(hitId, origin + unitDirection * hitDistance) then
+			if headshotMultiplier > 1 and self:isHeadshot(hitId, origin + unitDirection * hitDistance) then
 				damage *= headshotMultiplier
 				table.insert(headshotIds, hitId)
 			end
@@ -1135,7 +1135,11 @@ function PostManager:stepUnmanned(post: Post, data: PostRules.KindData, now: num
 	if not target then
 		return
 	end
-	local wantedYaw, wantedPitch = PostRules.aimAnglesToward(weaponModel.PrimaryPart.CFrame, target.position)
+	-- the yaw from the base (the gun turns about it), the pitch from the
+	-- muzzle, where the shot leaves; the muzzle moves with the pitch, so
+	-- each Heartbeat's step from the last muzzle settles on the target
+	local wantedYaw = PostRules.aimAnglesToward(weaponModel.PrimaryPart.CFrame, target.position)
+	local wantedPitch = PostRules.pitchDegreesToward(muzzle, target.position)
 	post.yawDegrees = PostRules.stepYawToward(post.yawDegrees, wantedYaw, stats.turnSpeedDegreesPerSec, deltaSec)
 	local maxPitchStep = PostRules.maxYawStep(stats.turnSpeedDegreesPerSec, deltaSec)
 	post.pitchDegrees = PostRules.clampPitch(post.pitchDegrees + math.clamp(wantedPitch - post.pitchDegrees, -maxPitchStep, maxPitchStep), data)

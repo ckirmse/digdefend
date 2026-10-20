@@ -266,6 +266,18 @@ function PostRules.aimAnglesToward(spawnCFrame: CFrame, targetPosition: Vector3)
 	return PostRules.wrapDegrees(yaw), pitch
 end
 
+-- the pitch that points a barrel at a target from where the barrel is,
+-- in world terms: up is positive. The unmanned post aims its pitch from
+-- its muzzle, not its base (2026-10-19): the gun sits above the base and
+-- the muzzle above the gun, so a pitch worked out from the base shot
+-- over a near monster and never settled within the fire tolerance on one
+-- below the post
+function PostRules.pitchDegreesToward(origin: Vector3, targetPosition: Vector3): number
+	local offset = targetPosition - origin
+	local flat = math.sqrt(offset.X * offset.X + offset.Z * offset.Z)
+	return math.deg(math.atan2(offset.Y, flat))
+end
+
 -- a yaw stepped toward a wanted yaw at the turn speed, the short way round
 function PostRules.stepYawToward(yawDegrees: number, wantedYawDegrees: number, turnSpeedDegreesPerSec: number, deltaSec: number): number
 	return PostRules.turnYaw(yawDegrees, PostRules.wrapDegrees(wantedYawDegrees - yawDegrees), turnSpeedDegreesPerSec, deltaSec)

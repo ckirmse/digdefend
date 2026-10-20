@@ -16,14 +16,23 @@ local MiningRules = {}
 MiningRules.CRACK_THRESHOLDS = { 0.6, 0.3 }
 MiningRules.NO_TOOL = 0
 
--- tools that are a mode rather than a thing in the hand: no GameAssets/Tools
--- model. The gadget slot shows its ghost in the world instead (M66)
-local TOOLS_WITHOUT_MODEL: { [number]: boolean } = {
-	[Enums.ToolKind.GADGET] = true,
+-- gadgets that are a mode rather than a thing in the hand: no
+-- GameAssets/Tools model. The Auto Turret shows its ghost in the world
+-- (M66); the Binoculars live on the post. Every other gadget (the Stim
+-- Shot, 2026-10-19) is held like any tool, from "GADGET_<KEY>"
+local GADGETS_WITHOUT_MODEL: { [number]: boolean } = {
+	[Enums.GadgetKind.NONE] = true,
+	[Enums.GadgetKind.AUTO_TURRET] = true,
+	[Enums.GadgetKind.BINOCULARS] = true,
 }
 
-function MiningRules.hasHeldModel(tool: number): boolean
-	return not TOOLS_WITHOUT_MODEL[tool]
+-- whether the tool in hand has a model to hold; the gadget slot depends
+-- on which gadget fills it
+function MiningRules.hasHeldModel(tool: number, gadgetKind: number?): boolean
+	if tool == Enums.ToolKind.GADGET then
+		return not GADGETS_WITHOUT_MODEL[gadgetKind or Enums.GadgetKind.NONE]
+	end
+	return true
 end
 
 function MiningRules.damageForLevel(damageByLevel: { number }, level: number): number

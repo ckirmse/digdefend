@@ -69,14 +69,14 @@ local sfx = {
 	FLAMETHROWER_EMPTY = "FlamethrowerEmpty",
 	FLAMETHROWER_HIT = "FlamethrowerHit",
 	ASSAULT_RIFLE_FIRE = "AssaultRifleFire",
-	ASSAULT_RIFLE_RELOAD = "AssaultRifleReload",
 	ASSAULT_RIFLE_EMPTY = "AssaultRifleEmpty",
 	ASSAULT_RIFLE_HIT = "AssaultRifleHit",
 	ASSAULT_RIFLE_GRENADE_FIRE = "AssaultRifleGrenadeFire",
-	ASSAULT_RIFLE_GRENADE_EXPLODE = "AssaultRifleGrenadeExplode",
 	JET_PACK_BURN = "JetPackBurn",
 	-- the Binoculars' tag landing (2026-10-19), the tagger's own
 	BINOCULARS_TAG = "BinocularsTag",
+	-- the Stim Shot going in (2026-10-19), the user's own
+	STIM_SHOT_USE = "StimShotUse",
 	-- M25: post weapons have no magazine, so two sounds each: fire (3D from
 	-- the muzzle, one clip per shot) and the gunner's hit confirm. Named
 	-- Post_<Weapon>_<Action> (decided 2026-09-18)
@@ -193,13 +193,15 @@ local weaponSfxByKindName: { [string]: WeaponSfx } = {
 		EMPTY = sfx.FLAMETHROWER_EMPTY,
 		HIT = sfx.FLAMETHROWER_HIT,
 	},
+	-- the Assault Rifle reloads with the Rifle's sound and its grenade
+	-- bursts with the Rocket Launcher's (decided 2026-10-19)
 	ASSAULT_RIFLE = {
 		FIRE = sfx.ASSAULT_RIFLE_FIRE,
-		RELOAD = sfx.ASSAULT_RIFLE_RELOAD,
+		RELOAD = sfx.RIFLE_RELOAD,
 		EMPTY = sfx.ASSAULT_RIFLE_EMPTY,
 		HIT = sfx.ASSAULT_RIFLE_HIT,
 		SECONDARY_FIRE = sfx.ASSAULT_RIFLE_GRENADE_FIRE,
-		SECONDARY_EXPLODE = sfx.ASSAULT_RIFLE_GRENADE_EXPLODE,
+		SECONDARY_EXPLODE = sfx.ROCKET_LAUNCHER_EXPLODE,
 	},
 }
 

@@ -141,3 +141,20 @@ describe(
 		)
 	end
 )
+
+describe(
+	"MiningRules.hasHeldModel",
+	function()
+		it(
+			"holds every plain tool, and a gadget only when it is a thing in the hand",
+			function()
+				expect(MiningRules.hasHeldModel(Enums.ToolKind.PICK_AXE)).toBe(true)
+				expect(MiningRules.hasHeldModel(Enums.ToolKind.WEAPON)).toBe(true)
+				expect(MiningRules.hasHeldModel(Enums.ToolKind.GADGET, Enums.GadgetKind.AUTO_TURRET)).toBe(false)
+				expect(MiningRules.hasHeldModel(Enums.ToolKind.GADGET, Enums.GadgetKind.BINOCULARS)).toBe(false)
+				expect(MiningRules.hasHeldModel(Enums.ToolKind.GADGET, Enums.GadgetKind.STIM_SHOT)).toBe(true)
+				expect(MiningRules.hasHeldModel(Enums.ToolKind.GADGET, nil)).toBe(false)
+			end
+		)
+	end
+)

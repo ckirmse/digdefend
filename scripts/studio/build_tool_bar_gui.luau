@@ -135,6 +135,26 @@ countLabel.Visible = false
 addTextSizeBounds(countLabel, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.LABEL_TEXT_MAX_PX)
 countLabel.Parent = template
 
+-- a big number over the icon, the icon's size, for a countdown that must
+-- read on a phone (the Stim Shot's effect, 2026-10-19); hidden until a
+-- manager fills it
+local timerLabel = Instance.new("TextLabel")
+timerLabel.Name = "TimerLabel"
+timerLabel.Position = UDim2.fromScale(0.1, 0.1)
+timerLabel.Size = UDim2.fromScale(0.8, 0.8)
+timerLabel.BackgroundTransparency = 1
+timerLabel.Text = "20"
+timerLabel.TextColor3 = UiStyle.TEXT_COLOR
+timerLabel.TextScaled = true
+timerLabel.FontFace = UiStyle.TITLE_FONT
+timerLabel.ZIndex = 3
+timerLabel.Visible = false
+local timerTextSize = Instance.new("UITextSizeConstraint")
+timerTextSize.MinTextSize = UiStyle.LABEL_TEXT_MIN_PX
+timerTextSize.MaxTextSize = 64
+timerTextSize.Parent = timerLabel
+timerLabel.Parent = template
+
 -- the action word under the square ("MINE", "SHOOT", "REPAIR", "BUILD",
 -- 2026-09-25); hangs below the button, which does not clip, and
 -- ClientToolBarManager writes it per tool

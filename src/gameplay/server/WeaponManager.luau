@@ -234,10 +234,13 @@ function WeaponManager:fire(player: Player, origin: Vector3, direction: Vector3)
 		local isHeadshot = false
 		if hitId and hitDistance then
 			-- a hit in the head zone does the kind's headshot multiple (2026-10-19)
+			-- a kind with a multiple of 1 (the Assault Rifle) has no headshot at
+			-- all: no bonus and no callout
+			local headshotMultiplier = data.HEADSHOT_MULTIPLIER or HandheldData.HEADSHOT_MULTIPLIER
 			local target = DamageableManager:getTarget(hitId)
-			if target and WeaponRules.isHeadshot(origin + unitDirection * hitDistance, target.cframe, target.size, WeaponRules.HEAD_SHARE) then
+			if headshotMultiplier > 1 and target and WeaponRules.isHeadshot(origin + unitDirection * hitDistance, target.cframe, target.size, WeaponRules.HEAD_SHARE) then
 				isHeadshot = true
-				damageScale *= data.HEADSHOT_MULTIPLIER or HandheldData.HEADSHOT_MULTIPLIER
+				damageScale *= headshotMultiplier
 			end
 			DamageableManager:damage(hitId, stats.damage * damageScale, player)
 		end

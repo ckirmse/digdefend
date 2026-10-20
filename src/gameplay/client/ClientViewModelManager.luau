@@ -18,6 +18,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 
 local ClientViewModelManager = {}
@@ -28,6 +29,10 @@ export type ClientViewModelManager = typeof(setmetatable(
 		model: Model?,
 		templateName: string?,
 		muzzle: Attachment?,
+		-- where a secondary (the grenade) leaves, when the template has one
+		secondaryMuzzle: Attachment?,
+		-- the template's own ViewModelOffset attribute, identity when unset
+		templateOffset: CFrame,
 		isLowered: boolean,
 		loweredShare: number,
 		recoil: number,
@@ -95,6 +100,12 @@ function ClientViewModelManager:getMuzzle(): Attachment?
 	return if model and muzzle and model.Parent then muzzle else nil
 end
 
+function ClientViewModelManager:getSecondaryMuzzle(): Attachment?
+	local model = self.model
+	local muzzle = self.secondaryMuzzle
+	return if model and muzzle and model.Parent then muzzle else nil
+end
+
 function ClientViewModelManager:kick()
 	self.recoil = math.min(RECOIL_MAX, self.recoil + RECOIL_PER_KICK)
 end
@@ -110,6 +121,7 @@ function ClientViewModelManager:destroyModel()
 	end
 	self.model = nil
 	self.muzzle = nil
+	self.secondaryMuzzle = nil
 end
 
 function ClientViewModelManager:buildModel(templateName: string): Model?
@@ -138,6 +150,10 @@ function ClientViewModelManager:buildModel(templateName: string): Model?
 	end
 	local muzzle = model:FindFirstChild(Constants.WEAPON_MUZZLE_ATTACHMENT, true)
 	self.muzzle = if muzzle and muzzle:IsA("Attachment") then muzzle else nil
+	local secondaryMuzzle = model:FindFirstChild(Constants.WEAPON_SECONDARY_ATTACHMENT, true)
+	self.secondaryMuzzle = if secondaryMuzzle and secondaryMuzzle:IsA("Attachment") then secondaryMuzzle else nil
+	local templateOffset = template:GetAttribute(Attributes.VIEW_MODEL_OFFSET)
+	self.templateOffset = if typeof(templateOffset) == "CFrame" then templateOffset else CFrame.identity
 	return model
 end
 
@@ -199,7 +215,7 @@ function ClientViewModelManager:onRenderStep(deltaTime: number)
 	local sway = CFrame.Angles(math.rad(self.swayPitch), math.rad(self.swayYaw), 0)
 	local recoil = CFrame.new(0, 0, self.recoil * RECOIL_BACK_STUDS) * CFrame.Angles(math.rad(self.recoil * RECOIL_UP_DEGREES), 0, 0)
 	local lowered = CFrame.new(0, -LOWER_DOWN_STUDS * self.loweredShare, 0) * CFrame.Angles(math.rad(LOWER_PITCH_DEGREES * self.loweredShare), 0, math.rad(LOWER_ROLL_DEGREES * self.loweredShare))
-	model:PivotTo(cameraCFrame * bob * BASE_OFFSET * lowered * sway * recoil)
+	model:PivotTo(cameraCFrame * bob * BASE_OFFSET * self.templateOffset * lowered * sway * recoil)
 end
 
 function ClientViewModelManager:bindIfNeeded()
@@ -248,7 +264,9 @@ function ClientViewModelManager.new(): ClientViewModelManager
 	local self = setmetatable({}, ClientViewModelManager) :: ClientViewModelManager
 	self.model = nil
 	self.templateName = nil
+	self.templateOffset = CFrame.identity
 	self.muzzle = nil
+	self.secondaryMuzzle = nil
 	self.isLowered = false
 	self.loweredShare = 0
 	self.recoil = 0

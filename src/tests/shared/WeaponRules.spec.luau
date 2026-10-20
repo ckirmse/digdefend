@@ -139,18 +139,29 @@ describe(
 		)
 
 		it(
-			"gives every weapon kind its own full sound set",
+			"gives every weapon kind a full sound set, shared only where decided",
 			function()
+				-- the Pistol fires and reloads with the Rifle's sounds (2026-10-19)
+				local sharedByDecision: { [string]: boolean } = {
+					[SoundNames.Sfx.RIFLE_FIRE] = true,
+					[SoundNames.Sfx.RIFLE_RELOAD] = true,
+				}
 				local seen: { [string]: boolean } = {}
 				for _, kind in Enums.getAllValues(Enums.WeaponKind) do
 					local kindName = Enums.getName(Enums.WeaponKind, kind) :: string
 					local weaponSfx = SoundNames.WeaponSfxByKindName[kindName]
 					expect(weaponSfx).never.toBeNil()
+					local ownNames: { [string]: boolean } = {}
 					for _, key in { "FIRE", "RELOAD", "EMPTY", "HIT" } do
 						local name = (weaponSfx :: any)[key]
 						expect(typeof(name)).toBe("string")
-						-- no two weapons, and no two events, share a sound
-						expect(seen[name]).toBeNil()
+						-- no two events of one weapon share a sound
+						expect(ownNames[name]).toBeNil()
+						ownNames[name] = true
+						-- and no two weapons do, except the shares decided above
+						if not sharedByDecision[name] then
+							expect(seen[name]).toBeNil()
+						end
 						seen[name] = true
 					end
 				end

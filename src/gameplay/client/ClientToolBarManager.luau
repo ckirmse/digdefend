@@ -10,6 +10,7 @@
 -- class's gadget and, while a destroyed Auto Turret waits for dawn, wears
 -- a grey sheet and refuses the tap with a line.
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -53,11 +54,21 @@ export type ClientToolBarManager = typeof(setmetatable(
 		-- is lost until dawn
 		gadgetKind: number,
 		isAutoTurretLost: boolean,
+		-- the Stim Shot is used until dawn (2026-10-19): its slot stays, the
+		-- icon dimmed, the effect counted down on the badge, then the grey sheet
+		isStimShotUsed: boolean,
+		stimShotEffectEndTime: number,
+		stimCountdownConnection: RBXScriptConnection?,
 	},
 	ClientToolBarManager
 ))
 
-local FEEDBACK_NOT_AVAILABLE = "Auto Turret not available yet."
+local FEEDBACK_NOT_AVAILABLE_BY_GADGET: { [number]: string } = {
+	[Enums.GadgetKind.AUTO_TURRET] = "Auto Turret not available yet.",
+	[Enums.GadgetKind.STIM_SHOT] = "You'll receive another STIM in the morning",
+}
+-- a used Stim Shot's icon while the slot waits for dawn
+local USED_STIM_ICON_TRANSPARENCY = 0.7
 local FEEDBACK_DISPLAY_SEC = 2
 
 local NUMBER_KEYS = {
@@ -81,17 +92,73 @@ function ClientToolBarManager:requestEquip(tool: number)
 	)
 end
 
--- the gadget slot while its turret is lost until dawn: every path to it
--- (tap, key, bumper) is told once instead of equipping
+-- the gadget slot while its gadget is spent until dawn (a lost turret, a
+-- used Stim Shot): every path to it (tap, key, bumper) is told once
+-- instead of equipping
 function ClientToolBarManager:isGadgetLost(tool: number): boolean
-	return tool == Enums.ToolKind.GADGET and self.gadgetKind == Enums.GadgetKind.AUTO_TURRET and self.isAutoTurretLost
+	if tool ~= Enums.ToolKind.GADGET then
+		return false
+	end
+	if self.gadgetKind == Enums.GadgetKind.AUTO_TURRET then
+		return self.isAutoTurretLost
+	end
+	if self.gadgetKind == Enums.GadgetKind.STIM_SHOT then
+		-- the sheet waits until the effect has run out; the countdown shows first
+		return self.isStimShotUsed and self:getStimSecondsLeft() <= 0
+	end
+	return false
+end
+
+-- whether the Stim Shot's slot refuses a tap: used, running or not
+function ClientToolBarManager:isGadgetSpent(tool: number): boolean
+	if tool == Enums.ToolKind.GADGET and self.gadgetKind == Enums.GadgetKind.STIM_SHOT then
+		return self.isStimShotUsed
+	end
+	return self:isGadgetLost(tool)
+end
+
+function ClientToolBarManager:getStimSecondsLeft(): number
+	return math.max(0, self.stimShotEffectEndTime - workspace:GetServerTimeNow())
+end
+
+-- the Stim Shot's slot while used: a dimmed icon, the seconds of the
+-- effect left in a number the icon's size over it, and the grey sheet
+-- once they are gone
+function ClientToolBarManager:renderStim()
+	local secondsLeft = self:getStimSecondsLeft()
+	for _, view in self.slotViews do
+		if view.tool ~= Enums.ToolKind.GADGET or self.gadgetKind ~= Enums.GadgetKind.STIM_SHOT then
+			continue
+		end
+		local icon = view.frame:FindFirstChild(Constants.TOOL_SLOT_ICON)
+		if icon and icon:IsA("ImageLabel") then
+			icon.ImageTransparency = if self.isStimShotUsed then USED_STIM_ICON_TRANSPARENCY else 0
+		end
+		local timerLabel = view.frame:FindFirstChild(Constants.TOOL_SLOT_TIMER_LABEL)
+		if timerLabel and timerLabel:IsA("TextLabel") then
+			timerLabel.Text = tostring(math.ceil(secondsLeft))
+			timerLabel.Visible = self.isStimShotUsed and secondsLeft > 0
+		end
+	end
+	self:renderLost()
+	-- stepped only while there are seconds to count
+	if secondsLeft > 0 and not self.stimCountdownConnection then
+		self.stimCountdownConnection = RunService.Heartbeat:Connect(
+			function()
+				self:renderStim()
+			end
+		)
+	elseif secondsLeft <= 0 and self.stimCountdownConnection then
+		self.stimCountdownConnection:Disconnect()
+		self.stimCountdownConnection = nil
+	end
 end
 
 -- tapping the equipped tool unequips it (GDD)
 function ClientToolBarManager:toggleTool(tool: number)
-	if self:isGadgetLost(tool) then
+	if self:isGadgetSpent(tool) then
 		ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
-		ClientPlayerFeedbackManager:giveLocal(FEEDBACK_NOT_AVAILABLE, FEEDBACK_DISPLAY_SEC)
+		ClientPlayerFeedbackManager:giveLocal(FEEDBACK_NOT_AVAILABLE_BY_GADGET[self.gadgetKind] or "Not available yet.", FEEDBACK_DISPLAY_SEC)
 		return
 	end
 	if self.equipped == tool then
@@ -192,7 +259,7 @@ function ClientToolBarManager:renderSlots()
 	end
 	self:renderCounts()
 	self:renderEquipped()
-	self:renderLost()
+	self:renderStim()
 end
 
 -- the grey sheet covers the gadget slot while its turret is lost
@@ -314,6 +381,9 @@ function ClientToolBarManager:init()
 	local gadgetKind = ClientDataManager:getCurrentPlayerAttribute(Attributes.GADGET_KIND)
 	self.gadgetKind = if typeof(gadgetKind) == "number" then gadgetKind else Enums.GadgetKind.NONE
 	self.isAutoTurretLost = ClientDataManager:getCurrentPlayerAttribute(Attributes.AUTO_TURRET_IS_LOST) == true
+	self.isStimShotUsed = ClientDataManager:getCurrentPlayerAttribute(Attributes.STIM_SHOT_IS_USED) == true
+	local effectEndTime = ClientDataManager:getCurrentPlayerAttribute(Attributes.STIM_SHOT_EFFECT_END_TIME)
+	self.stimShotEffectEndTime = if typeof(effectEndTime) == "number" then effectEndTime else 0
 	self:renderSlots()
 
 	ClientDataManager:subscribeCurrentPlayerAttribute(
@@ -351,6 +421,20 @@ function ClientToolBarManager:init()
 			self:renderLost()
 		end
 	)
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.STIM_SHOT_IS_USED,
+		function(value: any)
+			self.isStimShotUsed = value == true
+			self:renderStim()
+		end
+	)
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.STIM_SHOT_EFFECT_END_TIME,
+		function(value: any)
+			self.stimShotEffectEndTime = if typeof(value) == "number" then value else 0
+			self:renderStim()
+		end
+	)
 	UserInputService.InputBegan:Connect(
 		function(input: InputObject, isGameProcessed: boolean)
 			self:onInputBegan(input, isGameProcessed)
@@ -372,6 +456,9 @@ function ClientToolBarManager.new(): ClientToolBarManager
 	self.isHidden = false
 	self.gadgetKind = Enums.GadgetKind.NONE
 	self.isAutoTurretLost = false
+	self.isStimShotUsed = false
+	self.stimShotEffectEndTime = 0
+	self.stimCountdownConnection = nil
 	return self
 end
 
