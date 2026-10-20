@@ -42,6 +42,9 @@ export type Launch = {
 	gravityStudsPerSec2: number,
 	-- how far it flies along its path before ending in the air
 	rangeStuds: number,
+	-- world instances the flight passes through (the post's own gun, whose
+	-- mesh the muzzle sits inside, 2026-10-20)
+	excludedInstances: { Instance }?,
 	-- flies on through every damageable it meets, hurting each once
 	isPiercing: boolean?,
 	-- bends toward this damageable at this rate (a straight flight only)
@@ -81,8 +84,8 @@ local NO_TARGET = ""
 -- how far a segment runs before the world stops it: characters never
 -- block (a crewmate in the lane must not catch a rocket), and the
 -- projectile folder itself is nothing to hit
-function ProjectileManager:getWorldDistance(origin: Vector3, unitDirection: Vector3, lengthStuds: number): (number, Vector3?)
-	local excluded: { Instance } = {}
+function ProjectileManager:getWorldDistance(origin: Vector3, unitDirection: Vector3, lengthStuds: number, excludedInstances: { Instance }?): (number, Vector3?)
+	local excluded: { Instance } = if excludedInstances then table.clone(excludedInstances) else {}
 	for _, player in Players:GetPlayers() do
 		if player.Character then
 			table.insert(excluded, player.Character)
@@ -183,7 +186,7 @@ function ProjectileManager:stepProjectile(projectile: Projectile, deltaSec: numb
 	end
 	local stepDirection = segment.Unit
 	local step = math.min(segmentLength, launch.rangeStuds - projectile.travelledStuds)
-	local worldDistance = self:getWorldDistance(projectile.position, stepDirection, step)
+	local worldDistance = self:getWorldDistance(projectile.position, stepDirection, step, launch.excludedInstances)
 	local endDistance = worldDistance
 	local hitId: string? = nil
 	if launch.isPiercing then

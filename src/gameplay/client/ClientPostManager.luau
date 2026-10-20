@@ -26,12 +26,13 @@
 -- on its release), the
 -- AA Launcher's locks as the reticle's readout from the PostWeaponLocks
 -- attribute, the Tesla Arc's chain as bolts between the bodies it jumped
--- to, the Napalm Mortar's pool of fire, the Mine Layer's armed mines,
+-- to, the TNT Launcher's pool of fire, the Mine Layer's armed mines,
 -- and the Magnet Gun's pull, each from its own notify.
 local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -41,6 +42,7 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
+local ProjectileRules = require("@game/ReplicatedStorage/Shared/ProjectileRules")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
@@ -115,6 +117,8 @@ export type ClientPostManager = typeof(setmetatable(
 		lastSendTime: number,
 		stats: PostRules.Stats?,
 		kindData: PostRules.KindData?,
+		-- a lob kind's landing marker, this gunner's own (2026-10-20)
+		targetMarker: BasePart?,
 		holdInput: ClientHoldInput.ClientHoldInput?,
 		fireButton: GuiButton?,
 		exitButton: GuiButton?,
@@ -218,7 +222,6 @@ local NOTIFY_POST_WEAPON_FIRED_SHAPE = {
 }
 local NOTIFY_POST_POOL_STARTED_SHAPE = {
 	poolId = "string",
-	weaponKind = { type = "enum", name = "PostWeaponKind" },
 	position = "vector3",
 	radius = "positiveNumber",
 	sec = "positiveNumber",
@@ -256,7 +259,15 @@ local BARREL_SPIN_UP_FALLBACK_SEC = 1
 local STATUS_CHARGING_TEXT = "Charging"
 local STATUS_LOCKED_FORMAT = "Locked x%d"
 -- the fire pool: flames across the radius, and the mine's blink
-local POOL_FLAME_COLOR = ColorSequence.new(Color3.fromRGB(255, 190, 80), Color3.fromRGB(200, 50, 20))
+-- the Napalm pool's Fire: Roblox clamps a Fire's Size to this range
+local FIRE_SIZE_MIN = 2
+local FIRE_SIZE_MAX = 30
+local POOL_FIRE_HEAT = 12
+local POOL_FIRE_COLOR = Color3.fromRGB(255, 190, 80)
+local POOL_FIRE_SECONDARY_COLOR = Color3.fromRGB(200, 50, 20)
+-- the ring of smaller plumes round the centre one, as a share of the radius
+local POOL_RING_FIRE_COUNT = 6
+local POOL_RING_RADIUS_SHARE = 0.6
 local MINE_BLINK_SEC = 0.6
 local MINE_PLACEHOLDER_SIZE = Vector3.new(1.2, 0.4, 1.2)
 local MINE_COLOR = Color3.fromRGB(70, 75, 70)
@@ -604,6 +615,7 @@ function ClientPostManager:onRenderStep(deltaTime: number)
 		mountedView.shownPitch = self.pitchDegrees
 		self:updateTurnSound(previousYaw, previousPitch, deltaTime)
 		self:sendAimIfNeeded()
+		self:updateTargetMarker()
 	end
 	local now = workspace:GetServerTimeNow()
 	for _, view in self.viewsByModel do
@@ -648,6 +660,76 @@ function ClientPostManager:playFireEffects(weaponKind: number, from: Vector3, to
 	end
 end
 
+-- where a shot leaves and where it is aimed: the muzzle as this client
+-- draws it, and the point the reticle's own ray reaches. The camera sits
+-- above the barrel, so a shot parallel to its look landed below the
+-- reticle by that offset (seen 2026-10-19): the shot leaves the muzzle
+-- toward the reticle's point instead (the server checks only that the
+-- origin is at the muzzle)
+function ClientPostManager:findAimPoint(view: WeaponView, stats: PostRules.Stats): (Vector3, Vector3, Vector3)
+	local base = PostRules.baseFrame(view.baseCFrame, view.shownYaw)
+	local gunFrame = PostRules.gunFrame(base, view.rig, view.shownPitch)
+	local origin = PostRules.muzzlePosition(gunFrame, view.rig)
+	local unitDirection = PostRules.barrelDirection(gunFrame, view.rig)
+	local aimPoint = origin + unitDirection * stats.rangeStuds
+	local camera = workspace.CurrentCamera
+	if camera then
+		local cameraPosition = camera.CFrame.Position
+		aimPoint = self:findLocalEnd(cameraPosition, camera.CFrame.LookVector, stats.rangeStuds + (origin - cameraPosition).Magnitude)
+		local toAimPoint = aimPoint - origin
+		-- the server takes an aim point only inside the gun's reach
+		if toAimPoint.Magnitude > stats.rangeStuds then
+			aimPoint = origin + toAimPoint.Unit * stats.rangeStuds
+			toAimPoint = aimPoint - origin
+		end
+		if toAimPoint.Magnitude > 0 then
+			unitDirection = toAimPoint.Unit
+		end
+	end
+	return origin, unitDirection, aimPoint
+end
+
+-- a lob kind's landing marker: the GameAssets/Effects part named by the
+-- kind, laid flat where the shell will fall (the same solve the server
+-- runs), sized to the pool it leaves, the gunner's own and local
+function ClientPostManager:updateTargetMarker()
+	local view = self.mountedView
+	local stats = self.stats
+	local kindData = self.kindData
+	local projectile = if kindData then kindData.PROJECTILE else nil
+	local lobAngle = if projectile then projectile.LOB_ANGLE_DEGREES else nil
+	if not self.isMounted or not view or not stats or not projectile or not lobAngle or not projectile.TARGET_TEMPLATE then
+		self:removeTargetMarker()
+		return
+	end
+	local marker = self.targetMarker
+	if not marker then
+		local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
+		local effects = if gameAssets then gameAssets:FindFirstChild(Constants.EFFECT_TEMPLATES_FOLDER) else nil
+		local template = if effects then effects:FindFirstChild(projectile.TARGET_TEMPLATE) else nil
+		if not template or not template:IsA("BasePart") then
+			return
+		end
+		marker = template:Clone()
+		marker.Parent = workspace
+		self.targetMarker = marker
+	end
+	local origin, _unitDirection, aimPoint = self:findAimPoint(view, stats)
+	local lob = ProjectileRules.lobToward(origin, aimPoint, lobAngle, projectile.GRAVITY_STUDS_PER_SEC2 or 0, projectile.SPEED_STUDS_PER_SEC)
+	local radius = stats.poolRadiusStuds or projectile.SPLASH_RADIUS_STUDS
+	-- a Cylinder part lies along its X, so it is stood on end to lie flat
+	marker.Size = Vector3.new(marker.Size.X, radius * 2, radius * 2)
+	marker.CFrame = CFrame.new(lob.landing + Vector3.new(0, marker.Size.X / 2, 0)) * CFrame.Angles(0, 0, math.rad(90))
+end
+
+function ClientPostManager:removeTargetMarker()
+	local marker = self.targetMarker
+	if marker then
+		marker:Destroy()
+		self.targetMarker = nil
+	end
+end
+
 -- one shot: a request, never a result. The ray leaves the muzzle down the
 -- barrel as this client draws it; the server checks it against its own
 function ClientPostManager:fire(isFreshPress: boolean): boolean
@@ -689,28 +771,15 @@ function ClientPostManager:fire(isFreshPress: boolean): boolean
 			ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
 		end
 	end
-	local base = PostRules.baseFrame(view.baseCFrame, view.shownYaw)
-	local gunFrame = PostRules.gunFrame(base, view.rig, view.shownPitch)
-	local origin = PostRules.muzzlePosition(gunFrame, view.rig)
-	local unitDirection = PostRules.barrelDirection(gunFrame, view.rig)
-	-- the camera sits above the barrel, so a shot parallel to its look
-	-- landed below the reticle by that offset (seen 2026-10-19): the shot
-	-- leaves the muzzle toward the point the reticle's own ray reaches
-	-- (the server checks only that the origin is at the muzzle)
-	local camera = workspace.CurrentCamera
-	if camera then
-		local cameraPosition = camera.CFrame.Position
-		local aimPoint = self:findLocalEnd(cameraPosition, camera.CFrame.LookVector, stats.rangeStuds + (origin - cameraPosition).Magnitude)
-		local toAimPoint = aimPoint - origin
-		if toAimPoint.Magnitude > 0 then
-			unitDirection = toAimPoint.Unit
-		end
-	end
+	local origin, unitDirection, aimPoint = self:findAimPoint(view, stats)
+	local projectile = kindData.PROJECTILE
 	ClientNetManager:fireServer(
 		NetEventNames.TRY_FIRE_POST_WEAPON,
 		{
 			origin = origin,
 			direction = unitDirection,
+			-- a lob lands on the reticle's point, as the marker showed
+			aimPosition = if projectile and projectile.LOB_ANGLE_DEGREES then aimPoint else nil,
 		}
 	)
 	ClientWeaponManager:playMuzzleEffects(view.muzzle)
@@ -986,7 +1055,7 @@ function ClientPostManager:drawStreak(from: Vector3, to: Vector3, color: Color3,
 	Debris:AddItem(streak, lifeSec)
 end
 
--- the Napalm Mortar's pool: flames over the radius for as long as it burns
+-- the TNT Launcher's pool: flames over the radius for as long as it burns
 function ClientPostManager:onPoolStarted(payload: any)
 	if not Validate.isTableShape(payload, NOTIFY_POST_POOL_STARTED_SHAPE) then
 		warn("ClientPostManager: malformed NotifyPostPoolStarted")
@@ -1002,24 +1071,36 @@ function ClientPostManager:onPoolStarted(payload: any)
 	anchor.Size = Vector3.new(payload.radius * 2, 0.2, payload.radius * 2)
 	anchor.CFrame = CFrame.new(payload.position)
 	anchor.Parent = self:getEffectsFolder()
-	local flames = Instance.new("ParticleEmitter")
-	flames.Name = "Flames"
-	flames.Shape = Enum.ParticleEmitterShape.Box
-	flames.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-	flames.Color = POOL_FLAME_COLOR
-	flames.LightEmission = 1
-	flames.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 2),
-		NumberSequenceKeypoint.new(1, 4),
-	})
-	flames.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.2),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	flames.Lifetime = NumberRange.new(0.5, 0.9)
-	flames.Speed = NumberRange.new(2, 5)
-	flames.Rate = payload.radius * 6
-	flames.Parent = anchor
+	-- Roblox's own Fire (decided 2026-10-20 over a particle volume): one
+	-- plume at the centre and a ring of smaller ones, each on its own
+	-- invisible part since a Fire sits at its part's centre
+	local fires: { Fire } = {}
+	local function addFire(offset: Vector3, size: number)
+		local holder = Instance.new("Part")
+		holder.Name = "Flame"
+		holder.Anchored = true
+		holder.CanCollide = false
+		holder.CanQuery = false
+		holder.CanTouch = false
+		holder.Transparency = 1
+		holder.Size = Vector3.new(0.2, 0.2, 0.2)
+		holder.CFrame = CFrame.new(payload.position + offset)
+		holder.Parent = anchor
+		local fire = Instance.new("Fire")
+		fire.Name = "Flames"
+		fire.Size = size
+		fire.Heat = POOL_FIRE_HEAT
+		fire.Color = POOL_FIRE_COLOR
+		fire.SecondaryColor = POOL_FIRE_SECONDARY_COLOR
+		fire.Parent = holder
+		table.insert(fires, fire)
+	end
+	addFire(Vector3.zero, math.clamp(payload.radius * 2, FIRE_SIZE_MIN, FIRE_SIZE_MAX))
+	local ringRadius = payload.radius * POOL_RING_RADIUS_SHARE
+	for index = 1, POOL_RING_FIRE_COUNT do
+		local angle = (index / POOL_RING_FIRE_COUNT) * math.pi * 2
+		addFire(Vector3.new(math.cos(angle) * ringRadius, 0, math.sin(angle) * ringRadius), math.clamp(payload.radius, FIRE_SIZE_MIN, FIRE_SIZE_MAX))
+	end
 	local light = Instance.new("PointLight")
 	light.Brightness = 4
 	light.Range = payload.radius * 2
@@ -1031,7 +1112,9 @@ function ClientPostManager:onPoolStarted(payload: any)
 		payload.sec - 0.5,
 		function()
 			if anchor.Parent then
-				flames.Enabled = false
+				for _, fire in fires do
+					fire.Enabled = false
+				end
 			end
 		end
 	)
@@ -1298,6 +1381,7 @@ function ClientPostManager:enterMode()
 end
 
 function ClientPostManager:exitMode()
+	self:removeTargetMarker()
 	self:setHudHidden(false)
 	ClientTouchLayoutManager:setJumpButtonHidden(false)
 	local camera = workspace.CurrentCamera
@@ -1599,6 +1683,7 @@ function ClientPostManager.new(): ClientPostManager
 	self.lastSendTime = 0
 	self.stats = nil
 	self.kindData = nil
+	self.targetMarker = nil
 	self.holdInput = nil
 	self.fireButton = nil
 	self.exitButton = nil

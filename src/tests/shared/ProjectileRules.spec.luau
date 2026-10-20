@@ -84,3 +84,65 @@ describe(
 		)
 	end
 )
+
+describe(
+	"ProjectileRules.lobToward",
+	function()
+		it(
+			"lands on a level target within reach at the fixed elevation",
+			function()
+				local origin = Vector3.new(0, 5, 0)
+				local target = Vector3.new(0, 5, 100)
+				local lob = ProjectileRules.lobToward(origin, target, 60, 60, 140)
+				expect(lob.isReached).toBe(true)
+				near(math.deg(math.asin(lob.unitDirection.Y)), 60, 1e-3)
+				local flight = { origin = origin, unitDirection = lob.unitDirection, speedStudsPerSec = lob.speedStudsPerSec, gravityStudsPerSec2 = 60 }
+				local landing = ProjectileRules.positionAt(flight, lob.flightSec)
+				near(landing.X, target.X, 1e-2)
+				near(landing.Y, target.Y, 1e-2)
+				near(landing.Z, target.Z, 1e-2)
+			end
+		)
+
+		it(
+			"lands on a target below and above the gun",
+			function()
+				for _, height in { -20, 15 } do
+					local origin = Vector3.new(10, 5, -4)
+					local target = Vector3.new(60, 5 + height, 80)
+					local lob = ProjectileRules.lobToward(origin, target, 60, 60, 140)
+					expect(lob.isReached).toBe(true)
+					local flight = { origin = origin, unitDirection = lob.unitDirection, speedStudsPerSec = lob.speedStudsPerSec, gravityStudsPerSec2 = 60 }
+					local landing = ProjectileRules.positionAt(flight, lob.flightSec)
+					near((landing - target).Magnitude, 0, 1e-2)
+				end
+			end
+		)
+
+		it(
+			"falls short at the top speed when the target is past its reach",
+			function()
+				local origin = Vector3.new(0, 5, 0)
+				local target = Vector3.new(0, 5, 1000)
+				local lob = ProjectileRules.lobToward(origin, target, 60, 60, 140)
+				expect(lob.isReached).toBe(false)
+				near(lob.speedStudsPerSec, 140)
+				near(lob.landing.Z, ProjectileRules.levelRangeStuds(140, 60, 60), 1e-2)
+				near(lob.landing.Y, 5)
+				local flight = { origin = origin, unitDirection = lob.unitDirection, speedStudsPerSec = 140, gravityStudsPerSec2 = 60 }
+				near((ProjectileRules.positionAt(flight, lob.flightSec) - lob.landing).Magnitude, 0, 1e-2)
+			end
+		)
+
+		it(
+			"fires up the elevation at a target under the gun",
+			function()
+				local origin = Vector3.new(0, 5, 0)
+				local lob = ProjectileRules.lobToward(origin, origin, 60, 60, 140)
+				near(lob.unitDirection.Magnitude, 1)
+				near(math.deg(math.asin(lob.unitDirection.Y)), 60, 1e-3)
+				expect(lob.landing).toEqual(origin)
+			end
+		)
+	end
+)

@@ -70,6 +70,8 @@ local WEAPONS = {
 		muzzleHeightShare = 0.55,
 		frontPartName = "Barrel",
 		isStream = true,
+		-- sat too far forward in first person (2026-10-20)
+		viewModelOffset = CFrame.new(0, 0, 0.5),
 	},
 	{
 		key = "ASSAULT_RIFLE",
@@ -140,13 +142,34 @@ weldTo(torchStick, torchHead)
 torch.PrimaryPart = torchStick
 torch.Parent = tools
 
--- dynamite: a red stick with a short fuse
+-- dynamite: the designer's TntStick mesh under GameAssets/Gadgets
+-- (2026-10-20, a red placeholder stick before), scaled to a hand's
+-- stick and held upright by its middle; the thrown stick is dressed with
+-- the same mesh by ClientDynamiteManager
+local DYNAMITE_SOURCE_NAME = "TntStick"
+local DYNAMITE_LENGTH_STUDS = 1.2
 local dynamite = Instance.new("Model")
 dynamite.Name = "DYNAMITE"
-local stick = makePart(Constants.TOOL_HANDLE_PART, Vector3.new(0.5, 1.2, 0.5), Color3.fromRGB(190, 40, 40), Enum.Material.SmoothPlastic, CFrame.new(0, 0, 0), dynamite)
-local fuse = makePart("Fuse", Vector3.new(0.08, 0.4, 0.08), Color3.fromRGB(230, 230, 200), Enum.Material.Fabric, CFrame.new(0, 0.75, 0), dynamite)
-weldTo(stick, fuse)
-dynamite.PrimaryPart = stick
+local dynamiteSource = gameAssets:FindFirstChild(Constants.GADGET_TEMPLATES_FOLDER)
+dynamiteSource = if dynamiteSource then dynamiteSource:FindFirstChild(DYNAMITE_SOURCE_NAME) else nil
+local stick
+if dynamiteSource and dynamiteSource:IsA("MeshPart") then
+	stick = dynamiteSource:Clone()
+	stick.Size = stick.Size * (DYNAMITE_LENGTH_STUDS / stick.Size.Y)
+	stick.CFrame = CFrame.new(0, 0, 0)
+	stick.Anchored = true
+	stick.CanCollide = false
+	stick.CanQuery = false
+	stick.Massless = true
+	stick.Parent = dynamite
+else
+	warn("build_tool_templates: no GameAssets." .. Constants.GADGET_TEMPLATES_FOLDER .. "." .. DYNAMITE_SOURCE_NAME .. "; a red stick stands in")
+	stick = makePart("Stick", Vector3.new(0.5, DYNAMITE_LENGTH_STUDS, 0.5), Color3.fromRGB(190, 40, 40), Enum.Material.SmoothPlastic, CFrame.new(0, 0, 0), dynamite)
+end
+local dynamiteHandle = makePart(Constants.TOOL_HANDLE_PART, Vector3.new(0.2, 0.2, 0.2), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, CFrame.new(0, 0, 0), dynamite)
+dynamiteHandle.Transparency = 1
+weldTo(dynamiteHandle, stick)
+dynamite.PrimaryPart = dynamiteHandle
 dynamite.Parent = tools
 
 -- hammer (M23): a short wooden haft with a blocky steel head; equipping it
@@ -350,6 +373,26 @@ local GADGETS = {
 		key = "STIM_SHOT",
 		sourceName = "Stim",
 	},
+	-- the Remote Charge (2026-10-20): the mine in hand (the designer's
+	-- ProximityMine, which build_remote_charge_template.luau also lays flat
+	-- as the planted REMOTE_CHARGE model), scaled to a hand's size, and the
+	-- detonator the hand holds once it is planted (ToolManager's gadget
+	-- variant, the "_DETONATOR" template)
+	{
+		key = "REMOTE_CHARGE",
+		sourceName = "ProximityMine",
+		lengthStuds = 1.6,
+		-- the disc's parts are turned on their side to lie flat, so the
+		-- bounds frame is turned too; held by the world's axes instead
+		isHeldLevel = true,
+	},
+	{
+		key = "REMOTE_CHARGE",
+		variant = "DETONATOR",
+		sourceName = "RemoteDetonator",
+		-- held with this piece toward the player (the Handle's +Z)
+		facePartName = "Button",
+	},
 }
 local gadgetsFolder = gameAssets:FindFirstChild(Constants.GADGET_TEMPLATES_FOLDER)
 local function buildGadget(spec)
@@ -359,7 +402,12 @@ local function buildGadget(spec)
 		return
 	end
 	local gadget = source:Clone()
-	gadget.Name = "GADGET_" .. spec.key
+	gadget.Name = "GADGET_" .. spec.key .. (if spec.variant then "_" .. spec.variant else "")
+	-- art bigger than a hand is scaled down to its longest side
+	if spec.lengthStuds then
+		local _, bounds = gadget:GetBoundingBox()
+		gadget:ScaleTo(gadget:GetScale() * spec.lengthStuds / math.max(bounds.X, bounds.Y, bounds.Z))
+	end
 	for _, descendant in gadget:GetDescendants() do
 		if descendant:IsA("BasePart") then
 			descendant.Anchored = true
@@ -372,7 +420,21 @@ local function buildGadget(spec)
 		end
 	end
 	local boundsCFrame = gadget:GetBoundingBox()
-	local handle = makePart(Constants.TOOL_HANDLE_PART, Vector3.new(0.2, 0.2, 0.2), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, boundsCFrame, gadget)
+	-- the Handle's -Z is what the hand points forward, so a face piece
+	-- (the detonator's Button) goes on its +Z, toward the player, with the
+	-- art's own up kept
+	local handleCFrame = if spec.isHeldLevel then CFrame.new(boundsCFrame.Position) else boundsCFrame
+	local facePart = if spec.facePartName then gadget:FindFirstChild(spec.facePartName, true) else nil
+	if facePart and facePart:IsA("BasePart") then
+		local toFace = facePart.Position - boundsCFrame.Position
+		local flat = toFace - boundsCFrame.UpVector * toFace:Dot(boundsCFrame.UpVector)
+		if flat.Magnitude > 0.01 then
+			handleCFrame = CFrame.lookAt(boundsCFrame.Position, boundsCFrame.Position - flat.Unit, boundsCFrame.UpVector)
+		end
+	elseif spec.facePartName then
+		warn("build_tool_templates: " .. spec.sourceName .. " has no " .. spec.facePartName .. " part; held as its bounds stand")
+	end
+	local handle = makePart(Constants.TOOL_HANDLE_PART, Vector3.new(0.2, 0.2, 0.2), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, handleCFrame, gadget)
 	handle.Transparency = 1
 	for _, child in gadget:GetChildren() do
 		if child:IsA("BasePart") and child ~= handle then

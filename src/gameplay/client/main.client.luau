@@ -13,6 +13,7 @@ local ClientAutoTurretManager = require(script.Parent.ClientAutoTurretManager)
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
 local ClientBinocularsManager = require(script.Parent.ClientBinocularsManager)
 local ClientStimShotManager = require(script.Parent.ClientStimShotManager)
+local ClientRemoteChargeManager = require(script.Parent.ClientRemoteChargeManager)
 local ClientCampMapManager = require(script.Parent.ClientCampMapManager)
 local ClientDiamondTapManager = require(script.Parent.ClientDiamondTapManager)
 local ClientCompassManager = require(script.Parent.ClientCompassManager)
@@ -118,6 +119,8 @@ ClientAutoTurretManager:init()
 -- the Camp Map and compass read from it below
 ClientBinocularsManager:init()
 ClientStimShotManager:init()
+-- the Remote Charge (2026-10-20): the planted charges and their blasts
+ClientRemoteChargeManager:init()
 -- the day clock reads GameMetadata the server set before anyone was Ready
 ClientRunCycleManager:init()
 -- the Refinery HP bar that takes the clock's place at night

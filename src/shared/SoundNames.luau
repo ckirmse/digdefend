@@ -77,6 +77,9 @@ local sfx = {
 	BINOCULARS_TAG = "BinocularsTag",
 	-- the Stim Shot going in (2026-10-19), the user's own
 	STIM_SHOT_USE = "StimShotUse",
+	-- the Remote Charge's detonator beeping as its button goes down
+	-- (2026-10-20), the user's own
+	REMOTE_CHARGE_DETONATE = "RemoteChargeDetonate",
 	-- M25: post weapons have no magazine, so two sounds each: fire (3D from
 	-- the muzzle, one clip per shot) and the gunner's hit confirm. Named
 	-- Post_<Weapon>_<Action> (decided 2026-09-18)
@@ -95,10 +98,8 @@ local sfx = {
 	RAIL_GUN_FIRE = "Post_Railgun_Fire",
 	RAIL_GUN_HIT = "Post_Railgun_Hit",
 	RAIL_GUN_CHARGE = "Post_Railgun_Charge",
-	MORTAR_FIRE = "Post_Mortar_Fire",
 	MORTAR_HIT = "Post_Mortar_Hit",
 	MORTAR_FLIGHT = "Post_Mortar_Flight",
-	MORTAR_EXPLODE = "Post_Mortar_Explode",
 	AA_LAUNCHER_FIRE = "Post_AALauncher_Fire",
 	AA_LAUNCHER_HIT = "Post_AALauncher_Hit",
 	AA_LAUNCHER_FLIGHT = "Post_AALauncher_Flight",
@@ -228,11 +229,13 @@ local postWeaponSfxByKindName: { [string]: PostWeaponSfx } = {
 		HIT = sfx.RAIL_GUN_HIT,
 		WINDUP = sfx.RAIL_GUN_CHARGE,
 	},
+	-- the shell leaves and bursts with the Assault Rifle's grenade
+	-- (decided 2026-10-20)
 	MORTAR = {
-		FIRE = sfx.MORTAR_FIRE,
+		FIRE = sfx.ASSAULT_RIFLE_GRENADE_FIRE,
 		HIT = sfx.MORTAR_HIT,
 		FLIGHT = sfx.MORTAR_FLIGHT,
-		EXPLODE = sfx.MORTAR_EXPLODE,
+		EXPLODE = sfx.ROCKET_LAUNCHER_EXPLODE,
 	},
 	AA_LAUNCHER = {
 		FIRE = sfx.AA_LAUNCHER_FIRE,

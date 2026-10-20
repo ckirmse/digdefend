@@ -32,7 +32,7 @@
 --   shortens it). PIERCE: the shot carries on through COUNT damageables
 --   (plus one per Damage level) for full damage each.
 -- POOL: the burst leaves a pool for SEC that stacks a burn on everything
---   standing in it (the Napalm Mortar; Damage widens the pool).
+--   standing in it (the TNT Launcher; Impact Radius widens the pool).
 -- LOCK: aiming near a flyer for SEC locks it (up to COUNT at once, each
 --   within ANGLE_DEGREES of the barrel); the shot fires one homing
 --   missile per lock, or one straight missile at DUMB_FIRE_DAMAGE_SHARE
@@ -58,6 +58,9 @@ local TURN_SPEED = Enums.PostAttribute.TURN_SPEED
 local RANGE = Enums.PostAttribute.RANGE
 local HEADSHOT = Enums.PostAttribute.HEADSHOT
 local COOLDOWN = Enums.PostAttribute.COOLDOWN
+local IMPACT_RADIUS = Enums.PostAttribute.IMPACT_RADIUS
+local FIRE_DAMAGE = Enums.PostAttribute.FIRE_DAMAGE
+local FIRE_LENGTH = Enums.PostAttribute.FIRE_LENGTH
 
 -- the gun sits a dozen studs over the ground, so a monster at the foot
 -- of the tower needs a steep look down (-70 since 2026-09-30, was -40);
@@ -112,6 +115,15 @@ return {
 		-- multiple per level, 3x to 4x, so a maxed gun still needs several
 		-- landed heads for a Launcher or a Titan
 		[HEADSHOT] = 0.25,
+		-- the TNT Launcher's rows (decided 2026-10-20, in place of Damage,
+		-- Fire Rate, and Range: a faster reload would let pools overlap and
+		-- restack their burns, and the arc already reaches past the wall).
+		-- Impact Radius widens the burst and the pool, Fire Damage scales
+		-- the burst and the pool's burn, Fire Length stretches the pool
+		-- and each burn stack
+		[IMPACT_RADIUS] = 0.2,
+		[FIRE_DAMAGE] = 0.25,
+		[FIRE_LENGTH] = 0.25,
 	},
 	-- how far from the muzzle the server lets a shot start: the client's
 	-- base may be a fraction of a second ahead of the last aim it sent
@@ -154,7 +166,8 @@ return {
 			},
 		},
 		-- 33 DPS to one target, about a hundred into a group at the 12-stud
-		-- splash (2026-09-28); the Demolitionist's since 2026-10-15
+		-- splash (2026-09-28); the Demolitionist's from 2026-10-15, the
+		-- Pyro's since 2026-10-20 (the direct post for the combat class)
 		[Enums.PostWeaponKind.ROCKET_LAUNCHER] = {
 			-- Range matters here: it is how far a rocket flies before bursting
 			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
@@ -184,10 +197,11 @@ return {
 		-- budget, a slower turn; Fire Rate shortens the spin-up
 		[Enums.PostWeaponKind.MINI_GUN] = {
 			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, COOLDOWN },
-			-- 9 from 10 (2026-10-19): with the Gunner's 1.25 and the 11 s cycle
-			-- (1 s spin, 6 s fire, 4 s cool) a burst averages about 102 a
-			-- second against the Machine Gun's 69, the +50% the designer asked for
-			DAMAGE = 9,
+			-- 9 x 1.25 (2026-10-20): the Gunner's Post Damage buff folded into
+			-- the gun it alone fires; with the 11 s cycle (1 s spin, 6 s fire,
+			-- 4 s cool) a burst averages about 102 a second against the
+			-- Machine Gun's 69, the +50% the designer asked for (2026-10-19)
+			DAMAGE = 11.25,
 			FIRE_INTERVAL_SEC = 0.06,
 			FIRE_COOLDOWN_SEC = 0.045,
 			TURN_SPEED_DEGREES_PER_SEC = 16,
@@ -240,27 +254,36 @@ return {
 				COUNT_PER_DAMAGE_LEVEL = 0,
 			},
 		},
-		-- the Pyro: lobs a shell that bursts into a pool of fire where it
-		-- lands, burning for several seconds and stacking on anything that
-		-- stays; slow fire, the skill is the pool on the path; Range reaches
-		-- past the wall, Damage widens the pool
+		-- the Demolitionist (the Pyro's until 2026-10-20): lobs a TNT bomb
+		-- that bursts into a pool of fire where it lands, burning for
+		-- several seconds and stacking on anything that stays; slow fire,
+		-- the skill is the pool on the path
 		[Enums.PostWeaponKind.MORTAR] = {
-			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
-			DAMAGE = 60,
+			UPGRADE_ATTRIBUTES = { IMPACT_RADIUS, FIRE_DAMAGE, TURN_SPEED, FIRE_LENGTH },
+			-- 48 from 60 (2026-10-20): the Demolitionist's post since then, a
+			-- mining class, so a fifth off the burst
+			DAMAGE = 48,
 			FIRE_INTERVAL_SEC = 5,
 			FIRE_COOLDOWN_SEC = 4.8,
 			TURN_SPEED_DEGREES_PER_SEC = 12,
 			RANGE_STUDS = 260,
 			FIELD_OF_VIEW = 45,
-			PITCH_MIN_DEGREES = -30,
+			-- steep enough to drop a shell at the post's own feet (2026-10-20)
+			PITCH_MIN_DEGREES = -85,
 			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
 			RELOAD_SEC = 5,
 			PROJECTILE = {
 				TEMPLATE = "NapalmShell",
 				BLAST_TEMPLATE = "RocketBlast",
-				SPEED_STUDS_PER_SEC = 110,
+				-- the top speed sets the reach: level reach is
+				-- v^2 sin(2a) / g, 283 studs here, past RANGE_STUDS
+				SPEED_STUDS_PER_SEC = 140,
 				GRAVITY_STUDS_PER_SEC2 = 60,
 				SPLASH_RADIUS_STUDS = 8,
+				-- the shell climbs high and falls on the aim point (2026-10-20):
+				-- the gunner reads the landing marker, the skill is the timing
+				LOB_ANGLE_DEGREES = 60,
+				TARGET_TEMPLATE = "MortarTarget",
 			},
 			POOL = {
 				RADIUS_STUDS = 10,

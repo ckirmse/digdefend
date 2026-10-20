@@ -40,6 +40,9 @@ local function makeCatalog()
 			[Enums.PostAttribute.RANGE] = 0.2,
 			[Enums.PostAttribute.COOLDOWN] = 1 / 6,
 			[Enums.PostAttribute.HEADSHOT] = 0.25,
+			[Enums.PostAttribute.IMPACT_RADIUS] = 0.2,
+			[Enums.PostAttribute.FIRE_DAMAGE] = 0.25,
+			[Enums.PostAttribute.FIRE_LENGTH] = 0.25,
 		},
 		headshotMultiplier = 1.5,
 		kinds = {
@@ -566,7 +569,8 @@ describe(
 				expect(upgraded.pierceCount).toBe(5)
 				expect(upgraded.chainJumpStuds).toBeCloseTo(12, 5)
 				expect(upgraded.pullRadiusStuds).toBeCloseTo(24, 5)
-				expect(upgraded.poolRadiusStuds).toBeCloseTo(15, 5)
+				-- the pool widens with Impact Radius, not Damage (2026-10-20)
+				expect(upgraded.poolRadiusStuds).toBeCloseTo(10, 5)
 				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.MACHINE_GUN, {}).spinUpSec).toBeNil()
 			end
 		)
@@ -597,6 +601,47 @@ describe(
 				expect(PostRules.chargePierceCount(1, 3)).toBe(3)
 				expect(PostRules.chargePierceCount(1, 5)).toBe(5)
 				expect(PostRules.chargePierceCount(0.7, 1)).toBe(1)
+			end
+		)
+	end
+)
+
+describe(
+	"PostRules TNT Launcher rows",
+	function()
+		it(
+			"widens the burst and pool, scales the burn, and stretches the pool with its rows",
+			function()
+				local catalog = makeCatalog()
+				local mortar = table.clone(MACHINE_GUN)
+				mortar.HEAT = nil
+				mortar.UPGRADE_ATTRIBUTES = { Enums.PostAttribute.IMPACT_RADIUS, Enums.PostAttribute.FIRE_DAMAGE, Enums.PostAttribute.TURN_SPEED, Enums.PostAttribute.FIRE_LENGTH }
+				mortar.DAMAGE = 60
+				mortar.PROJECTILE = { TEMPLATE = "NapalmShell", SPEED_STUDS_PER_SEC = 140, SPLASH_RADIUS_STUDS = 8 }
+				mortar.POOL = { RADIUS_STUDS = 10, SEC = 6, BURN_DAMAGE_PER_SEC = 12, BURN_SEC = 3, TICK_SEC = 0.5 }
+				catalog.kinds[Enums.PostWeaponKind.MORTAR] = mortar
+				local base = PostRules.statsFor(catalog, Enums.PostWeaponKind.MORTAR, {})
+				expect(base.splashRadiusStuds).toBeCloseTo(8, 5)
+				expect(base.poolRadiusStuds).toBeCloseTo(10, 5)
+				expect(base.poolSec).toBeCloseTo(6, 5)
+				expect(base.burnDamagePerSec).toBeCloseTo(12, 5)
+				expect(base.burnSec).toBeCloseTo(3, 5)
+				local radius = PostRules.statsFor(catalog, Enums.PostWeaponKind.MORTAR, { [Enums.PostAttribute.IMPACT_RADIUS] = 2 })
+				expect(radius.splashRadiusStuds).toBeCloseTo(8 * 1.4, 5)
+				expect(radius.poolRadiusStuds).toBeCloseTo(10 * 1.4, 5)
+				expect(radius.damage).toBeCloseTo(60, 5)
+				local fire = PostRules.statsFor(catalog, Enums.PostWeaponKind.MORTAR, { [Enums.PostAttribute.FIRE_DAMAGE] = 4 })
+				expect(fire.burnDamagePerSec).toBeCloseTo(24, 5)
+				expect(fire.damage).toBeCloseTo(120, 5)
+				expect(fire.poolSec).toBeCloseTo(6, 5)
+				local length = PostRules.statsFor(catalog, Enums.PostWeaponKind.MORTAR, { [Enums.PostAttribute.FIRE_LENGTH] = 4 })
+				expect(length.poolSec).toBeCloseTo(12, 5)
+				expect(length.burnSec).toBeCloseTo(6, 5)
+				expect(length.burnDamagePerSec).toBeCloseTo(12, 5)
+				-- a kind without the blocks carries none of the fields
+				local plain = PostRules.statsFor(catalog, Enums.PostWeaponKind.MACHINE_GUN, {})
+				expect(plain.splashRadiusStuds).toBeNil()
+				expect(plain.poolSec).toBeNil()
 			end
 		)
 	end

@@ -974,6 +974,16 @@ Constants.AUTO_TURRET_BASE_PART = "Stand"
 Constants.AUTO_TURRET_MUZZLE_ATTACHMENT = "MuzzleAttachment"
 Constants.AUTO_TURRET_SHADOW_FOLDER = "AutoTurretShadows"
 Constants.AUTO_TURRET_PICK_UP_ACTION_TEXT = "Pick Up"
+-- the Remote Charge (2026-10-20): the planted charge's model under
+-- GameAssets/Gadgets (build_remote_charge_template.luau), the part of it
+-- that blinks, and the server's shadow folder
+Constants.REMOTE_CHARGE_TEMPLATE = "REMOTE_CHARGE"
+Constants.REMOTE_CHARGE_LIGHT_PART = "Light"
+Constants.REMOTE_CHARGE_SHADOW_FOLDER = "RemoteChargeShadows"
+-- the gadget variant (ToolManager) the hand holds once the mine is
+-- planted: the "GADGET_REMOTE_CHARGE_DETONATOR" template, and the slot's name
+Constants.REMOTE_CHARGE_DETONATOR_VARIANT = "DETONATOR"
+Constants.REMOTE_CHARGE_DETONATOR_NAME = "Detonator"
 -- the Binoculars' tag callout (scripts/studio/build_tag_billboard.luau,
 -- 2026-10-19): the billboard template over a tagged monster, its icon and
 -- label, and the workspace folder its anchors live in

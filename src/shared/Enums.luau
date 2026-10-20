@@ -181,7 +181,7 @@ module = {
 			ROCKET_LAUNCHER = "Rocket Launcher",
 			MINI_GUN = "Minigun",
 			RAIL_GUN = "Railgun",
-			MORTAR = "Napalm Mortar",
+			MORTAR = "TNT Launcher",
 			AA_LAUNCHER = "AA Launcher",
 			MACHINE_GUN_AUTOMATED = "Auto Machine Gun",
 			MINE_LAYER = "Mine Layer",
@@ -218,6 +218,11 @@ module = {
 		-- the Railgun's headshot multiple (2026-10-19), in place of a Range
 		-- no monster ever spawns beyond
 		HEADSHOT = 6,
+		-- the TNT Launcher's rows (2026-10-20): how wide the shell bursts
+		-- and the pool spreads, how hard its fire hurts, how long it burns
+		IMPACT_RADIUS = 7,
+		FIRE_DAMAGE = 8,
+		FIRE_LENGTH = 9,
 
 		PublicNames = {
 			DAMAGE = "Damage",
@@ -226,6 +231,9 @@ module = {
 			RANGE = "Range",
 			COOLDOWN = "Cooldown",
 			HEADSHOT = "Headshot",
+			IMPACT_RADIUS = "Impact Radius",
+			FIRE_DAMAGE = "Fire Damage",
+			FIRE_LENGTH = "Fire Length",
 		},
 	},
 	-- automated defense units (GDD "Defenses"), M26. The three DEFENSE
@@ -661,7 +669,12 @@ module = {
 	-- content that does not exist yet and do nothing until their system
 	-- reads them. MOVE_SPEED and MINING_POWER are the core stats every
 	-- class states outright (ClassRules.CORE_MODIFIERS); MAX_HEALTH is
-	-- applied but no class sets it (dropped as a core stat 2026-10-19)
+	-- applied but no class sets it (dropped as a core stat 2026-10-19).
+	-- A modifier that would only touch a thing one class alone owns is
+	-- not a modifier but that thing's own GameData number (decided
+	-- 2026-10-20: the Gunner's Post Damage folded into the Minigun, the
+	-- Pyro's Burn Length, the Electrician's Tower Fire Rate, and the
+	-- Demolitionist's Dynamite Damage dropped)
 	ClassModifier = {
 		MINING_POWER = 1,
 		HANDHELD_DAMAGE = 2,
@@ -677,10 +690,7 @@ module = {
 		LARGE_MONSTER_DAMAGE = 11,
 		FLYER_DAMAGE = 12,
 		GROUND_DAMAGE = 13,
-		BURN_DURATION = 14,
-		TOWER_FIRE_RATE = 15,
-		DYNAMITE_DAMAGE = 16,
-		MAX_HEALTH = 17,
+		MAX_HEALTH = 14,
 
 		PublicNames = {
 			MINING_POWER = "Mining Power",
@@ -696,9 +706,6 @@ module = {
 			LARGE_MONSTER_DAMAGE = "Damage to Large Monsters",
 			FLYER_DAMAGE = "Damage to Flyers",
 			GROUND_DAMAGE = "Damage to Ground Monsters",
-			BURN_DURATION = "Burn Length",
-			TOWER_FIRE_RATE = "Tower Fire Rate",
-			DYNAMITE_DAMAGE = "Dynamite Damage",
 			MAX_HEALTH = "Health",
 		},
 	},

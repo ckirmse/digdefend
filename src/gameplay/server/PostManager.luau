@@ -42,6 +42,7 @@ local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local TowerRules = require("@game/ReplicatedStorage/Shared/TowerRules")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
+local ProjectileRules = require("@game/ReplicatedStorage/Shared/ProjectileRules")
 local PostWeaponsData = require("@game/ServerScriptService/GameData/Posts/PostWeapons")
 local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
@@ -104,7 +105,7 @@ type Post = {
 	claimConnection: RBXScriptConnection?,
 }
 
--- a pool of fire on the ground (the Napalm Mortar): burns what stands in
+-- a pool of fire on the ground (the TNT Launcher): burns what stands in
 -- it every tick until it dies down
 type Pool = {
 	id: string,
@@ -170,7 +171,12 @@ local TRY_FIRE_POST_WEAPON_COST = 0.25
 local TRY_FIRE_POST_WEAPON_SHAPE = {
 	origin = "vector3",
 	direction = "vector3",
+	-- a lob kind's landing spot, where the gunner's reticle reaches
+	-- (2026-10-20); it must lie down the direction sent
+	aimPosition = { type = "vector3", optional = true },
 }
+-- how far off the sent direction a lob's aim point may sit
+local AIM_POINT_TOLERANCE_DEGREES = 3
 local TRY_SET_POST_TRIGGER_SHAPE = {
 	isHeld = "boolean",
 }
@@ -743,28 +749,35 @@ function PostManager:splash(post: Post, position: Vector3, radiusStuds: number, 
 	return #hitIds
 end
 
--- the Napalm Mortar's pool: it burns whoever stands in it every tick
-function PostManager:startPool(post: Post, poolData: PostRules.PoolData, stats: PostRules.Stats, position: Vector3, attacker: Player?)
+-- the TNT Launcher's pool: it burns whoever stands in it every tick
+function PostManager:startPool(_post: Post, poolData: PostRules.PoolData, stats: PostRules.Stats, position: Vector3, attacker: Player?)
+	-- the pool as the gunner's rows shaped it (2026-10-20)
+	self:addPool(attacker, position, stats.poolRadiusStuds or poolData.RADIUS_STUDS, stats.poolSec or poolData.SEC, poolData.TICK_SEC, stats.burnDamagePerSec or poolData.BURN_DAMAGE_PER_SEC, stats.burnSec or poolData.BURN_SEC)
+end
+
+-- a pool of fire from anything (the TNT Launcher's shell, the Remote
+-- Charge's burst, 2026-10-20): stepped here, drawn by every client from
+-- the notify
+function PostManager:addPool(owner: Player?, position: Vector3, radiusStuds: number, sec: number, tickSec: number, burnDamagePerSec: number, burnSec: number)
 	self.nextPoolId += 1
 	local now = workspace:GetServerTimeNow()
-	local radius = stats.poolRadiusStuds or poolData.RADIUS_STUDS
+	local id = string.format(POOL_ID_FORMAT, self.nextPoolId)
 	table.insert(self.pools, {
-		id = string.format(POOL_ID_FORMAT, self.nextPoolId),
-		owner = attacker,
+		id = id,
+		owner = owner,
 		position = position,
-		radiusStuds = radius,
-		endTime = now + poolData.SEC,
+		radiusStuds = radiusStuds,
+		endTime = now + sec,
 		nextTickTime = now,
-		tickSec = poolData.TICK_SEC,
-		burnDamagePerSec = poolData.BURN_DAMAGE_PER_SEC,
-		burnSec = poolData.BURN_SEC,
+		tickSec = tickSec,
+		burnDamagePerSec = burnDamagePerSec,
+		burnSec = burnSec,
 	})
 	NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_POOL_STARTED, {
-		poolId = string.format(POOL_ID_FORMAT, self.nextPoolId),
-		weaponKind = post.weaponKind,
+		poolId = id,
 		position = position,
-		radius = radius,
-		sec = poolData.SEC,
+		radius = radiusStuds,
+		sec = sec,
 	})
 end
 
@@ -876,9 +889,26 @@ end
 
 -- a projectile kind's shot: straight, lobbed, piercing, or homing on a
 -- lock; what it does where it lands is the kind's block
-function PostManager:launchProjectile(post: Post, attacker: Player?, origin: Vector3, unitDirection: Vector3, stats: PostRules.Stats, data: PostRules.KindData, projectile: PostRules.ProjectileData, homingTargetId: string?, damage: number)
+function PostManager:launchProjectile(post: Post, attacker: Player?, origin: Vector3, unitDirection: Vector3, stats: PostRules.Stats, data: PostRules.KindData, projectile: PostRules.ProjectileData, homingTargetId: string?, damage: number, aimPosition: Vector3?)
 	local owner = post.owner
 	local homing = projectile.HOMING
+	local speedStudsPerSec = projectile.SPEED_STUDS_PER_SEC
+	local rangeStuds = stats.rangeStuds
+	local lobAngle = projectile.LOB_ANGLE_DEGREES
+	if lobAngle then
+		-- a lob flies the gun's arc to the aim point (the barrel's own line
+		-- when none was sent), and its range is the arc's length, not the
+		-- gunner's reach: the reach was applied to the aim point already
+		local target = aimPosition or (origin + unitDirection * rangeStuds)
+		local lob = ProjectileRules.lobToward(origin, target, lobAngle, projectile.GRAVITY_STUDS_PER_SEC2 or 0, speedStudsPerSec)
+		unitDirection = lob.unitDirection
+		speedStudsPerSec = lob.speedStudsPerSec
+		rangeStuds = speedStudsPerSec * lob.flightSec * 2 + rangeStuds
+	end
+	local excludedInstances: { Instance } = {}
+	if post.weaponModel then
+		table.insert(excludedInstances, post.weaponModel)
+	end
 	ProjectileManager:launch({
 		owner = attacker,
 		templateName = projectile.TEMPLATE,
@@ -886,9 +916,10 @@ function PostManager:launchProjectile(post: Post, attacker: Player?, origin: Vec
 		postWeaponKind = post.weaponKind,
 		origin = origin,
 		unitDirection = unitDirection,
-		speedStudsPerSec = projectile.SPEED_STUDS_PER_SEC,
+		speedStudsPerSec = speedStudsPerSec,
 		gravityStudsPerSec2 = projectile.GRAVITY_STUDS_PER_SEC2 or 0,
-		rangeStuds = stats.rangeStuds,
+		rangeStuds = rangeStuds,
+		excludedInstances = excludedInstances,
 		isPiercing = projectile.IS_PIERCING,
 		homingTargetId = homingTargetId,
 		homingTurnDegreesPerSec = if homing then homing.TURN_DEGREES_PER_SEC else nil,
@@ -902,8 +933,9 @@ function PostManager:launchProjectile(post: Post, attacker: Player?, origin: Vec
 				self:placeMine(post, owner, data.MINES, projectile, stats, position)
 				return
 			end
-			if projectile.SPLASH_RADIUS_STUDS > 0 then
-				self:splash(post, position, projectile.SPLASH_RADIUS_STUDS, damage, attacker)
+			local splashRadius = stats.splashRadiusStuds or projectile.SPLASH_RADIUS_STUDS
+			if splashRadius > 0 then
+				self:splash(post, position, splashRadius, damage, attacker)
 			end
 			if data.POOL then
 				self:startPool(post, data.POOL, stats, position, attacker)
@@ -914,7 +946,7 @@ end
 
 -- the shot itself, once the gunner (or the unmanned post) is allowed it:
 -- the kind's block decides what leaves the muzzle
-function PostManager:fireShot(post: Post, attacker: Player?, origin: Vector3, unitDirection: Vector3, stats: PostRules.Stats, data: PostRules.KindData)
+function PostManager:fireShot(post: Post, attacker: Player?, origin: Vector3, unitDirection: Vector3, stats: PostRules.Stats, data: PostRules.KindData, aimPosition: Vector3?)
 	local projectile = data.PROJECTILE
 	if projectile then
 		local lockData = data.LOCK
@@ -939,7 +971,7 @@ function PostManager:fireShot(post: Post, attacker: Player?, origin: Vector3, un
 			end
 			return
 		end
-		self:launchProjectile(post, attacker, origin, unitDirection, stats, data, projectile, nil, stats.damage)
+		self:launchProjectile(post, attacker, origin, unitDirection, stats, data, projectile, nil, stats.damage, aimPosition)
 		return
 	end
 	local worldDistance = WeaponManager:getWorldDistance(origin, unitDirection, stats.rangeStuds, true)
@@ -1087,7 +1119,7 @@ function PostManager:tryBeginShot(post: Post, data: PostRules.KindData, stats: P
 	return true, chargeProgress
 end
 
-function PostManager:fire(player: Player, origin: Vector3, direction: Vector3)
+function PostManager:fire(player: Player, origin: Vector3, direction: Vector3, aimPosition: Vector3?)
 	local post = self:getMannedPost(player)
 	local stats = if post then self:getStats(post) else nil
 	local data = if post then self:getWeaponData(post.weaponKind) else nil
@@ -1100,6 +1132,14 @@ function PostManager:fire(player: Player, origin: Vector3, direction: Vector3)
 	local muzzle = self:getAim(post)
 	if not muzzle or not WeaponRules.isOriginPlausible(muzzle, origin, PostWeaponsData.ORIGIN_TOLERANCE_STUDS) then
 		return
+	end
+	-- the aim point is only ever where the direction sent already leads,
+	-- and no farther than the gun reaches
+	if aimPosition then
+		local toAim = aimPosition - origin
+		if toAim.Magnitude > stats.rangeStuds + PostWeaponsData.ORIGIN_TOLERANCE_STUDS or PostRules.angleToDegrees(origin, direction.Unit, aimPosition) > AIM_POINT_TOLERANCE_DEGREES then
+			return
+		end
 	end
 	local now = workspace:GetServerTimeNow()
 	local isFired, chargeProgress = self:tryBeginShot(post, data, stats, now)
@@ -1117,7 +1157,7 @@ function PostManager:fire(player: Player, origin: Vector3, direction: Vector3)
 		end
 		stats = partStats
 	end
-	self:fireShot(post, player, origin, direction.Unit, stats, data)
+	self:fireShot(post, player, origin, direction.Unit, stats, data, aimPosition)
 end
 
 -- an unmanned post (the Auto Machine Gun): every Heartbeat it turns
@@ -1157,7 +1197,8 @@ function PostManager:stepUnmanned(post: Post, data: PostRules.KindData, now: num
 	if not self:tryBeginShot(post, data, stats, now) then
 		return
 	end
-	self:fireShot(post, owner, aimedMuzzle, aimedDirection, stats, data)
+	-- an unmanned lob lands on the target itself
+	self:fireShot(post, owner, aimedMuzzle, aimedDirection, stats, data, target.position)
 end
 
 function PostManager:step(deltaSec: number)
@@ -1433,7 +1474,7 @@ function PostManager:getNetHandlers()
 			shape = TRY_FIRE_POST_WEAPON_SHAPE,
 			cost = TRY_FIRE_POST_WEAPON_COST,
 			handler = function(player: Player, payload: { [string]: any })
-				self:fire(player, payload.origin, payload.direction)
+				self:fire(player, payload.origin, payload.direction, payload.aimPosition)
 			end,
 		},
 		[NetEventNames.TRY_SET_POST_TRIGGER] = {

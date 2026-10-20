@@ -271,6 +271,35 @@ function AutoTurretManager:isReachable(x: number, z: number): boolean
 	return grid.inside[index] == true and grid.walkable[index] == true
 end
 
+-- the ground point a placed gadget may stand on, where the player's ghost
+-- stood (the turret, the Remote Charge since 2026-10-20): within reach of
+-- the player, ground the monsters walk, not too steep, not a roof; nil,
+-- with the player told, when the rules refuse
+function AutoTurretManager:findPlacement(player: Player, position: Vector3): Vector3?
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not root or not root:IsA("BasePart") then
+		return nil
+	end
+	if not AutoTurretRules.isWithinPlaceDistance(root.Position, position, AutoTurretData.PLACE_DISTANCE_STUDS, AutoTurretData.PLACE_TOLERANCE_STUDS) then
+		PlayerFeedbackManager:give(player, FEEDBACK_CANNOT_BUILD)
+		return nil
+	end
+	local hit = self:findGround(position)
+	local isGround = hit ~= nil and AutoTurretRules.findBlockingTag(hit.Instance, function(instance: Instance, tag: string): boolean
+		return CollectionService:HasTag(instance, tag)
+	end) == nil
+	local normalY = if hit then hit.Normal.Y else 0
+	local groundPosition = if hit then hit.Position else position
+	local isAtGroundLevel = AutoTurretRules.isAtGroundLevel(groundPosition.Y, MonsterPathManager:getGroundHeight(groundPosition.X, groundPosition.Z), AutoTurretData.GROUND_LEVEL_TOLERANCE_STUDS)
+	local problem = AutoTurretRules.placementProblem(isGround, normalY, AutoTurretData.MIN_GROUND_NORMAL_Y, self:isReachable(groundPosition.X, groundPosition.Z), isAtGroundLevel)
+	if problem then
+		PlayerFeedbackManager:give(player, FEEDBACK_CANNOT_BUILD)
+		return nil
+	end
+	return groundPosition
+end
+
 function AutoTurretManager:place(player: Player, position: Vector3, yawDegrees: number)
 	if not GameController:isPlayerReady(player) or ReviveManager:isDead(player) then
 		return
@@ -286,25 +315,8 @@ function AutoTurretManager:place(player: Player, position: Vector3, yawDegrees: 
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_AVAILABLE)
 		return
 	end
-	local character = player.Character
-	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
-	if not root or not root:IsA("BasePart") then
-		return
-	end
-	if not AutoTurretRules.isWithinPlaceDistance(root.Position, position, AutoTurretData.PLACE_DISTANCE_STUDS, AutoTurretData.PLACE_TOLERANCE_STUDS) then
-		PlayerFeedbackManager:give(player, FEEDBACK_CANNOT_BUILD)
-		return
-	end
-	local hit = self:findGround(position)
-	local isGround = hit ~= nil and AutoTurretRules.findBlockingTag(hit.Instance, function(instance: Instance, tag: string): boolean
-		return CollectionService:HasTag(instance, tag)
-	end) == nil
-	local normalY = if hit then hit.Normal.Y else 0
-	local groundPosition = if hit then hit.Position else position
-	local isAtGroundLevel = AutoTurretRules.isAtGroundLevel(groundPosition.Y, MonsterPathManager:getGroundHeight(groundPosition.X, groundPosition.Z), AutoTurretData.GROUND_LEVEL_TOLERANCE_STUDS)
-	local problem = AutoTurretRules.placementProblem(isGround, normalY, AutoTurretData.MIN_GROUND_NORMAL_Y, self:isReachable(groundPosition.X, groundPosition.Z), isAtGroundLevel)
-	if problem then
-		PlayerFeedbackManager:give(player, FEEDBACK_CANNOT_BUILD)
+	local groundPosition = self:findPlacement(player, position)
+	if not groundPosition then
 		return
 	end
 

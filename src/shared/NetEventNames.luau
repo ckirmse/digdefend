@@ -218,6 +218,12 @@ module = {
 	-- the Stim Shot (2026-10-19): use it, and the word back that it landed
 	TRY_USE_STIM_SHOT = "TryUseStimShot",
 	NOTIFY_STIM_SHOT_USED = "NotifyStimShotUsed",
+	-- the Remote Charge (2026-10-20): plant one at the player's feet, blow
+	-- every one planted, and to every client: where they burst
+	-- ({ positions, radius }), for the blasts
+	TRY_PLACE_REMOTE_CHARGE = "TryPlaceRemoteCharge",
+	TRY_DETONATE_REMOTE_CHARGE = "TryDetonateRemoteCharge",
+	NOTIFY_REMOTE_CHARGE_DETONATED = "NotifyRemoteChargeDetonated",
 	-- gadget upgrades (M67): buy the class gadget's next level at the Post
 	-- & Gadget Upgrades table, and to that client: it went through
 	-- ({ level, price }), for the sound

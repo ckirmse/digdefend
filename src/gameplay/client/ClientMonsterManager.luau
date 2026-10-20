@@ -161,6 +161,10 @@ type ClientMonster = {
 	-- an alert cry arrived before the monster was ever drawn (the same
 	-- tick as its spawn); it plays on the first frame it has a place
 	isAlertPending: boolean,
+	-- the snapshot's burn flag, and the Fire riding the drawn body's root
+	-- while it is set (2026-10-20); the Fire moves when the body does
+	isBurning: boolean,
+	fire: Fire?,
 }
 
 type Dying = {
@@ -256,6 +260,11 @@ local DEMOTE_RANK_SHARE = 1.25
 -- cloning a rig walks every descendant; a night's first crowd is dressed
 -- over a few frames instead of one hitch, proxies standing in meanwhile
 local MAX_RIG_CLONES_PER_FRAME = 5
+-- a burning body's Fire: its Size follows the body height inside the
+-- range Roblox allows
+local BURN_FIRE_SIZE_MIN = 2
+local BURN_FIRE_SIZE_MAX = 8
+local BURN_FIRE_HEAT = 9
 local MAX_SAMPLES = 5
 -- a monster past its newest sample keeps moving at its last speed this long
 local MAX_EXTRAPOLATE_SEC = 0.5
@@ -660,6 +669,11 @@ function ClientMonsterManager:setMode(monster: ClientMonster, mode: number)
 	end
 	monster.mode = mode
 	monster.isBodyDirty = true
+	-- the Fire leaves a part before it goes back to its pool
+	local fire = monster.fire
+	if fire then
+		fire.Parent = nil
+	end
 	local spareRig: Rig? = monster.rig
 	if spareRig and not wantsRig then
 		self:releaseRig(spareRig)
@@ -742,10 +756,14 @@ end
 
 -- one record of a snapshot applied to its monster; an unreliable packet
 -- that arrives behind a newer one is dropped, the next is on its way
-function ClientMonsterManager:applyRecord(id: number, x: number, y: number, z: number, yawDegrees: number, hpShare: number, action: number, attackCounter: number)
+function ClientMonsterManager:applyRecord(id: number, x: number, y: number, z: number, yawDegrees: number, hpShare: number, action: number, attackCounter: number, isBurning: boolean)
 	local monster = self.monstersById[id]
 	if not monster then
 		return
+	end
+	if isBurning ~= monster.isBurning then
+		monster.isBurning = isBurning
+		self:updateFire(monster)
 	end
 	local time = self.packetServerTime
 	local count = monster.sampleCount
@@ -844,6 +862,8 @@ function ClientMonsterManager:onSpawned(payload: any)
 			speedStudsPerSec = 0,
 			nextWalkSoundTime = 0,
 			isAlertPending = false,
+			isBurning = false,
+			fire = nil,
 		}
 		self.monstersById[id] = monster
 		self.monsterByDamageableId[damageableId] = monster
@@ -857,6 +877,8 @@ end
 function ClientMonsterManager:removeMonster(monster: ClientMonster, isDeath: boolean)
 	self.monstersById[monster.id] = nil
 	self.monsterByDamageableId[monster.damageableId] = nil
+	monster.isBurning = false
+	self:updateFire(monster)
 	local cframe = monster.renderCFrame
 	local body = monster.held or monster.proxy
 	if isDeath and cframe and (monster.rig or body) then
@@ -974,6 +996,42 @@ function ClientMonsterManager:getBodyInstance(damageableId: string): Instance?
 	end
 	local body = monster.held or monster.proxy
 	return if body then body.part else nil
+end
+
+-- the root of whatever draws the monster now: the rig's, or the one part
+-- of a Held or Proxy body
+function ClientMonsterManager:getBodyRoot(monster: ClientMonster): BasePart?
+	local rig = monster.rig
+	if rig and monster.mode == MODE_ANIMATED then
+		return rig.root
+	end
+	local body = monster.held or monster.proxy
+	return if body then body.part else nil
+end
+
+-- a burning monster carries Roblox's Fire on its root (2026-10-20), sized
+-- to its body; the Fire follows the root through a LOD change and goes
+-- out with the burn or the monster, so a pooled part never keeps one
+function ClientMonsterManager:updateFire(monster: ClientMonster)
+	local fire = monster.fire
+	local root = if monster.isBurning then self:getBodyRoot(monster) else nil
+	if not root then
+		if fire then
+			fire:Destroy()
+			monster.fire = nil
+		end
+		return
+	end
+	if not fire then
+		fire = Instance.new("Fire")
+		fire.Name = "Burn"
+		fire.Heat = BURN_FIRE_HEAT
+		fire.Size = math.clamp(monster.body.boxSize.Y, BURN_FIRE_SIZE_MIN, BURN_FIRE_SIZE_MAX)
+		monster.fire = fire
+	end
+	if fire.Parent ~= root then
+		fire.Parent = root
+	end
 end
 
 -- the ids a Tower or a weapon hit name the monster by its damageable id
@@ -1427,6 +1485,9 @@ function ClientMonsterManager:render()
 			cframe = self:clingCFrame(monster, cframe)
 		end
 		monster.renderCFrame = cframe
+		if monster.isBodyDirty then
+			self:updateFire(monster)
+		end
 		monster.isBodyDirty = false
 		local rig = monster.rig
 		if rig then
@@ -1637,8 +1698,8 @@ function ClientMonsterManager.new(): ClientMonsterManager
 	self.bulkCFrames = {}
 	self.bulkCount = 0
 	self.packetServerTime = 0
-	local visitor: MonsterSnapshotCodec.RecordVisitor = function(id: number, x: number, y: number, z: number, yawDegrees: number, hpShare: number, action: number, attackCounter: number, _isSlowed: boolean, _isBurning: boolean)
-		self:applyRecord(id, x, y, z, yawDegrees, hpShare, action, attackCounter)
+	local visitor: MonsterSnapshotCodec.RecordVisitor = function(id: number, x: number, y: number, z: number, yawDegrees: number, hpShare: number, action: number, attackCounter: number, _isSlowed: boolean, isBurning: boolean)
+		self:applyRecord(id, x, y, z, yawDegrees, hpShare, action, attackCounter, isBurning)
 	end
 	self.recordVisitor = visitor
 	self.bytesThisSecond = 0

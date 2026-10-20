@@ -74,6 +74,9 @@ export type ClientWeaponManager = typeof(setmetatable(
 		-- the latest pulse of each muzzle light and emitter, so an earlier
 		-- shot's timer never switches off a later shot's flash
 		pulseTokenByInstance: { [Instance]: number },
+		-- a stream weapon's roar per nozzle (2026-10-20): the looping fire
+		-- sound attached to the muzzle's part, and when its last tick ends
+		streamRoarByPart: { [BasePart]: { player: AudioPlayer, endTime: number } },
 		isOverlayActive: boolean,
 		catalog: WeaponRules.Catalog?,
 		isScoped: boolean,
@@ -136,6 +139,9 @@ local NOTIFY_WEAPON_FIRED_SHAPE = {
 -- how long a tick keeps the stream weapon's flame emitter on: a little
 -- past the interval, so a held trigger reads as one continuous flame
 local MUZZLE_FLAME_SEC = 0.15
+-- how long a tick keeps the stream's roar going: a held trigger ticks
+-- every 0.1 s, so the loop never gaps, and a release stops it soon after
+local STREAM_ROAR_SEC = 0.25
 local DEFAULT_FIELD_OF_VIEW = 70
 -- the scope look step (see stepScopeLook) and how far it may pitch
 local SCOPE_LOOK_BINDING = "WeaponScopeLook"
@@ -182,6 +188,55 @@ function ClientWeaponManager:playFlameEffects(muzzle: Attachment?)
 	local light = muzzle:FindFirstChild(Constants.WEAPON_MUZZLE_FLASH_LIGHT)
 	if light and light:IsA("PointLight") then
 		self:pulse(light, MUZZLE_FLAME_SEC)
+	end
+end
+
+-- a stream weapon's roar: the kind's FIRE sound is a loop (the
+-- Flamethrower, 2026-10-20), started at the nozzle on the first tick and
+-- kept alive by every tick after; stepStreamRoars stops one whose ticks
+-- stopped, and this player's own stops the moment the trigger is released
+function ClientWeaponManager:playStreamRoar(muzzle: Attachment?, name: string)
+	local part = if muzzle then muzzle.Parent else nil
+	if not part or not part:IsA("BasePart") then
+		return
+	end
+	local now = workspace:GetServerTimeNow()
+	local roar = self.streamRoarByPart[part]
+	if roar then
+		roar.endTime = now + STREAM_ROAR_SEC
+		return
+	end
+	local player = ClientSoundManager:attachLoop(part, name, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
+	if not player then
+		return
+	end
+	self.streamRoarByPart[part] = {
+		player = player,
+		endTime = now + STREAM_ROAR_SEC,
+	}
+end
+
+function ClientWeaponManager:stopStreamRoar(part: BasePart)
+	local roar = self.streamRoarByPart[part]
+	if not roar then
+		return
+	end
+	self.streamRoarByPart[part] = nil
+	roar.player:Stop()
+	roar.player:Destroy()
+	for _, child in part:GetChildren() do
+		if child:IsA("AudioEmitter") then
+			child:Destroy()
+		end
+	end
+end
+
+function ClientWeaponManager:stepStreamRoars()
+	local now = workspace:GetServerTimeNow()
+	for part, roar in self.streamRoarByPart do
+		if now >= roar.endTime or part.Parent == nil then
+			self:stopStreamRoar(part)
+		end
 	end
 end
 
@@ -542,7 +597,7 @@ function ClientWeaponManager:fire(isFreshPress: boolean): boolean
 		self:playFlameEffects(muzzleAttachment)
 		local weaponSfx = self:getWeaponSfx(weaponKind)
 		if weaponSfx then
-			ClientSoundManager:playSfxAt(muzzle, weaponSfx.FIRE, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
+			self:playStreamRoar(muzzleAttachment, weaponSfx.FIRE)
 		end
 		return true
 	end
@@ -562,6 +617,12 @@ end
 function ClientWeaponManager:endHold()
 	if self.holdInput then
 		self.holdInput:endHold()
+	end
+	-- this player's own stream stops with the trigger, not after the linger
+	local ownMuzzle = ClientViewModelManager:getMuzzle() or self:findHeldMuzzle(Players.LocalPlayer.Character)
+	local ownPart = if ownMuzzle then ownMuzzle.Parent else nil
+	if ownPart and ownPart:IsA("BasePart") then
+		self:stopStreamRoar(ownPart)
 	end
 end
 
@@ -601,7 +662,7 @@ function ClientWeaponManager:onWeaponFired(payload: any)
 		self:playFlameEffects(muzzleAttachment)
 		local weaponSfx = self:getWeaponSfx(payload.weaponKind)
 		if weaponSfx then
-			ClientSoundManager:playSfxAt(muzzle, weaponSfx.FIRE, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
+			self:playStreamRoar(muzzleAttachment, weaponSfx.FIRE)
 		end
 		return
 	end
@@ -823,6 +884,7 @@ function ClientWeaponManager:init()
 	RunService.RenderStepped:Connect(
 		function()
 			self:renderSecondaryBar()
+			self:stepStreamRoars()
 		end
 	)
 	UserInputService.InputBegan:Connect(
@@ -877,6 +939,7 @@ function ClientWeaponManager.new(): ClientWeaponManager
 	self.reloadEndTime = 0
 	self.reloadRenderToken = 0
 	self.pulseTokenByInstance = {}
+	self.streamRoarByPart = {}
 	self.isOverlayActive = false
 	self.catalog = nil
 	self.isScoped = false

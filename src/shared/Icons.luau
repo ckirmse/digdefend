@@ -49,13 +49,18 @@ Icons.WEAPON = {
 	-- the sidearm of the Recruit, Sniper, Prospector, Hauler, and Medic (2026-10-19)
 	[Enums.WeaponKind.PISTOL] = "rbxassetid://126590023979777",
 	[Enums.WeaponKind.ASSAULT_RIFLE] = "rbxassetid://104253125783801",
+	[Enums.WeaponKind.FLAMETHROWER] = "rbxassetid://77039042494300",
 }
 
 -- the GADGET slot's picture, by the Enums.GadgetKind carried (M66)
 Icons.GADGET = {
 	[Enums.GadgetKind.AUTO_TURRET] = "rbxassetid://84791820127176",
 	[Enums.GadgetKind.STIM_SHOT] = "rbxassetid://136139239798345",
+	[Enums.GadgetKind.REMOTE_CHARGE] = "rbxassetid://97927358319077",
 }
+-- the Remote Charge's slot once its mine is planted (2026-10-20), back
+-- to the mine's picture after the detonation
+Icons.GADGET_DETONATOR = "rbxassetid://110586066527047"
 
 -- the Binoculars' tag callout over a tagged monster (2026-10-19): the
 -- Sniper's reticle stands in until the Binoculars' own art lands

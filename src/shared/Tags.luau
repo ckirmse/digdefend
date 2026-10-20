@@ -50,6 +50,10 @@ module = {
 	-- part on the ground carrying the AutoTurret* attributes; clients clone
 	-- the model onto it and the owner's client adds the Pick Up prompt
 	AUTO_TURRET = "AutoTurret",
+	-- a planted Remote Charge (RemoteChargeManager, 2026-10-20): an
+	-- invisible server part on the ground carrying its owner's id; clients
+	-- clone the charge's model onto it and blink its light
+	REMOTE_CHARGE = "RemoteCharge",
 }
 
 return module

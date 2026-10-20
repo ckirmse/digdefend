@@ -2,17 +2,17 @@
 
 -- The Auto Turret as the client sees it (M66). Two jobs. While the GADGET
 -- tool is equipped and the class's gadget is the turret, a ghost of it
+-- (ClientGadgetGhost, shared with the Remote Charge since 2026-10-20)
 -- hangs a fixed distance ahead of the player on the ground, green where
--- the server would accept it and red where it would not (the same
--- AutoTurretRules the server decides by, read against the camp's
--- walkable areas); the use input asks the server to place it there, and a
--- red ghost refuses locally with the fail sound and a line. For every
--- standing turret (a Tags.AUTO_TURRET shadow), the designer's model is
--- cloned onto it from GameAssets/Gadgets, its head eased toward the yaw
--- the server publishes, an HP billboard hung from the placement info
--- template, and, for the owner alone, a Pick Up prompt made here so no
--- other client ever sees one. A shot is NotifyAutoTurretFired: a tracer
--- from the muzzle to the target's body.
+-- the server would accept it and red where it would not; the use input
+-- asks the server to place it there, and a red ghost refuses locally with
+-- the fail sound and a line. For every standing turret (a
+-- Tags.AUTO_TURRET shadow), the designer's model is cloned onto it from
+-- GameAssets/Gadgets, its head eased toward the yaw the server publishes,
+-- an HP billboard hung from the placement info template, and, for the
+-- owner alone, a Pick Up prompt made here so no other client ever sees
+-- one. A shot is NotifyAutoTurretFired: a tracer from the muzzle to the
+-- target's body.
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,7 +20,6 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
-local AutoTurretRules = require("@game/ReplicatedStorage/Shared/AutoTurretRules")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
@@ -34,6 +33,7 @@ local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayMa
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientDamageableManager = require(script.Parent.ClientDamageableManager)
+local ClientGadgetGhost = require(script.Parent.ClientGadgetGhost)
 local ClientWeaponManager = require(script.Parent.ClientWeaponManager)
 
 local ClientAutoTurretManager = {}
@@ -55,15 +55,9 @@ export type ClientAutoTurretManager = typeof(setmetatable(
 	{} :: {
 		template: Model?,
 		viewsByShadow: { [BasePart]: TurretView },
-		ghost: Model?,
-		ghostParts: { BasePart },
+		ghost: ClientGadgetGhost.ClientGadgetGhost?,
 		-- the GADGET tool is equipped and the class's gadget is this turret
 		isActive: boolean,
-		isGhostValid: boolean,
-		ghostPosition: Vector3?,
-		ghostYawDegrees: number,
-		placeDistanceStuds: number,
-		minGroundNormalY: number,
 		bodiesFolder: Folder?,
 		hasWarnedTemplate: boolean,
 	},
@@ -76,17 +70,6 @@ local NOTIFY_AUTO_TURRET_FIRED_SHAPE = {
 }
 
 local BODIES_FOLDER = "AutoTurretBodies"
-local GHOST_NAME = "AutoTurretGhost"
-local GHOST_TRANSPARENCY = 0.5
--- the ghost's ground ray: from above the spot to well below, so a slope
--- or a step still finds a floor
-local GHOST_RAY_ABOVE_STUDS = 10
-local GHOST_RAY_BELOW_STUDS = 30
--- the roof test the client can make without the server's path grid: a
--- surface with another floor this far beneath it is a roof, not the ground
--- (a ray from just under a surface never meets that surface again)
-local ROOF_PROBE_START_BELOW_STUDS = 0.5
-local ROOF_PROBE_LENGTH_STUDS = 60
 -- the Machine Gun's crack at the turret, full at this range and gone past the other
 local FIRE_SOUND_FULL_VOLUME_STUDS = 20
 local FIRE_SOUND_SILENT_STUDS = 120
@@ -109,10 +92,6 @@ end
 local function isUseInput(input: InputObject): boolean
 	return input.UserInputType == Enum.UserInputType.MouseButton1
 		or input.KeyCode == Enum.KeyCode.ButtonR2
-end
-
-local function hasTag(instance: Instance, tag: string): boolean
-	return CollectionService:HasTag(instance, tag)
 end
 
 function ClientAutoTurretManager:getBodiesFolder(): Folder
@@ -143,34 +122,6 @@ function ClientAutoTurretManager:findTemplate(): Model?
 		warn(`ClientAutoTurretManager: no GameAssets.{Constants.GADGET_TEMPLATES_FOLDER}.{Constants.AUTO_TURRET_TEMPLATE}; run scripts/studio/build_auto_turret_template.luau`)
 	end
 	return nil
-end
-
--- a clone the client owns outright: anchored, touching and hitting nothing
-function ClientAutoTurretManager:buildModel(): Model?
-	local template = self:findTemplate()
-	if not template then
-		return nil
-	end
-	local model = template:Clone()
-	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("BasePart") then
-			descendant.Anchored = true
-			descendant.CanCollide = false
-			descendant.CanQuery = false
-			descendant.CanTouch = false
-		end
-	end
-	return model
-end
-
--- stands the model on the base pose: its bounding box's bottom on the
--- ground point, turned the base's way
-function ClientAutoTurretManager:poseModel(model: Model, base: CFrame)
-	local turned = base * CFrame.Angles(0, math.rad(MODEL_YAW_OFFSET_DEGREES), 0)
-	model:PivotTo(turned)
-	local boxCFrame, boxSize = model:GetBoundingBox()
-	local lift = base.Position.Y - (boxCFrame.Position.Y - boxSize.Y / 2)
-	model:PivotTo(turned * CFrame.new(0, lift, 0))
 end
 
 function ClientAutoTurretManager:findBillboardTemplate(): BillboardGui?
@@ -224,14 +175,14 @@ function ClientAutoTurretManager:track(shadow: Instance)
 	if not shadow:IsA("BasePart") or self.viewsByShadow[shadow] then
 		return
 	end
-	local model = self:buildModel()
-	if not model then
+	local template = self:findTemplate()
+	if not template then
 		return
 	end
+	local model = ClientGadgetGhost.buildModel(template, shadow.Name)
 	-- the shadow's centre is half its height up; the model stands on the ground under it
 	local base = shadow.CFrame * CFrame.new(0, -shadow.Size.Y / 2, 0)
-	model.Name = shadow.Name
-	self:poseModel(model, base)
+	ClientGadgetGhost.poseModel(model, base, MODEL_YAW_OFFSET_DEGREES)
 	local head = model:FindFirstChild(Constants.AUTO_TURRET_HEAD_PART)
 	local headPart = if head and head:IsA("BasePart") then head else nil
 	local view: TurretView = {
@@ -266,8 +217,12 @@ function ClientAutoTurretManager:track(shadow: Instance)
 		end
 	)
 
-	-- only the owner picks it up, so only the owner gets a prompt at all
+	-- only the owner picks it up, so only the owner gets a prompt at all;
+	-- their own placing rings like a tower going up (2026-10-20)
 	local ownerUserId = readNumber(shadow:GetAttribute(Attributes.AUTO_TURRET_OWNER_USER_ID), 0)
+	if ownerUserId == Players.LocalPlayer.UserId then
+		ClientSoundManager:playSfx(SoundNames.Sfx.PLACEMENT_BUILD)
+	end
 	if ownerUserId == Players.LocalPlayer.UserId and standPart then
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.ActionText = Constants.AUTO_TURRET_PICK_UP_ACTION_TEXT
@@ -307,109 +262,35 @@ end
 
 -- the ghost exists only while the turret is the tool in hand
 function ClientAutoTurretManager:setGhostVisible(isVisible: boolean)
-	if not isVisible then
-		if self.ghost then
-			self.ghost:Destroy()
-			self.ghost = nil
-			self.ghostParts = {}
-		end
-		self.ghostPosition = nil
-		return
-	end
-	if self.ghost then
-		return
-	end
-	local model = self:buildModel()
-	if not model then
-		return
-	end
-	model.Name = GHOST_NAME
-	local parts = {}
-	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("BasePart") then
-			descendant.Transparency = GHOST_TRANSPARENCY
-			descendant.Material = Enum.Material.SmoothPlastic
-			descendant.CastShadow = false
-			table.insert(parts, descendant)
-		end
-	end
-	model.Parent = self:getBodiesFolder()
-	self.ghost = model
-	self.ghostParts = parts
-end
-
--- inside one of the camp's monster areas (WaveAreas, CampArea), flat
-function ClientAutoTurretManager:isInsideMonsterArea(position: Vector3): boolean
-	local camp = workspace:FindFirstChild(Constants.CAMP_FOLDER)
-	if not camp then
-		return false
-	end
-	for _, folderName in { Constants.CAMP_WAVE_AREAS_FOLDER, Constants.CAMP_CAMP_AREA_FOLDER } do
-		local folder = camp:FindFirstChild(folderName)
-		if not folder then
-			continue
-		end
-		for _, area in folder:GetChildren() do
-			if not area:IsA("BasePart") then
-				continue
-			end
-			local localPosition = area.CFrame:PointToObjectSpace(Vector3.new(position.X, area.Position.Y, position.Z))
-			if math.abs(localPosition.X) <= area.Size.X / 2 and math.abs(localPosition.Z) <= area.Size.Z / 2 then
-				return true
-			end
-		end
-	end
-	return false
-end
-
-function ClientAutoTurretManager:updateGhost()
 	local ghost = self.ghost
-	local character = Players.LocalPlayer.Character
-	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
-	if not ghost or not root or not root:IsA("BasePart") then
-		self.isGhostValid = false
-		self.ghostPosition = nil
+	if not isVisible then
+		if ghost then
+			ghost:destroy()
+			self.ghost = nil
+		end
 		return
 	end
-	local origin = AutoTurretRules.ghostOrigin(root.CFrame, self.placeDistanceStuds)
-	local excluded: { Instance } = { ghost, self:getBodiesFolder() }
-	for _, player in Players:GetPlayers() do
-		if player.Character then
-			table.insert(excluded, player.Character)
-		end
+	if ghost then
+		return
 	end
-	local parameters = RaycastParams.new()
-	parameters.FilterType = Enum.RaycastFilterType.Exclude
-	parameters.FilterDescendantsInstances = excluded
-	parameters.RespectCanCollide = true
-	local hit = workspace:Raycast(origin + Vector3.new(0, GHOST_RAY_ABOVE_STUDS, 0), Vector3.new(0, -(GHOST_RAY_ABOVE_STUDS + GHOST_RAY_BELOW_STUDS), 0), parameters)
-	local isGround = hit ~= nil and AutoTurretRules.findBlockingTag(hit.Instance, hasTag) == nil
-	local groundPosition = if hit then hit.Position else origin
-	local normalY = if hit then hit.Normal.Y else 0
-	local isAtGroundLevel = true
-	if hit then
-		local beneath = workspace:Raycast(hit.Position - Vector3.new(0, ROOF_PROBE_START_BELOW_STUDS, 0), Vector3.new(0, -ROOF_PROBE_LENGTH_STUDS, 0), parameters)
-		isAtGroundLevel = beneath == nil
+	local template = self:findTemplate()
+	if not template then
+		return
 	end
-	local problem = AutoTurretRules.placementProblem(isGround, normalY, self.minGroundNormalY, self:isInsideMonsterArea(groundPosition), isAtGroundLevel)
-	self.isGhostValid = problem == nil
-	self.ghostPosition = groundPosition
-	self.ghostYawDegrees = AutoTurretRules.yawDegreesOf(root.CFrame)
-	self:poseModel(ghost, CFrame.new(groundPosition) * CFrame.Angles(0, math.rad(self.ghostYawDegrees), 0))
-	local color = if self.isGhostValid then UiStyle.POSITIVE_COLOR else UiStyle.NEGATIVE_COLOR
-	for _, part in self.ghostParts do
-		part.Color = color
-	end
+	ghost = ClientGadgetGhost.new(template, self:getBodiesFolder(), MODEL_YAW_OFFSET_DEGREES)
+	ghost:setVisible(true)
+	self.ghost = ghost
 end
 
 -- the use input (click, trigger, or the touch action button): place where
 -- the ghost stands, or say why not
 function ClientAutoTurretManager:use()
-	if not self.isActive or not self.ghost or ClientOverlayManager:isOverlayActive() then
+	local ghost = self.ghost
+	if not self.isActive or not ghost or ClientOverlayManager:isOverlayActive() then
 		return
 	end
-	local position = self.ghostPosition
-	if not self.isGhostValid or not position then
+	local position = ghost.position
+	if not ghost.isValid or not position then
 		ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
 		ClientPlayerFeedbackManager:giveLocal(FEEDBACK_CANNOT_BUILD, FEEDBACK_DISPLAY_SEC)
 		return
@@ -418,7 +299,7 @@ function ClientAutoTurretManager:use()
 		NetEventNames.TRY_PLACE_AUTO_TURRET,
 		{
 			position = position,
-			yawDegrees = self.ghostYawDegrees,
+			yawDegrees = ghost.yawDegrees,
 		}
 	)
 end
@@ -438,8 +319,9 @@ function ClientAutoTurretManager:onRenderStep(deltaTime: number)
 		view.shownYaw += delta * follow
 		self:applyYaw(view)
 	end
-	if self.isActive then
-		self:updateGhost()
+	local ghost = self.ghost
+	if self.isActive and ghost then
+		ghost:update()
 	end
 end
 
@@ -473,8 +355,6 @@ function ClientAutoTurretManager:refreshActive()
 end
 
 function ClientAutoTurretManager:init()
-	self.placeDistanceStuds = readNumber(ClientDataManager:getGameMetadata(Attributes.AUTO_TURRET_PLACE_DISTANCE_STUDS), self.placeDistanceStuds)
-	self.minGroundNormalY = readNumber(ClientDataManager:getGameMetadata(Attributes.AUTO_TURRET_MIN_GROUND_NORMAL_Y), self.minGroundNormalY)
 	for _, shadow in CollectionService:GetTagged(Tags.AUTO_TURRET) do
 		self:track(shadow)
 	end
@@ -524,13 +404,7 @@ function ClientAutoTurretManager.new(): ClientAutoTurretManager
 	self.template = nil
 	self.viewsByShadow = {}
 	self.ghost = nil
-	self.ghostParts = {}
 	self.isActive = false
-	self.isGhostValid = false
-	self.ghostPosition = nil
-	self.ghostYawDegrees = 0
-	self.placeDistanceStuds = 15
-	self.minGroundNormalY = 0.8
 	self.bodiesFolder = nil
 	self.hasWarnedTemplate = false
 	return self

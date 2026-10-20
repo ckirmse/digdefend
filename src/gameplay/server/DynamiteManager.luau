@@ -46,10 +46,11 @@ export type DynamiteManager = typeof(setmetatable(
 
 local TRY_THROW_DYNAMITE_SHAPE = {}
 
+-- the thrown stick is the physics body only, invisible; each client
+-- dresses it with the TntStick mesh (2026-10-20)
 local STICK_SIZE = Vector3.new(0.5, 1.2, 0.5)
 -- how often the server samples the stick's position while it flies
 local TRACK_INTERVAL_SEC = 0.1
-local STICK_COLOR = Color3.fromRGB(190, 40, 40)
 local FOLDER_NAME = "Dynamite"
 
 function DynamiteManager:getFolder(): Folder
@@ -128,8 +129,7 @@ function DynamiteManager:handleThrow(player: Player)
 	stick.Name = "Dynamite"
 	stick.Shape = Enum.PartType.Cylinder
 	stick.Size = STICK_SIZE
-	stick.Color = STICK_COLOR
-	stick.Material = Enum.Material.SmoothPlastic
+	stick.Transparency = 1
 	stick.CanQuery = false
 	stick.CanTouch = false
 	stick.CFrame = CFrame.new(root.Position + look * DynamiteData.THROW_OFFSET_STUDS + Vector3.new(0, 1, 0)) * CFrame.Angles(0, 0, math.pi / 2)

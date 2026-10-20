@@ -58,7 +58,6 @@ return {
 				-- rungs (5 to 4, 15 to 11) and bites more from rung 3 up
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
 				[Enums.ClassModifier.MINING_POWER] = 0.75,
-				[Enums.ClassModifier.POST_DAMAGE] = 1.25,
 			},
 		},
 		-- Combat: Tank Destroyer / Support
@@ -83,7 +82,9 @@ return {
 		[Enums.ClassKind.PYRO] = {
 			KIT = {
 				WEAPON = Enums.WeaponKind.FLAMETHROWER,
-				POST = Enums.PostWeaponKind.MORTAR,
+				-- the direct post for the combat class; the TNT Launcher (the Napalm Mortar then) went
+				-- to the Demolitionist (decided 2026-10-20)
+				POST = Enums.PostWeaponKind.ROCKET_LAUNCHER,
 				TOWER = Enums.TowerKind.FLAMETHROWER,
 				GADGET = Enums.GadgetKind.REMOTE_CHARGE,
 			},
@@ -91,7 +92,6 @@ return {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
 				[Enums.ClassModifier.MINING_POWER] = 0.8,
-				[Enums.ClassModifier.BURN_DURATION] = 1.5,
 				[Enums.ClassModifier.TRAP_COST] = 0.5,
 			},
 		},
@@ -154,7 +154,6 @@ return {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
 				[Enums.ClassModifier.MINING_POWER] = 0.8,
-				[Enums.ClassModifier.TOWER_FIRE_RATE] = 1.2,
 			},
 		},
 		-- Mining: Balanced / Combat: Group Destroyer
@@ -179,7 +178,8 @@ return {
 		[Enums.ClassKind.DEMOLITIONIST] = {
 			KIT = {
 				WEAPON = Enums.WeaponKind.RIFLE,
-				POST = Enums.PostWeaponKind.ROCKET_LAUNCHER,
+				-- the lob, a TNT bomb in the air (2026-10-20, from the Pyro)
+				POST = Enums.PostWeaponKind.MORTAR,
 				TOWER = Enums.TowerKind.FLAMETHROWER,
 				GADGET = Enums.GadgetKind.DYNAMITE,
 			},
@@ -187,7 +187,6 @@ return {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
 				[Enums.ClassModifier.MINING_POWER] = 1.0,
-				[Enums.ClassModifier.DYNAMITE_DAMAGE] = 2.0,
 				[Enums.ClassModifier.TOWER_BUILD_COST] = 1.3,
 			},
 		},

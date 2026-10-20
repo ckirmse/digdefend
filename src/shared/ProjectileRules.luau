@@ -67,4 +67,64 @@ function ProjectileRules.levelRangeStuds(speedStudsPerSec: number, gravityStudsP
 	return speedStudsPerSec * speedStudsPerSec * math.sin(2 * pitch) / gravityStudsPerSec2
 end
 
+-- a lob at a fixed elevation (the TNT Launcher, 2026-10-20): the speed
+-- that lands a shell from origin on target is solved from
+-- v^2 = g d^2 / (2 cos^2(a) (d tan(a) - h)), so the gunner aims at a spot
+-- and the arc is the gun's. A spot past the top speed's reach gets the
+-- top speed instead and lands short, on the target's own level, and
+-- isReached says so; the flight time is for a range that fits the arc
+export type Lob = {
+	unitDirection: Vector3,
+	speedStudsPerSec: number,
+	landing: Vector3,
+	flightSec: number,
+	isReached: boolean,
+}
+
+function ProjectileRules.lobToward(origin: Vector3, target: Vector3, angleDegrees: number, gravityStudsPerSec2: number, maxSpeedStudsPerSec: number): Lob
+	local flat = Vector3.new(target.X - origin.X, 0, target.Z - origin.Z)
+	local distance = flat.Magnitude
+	local height = target.Y - origin.Y
+	local angle = math.rad(angleDegrees)
+	local cosAngle = math.cos(angle)
+	local sinAngle = math.sin(angle)
+	local tanAngle = math.tan(angle)
+	local flatUnit = if distance > 1e-6 then flat.Unit else Vector3.zAxis
+	local unitDirection = flatUnit * cosAngle + Vector3.yAxis * sinAngle
+	local drop = distance * tanAngle - height
+	if distance > 1e-6 and drop > 0 then
+		local speed = math.sqrt(gravityStudsPerSec2 * distance * distance / (2 * cosAngle * cosAngle * drop))
+		if speed <= maxSpeedStudsPerSec then
+			return {
+				unitDirection = unitDirection,
+				speedStudsPerSec = speed,
+				landing = target,
+				flightSec = distance / (speed * cosAngle),
+				isReached = true,
+			}
+		end
+	end
+	-- the farthest landing on the target's level at the top speed:
+	-- g d^2 - 2 v^2 cos^2(a) tan(a) d + 2 v^2 cos^2(a) h = 0, the far root
+	local speedSquared = maxSpeedStudsPerSec * maxSpeedStudsPerSec
+	local horizontalSquared = speedSquared * cosAngle * cosAngle
+	local halfLinear = horizontalSquared * tanAngle
+	local discriminant = halfLinear * halfLinear - 2 * gravityStudsPerSec2 * horizontalSquared * height
+	local reach
+	if discriminant >= 0 then
+		reach = (halfLinear + math.sqrt(discriminant)) / gravityStudsPerSec2
+	else
+		-- too high to reach on its level: the level reach is the best guess
+		reach = ProjectileRules.levelRangeStuds(maxSpeedStudsPerSec, gravityStudsPerSec2, angleDegrees)
+	end
+	reach = math.min(reach, distance)
+	return {
+		unitDirection = unitDirection,
+		speedStudsPerSec = maxSpeedStudsPerSec,
+		landing = Vector3.new(origin.X, target.Y, origin.Z) + flatUnit * reach,
+		flightSec = reach / math.max(maxSpeedStudsPerSec * cosAngle, 1e-6),
+		isReached = false,
+	}
+end
+
 return ProjectileRules

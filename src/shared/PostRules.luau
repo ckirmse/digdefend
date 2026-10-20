@@ -27,6 +27,11 @@ export type ProjectileData = {
 	GRAVITY_STUDS_PER_SEC2: number?,
 	IS_PIERCING: boolean?,
 	HOMING: { TURN_DEGREES_PER_SEC: number }?,
+	-- a lob at this fixed elevation toward the aim point, the speed solved
+	-- per shot up to SPEED_STUDS_PER_SEC (ProjectileRules.lobToward); the
+	-- GameAssets/Effects part the gunner sees on the landing spot
+	LOB_ANGLE_DEGREES: number?,
+	TARGET_TEMPLATE: string?,
 }
 
 -- the class posts' blocks (2026-10-16); GameData/Posts/PostWeapons says
@@ -113,8 +118,16 @@ export type Stats = {
 	headshotMultiplier: number,
 	chainJumpStuds: number?,
 	pullRadiusStuds: number?,
-	-- Damage widens the pool
+	-- the TNT Launcher's rows (2026-10-20): Impact Radius widens the
+	-- shell's burst and the pool, Fire Damage is the pool's burn per second
+	-- (and scales the burst with Damage), Fire Length is how long the pool
+	-- burns and how long each burn stack lasts; nil where the kind has no
+	-- PROJECTILE or POOL block
+	splashRadiusStuds: number?,
 	poolRadiusStuds: number?,
+	poolSec: number?,
+	burnDamagePerSec: number?,
+	burnSec: number?,
 }
 
 export type Offer = {
@@ -150,6 +163,9 @@ PostRules.UPGRADE_ATTRIBUTE_BY_POST_ATTRIBUTE = {
 	[Enums.PostAttribute.RANGE] = Attributes.POST_UPGRADE_RANGE,
 	[Enums.PostAttribute.COOLDOWN] = Attributes.POST_UPGRADE_COOLDOWN,
 	[Enums.PostAttribute.HEADSHOT] = Attributes.POST_UPGRADE_HEADSHOT,
+	[Enums.PostAttribute.IMPACT_RADIUS] = Attributes.POST_UPGRADE_IMPACT_RADIUS,
+	[Enums.PostAttribute.FIRE_DAMAGE] = Attributes.POST_UPGRADE_FIRE_DAMAGE,
+	[Enums.PostAttribute.FIRE_LENGTH] = Attributes.POST_UPGRADE_FIRE_LENGTH,
 }
 
 PostRules.NO_POST = 0
@@ -186,7 +202,7 @@ function PostRules.statsFor(catalog: Catalog, kind: number, upgrades: Upgrades):
 	end
 	local fireRateMultiplier = multiplierFor(Enums.PostAttribute.FIRE_RATE)
 	return {
-		damage = data.DAMAGE * multiplierFor(Enums.PostAttribute.DAMAGE),
+		damage = data.DAMAGE * multiplierFor(Enums.PostAttribute.DAMAGE) * multiplierFor(Enums.PostAttribute.FIRE_DAMAGE),
 		fireIntervalSec = data.FIRE_INTERVAL_SEC / fireRateMultiplier,
 		fireCooldownSec = data.FIRE_COOLDOWN_SEC / fireRateMultiplier,
 		reloadSec = if data.RELOAD_SEC then data.RELOAD_SEC / fireRateMultiplier else nil,
@@ -204,7 +220,11 @@ function PostRules.statsFor(catalog: Catalog, kind: number, upgrades: Upgrades):
 		headshotMultiplier = (data.HEADSHOT_MULTIPLIER or catalog.headshotMultiplier) + (bonuses[Enums.PostAttribute.HEADSHOT] or 0) * PostRules.upgradeLevel(upgrades, Enums.PostAttribute.HEADSHOT),
 		chainJumpStuds = if data.CHAIN then data.CHAIN.JUMP_STUDS * multiplierFor(Enums.PostAttribute.RANGE) else nil,
 		pullRadiusStuds = if data.PULL then data.PULL.RADIUS_STUDS * multiplierFor(Enums.PostAttribute.RANGE) else nil,
-		poolRadiusStuds = if data.POOL then data.POOL.RADIUS_STUDS * multiplierFor(Enums.PostAttribute.DAMAGE) else nil,
+		splashRadiusStuds = if data.PROJECTILE then data.PROJECTILE.SPLASH_RADIUS_STUDS * multiplierFor(Enums.PostAttribute.IMPACT_RADIUS) else nil,
+		poolRadiusStuds = if data.POOL then data.POOL.RADIUS_STUDS * multiplierFor(Enums.PostAttribute.IMPACT_RADIUS) else nil,
+		poolSec = if data.POOL then data.POOL.SEC * multiplierFor(Enums.PostAttribute.FIRE_LENGTH) else nil,
+		burnDamagePerSec = if data.POOL then data.POOL.BURN_DAMAGE_PER_SEC * multiplierFor(Enums.PostAttribute.FIRE_DAMAGE) else nil,
+		burnSec = if data.POOL then data.POOL.BURN_SEC * multiplierFor(Enums.PostAttribute.FIRE_LENGTH) else nil,
 	}
 end
 

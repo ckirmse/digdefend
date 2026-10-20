@@ -58,6 +58,13 @@ export type ClientToolBarManager = typeof(setmetatable(
 		-- icon dimmed, the effect counted down on the badge, then the grey sheet
 		isStimShotUsed: boolean,
 		stimShotEffectEndTime: number,
+		-- the Remote Charge's cooldown after a detonation (2026-10-20): the
+		-- server time the next mine is in hand and the cooldown's length,
+		-- the slot's grey sheet draining down over it
+		remoteChargeReadyTime: number,
+		remoteChargeCooldownSec: number,
+		-- the gadget's held variant ("" for the gadget itself), which renames the slot
+		gadgetVariant: string,
 		stimCountdownConnection: RBXScriptConnection?,
 	},
 	ClientToolBarManager
@@ -66,6 +73,7 @@ export type ClientToolBarManager = typeof(setmetatable(
 local FEEDBACK_NOT_AVAILABLE_BY_GADGET: { [number]: string } = {
 	[Enums.GadgetKind.AUTO_TURRET] = "Auto Turret not available yet.",
 	[Enums.GadgetKind.STIM_SHOT] = "You'll receive another STIM in the morning",
+	[Enums.GadgetKind.REMOTE_CHARGE] = "Next charge is on its way",
 }
 -- a used Stim Shot's icon while the slot waits for dawn
 local USED_STIM_ICON_TRANSPARENCY = 0.7
@@ -106,6 +114,9 @@ function ClientToolBarManager:isGadgetLost(tool: number): boolean
 		-- the sheet waits until the effect has run out; the countdown shows first
 		return self.isStimShotUsed and self:getStimSecondsLeft() <= 0
 	end
+	if self.gadgetKind == Enums.GadgetKind.REMOTE_CHARGE then
+		return self:getRemoteChargeSecondsLeft() > 0
+	end
 	return false
 end
 
@@ -121,23 +132,40 @@ function ClientToolBarManager:getStimSecondsLeft(): number
 	return math.max(0, self.stimShotEffectEndTime - workspace:GetServerTimeNow())
 end
 
--- the Stim Shot's slot while used: a dimmed icon, the seconds of the
--- effect left in a number the icon's size over it, and the grey sheet
--- once they are gone
+function ClientToolBarManager:getRemoteChargeSecondsLeft(): number
+	return math.max(0, self.remoteChargeReadyTime - workspace:GetServerTimeNow())
+end
+
+-- the gadget slot's countdown: the Stim Shot while used (a dimmed icon,
+-- the seconds of the effect left in a number the icon's size over it,
+-- then the grey sheet once they are gone) and the Remote Charge while
+-- cooling down (the sheet draining down over the cooldown, no number;
+-- decided 2026-10-20)
 function ClientToolBarManager:renderStim()
-	local secondsLeft = self:getStimSecondsLeft()
+	local secondsLeft = 0
 	for _, view in self.slotViews do
-		if view.tool ~= Enums.ToolKind.GADGET or self.gadgetKind ~= Enums.GadgetKind.STIM_SHOT then
+		if view.tool ~= Enums.ToolKind.GADGET then
 			continue
 		end
 		local icon = view.frame:FindFirstChild(Constants.TOOL_SLOT_ICON)
-		if icon and icon:IsA("ImageLabel") then
-			icon.ImageTransparency = if self.isStimShotUsed then USED_STIM_ICON_TRANSPARENCY else 0
-		end
 		local timerLabel = view.frame:FindFirstChild(Constants.TOOL_SLOT_TIMER_LABEL)
-		if timerLabel and timerLabel:IsA("TextLabel") then
-			timerLabel.Text = tostring(math.ceil(secondsLeft))
-			timerLabel.Visible = self.isStimShotUsed and secondsLeft > 0
+		if self.gadgetKind == Enums.GadgetKind.STIM_SHOT then
+			secondsLeft = self:getStimSecondsLeft()
+			if icon and icon:IsA("ImageLabel") then
+				icon.ImageTransparency = if self.isStimShotUsed then USED_STIM_ICON_TRANSPARENCY else 0
+			end
+			if timerLabel and timerLabel:IsA("TextLabel") then
+				timerLabel.Text = tostring(math.ceil(secondsLeft))
+				timerLabel.Visible = self.isStimShotUsed and secondsLeft > 0
+			end
+		elseif self.gadgetKind == Enums.GadgetKind.REMOTE_CHARGE then
+			secondsLeft = self:getRemoteChargeSecondsLeft()
+			if icon and icon:IsA("ImageLabel") then
+				icon.ImageTransparency = 0
+			end
+			if timerLabel and timerLabel:IsA("TextLabel") then
+				timerLabel.Visible = false
+			end
 		end
 	end
 	self:renderLost()
@@ -228,6 +256,11 @@ function ClientToolBarManager:renderSlots()
 		if tool == Enums.ToolKind.GADGET and Enums.isValidValue(Enums.GadgetKind, self.gadgetKind) then
 			publicName = Enums.getPublicName(Enums.GadgetKind, self.gadgetKind)
 			imageId = Icons.GADGET[self.gadgetKind]
+			-- the Remote Charge's slot is the detonator once its mine is planted (2026-10-20)
+			if self.gadgetVariant == Constants.REMOTE_CHARGE_DETONATOR_VARIANT then
+				publicName = Constants.REMOTE_CHARGE_DETONATOR_NAME
+				imageId = Icons.GADGET_DETONATOR
+			end
 		end
 		local hasImage = not Icons.isPlaceholder(imageId)
 		local icon = frame:FindFirstChild(Constants.TOOL_SLOT_ICON)
@@ -262,7 +295,18 @@ function ClientToolBarManager:renderSlots()
 	self:renderStim()
 end
 
--- the grey sheet covers the gadget slot while its turret is lost
+-- the share of the gadget slot's sheet still showing: the whole of it
+-- for a lost turret or a spent Stim Shot, the Remote Charge's cooldown
+-- left as a share of its length (the sheet is anchored to the slot's
+-- bottom, so it drains from the top down)
+function ClientToolBarManager:getLostShare(tool: number): number
+	if tool == Enums.ToolKind.GADGET and self.gadgetKind == Enums.GadgetKind.REMOTE_CHARGE then
+		return math.clamp(self:getRemoteChargeSecondsLeft() / math.max(self.remoteChargeCooldownSec, 1e-3), 0, 1)
+	end
+	return 1
+end
+
+-- the grey sheet covers the gadget slot while its gadget is lost or cooling
 function ClientToolBarManager:renderLost()
 	for _, view in self.slotViews do
 		local overlay = view.frame:FindFirstChild(Constants.TOOL_SLOT_COOLDOWN_OVERLAY)
@@ -270,7 +314,7 @@ function ClientToolBarManager:renderLost()
 			continue
 		end
 		overlay.Visible = self:isGadgetLost(view.tool)
-		overlay.Size = UDim2.fromScale(1, 1)
+		overlay.Size = UDim2.fromScale(1, self:getLostShare(view.tool))
 	end
 end
 
@@ -382,6 +426,12 @@ function ClientToolBarManager:init()
 	self.gadgetKind = if typeof(gadgetKind) == "number" then gadgetKind else Enums.GadgetKind.NONE
 	self.isAutoTurretLost = ClientDataManager:getCurrentPlayerAttribute(Attributes.AUTO_TURRET_IS_LOST) == true
 	self.isStimShotUsed = ClientDataManager:getCurrentPlayerAttribute(Attributes.STIM_SHOT_IS_USED) == true
+	local readyTime = ClientDataManager:getCurrentPlayerAttribute(Attributes.REMOTE_CHARGE_READY_TIME)
+	self.remoteChargeReadyTime = if typeof(readyTime) == "number" then readyTime else 0
+	local cooldownSec = ClientDataManager:getGameMetadata(Attributes.REMOTE_CHARGE_COOLDOWN_SEC)
+	self.remoteChargeCooldownSec = if typeof(cooldownSec) == "number" then cooldownSec else self.remoteChargeCooldownSec
+	local gadgetVariant = ClientDataManager:getCurrentPlayerAttribute(Attributes.GADGET_VARIANT)
+	self.gadgetVariant = if typeof(gadgetVariant) == "string" then gadgetVariant else ""
 	local effectEndTime = ClientDataManager:getCurrentPlayerAttribute(Attributes.STIM_SHOT_EFFECT_END_TIME)
 	self.stimShotEffectEndTime = if typeof(effectEndTime) == "number" then effectEndTime else 0
 	self:renderSlots()
@@ -422,6 +472,20 @@ function ClientToolBarManager:init()
 		end
 	)
 	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.REMOTE_CHARGE_READY_TIME,
+		function(value: any)
+			self.remoteChargeReadyTime = if typeof(value) == "number" then value else 0
+			self:renderStim()
+		end
+	)
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.GADGET_VARIANT,
+		function(value: any)
+			self.gadgetVariant = if typeof(value) == "string" then value else ""
+			self:renderSlots()
+		end
+	)
+	ClientDataManager:subscribeCurrentPlayerAttribute(
 		Attributes.STIM_SHOT_IS_USED,
 		function(value: any)
 			self.isStimShotUsed = value == true
@@ -458,6 +522,9 @@ function ClientToolBarManager.new(): ClientToolBarManager
 	self.isAutoTurretLost = false
 	self.isStimShotUsed = false
 	self.stimShotEffectEndTime = 0
+	self.remoteChargeReadyTime = 0
+	self.remoteChargeCooldownSec = 15
+	self.gadgetVariant = ""
 	self.stimCountdownConnection = nil
 	return self
 end

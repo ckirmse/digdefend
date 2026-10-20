@@ -39,6 +39,9 @@ type ToolState = {
 	weaponKind: number,
 	-- the Enums.GadgetKind in the GADGET slot (M66); NONE until the class says
 	gadgetKind: number,
+	-- the gadget's held variant (2026-10-20): nil for the gadget itself,
+	-- else the suffix of its "GADGET_<KIND>_<VARIANT>" template
+	gadgetVariant: string?,
 	-- consumables only: how many of each are held
 	countByTool: { [number]: number },
 	-- true while the player mans a post: nothing can be equipped, so the
@@ -125,6 +128,19 @@ function ToolManager:setGadgetKind(player: Player, gadgetKind: number)
 		return
 	end
 	state.gadgetKind = gadgetKind
+	state.gadgetVariant = nil
+	self:replicate(player)
+end
+
+-- which model the gadget slot holds (2026-10-20): the gadget, or one of
+-- its variants (the Remote Charge's detonator once its mine is planted);
+-- the hand swaps at once if the slot is equipped
+function ToolManager:setGadgetVariant(player: Player, variant: string?)
+	local state = self.stateByPlayer[player]
+	if not state or state.gadgetVariant == variant then
+		return
+	end
+	state.gadgetVariant = variant
 	self:replicate(player)
 end
 
@@ -198,7 +214,9 @@ function ToolManager:templateNameFor(player: Player, tool: number): string
 	end
 	if tool == Enums.ToolKind.GADGET then
 		local state = self.stateByPlayer[player]
-		return `{key}_{Enums.getName(Enums.GadgetKind, if state then state.gadgetKind else Enums.GadgetKind.NONE) or "?"}`
+		local name = `{key}_{Enums.getName(Enums.GadgetKind, if state then state.gadgetKind else Enums.GadgetKind.NONE) or "?"}`
+		local variant = if state then state.gadgetVariant else nil
+		return if variant then `{name}_{variant}` else name
 	end
 	return key
 end
@@ -299,6 +317,7 @@ function ToolManager:replicate(player: Player)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.WEAPON_KIND, state.weaponKind)
 	SplendidReplicationManager:setPublicAttribute(player, Attributes.GADGET_KIND, state.gadgetKind)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.GADGET_KIND, state.gadgetKind)
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.GADGET_VARIANT, state.gadgetVariant or "")
 end
 
 function ToolManager:grantTool(player: Player, tool: number)
@@ -374,6 +393,7 @@ function ToolManager:onPlayerReady(player: Player)
 		pickAxeLevel = STARTING_PICK_AXE_LEVEL,
 		weaponKind = 0,
 		gadgetKind = Enums.GadgetKind.NONE,
+		gadgetVariant = nil,
 		countByTool = {},
 	}
 	-- a respawn arrives with the Roblox side of the old Tool gone; the

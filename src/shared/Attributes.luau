@@ -46,6 +46,10 @@ module = {
 	-- the Enums.GadgetKind in the GADGET slot (M66), public and private
 	-- like the weapon kind, so the bar names it ("AUTO TURRET")
 	GADGET_KIND = "GadgetKind",
+	-- CurrentPlayer (2026-10-20): the gadget's held variant ("" for the
+	-- gadget itself; the Remote Charge's DETONATOR once its mine is
+	-- planted), which picks the model in hand and the slot's name
+	GADGET_VARIANT = "GadgetVariant",
 	-- CurrentPlayer (M66): true from an Auto Turret's loss until the next
 	-- dawn, when it may be placed again
 	AUTO_TURRET_IS_LOST = "AutoTurretIsLost",
@@ -56,6 +60,12 @@ module = {
 	-- server time its effect ends (0 when none is running), for the slot's countdown
 	STIM_SHOT_IS_USED = "StimShotIsUsed",
 	STIM_SHOT_EFFECT_END_TIME = "StimShotEffectEndTime",
+	-- the Remote Charge (RemoteChargeManager, 2026-10-20): the server time
+	-- the next mine is in hand after a detonation (CurrentPlayer; 0 when
+	-- ready), for the slot's countdown
+	REMOTE_CHARGE_READY_TIME = "RemoteChargeReadyTime",
+	-- the cooldown's length (GameMetadata), so the slot's sheet can drain by its share
+	REMOTE_CHARGE_COOLDOWN_SEC = "RemoteChargeCooldownSec",
 	BINOCULARS_TAG = "BinocularsTag",
 	BINOCULARS_COOLDOWN_END_TIME = "BinocularsCooldownEndTime",
 	-- the cooldown's length (GameMetadata), so the hint can show its share
@@ -399,6 +409,9 @@ module = {
 	POST_UPGRADE_RANGE = "PostUpgradeRange",
 	POST_UPGRADE_COOLDOWN = "PostUpgradeCooldown",
 	POST_UPGRADE_HEADSHOT = "PostUpgradeHeadshot",
+	POST_UPGRADE_IMPACT_RADIUS = "PostUpgradeImpactRadius",
+	POST_UPGRADE_FIRE_DAMAGE = "PostUpgradeFireDamage",
+	POST_UPGRADE_FIRE_LENGTH = "PostUpgradeFireLength",
 	-- on a Tools/WEAPON_* template (ClientViewModelManager, 2026-10-19): a
 	-- CFrame the designer sets in the Explorer to move that gun from the
 	-- shared first-person hold (the Assault Rifle sat too far forward)
@@ -493,6 +506,8 @@ module = {
 	AUTO_TURRET_MAX_HP = "AutoTurretMaxHp",
 	AUTO_TURRET_YAW_DEGREES = "AutoTurretYawDegrees",
 	AUTO_TURRET_LEVEL = "AutoTurretLevel",
+	-- on a Remote Charge shadow (RemoteChargeManager, 2026-10-20): whose it is
+	REMOTE_CHARGE_OWNER_USER_ID = "RemoteChargeOwnerUserId",
 	-- on a ParticleEmitter in a burst effect template (GameAssets/Effects):
 	-- how many particles one burst emits
 	BURST_COUNT = "BurstCount",

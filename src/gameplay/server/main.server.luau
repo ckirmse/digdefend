@@ -10,6 +10,7 @@ local GadgetUpgradeManager = require(script.Parent.GadgetUpgradeManager)
 local BackpackManager = require(script.Parent.BackpackManager)
 local BinocularsManager = require(script.Parent.BinocularsManager)
 local StimShotManager = require(script.Parent.StimShotManager)
+local RemoteChargeManager = require(script.Parent.RemoteChargeManager)
 local BalanceAudit = require(script.Parent.BalanceAudit)
 local BootsManager = require(script.Parent.BootsManager)
 local DiamondTapManager = require(script.Parent.DiamondTapManager)
@@ -210,6 +211,14 @@ StimShotManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
 		StimShotManager:onRunStarted()
+	end
+)
+-- the Pyro's Remote Charge (2026-10-20): after the posts, whose pools its
+-- burst leaves, and the targets it hurts
+RemoteChargeManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		RemoteChargeManager:onRunStarted()
 	end
 )
 -- the monsters (M29): the path grid reads the fresh camp once the
