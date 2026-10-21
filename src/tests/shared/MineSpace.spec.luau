@@ -93,3 +93,24 @@ describe(
 		)
 	end
 )
+
+describe(
+	"MineSpace.containsPosition",
+	function()
+		it(
+			"is true inside the grid's cells and false past any edge",
+			function()
+				local space = MineSpace.new(ORIGIN, Enums.MineFacing.NEGATIVE_X, 2, 1, BLOCK)
+				local forward = Vector3.new(-1, 0, 0)
+				-- two blocks in at floor level, on the centreline
+				expect(MineSpace.containsPosition(space, 10, 6, 5, ORIGIN + forward * (2 * BLOCK) + Vector3.new(0, 1, 0))).toBe(true)
+				-- a step back out of the mouth is camp
+				expect(MineSpace.containsPosition(space, 10, 6, 5, ORIGIN - forward * 1 + Vector3.new(0, 1, 0))).toBe(false)
+				-- deeper than the grid, above its top, and off its side
+				expect(MineSpace.containsPosition(space, 10, 6, 5, ORIGIN + forward * (10 * BLOCK))).toBe(false)
+				expect(MineSpace.containsPosition(space, 10, 6, 5, ORIGIN + forward * (2 * BLOCK) + Vector3.new(0, 5 * BLOCK + 1, 0))).toBe(false)
+				expect(MineSpace.containsPosition(space, 10, 6, 5, ORIGIN + forward * (2 * BLOCK) + Vector3.new(0, 1, 3 * BLOCK))).toBe(false)
+			end
+		)
+	end
+)

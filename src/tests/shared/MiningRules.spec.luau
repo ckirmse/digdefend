@@ -79,6 +79,8 @@ describe(
 				local sorted = MiningRules.sortToolSlots({ Enums.ToolKind.DYNAMITE, Enums.ToolKind.HAMMER, Enums.ToolKind.WEAPON, Enums.ToolKind.PICK_AXE })
 				expect(sorted).toEqual({ Enums.ToolKind.PICK_AXE, Enums.ToolKind.WEAPON, Enums.ToolKind.HAMMER, Enums.ToolKind.DYNAMITE })
 				expect(MiningRules.sortToolSlots({ Enums.ToolKind.GADGET, Enums.ToolKind.TORCH })).toEqual({ Enums.ToolKind.TORCH, Enums.ToolKind.GADGET })
+				-- the gadgets sit after repair, at the far right
+				expect(MiningRules.sortToolSlots({ Enums.ToolKind.GADGET, Enums.ToolKind.HAMMER, Enums.ToolKind.PICK_AXE })).toEqual({ Enums.ToolKind.PICK_AXE, Enums.ToolKind.HAMMER, Enums.ToolKind.GADGET })
 			end
 		)
 
@@ -149,6 +151,19 @@ describe(
 			function()
 				expect(MiningRules.isConsumable(Enums.ToolKind.TORCH)).toBe(true)
 				expect(MiningRules.isConsumable(Enums.ToolKind.PICK_AXE)).toBe(false)
+			end
+		)
+	end
+)
+
+describe(
+	"MiningRules.gadgetTemplateName",
+	function()
+		it(
+			"names the held model by the tool and gadget keys, with a variant suffix",
+			function()
+				expect(MiningRules.gadgetTemplateName(Enums.GadgetKind.FLARE)).toBe("GADGET_FLARE")
+				expect(MiningRules.gadgetTemplateName(Enums.GadgetKind.REMOTE_CHARGE, "DETONATOR")).toBe("GADGET_REMOTE_CHARGE_DETONATOR")
 			end
 		)
 	end

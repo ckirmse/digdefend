@@ -341,11 +341,11 @@ return {
 			-- GROUND_DAMAGE_SHARE); best in the game against air, still a
 			-- post on the ground. 3 s from 0.8 the same day (a flock in the
 			-- cone locked at once), then 2, then 1, then 0.5 with the whole
-			-- reticle frame counting as on target; a held lock stays until
-			-- the volley fires
+			-- reticle frame counting as on target, then 0.75 (2026-10-21); a
+			-- held lock stays until the volley fires
 			LOCK = {
-				SEC = 0.5,
-				GROUND_SEC = 0.5,
+				SEC = 0.75,
+				GROUND_SEC = 0.75,
 				GROUND_DAMAGE_SHARE = 0.6,
 				-- half the reticle frame's width, measured from the gunner's
 				-- look (2.5 from 8 on 2026-10-20: the cone locked what the

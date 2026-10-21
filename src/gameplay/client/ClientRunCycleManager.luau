@@ -96,11 +96,16 @@ local NIGHT_CARD_FORMAT = "Night  %d"
 local CARD_SHOW_SEC = 3
 -- day 1 gets no card: the crew has just landed and the run is plainly starting
 local FIRST_DAY = 1
+-- from day 2 the rooster crows as the day starts and the card with its
+-- sting follows this much later (designer, 2026-10-21)
+local ROOSTER_TO_CARD_SEC = 3
 -- dusk is the last 40 s of a 300 s day; the server publishes the real numbers
 local DEFAULT_DUSK_SHARE = 60 / 320
 local DEFAULT_DUSK_SONG_LEAD_SEC = 60
 local DEFAULT_DUSK_SONG_FADE_SEC = 10
 local DEFAULT_DUSK_SONG_FADE_LEAD_SEC = 5
+-- the dusk song eases in from silence to its authored volume (designer, 2026-10-21)
+local DUSK_SONG_FADE_IN_SEC = 5
 local DEFAULT_DAWN_TRANSITION_SEC = 1
 local DEFAULT_DUSK_TRANSITION_SEC = 1
 local DEFAULT_NIGHT_SPAWN_SEC = 90
@@ -174,7 +179,8 @@ function ClientRunCycleManager:setClockShown(isShown: boolean)
 end
 
 -- the "DAY N" / "NIGHT N" card, up for a moment with its sound
-function ClientRunCycleManager:showCard(text: string, sfxName: string)
+-- the card, with every named sound played as it appears
+function ClientRunCycleManager:showCard(text: string, sfxNames: { string })
 	local gui = self.numberGui
 	local label = self.numberLabel
 	if not gui then
@@ -186,7 +192,9 @@ function ClientRunCycleManager:showCard(text: string, sfxName: string)
 	self.numberGeneration += 1
 	local generation = self.numberGeneration
 	gui.Enabled = true
-	ClientSoundManager:playSfx(sfxName)
+	for _, sfxName in sfxNames do
+		ClientSoundManager:playSfx(sfxName)
+	end
 	task.delay(
 		CARD_SHOW_SEC,
 		function()
@@ -304,7 +312,7 @@ function ClientRunCycleManager:stepDuskSong(runState: number, endTime: number, n
 	self.duskSongDay = day
 	self.duskSongEndTime = endTime
 	self.isDuskSongFading = false
-	ClientSoundManager:playMusic(SoundNames.Music.DUSK_SONG_1)
+	ClientSoundManager:fadeInMusic(SoundNames.Music.DUSK_SONG_1, nil, DUSK_SONG_FADE_IN_SEC)
 end
 
 function ClientRunCycleManager:step()
@@ -353,16 +361,26 @@ function ClientRunCycleManager:onDayStarted(payload: any)
 	-- and the clock say enough, and the numbers still go to the server Output
 	-- the card waits for the dawn blend: the day's start is published a
 	-- little ahead of the message, and the clock only runs from then
+	-- every day has its card and the card's sting (designer, 2026-10-21;
+	-- day 1 had no card before): day 1's as the clock starts, and from
+	-- day 2 the rooster crows first and the card follows it
 	local day = payload.day
-	if day == FIRST_DAY then
-		return
-	end
 	local startTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_PHASE_START_TIME), 0)
 	local delaySec = math.max(startTime - workspace:GetServerTimeNow(), 0)
 	task.delay(
 		delaySec,
 		function()
-			self:showCard(string.format(DAY_CARD_FORMAT, day), SoundNames.Sfx.ROOSTER)
+			if day == FIRST_DAY then
+				self:showCard(string.format(DAY_CARD_FORMAT, day), { SoundNames.Sfx.DAY_CARD })
+				return
+			end
+			ClientSoundManager:playSfx(SoundNames.Sfx.ROOSTER)
+			task.delay(
+				ROOSTER_TO_CARD_SEC,
+				function()
+					self:showCard(string.format(DAY_CARD_FORMAT, day), { SoundNames.Sfx.DAY_CARD })
+				end
+			)
 		end
 	)
 end
@@ -378,7 +396,7 @@ function ClientRunCycleManager:onNightStarted(payload: any)
 	task.delay(
 		duskTransitionSec,
 		function()
-			self:showCard(string.format(NIGHT_CARD_FORMAT, day), SoundNames.Sfx.NIGHT_BELL)
+			self:showCard(string.format(NIGHT_CARD_FORMAT, day), { SoundNames.Sfx.NIGHT_BELL })
 		end
 	)
 end

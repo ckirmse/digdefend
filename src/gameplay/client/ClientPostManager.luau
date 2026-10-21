@@ -288,6 +288,8 @@ local LOCK_FRAME_SHARE = 0.9
 local LOCK_TEXT_NONE = "No target"
 local LOCK_TEXT_LOCKING = "Locking on target"
 local LOCK_TEXT_LOCKED = "Target locked"
+-- aimed at an unlocked target while every slot holds one (designer, 2026-10-21)
+local LOCK_TEXT_FULL = "Max targets reached"
 -- the fire pool: flames across the radius, and the mine's blink
 -- the Napalm pool's Fire: Roblox clamps a Fire's Size to this range
 local FIRE_SIZE_MIN = 2
@@ -1083,13 +1085,25 @@ function ClientPostManager:renderLock()
 	end
 	self.aimedId = aimedId
 	local color = LOCK_RETICLE_NONE_COLOR
+	local labelColor = color
 	local text = LOCK_TEXT_NONE
 	-- the bar is the lock in progress, whichever monster it is on
 	local share = bestShare
 	if aimedId then
 		color = if isAimedAir then LOCK_RETICLE_AIR_COLOR else LOCK_RETICLE_GROUND_COLOR
+		labelColor = color
 		local aimedShare = shareById[aimedId] or 0
-		text = if aimedShare >= 1 then LOCK_TEXT_LOCKED else LOCK_TEXT_LOCKING
+		if lockedCount >= maxLocks then
+			-- the server will not start another lock; the label says so in
+			-- the lock's own green, over a held target too (designer,
+			-- 2026-10-21), while the reticle keeps naming the target
+			text = LOCK_TEXT_FULL
+			labelColor = LOCK_RETICLE_AIR_COLOR
+		elseif aimedShare >= 1 then
+			text = LOCK_TEXT_LOCKED
+		else
+			text = LOCK_TEXT_LOCKING
+		end
 	end
 	if reticle then
 		reticle.ImageColor3 = color
@@ -1103,7 +1117,7 @@ function ClientPostManager:renderLock()
 	end
 	if lockLabel then
 		lockLabel.Text = UiStyle.formatTitle(text)
-		lockLabel.TextColor3 = color
+		lockLabel.TextColor3 = labelColor
 	end
 end
 

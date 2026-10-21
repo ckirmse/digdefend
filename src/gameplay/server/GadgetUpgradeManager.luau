@@ -5,8 +5,11 @@
 -- post upgrade and reset with the run. The gadget managers read the level
 -- (AutoTurretManager picks its stats row by it) and are told when it
 -- rises so a standing gadget can grow in place. Only a gadget whose
--- GameData carries a price list is upgradable; the price lists are
--- published once as the GadgetUpgradeCatalog GameMetadata JSON for the menu.
+-- GameData carries a price list is upgradable, and only a gadget that
+-- must keep pace with the waves or the mine gets one (designer,
+-- 2026-10-21: the turret's damage and the charge's burst do, the flare's
+-- pull does not); the price lists are published once as the
+-- GadgetUpgradeCatalog GameMetadata JSON for the menu.
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local GadgetRules = require("@game/ReplicatedStorage/Shared/GadgetRules")
@@ -14,7 +17,6 @@ local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local AutoTurretData = require("@game/ServerScriptService/GameData/Gadgets/AutoTurret")
 local RemoteChargeData = require("@game/ServerScriptService/GameData/Gadgets/RemoteCharge")
-local FlareData = require("@game/ServerScriptService/GameData/Gadgets/Flare")
 local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
@@ -136,7 +138,6 @@ function GadgetUpgradeManager:init()
 		pricesByKind = {
 			[Enums.GadgetKind.AUTO_TURRET] = AutoTurretData.UPGRADE_PRICE_IRON_BY_LEVEL,
 			[Enums.GadgetKind.REMOTE_CHARGE] = RemoteChargeData.UPGRADE_PRICE_IRON_BY_LEVEL,
-			[Enums.GadgetKind.FLARE] = FlareData.UPGRADE_PRICE_IRON_BY_LEVEL,
 		},
 	}
 	SplendidReplicationManager:setGameMetadata(Attributes.GADGET_UPGRADE_CATALOG, GadgetRules.encodeCatalog(self.catalog))

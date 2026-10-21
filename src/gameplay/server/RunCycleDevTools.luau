@@ -15,6 +15,7 @@ RunCycleDevTools.__index = RunCycleDevTools
 export type RunCycleDevTools = typeof(setmetatable({} :: {}, RunCycleDevTools))
 
 RunCycleDevTools.FORCE_NIGHT_COMMAND = "forceNight"
+RunCycleDevTools.SKIP_TO_SUNSET_COMMAND = "skipToSunset"
 RunCycleDevTools.CLEAR_NIGHT_COMMAND = "clearNight"
 RunCycleDevTools.LOSE_RUN_COMMAND = "loseRun"
 RunCycleDevTools.SET_DAY_COMMAND = "setDay"
@@ -41,6 +42,18 @@ function RunCycleDevTools:init()
 				return
 			end
 			RunCycleManager:forceNight(args.isNight)
+		end
+	)
+	-- the day run down to a few seconds before dusk (designer, 2026-10-21)
+	DevTools:registerPlaceCommand(
+		RunCycleDevTools.SKIP_TO_SUNSET_COMMAND,
+		function(_player: Player, args: { [string]: any })
+			local isValid, err = Validate.isTableShape(args, NO_ARGS_SHAPE)
+			if not isValid then
+				warn("RunCycleDevTools: skipToSunset with invalid args:", err)
+				return
+			end
+			RunCycleManager:skipToSunset()
 		end
 	)
 	DevTools:registerPlaceCommand(

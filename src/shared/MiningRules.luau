@@ -26,6 +26,15 @@ local GADGETS_WITHOUT_MODEL: { [number]: boolean } = {
 	[Enums.GadgetKind.BINOCULARS] = true,
 }
 
+-- the GameAssets/Tools model a held gadget comes from ("GADGET_FLARE";
+-- "GADGET_REMOTE_CHARGE_DETONATOR" with a variant), named the same way
+-- by the server's ToolManager and the client's first-person view model
+function MiningRules.gadgetTemplateName(gadgetKind: number, variant: string?): string
+	local key = Enums.getName(Enums.ToolKind, Enums.ToolKind.GADGET) or "?"
+	local name = `{key}_{Enums.getName(Enums.GadgetKind, gadgetKind) or "?"}`
+	return if variant then `{name}_{variant}` else name
+end
+
 -- whether the tool in hand has a model to hold; the gadget slot depends
 -- on which gadget fills it
 function MiningRules.hasHeldModel(tool: number, gadgetKind: number?): boolean
@@ -88,14 +97,16 @@ function MiningRules.decodeToolSlots(encoded: any): { number }
 end
 
 -- the order the tool bar shows its slots in, whatever order they were
--- granted (2026-10-20: dynamite always sits last, after repair); a tool
--- not listed here comes after every listed one
+-- granted: the class gadgets (the GADGET slot and the Demolitionist's
+-- dynamite) always sit at the far right, after repair (designer,
+-- 2026-10-21; dynamite alone was last from 2026-10-20); a tool not
+-- listed here comes after every listed one
 MiningRules.TOOL_BAR_ORDER = {
 	Enums.ToolKind.PICK_AXE,
 	Enums.ToolKind.WEAPON,
 	Enums.ToolKind.TORCH,
-	Enums.ToolKind.GADGET,
 	Enums.ToolKind.HAMMER,
+	Enums.ToolKind.GADGET,
 	Enums.ToolKind.DYNAMITE,
 }
 

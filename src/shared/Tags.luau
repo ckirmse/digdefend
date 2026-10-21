@@ -54,10 +54,10 @@ module = {
 	-- invisible server part on the ground carrying its owner's id; clients
 	-- clone the charge's model onto it and blink its light
 	REMOTE_CHARGE = "RemoteCharge",
-	-- the Flare (FlareManager, 2026-10-20): a thrown stick in flight, and a
-	-- lit flare on the ground (an invisible server part every monster in
-	-- range goes for; clients clone the model and fire onto it)
-	FLARE_STICK = "FlareStick",
+	-- the Flare (FlareManager, 2026-10-20): a lit flare on the ground (an
+	-- invisible server part every monster in range goes for; clients clone
+	-- the model and fire onto it). The fired flare is a projectile, never
+	-- a part (2026-10-21)
 	FLARE = "Flare",
 }
 

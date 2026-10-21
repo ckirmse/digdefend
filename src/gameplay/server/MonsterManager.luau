@@ -43,6 +43,7 @@ local FlareManager = require(script.Parent.FlareManager)
 local DamageableManager = require(script.Parent.DamageableManager)
 local MonsterPathManager = require(script.Parent.MonsterPathManager)
 local PlacementManager = require(script.Parent.PlacementManager)
+local RunCycleManager = require(script.Parent.RunCycleManager)
 local StructureManager = require(script.Parent.StructureManager)
 local ReviveManager = require(script.Parent.ReviveManager)
 local RunPauseManager = require(script.Parent.RunPauseManager)
@@ -434,6 +435,14 @@ function MonsterManager:expire(monster: Monster)
 end
 
 -- the wave's monsters only; the mine's lurkers live on
+-- the Refinery alarm off at once: the poll holds it for
+-- REFINERY_ATTACK_HOLD_SEC after the last hit, which ran the siren past
+-- dawn (designer, 2026-10-21), and the hold is dropped with it
+function MonsterManager:clearRefineryAttack()
+	self.lastRefineryHitTime = -math.huge
+	StructureManager:setRefineryUnderAttack(false)
+end
+
 function MonsterManager:killWave()
 	for _, monster in self.monsters do
 		if monster.isCrawler then
@@ -444,6 +453,7 @@ function MonsterManager:killWave()
 	end
 	self.projectiles = {}
 	self:sweepDead()
+	self:clearRefineryAttack()
 end
 
 function MonsterManager:killAll()
@@ -453,6 +463,7 @@ function MonsterManager:killAll()
 	end
 	self.projectiles = {}
 	self:sweepDead()
+	self:clearRefineryAttack()
 end
 
 -- everything a monster could attack this tick, by target type
@@ -1289,6 +1300,14 @@ function MonsterManager:onRunStarted()
 end
 
 function MonsterManager:init()
+	-- the night's end silences the alarm whatever the hold says
+	RunCycleManager:subscribeNightChanged(
+		function(isNight: boolean)
+			if not isNight then
+				self:clearRefineryAttack()
+			end
+		end
+	)
 	-- a flier without a height would walk the ground, so say so at startup
 	for kind, data in ROSTER_BY_KIND do
 		if MonsterRules.isAir(data) and typeof(data.FLIGHT_HEIGHT_STUDS) ~= "number" then

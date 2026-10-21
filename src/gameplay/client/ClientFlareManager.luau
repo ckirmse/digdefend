@@ -1,23 +1,26 @@
 --!strict
 
--- The Flare as the client sees it (2026-10-20). While the GADGET tool is
--- equipped and the class's gadget is the flare, the use input (click,
--- tap, or the right trigger) asks the server to throw it (TryThrowFlare),
--- refused here with the fail sound and a line while the next is still
--- coming (GadgetReadyTime). A thrown stick (a Tags.FLARE_STICK part) is
--- dressed with the flare's model and, for the thrower, launched again at
--- the stamped velocity for its first frames, as the dynamite is. A lit
--- flare (a Tags.FLARE shadow) gets the model stood on its ground point
--- with Roblox's Fire and a light over it until the server takes it down.
+-- The Flare as the client sees it (2026-10-20; a flare gun since
+-- 2026-10-21). While the GADGET tool is equipped and the class's gadget
+-- is the flare, the use input (click, tap, or the right trigger) asks the
+-- server to fire one (TryFireFlare: the held gun's Muzzle attachment as
+-- the origin, the camera's look as the direction), refused here with the
+-- fail sound and a line while the next is still coming (GadgetReadyTime);
+-- a sent shot pulses the gun's muzzle flash and smoke and plays the shot
+-- for the gunner. The flare in flight is a projectile drawn by
+-- ClientProjectileManager from the launch notification, trail and light
+-- authored on its template. A lit flare (a Tags.FLARE shadow) gets the
+-- model stood on its ground point with Roblox's Fire and a light over it
+-- until the server takes it down.
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local MiningRules = require("@game/ReplicatedStorage/Shared/MiningRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
@@ -27,6 +30,7 @@ local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayMa
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientGadgetGhost = require(script.Parent.ClientGadgetGhost)
+local ClientViewModelManager = require(script.Parent.ClientViewModelManager)
 
 local ClientFlareManager = {}
 ClientFlareManager.__index = ClientFlareManager
@@ -37,16 +41,14 @@ export type ClientFlareManager = typeof(setmetatable(
 		modelByShadow: { [BasePart]: Model },
 		bodiesFolder: Folder?,
 		hasWarnedTemplate: boolean,
+		pulseTokenByInstance: { [Instance]: number },
 	},
 	ClientFlareManager
 ))
 
 local BODIES_FOLDER = "FlareBodies"
--- how long the thrower's client keeps pressing the launch velocity onto
--- its own stick after it appears (the ownership lands a few frames late)
-local LAUNCH_HOLD_SEC = 0.3
--- the thrown stick is drawn this many times the physics body's length
-local THROWN_SCALE = 1.5
+-- the first-person view model is shared with the weapons (ClientWeaponManager)
+local VIEW_MODEL_OWNER = "FlareGun"
 -- the lit flare's fire and light
 local FIRE_SIZE = 4
 local FIRE_HEAT = 10
@@ -55,6 +57,11 @@ local FIRE_SECONDARY_COLOR = Color3.fromRGB(255, 180, 120)
 local LIGHT_COLOR = Color3.fromRGB(255, 80, 80)
 local LIGHT_RANGE = 30
 local LIGHT_BRIGHTNESS = 3
+-- the gun's muzzle flash and smoke, pulsed on a shot (the weapon's timings)
+local MUZZLE_FLASH_SEC = 0.08
+local MUZZLE_SMOKE_SEC = 0.12
+local FIRE_SOUND_FULL_VOLUME_STUDS = 40
+local FIRE_SOUND_RANGE_STUDS = 200
 local FEEDBACK_COOLING = "Next flare in %d s"
 local FEEDBACK_DISPLAY_SEC = 2
 
@@ -92,67 +99,6 @@ function ClientFlareManager:findTemplate(): Model?
 		warn(`ClientFlareManager: no GameAssets.{Constants.GADGET_TEMPLATES_FOLDER}.{Constants.FLARE_TEMPLATE}; run scripts/studio/build_flare_template.luau`)
 	end
 	return nil
-end
-
--- the thrown stick wears the model, welded on so it tumbles with it
-function ClientFlareManager:dressStick(stick: BasePart)
-	local template = self:findTemplate()
-	if not template then
-		return
-	end
-	local model = template:Clone()
-	model.Name = "Look"
-	local _, bounds = model:GetBoundingBox()
-	model:ScaleTo(model:GetScale() * stick.Size.X * THROWN_SCALE / math.max(bounds.X, bounds.Y, bounds.Z))
-	-- the stick is a cylinder along its X; the model stands along its Y
-	model:PivotTo(stick.CFrame * CFrame.Angles(0, 0, -math.pi / 2))
-	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("BasePart") then
-			descendant.Anchored = false
-			descendant.CanCollide = false
-			descendant.CanQuery = false
-			descendant.CanTouch = false
-			descendant.Massless = true
-			local weld = Instance.new("WeldConstraint")
-			weld.Part0 = stick
-			weld.Part1 = descendant
-			weld.Parent = descendant
-		end
-	end
-	model.Parent = stick
-end
-
--- the thrower's own stick leaves at the stamped velocity, pressed on for
--- the first frames since this client simulates it and the server's own
--- set can be lost in the handover
-function ClientFlareManager:launchOwnStick(stick: BasePart)
-	local launchVelocity = stick:GetAttribute(Attributes.FLARE_LAUNCH_VELOCITY)
-	if typeof(launchVelocity) ~= "Vector3" then
-		return
-	end
-	local endTime = workspace:GetServerTimeNow() + LAUNCH_HOLD_SEC
-	local connection: RBXScriptConnection? = nil
-	connection = RunService.Heartbeat:Connect(
-		function()
-			if not stick.Parent or workspace:GetServerTimeNow() >= endTime then
-				if connection then
-					connection:Disconnect()
-				end
-				return
-			end
-			stick.AssemblyLinearVelocity = launchVelocity
-		end
-	)
-end
-
-function ClientFlareManager:onStickAdded(stick: Instance)
-	if not stick:IsA("BasePart") then
-		return
-	end
-	self:dressStick(stick)
-	if stick:GetAttribute(Attributes.FLARE_THROWER_USER_ID) == Players.LocalPlayer.UserId then
-		self:launchOwnStick(stick)
-	end
 end
 
 -- a lit flare: the model stood on the shadow's ground point, burning
@@ -205,6 +151,60 @@ function ClientFlareManager:getCooldownLeft(): number
 	return if typeof(readyTime) == "number" then math.max(0, readyTime - workspace:GetServerTimeNow()) else 0
 end
 
+-- the gun in first person: the same view model the weapons use, a copy of
+-- GADGET_FLARE locked to the camera so it aims with the reticle (the Tool
+-- in the hand only plays the stock hold pose), shown while the gun is
+-- the equipped tool and hidden as soon as it is not
+function ClientFlareManager:renderViewModel()
+	if self:isActive() then
+		ClientViewModelManager:show(MiningRules.gadgetTemplateName(Enums.GadgetKind.FLARE), VIEW_MODEL_OWNER)
+	else
+		ClientViewModelManager:hide(VIEW_MODEL_OWNER)
+	end
+end
+
+-- the gun's Muzzle attachment: the view model's when it is shown, else the
+-- held Tool's (the template builder's, placed by the designer's
+-- MuzzleAttachment)
+function ClientFlareManager:findHeldMuzzle(): Attachment?
+	local shown = ClientViewModelManager:getMuzzle()
+	if shown then
+		return shown
+	end
+	local character = Players.LocalPlayer.Character
+	local tool = if character then character:FindFirstChildOfClass("Tool") else nil
+	local muzzle = if tool then tool:FindFirstChild(Constants.WEAPON_MUZZLE_ATTACHMENT, true) else nil
+	return if muzzle and muzzle:IsA("Attachment") then muzzle else nil
+end
+
+-- switches a light or an emitter on for a moment
+function ClientFlareManager:pulse(instance: PointLight | ParticleEmitter, seconds: number)
+	local token = (self.pulseTokenByInstance[instance] or 0) + 1
+	self.pulseTokenByInstance[instance] = token
+	instance.Enabled = true
+	task.delay(
+		seconds,
+		function()
+			if self.pulseTokenByInstance[instance] ~= token then
+				return
+			end
+			self.pulseTokenByInstance[instance] = nil
+			instance.Enabled = false
+		end
+	)
+end
+
+function ClientFlareManager:playMuzzleEffects(muzzle: Attachment)
+	local flash = muzzle:FindFirstChild(Constants.WEAPON_MUZZLE_FLASH_LIGHT)
+	if flash and flash:IsA("PointLight") then
+		self:pulse(flash, MUZZLE_FLASH_SEC)
+	end
+	local smoke = muzzle:FindFirstChild(Constants.WEAPON_MUZZLE_SMOKE_EMITTER)
+	if smoke and smoke:IsA("ParticleEmitter") then
+		self:pulse(smoke, MUZZLE_SMOKE_SEC)
+	end
+end
+
 function ClientFlareManager:use()
 	local cooldownLeft = self:getCooldownLeft()
 	if cooldownLeft > 0 then
@@ -212,7 +212,26 @@ function ClientFlareManager:use()
 		ClientPlayerFeedbackManager:giveLocal(string.format(FEEDBACK_COOLING, math.ceil(cooldownLeft)), FEEDBACK_DISPLAY_SEC)
 		return
 	end
-	ClientNetManager:fireServer(NetEventNames.TRY_THROW_FLARE, {})
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return
+	end
+	-- the flare leaves the gun's muzzle toward where the camera looks;
+	-- the server allows the gun's distance from the head
+	local muzzle = self:findHeldMuzzle()
+	local origin = if muzzle then muzzle.WorldPosition else camera.CFrame.Position
+	ClientNetManager:fireServer(
+		NetEventNames.TRY_FIRE_FLARE,
+		{
+			origin = origin,
+			direction = camera.CFrame.LookVector,
+		}
+	)
+	if muzzle then
+		self:playMuzzleEffects(muzzle)
+	end
+	ClientViewModelManager:kick()
+	ClientSoundManager:playSfxAt(origin, SoundNames.Sfx.FLARE_FIRE, FIRE_SOUND_FULL_VOLUME_STUDS, FIRE_SOUND_RANGE_STUDS)
 end
 
 function ClientFlareManager:onInputBegan(input: InputObject, isGameProcessed: boolean)
@@ -223,14 +242,6 @@ function ClientFlareManager:onInputBegan(input: InputObject, isGameProcessed: bo
 end
 
 function ClientFlareManager:init()
-	for _, stick in CollectionService:GetTagged(Tags.FLARE_STICK) do
-		self:onStickAdded(stick)
-	end
-	CollectionService:GetInstanceAddedSignal(Tags.FLARE_STICK):Connect(
-		function(stick: Instance)
-			self:onStickAdded(stick)
-		end
-	)
 	for _, shadow in CollectionService:GetTagged(Tags.FLARE) do
 		self:track(shadow)
 	end
@@ -249,6 +260,16 @@ function ClientFlareManager:init()
 			self:onInputBegan(input, isGameProcessed)
 		end
 	)
+	-- the gun follows the equipped tool and the class's gadget; this
+	-- manager starts after the weapon manager, so on a swap to the gun the
+	-- weapon's hide has already run, and on a swap away the owner check
+	-- keeps the flare's hide off the weapon's fresh show
+	local function applyHeld()
+		self:renderViewModel()
+	end
+	applyHeld()
+	ClientDataManager:subscribeCurrentPlayerAttribute(Attributes.EQUIPPED_TOOL, applyHeld)
+	ClientDataManager:subscribeCurrentPlayerAttribute(Attributes.GADGET_KIND, applyHeld)
 end
 
 function ClientFlareManager.new(): ClientFlareManager
@@ -257,6 +278,7 @@ function ClientFlareManager.new(): ClientFlareManager
 	self.modelByShadow = {}
 	self.bodiesFolder = nil
 	self.hasWarnedTemplate = false
+	self.pulseTokenByInstance = {}
 	return self
 end
 

@@ -147,9 +147,10 @@ function ClientSoundManager:playMusic(name: string, isLooping: boolean?)
 end
 
 -- a track started silent and eased up to `volume` over fadeSec (the lobby
--- music, 2026-10-14); a fade-out that follows puts the authored volume
--- back afterwards, as it does for any track
-function ClientSoundManager:fadeInMusic(name: string, volume: number, fadeSec: number, isLooping: boolean?)
+-- music, 2026-10-14), or to its authored volume when none is given (the
+-- dusk song, 2026-10-21); a fade-out that follows puts the authored
+-- volume back afterwards, as it does for any track
+function ClientSoundManager:fadeInMusic(name: string, volume: number?, fadeSec: number, isLooping: boolean?)
 	local player = self:findPlayer(self:getMusicFolder(), name)
 	if not player then
 		self:warnOnce(name, `no AudioPlayer {Constants.MUSIC_FOLDER}.{name}`)
@@ -167,12 +168,13 @@ function ClientSoundManager:fadeInMusic(name: string, volume: number, fadeSec: n
 	if self.authoredVolumeByName[name] == nil then
 		self.authoredVolumeByName[name] = player.Volume
 	end
+	local targetVolume: number = volume or self.authoredVolumeByName[name]
 	player:Stop()
 	player.Looping = isLooping == true
 	player.TimePosition = 0
 	player.Volume = 0
 	player:Play()
-	local tween = TweenService:Create(player, TweenInfo.new(math.max(fadeSec, 0.01), Enum.EasingStyle.Linear), { Volume = volume })
+	local tween = TweenService:Create(player, TweenInfo.new(math.max(fadeSec, 0.01), Enum.EasingStyle.Linear), { Volume = targetVolume })
 	tween.Completed:Connect(
 		function()
 			if self.musicFadeTweenByName[name] == tween then
@@ -216,6 +218,59 @@ function ClientSoundManager:fadeOutMusic(name: string, fadeSec: number)
 	tween:Play()
 end
 
+-- a music loop eased from wherever its volume is to `share` of its
+-- authored volume, at the rate a full swing takes fullFadeSec (the
+-- outdoor ambience in and out of the mine, 2026-10-21): started if it is
+-- silent, stopped once it has faded all the way out. A fade still
+-- running is dropped and the new one carries on from the volume reached,
+-- so a quick back and forth never jumps or restarts the track
+function ClientSoundManager:fadeMusicTo(name: string, share: number, fullFadeSec: number)
+	local player = self:findPlayer(self:getMusicFolder(), name)
+	if not player then
+		self:warnOnce(name, `no AudioPlayer {Constants.MUSIC_FOLDER}.{name}`)
+		return
+	end
+	if player.Asset == "" then
+		self:warnOnce(name, `{Constants.MUSIC_FOLDER}.{name} has no asset yet`)
+		return
+	end
+	if self.authoredVolumeByName[name] == nil then
+		self.authoredVolumeByName[name] = player.Volume
+	end
+	local authoredVolume = self.authoredVolumeByName[name]
+	local targetVolume = math.clamp(share, 0, 1) * authoredVolume
+	local runningTween = self.musicFadeTweenByName[name]
+	if runningTween then
+		self.musicFadeTweenByName[name] = nil
+		runningTween:Cancel()
+	end
+	if not player.IsPlaying then
+		if targetVolume <= 0 then
+			return
+		end
+		player.Volume = 0
+		player.Looping = true
+		player.TimePosition = 0
+		player:Play()
+	end
+	local swingShare = if authoredVolume > 0 then math.abs(targetVolume - player.Volume) / authoredVolume else 0
+	local tween = TweenService:Create(player, TweenInfo.new(math.max(fullFadeSec * swingShare, 0.01), Enum.EasingStyle.Linear), { Volume = targetVolume })
+	tween.Completed:Connect(
+		function(state: Enum.PlaybackState)
+			if self.musicFadeTweenByName[name] == tween then
+				self.musicFadeTweenByName[name] = nil
+			end
+			if state == Enum.PlaybackState.Completed and targetVolume <= 0 then
+				player:Stop()
+				player.TimePosition = 0
+				player.Volume = authoredVolume
+			end
+		end
+	)
+	self.musicFadeTweenByName[name] = tween
+	tween:Play()
+end
+
 -- a 3D one-shot heard from a world position by this client only (gunfire:
 -- too frequent for the server to build a part per shot). The authored
 -- player is cloned onto a local throwaway part with an emitter, as
@@ -249,6 +304,10 @@ function ClientSoundManager:playSfxAt(position: Vector3, name: string, fullVolum
 			child:Destroy()
 		end
 	end
+	-- a clone inherits the template's playhead; an authored player left
+	-- stopped mid-file (auditioned in the Explorer, 2026-10-21) would start
+	-- every copy from there, so each one starts from the top
+	player.TimePosition = 0
 	player.Looping = false
 	local emitter = Instance.new("AudioEmitter")
 	emitter:SetDistanceAttenuation(distanceCurve(fullVolumeStuds, silentStuds))
@@ -283,6 +342,10 @@ function ClientSoundManager:attachLoop(part: BasePart, name: string, fullVolumeS
 			child:Destroy()
 		end
 	end
+	-- a clone inherits the template's playhead; an authored player left
+	-- stopped mid-file (auditioned in the Explorer, 2026-10-21) would start
+	-- every copy from there, so each one starts from the top
+	player.TimePosition = 0
 	player.Looping = true
 	local emitter = Instance.new("AudioEmitter")
 	emitter:SetDistanceAttenuation(distanceCurve(fullVolumeStuds, silentStuds))
@@ -320,6 +383,10 @@ function ClientSoundManager:createSharedLoop(name: string): AudioPlayer?
 			child:Destroy()
 		end
 	end
+	-- a clone inherits the template's playhead; an authored player left
+	-- stopped mid-file (auditioned in the Explorer, 2026-10-21) would start
+	-- every copy from there, so each one starts from the top
+	player.TimePosition = 0
 	player.Looping = true
 	player.Parent = SoundService
 	player:Play()

@@ -28,6 +28,9 @@ export type ClientViewModelManager = typeof(setmetatable(
 	{} :: {
 		model: Model?,
 		templateName: string?,
+		-- which manager showed it (the weapon manager, the flare gun's), so
+		-- another's hide leaves it alone (2026-10-21)
+		owner: string?,
 		muzzle: Attachment?,
 		-- where a secondary (the grenade) leaves, when the template has one
 		secondaryMuzzle: Attachment?,
@@ -233,12 +236,14 @@ function ClientViewModelManager:bindIfNeeded()
 	)
 end
 
-function ClientViewModelManager:show(templateName: string)
+function ClientViewModelManager:show(templateName: string, owner: string?)
 	if self.templateName == templateName and self.model then
+		self.owner = owner
 		return
 	end
 	self:destroyModel()
 	self.templateName = templateName
+	self.owner = owner
 	self.model = self:buildModel(templateName)
 	self.recoil = 0
 	self.swayYaw = 0
@@ -250,7 +255,12 @@ function ClientViewModelManager:show(templateName: string)
 	end
 end
 
-function ClientViewModelManager:hide()
+-- with an owner, hides only what that owner showed
+function ClientViewModelManager:hide(owner: string?)
+	if owner and self.owner ~= owner then
+		return
+	end
+	self.owner = nil
 	if self.isBound then
 		self.isBound = false
 		RunService:UnbindFromRenderStep(RENDER_STEP_NAME)
@@ -264,6 +274,7 @@ function ClientViewModelManager.new(): ClientViewModelManager
 	local self = setmetatable({}, ClientViewModelManager) :: ClientViewModelManager
 	self.model = nil
 	self.templateName = nil
+	self.owner = nil
 	self.templateOffset = CFrame.identity
 	self.muzzle = nil
 	self.secondaryMuzzle = nil

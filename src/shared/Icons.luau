@@ -61,6 +61,8 @@ Icons.GADGET = {
 	[Enums.GadgetKind.AUTO_TURRET] = "rbxassetid://84791820127176",
 	[Enums.GadgetKind.STIM_SHOT] = "rbxassetid://136139239798345",
 	[Enums.GadgetKind.REMOTE_CHARGE] = "rbxassetid://97927358319077",
+	-- the flare gun (designer, 2026-10-21)
+	[Enums.GadgetKind.FLARE] = "rbxassetid://139213612204269",
 }
 -- the Remote Charge's slot once its mine is planted (2026-10-20), back
 -- to the mine's picture after the detonation

@@ -523,12 +523,9 @@ module = {
 	-- on a Remote Charge shadow (RemoteChargeManager, 2026-10-20): whose it is
 	REMOTE_CHARGE_OWNER_USER_ID = "RemoteChargeOwnerUserId",
 	-- on a lit Flare shadow (FlareManager, 2026-10-20): whose it is and when
-	-- it burns out; on a thrown flare stick: whose it is and the velocity it
-	-- left with, for the thrower's client to launch it (as the dynamite)
+	-- it burns out
 	FLARE_OWNER_USER_ID = "FlareOwnerUserId",
 	FLARE_END_TIME = "FlareEndTime",
-	FLARE_THROWER_USER_ID = "FlareThrowerUserId",
-	FLARE_LAUNCH_VELOCITY = "FlareLaunchVelocity",
 	-- on a ParticleEmitter in a burst effect template (GameAssets/Effects):
 	-- how many particles one burst emits
 	BURST_COUNT = "BurstCount",

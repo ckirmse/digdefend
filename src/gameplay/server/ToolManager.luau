@@ -264,9 +264,7 @@ function ToolManager:templateNameFor(player: Player, tool: number): string
 	end
 	if tool == Enums.ToolKind.GADGET then
 		local state = self.stateByPlayer[player]
-		local name = `{key}_{Enums.getName(Enums.GadgetKind, if state then state.gadgetKind else Enums.GadgetKind.NONE) or "?"}`
-		local variant = if state then state.gadgetVariant else nil
-		return if variant then `{name}_{variant}` else name
+		return MiningRules.gadgetTemplateName(if state then state.gadgetKind else Enums.GadgetKind.NONE, if state then state.gadgetVariant else nil)
 	end
 	return key
 end

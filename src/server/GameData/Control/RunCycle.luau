@@ -39,6 +39,9 @@ return {
 	-- the dev tool's "Dusk now" runs what is left of the day down over
 	-- this long, so the sky blends to night begin instead of snapping
 	FORCED_DUSK_SEC = 3,
+	-- the dev tool's "Skip to sunset" runs the day down to this long
+	-- before dusk begins (designer, 2026-10-21)
+	SKIP_TO_SUNSET_LEAD_SEC = 5,
 	DAY_START_FORMAT = "Day %d. Crew of %d. Ore %.2fx, Uranium target %.2fx, Waves %.2fx",
 	DAY_START_DISPLAY_SEC = 6,
 	LOST_REFINERY_MESSAGE = "The Refinery has fallen. The run is lost",

@@ -248,12 +248,9 @@ function RunReportManager:samplePlayer(player: Player, seconds: number)
 	local space = MineManager:getSpace()
 	local grid = MineManager:getGrid()
 	local position = MiningManager:getPlayerPosition(player)
-	if space and grid and position then
-		local depth, height, width = MineSpace.worldToCell(space, position)
-		if depth >= 0 and depth < grid.depth and height >= 0 and height < grid.height and width >= 0 and width < grid.width then
-			entry.mineSec += seconds
-			return
-		end
+	if space and grid and position and MineSpace.containsPosition(space, grid.depth, grid.height, grid.width, position) then
+		entry.mineSec += seconds
+		return
 	end
 	entry.campSec += seconds
 end

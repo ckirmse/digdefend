@@ -96,6 +96,8 @@ export type ClientWeaponManager = typeof(setmetatable(
 ))
 
 local RETICLE_BORROWER = "WeaponMode"
+-- the first-person view model is shared with the flare gun (ClientFlareManager)
+local VIEW_MODEL_OWNER = "Weapon"
 local DEFAULT_FIRE_INTERVAL_SEC = 0.2
 local DEFAULT_RANGE_STUDS = 300
 local AMMO_FORMAT = "%d / %d"
@@ -771,9 +773,9 @@ end
 function ClientWeaponManager:renderViewModel()
 	local weaponKind = ClientDataManager:getCurrentPlayerAttribute(Attributes.WEAPON_KIND)
 	if self.isWeaponMode and typeof(weaponKind) == "number" and Enums.isValidValue(Enums.WeaponKind, weaponKind) then
-		ClientViewModelManager:show(WeaponRules.templateNameFor(weaponKind))
+		ClientViewModelManager:show(WeaponRules.templateNameFor(weaponKind), VIEW_MODEL_OWNER)
 	else
-		ClientViewModelManager:hide()
+		ClientViewModelManager:hide(VIEW_MODEL_OWNER)
 	end
 end
 

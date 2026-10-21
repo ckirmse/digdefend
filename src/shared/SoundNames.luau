@@ -134,11 +134,16 @@ local sfx = {
 	URANIUM_HUM = "UraniumHum",
 	-- 2D: something just stopped working for you (backpack full, tank dry)
 	FAIL = "Fail",
+	-- the Flare Gun's shot (2026-10-21), the gunner's own, 3D at the muzzle
+	FLARE_FIRE = "Gadget_Flare_Fire",
 	-- 2D: the Game Over screen (this player died, or the Refinery fell; M32)
 	GAME_OVER = "GameOver",
 	-- M28: a new day (the rooster) and a new night (the bell), with the
 	-- DayNightNumber card
 	ROOSTER = "Rooster",
+	-- the day card's own sting, 2D, as the card appears on every day
+	-- (designer, 2026-10-21); the rooster joins it from day 2
+	DAY_CARD = "DayCard",
 	NIGHT_BELL = "NightBell",
 	-- alerts (2026-09-25): a wall fell (2D, everyone, with the red alert),
 	-- the 3D collapse from where the wall stood (server-side), and the
@@ -278,6 +283,9 @@ local music = {
 	-- plays from the top as dusk begins, the day's dusk before every night
 	-- (2026-09-25), and fades out across night fall (2026-10-02)
 	DUSK_SONG_1 = "DuskSong1",
+	-- the outdoors, looping while the player is out of the mine
+	-- (ClientAmbienceManager, 2026-10-21)
+	OUTDOOR_AMBIENCE = "OutdoorAmbience",
 	-- the lobby's track, looping from the moment a player is Ready there
 	-- (designer, 2026-10-14)
 	LOBBY = "LobbyMusic",
@@ -309,6 +317,13 @@ local module = {
 	LobbyMusicNames = lobbyMusicNames,
 	WeaponSfxByKindName = weaponSfxByKindName,
 	PostWeaponSfxByKindName = postWeaponSfxByKindName,
+	-- a launch heard by everyone, by the GameAssets/Projectiles template
+	-- flown (the launch notification carries no gadget kind): the flare
+	-- gun's shot (2026-10-21), 3D at the muzzle; the shooter plays it at
+	-- once and skips the notification's copy
+	ProjectileLaunchSfxByTemplate = {
+		Flare = sfx.FLARE_FIRE,
+	} :: { [string]: string },
 }
 
 return module

@@ -8,6 +8,7 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientDevConsoleManager = require(script.Parent.Parent.Client.ClientDevConsoleManager)
 local ClientActionButtonManager = require(script.Parent.ClientActionButtonManager)
 local ClientAimManager = require(script.Parent.ClientAimManager)
+local ClientAmbienceManager = require(script.Parent.ClientAmbienceManager)
 local ClientAutoTurretDevTools = require(script.Parent.ClientAutoTurretDevTools)
 local ClientAutoTurretManager = require(script.Parent.ClientAutoTurretManager)
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
@@ -79,6 +80,8 @@ pcall(
 )
 
 ClientMineManager:init()
+-- the outdoor ambience reads the mine grid the manager above holds
+ClientAmbienceManager:init()
 ClientToolBarManager:init()
 ClientMiningManager:init()
 -- before the backpack and refinery, which fly icons across its layer
@@ -126,7 +129,7 @@ ClientLockMarkerManager:init()
 ClientStimShotManager:init()
 -- the Remote Charge (2026-10-20): the planted charges and their blasts
 ClientRemoteChargeManager:init()
--- the Flare (2026-10-20): the thrown sticks and the lit flares
+-- the Flare (2026-10-20): the gun's shot and the lit flares
 ClientFlareManager:init()
 -- the day clock reads GameMetadata the server set before anyone was Ready
 ClientRunCycleManager:init()

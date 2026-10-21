@@ -996,11 +996,12 @@ Constants.REMOTE_CHARGE_SHADOW_FOLDER = "RemoteChargeShadows"
 -- planted: the "GADGET_REMOTE_CHARGE_DETONATOR" template, and the slot's name
 Constants.REMOTE_CHARGE_DETONATOR_VARIANT = "DETONATOR"
 Constants.REMOTE_CHARGE_DETONATOR_NAME = "Detonator"
--- the Flare (2026-10-20): the lit and thrown flare's model under
--- GameAssets/Gadgets (build_flare_template.luau) and the server's folders
+-- the Flare (2026-10-20): the lit flare's model under GameAssets/Gadgets
+-- (build_flare_template.luau, which also builds the fired flare under
+-- GameAssets/Projectiles and keeps the FlareGun art) and the server's
+-- shadow folder
 Constants.FLARE_TEMPLATE = "FLARE"
 Constants.FLARE_SHADOW_FOLDER = "FlareShadows"
-Constants.FLARE_STICK_FOLDER = "FlareSticks"
 -- collision groups (PhysicsService, registered by DynamiteManager,
 -- 2026-10-20): every character's parts, and a thrown stick, which passes
 -- through them so it leaves the thrower's own body cleanly

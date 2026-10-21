@@ -39,6 +39,7 @@ local RETURN_TO_LOBBY_COMMAND = "returnToLobby"
 local START_RUN_AS_COMMAND = "startRunAs"
 -- must match RunCycleDevTools.*_COMMAND on the server
 local FORCE_NIGHT_COMMAND = "forceNight"
+local SKIP_TO_SUNSET_COMMAND = "skipToSunset"
 local CLEAR_NIGHT_COMMAND = "clearNight"
 local LOSE_RUN_COMMAND = "loseRun"
 local SET_DAY_COMMAND = "setDay"
@@ -89,6 +90,9 @@ function ClientRunDevTools:renderSection()
 	local isPaused = typeof(pauseStartTime) == "number" and pauseStartTime > 0
 	if Iris.Button({ if isPaused then "Resume the run" else "Pause the run" }).clicked() then
 		self:send(SET_PAUSED_COMMAND, { isPaused = not isPaused })
+	end
+	if Iris.Button({ "Skip to sunset" }).clicked() then
+		self:send(SKIP_TO_SUNSET_COMMAND, {} :: { [string]: any })
 	end
 	if Iris.Button({ "Dusk now" }).clicked() then
 		self:send(FORCE_NIGHT_COMMAND, { isNight = true })

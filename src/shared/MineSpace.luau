@@ -65,6 +65,14 @@ function MineSpace.worldToCell(space: MineSpace, position: Vector3): (number, nu
 	return depth, height, width
 end
 
+-- whether a world position falls inside a grid of these dimensions: "in
+-- the mine" for the run report's time split and the outdoor ambience
+-- (2026-10-21); a position anywhere else is camp
+function MineSpace.containsPosition(space: MineSpace, gridDepth: number, gridHeight: number, gridWidth: number, position: Vector3): boolean
+	local depth, height, width = MineSpace.worldToCell(space, position)
+	return depth >= 0 and depth < gridDepth and height >= 0 and height < gridHeight and width >= 0 and width < gridWidth
+end
+
 function MineSpace.new(origin: Vector3, facing: number, centrelineWidth: number, floorHeight: number, blockSize: number): MineSpace
 	local forward = MineSpace.forwardForFacing(facing)
 	return {

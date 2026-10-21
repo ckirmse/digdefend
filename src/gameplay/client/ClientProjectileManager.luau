@@ -218,6 +218,12 @@ function ClientProjectileManager:onLaunched(payload: any)
 	part.Parent = workspace
 	local flightSound = self:getSounds(payload.postWeaponKind, payload.weaponKind)
 	self:attachFlightSound(part, flightSound)
+	-- a template's launch sound for the crewmates; the shooter's own client
+	-- already played it when it fired
+	local launchSound = SoundNames.ProjectileLaunchSfxByTemplate[payload.template]
+	if launchSound and payload.userId ~= Players.LocalPlayer.UserId then
+		ClientSoundManager:playSfxAt(payload.origin, launchSound, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
+	end
 	self.viewsById[payload.projectileId] = {
 		id = payload.projectileId,
 		part = part,

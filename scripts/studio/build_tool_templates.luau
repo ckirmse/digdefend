@@ -261,15 +261,12 @@ end
 -- the grip, where the hand closes, every piece welded to it, and the
 -- Muzzle attachment (Constants.WEAPON_MUZZLE_ATTACHMENT) at the barrel's
 -- tip, where tracers start
+-- buildGun is the shared body: a gadget held like a gun (the Flare Gun,
+-- 2026-10-21) is built by it too, from its art under GameAssets/Gadgets
 local weaponsFolder = gameAssets:FindFirstChild("Weapons")
-local function buildWeapon(spec)
-	local source = if weaponsFolder then weaponsFolder:FindFirstChild(spec.key) else nil
-	if not source or not source:IsA("Model") then
-		warn("build_tool_templates: no GameAssets.Weapons." .. spec.key .. "; WEAPON_" .. spec.key .. " not built")
-		return
-	end
+local function buildGun(source, name, spec)
 	local weapon = source:Clone()
-	weapon.Name = "WEAPON_" .. spec.key
+	weapon.Name = name
 	local body = weapon:FindFirstChildWhichIsA("MeshPart")
 	if not body then
 		warn("build_tool_templates: " .. spec.key .. " has no MeshPart body; not built")
@@ -357,6 +354,15 @@ local function buildWeapon(spec)
 	weapon.Parent = tools
 end
 
+local function buildWeapon(spec)
+	local source = if weaponsFolder then weaponsFolder:FindFirstChild(spec.key) else nil
+	if not source or not source:IsA("Model") then
+		warn("build_tool_templates: no GameAssets.Weapons." .. spec.key .. "; WEAPON_" .. spec.key .. " not built")
+		return
+	end
+	buildGun(source, "WEAPON_" .. spec.key, spec)
+end
+
 for _, spec in WEAPONS do
 	if Enums.WeaponKind[spec.key] == nil then
 		warn("build_tool_templates: " .. spec.key .. " is not an Enums.WeaponKind; skipped")
@@ -386,10 +392,16 @@ local GADGETS = {
 		-- bounds frame is turned too; held by the world's axes instead
 		isHeldLevel = true,
 	},
-	-- the Flare (2026-10-20): the placeholder tube from build_flare_template.luau
+	-- the Flare Gun (2026-10-21): the designer's FlareGun under
+	-- GameAssets/Gadgets, held like a pistol (isGun: the weapon builder,
+	-- its MuzzleAttachment placing the Muzzle the flare leaves from)
 	{
 		key = "FLARE",
-		sourceName = "Flare",
+		sourceName = "FlareGun",
+		isGun = true,
+		gripShare = Vector3.new(0, -0.2, 0.3),
+		lengthStuds = 1.5,
+		muzzleHeightShare = 0.3,
 	},
 	{
 		key = "REMOTE_CHARGE",
@@ -406,8 +418,13 @@ local function buildGadget(spec)
 		warn("build_tool_templates: no GameAssets." .. Constants.GADGET_TEMPLATES_FOLDER .. "." .. spec.sourceName .. "; GADGET_" .. spec.key .. " not built")
 		return
 	end
+	local name = "GADGET_" .. spec.key .. (if spec.variant then "_" .. spec.variant else "")
+	if spec.isGun then
+		buildGun(source, name, spec)
+		return
+	end
 	local gadget = source:Clone()
-	gadget.Name = "GADGET_" .. spec.key .. (if spec.variant then "_" .. spec.variant else "")
+	gadget.Name = name
 	-- art bigger than a hand is scaled down to its longest side
 	if spec.lengthStuds then
 		local _, bounds = gadget:GetBoundingBox()
