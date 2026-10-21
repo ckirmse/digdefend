@@ -116,7 +116,7 @@ function RemoteChargeManager:replicate(player: Player)
 	if not player.Parent then
 		return
 	end
-	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.REMOTE_CHARGE_READY_TIME, self.readyTimeByPlayer[player] or 0)
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.GADGET_READY_TIME, self.readyTimeByPlayer[player] or 0)
 end
 
 function RemoteChargeManager:setReadyTime(player: Player, readyTime: number?)

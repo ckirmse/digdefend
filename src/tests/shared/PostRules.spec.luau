@@ -43,6 +43,7 @@ local function makeCatalog()
 			[Enums.PostAttribute.IMPACT_RADIUS] = 0.2,
 			[Enums.PostAttribute.FIRE_DAMAGE] = 0.25,
 			[Enums.PostAttribute.FIRE_LENGTH] = 0.25,
+			[Enums.PostAttribute.LOCK_COUNT] = 1,
 		},
 		headshotMultiplier = 1.5,
 		kinds = {
@@ -642,6 +643,27 @@ describe(
 				local plain = PostRules.statsFor(catalog, Enums.PostWeaponKind.MACHINE_GUN, {})
 				expect(plain.splashRadiusStuds).toBeNil()
 				expect(plain.poolSec).toBeNil()
+			end
+		)
+	end
+)
+
+describe(
+	"PostRules Missile Launcher locks",
+	function()
+		it(
+			"holds one more lock per Lock Count level, none without a LOCK block",
+			function()
+				local catalog = makeCatalog()
+				local launcher = table.clone(MACHINE_GUN)
+				launcher.HEAT = nil
+				launcher.UPGRADE_ATTRIBUTES = { Enums.PostAttribute.DAMAGE, Enums.PostAttribute.IMPACT_RADIUS, Enums.PostAttribute.LOCK_COUNT, Enums.PostAttribute.TURN_SPEED }
+				launcher.LOCK = { SEC = 1, ANGLE_DEGREES = 2.5, COUNT = 3, DUMB_FIRE_DAMAGE_SHARE = 0.5 }
+				catalog.kinds[Enums.PostWeaponKind.AA_LAUNCHER] = launcher
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.AA_LAUNCHER, {}).lockCount).toBe(3)
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.AA_LAUNCHER, { [Enums.PostAttribute.LOCK_COUNT] = 2 }).lockCount).toBe(5)
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.AA_LAUNCHER, { [Enums.PostAttribute.LOCK_COUNT] = 4 }).lockCount).toBe(7)
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.MACHINE_GUN, {}).lockCount).toBeNil()
 			end
 		)
 	end

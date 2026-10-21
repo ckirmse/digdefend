@@ -390,6 +390,18 @@ Constants.POST_HUD_FIRE_BUTTON = "FireButton"
 Constants.POST_HUD_EXIT_HINT_LABEL = "ExitHint"
 -- the weapon's own reticle image, centred; shown only for kinds with one in Icons
 Constants.POST_HUD_RETICLE = "Reticle"
+-- the AA Launcher's lock readout under the reticle (2026-10-20): a
+-- vertical bar to its right whose Fill rises with the aimed target's
+-- lock, and the line under it (NO TARGET, LOCKING ON TARGET, TARGET
+-- LOCKED, CANNOT LOCK GROUND UNITS)
+Constants.POST_HUD_LOCK_BAR = "LockBar"
+Constants.POST_HUD_LOCK_FILL = "Fill"
+Constants.POST_HUD_LOCK_LABEL = "LockLabel"
+-- the Missile Launcher's lock count over the reload bar (2026-10-20): the
+-- marker reticle on the left and "2 / 3"
+Constants.POST_HUD_LOCK_COUNT = "LockCount"
+Constants.POST_HUD_LOCK_COUNT_ICON = "Icon"
+Constants.POST_HUD_LOCK_COUNT_LABEL = "Label"
 -- the status bar under the reticle: heat for a gun that overheats, the
 -- reload for one that reloads
 Constants.POST_HUD_STATUS_BAR = "StatusBar"
@@ -984,6 +996,11 @@ Constants.REMOTE_CHARGE_SHADOW_FOLDER = "RemoteChargeShadows"
 -- planted: the "GADGET_REMOTE_CHARGE_DETONATOR" template, and the slot's name
 Constants.REMOTE_CHARGE_DETONATOR_VARIANT = "DETONATOR"
 Constants.REMOTE_CHARGE_DETONATOR_NAME = "Detonator"
+-- the Flare (2026-10-20): the lit and thrown flare's model under
+-- GameAssets/Gadgets (build_flare_template.luau) and the server's folders
+Constants.FLARE_TEMPLATE = "FLARE"
+Constants.FLARE_SHADOW_FOLDER = "FlareShadows"
+Constants.FLARE_STICK_FOLDER = "FlareSticks"
 -- collision groups (PhysicsService, registered by DynamiteManager,
 -- 2026-10-20): every character's parts, and a thrown stick, which passes
 -- through them so it leaves the thrower's own body cleanly
@@ -993,6 +1010,10 @@ Constants.COLLISION_GROUP_DYNAMITE = "Dynamite"
 -- 2026-10-19): the billboard template over a tagged monster, its icon and
 -- label, and the workspace folder its anchors live in
 Constants.TAG_BILLBOARD = "TagCallout"
+-- the Missile Launcher's locked-target marker (2026-10-20): a reticle over
+-- every monster the post has locked (ClientLockMarkerManager)
+Constants.LOCK_MARKER_BILLBOARD = "LockMarker"
+Constants.LOCK_MARKER_ICON = "Icon"
 Constants.TAG_ICON = "Icon"
 Constants.TAG_LABEL = "Label"
 Constants.TAG_FOLDER = "TagCallouts"

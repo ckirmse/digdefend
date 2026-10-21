@@ -45,6 +45,11 @@ function TowerRules.pickTarget(origin: Vector3, rangeStuds: number, priority: nu
 		if not TowerRules.canTarget(behavior, target) or not TowerRules.isInRange(origin, target, rangeStuds) then
 			continue
 		end
+		-- a kind that prefers air drops every ground target once a flyer is in range
+		if behavior.PREFERS_AIR and best and best.isAirborne and not target.isAirborne then
+			continue
+		end
+		local isOutranked = behavior.PREFERS_AIR == true and best ~= nil and not best.isAirborne and target.isAirborne
 		local score: number
 		if priority == Enums.TargetPriority.FURTHEST then
 			score = (target.position - origin).Magnitude
@@ -55,7 +60,7 @@ function TowerRules.pickTarget(origin: Vector3, rangeStuds: number, priority: nu
 		else
 			score = -(target.position - origin).Magnitude
 		end
-		if best == nil or score > bestScore then
+		if best == nil or isOutranked or score > bestScore then
 			best = target
 			bestScore = score
 		end

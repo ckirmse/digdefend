@@ -59,6 +59,7 @@ local ClientHoldInput = require(script.Parent.ClientHoldInput)
 local ClientImpactManager = require(script.Parent.ClientImpactManager)
 local ClientMiningManager = require(script.Parent.ClientMiningManager)
 local ClientProjectileManager = require(script.Parent.ClientProjectileManager)
+local ClientCursorManager = require(script.Parent.ClientCursorManager)
 local ClientScopeGlassManager = require(script.Parent.ClientScopeGlassManager)
 local ClientTouchLayoutManager = require(script.Parent.ClientTouchLayoutManager)
 local ClientWeaponManager = require(script.Parent.ClientWeaponManager)
@@ -114,6 +115,10 @@ export type ClientPostManager = typeof(setmetatable(
 		wantedPitchDelta: number,
 		lastSentYaw: number?,
 		lastSentPitch: number?,
+		-- the monster the reticle is on this frame (a lock kind), and the
+		-- one last sent with the aim
+		aimedId: string?,
+		lastSentAimedId: string?,
 		lastSendTime: number,
 		stats: PostRules.Stats?,
 		kindData: PostRules.KindData?,
@@ -124,6 +129,19 @@ export type ClientPostManager = typeof(setmetatable(
 		exitButton: GuiButton?,
 		exitHint: TextLabel?,
 		reticle: ImageLabel?,
+		-- the AA Launcher's lock readout (2026-10-20), children of the reticle
+		lockBar: Frame?,
+		lockFill: Frame?,
+		lockLabel: TextLabel?,
+		-- the lock count over the reload bar, and the ids locked this frame
+		-- (ClientLockMarkerManager draws the markers from them)
+		lockCount: Frame?,
+		lockCountLabel: TextLabel?,
+		lockedIds: { string },
+		-- what the reticle is on, asked of ClientMonsterManager (which
+		-- requires this module, so it hands the query in at its init): the
+		-- aimed monster's damageable id and whether it flies
+		aimQuery: ((camera: Camera, frameCenter: Vector2?, frameHalfSize: Vector2?) -> (string?, boolean))?,
 		statusBar: Frame?,
 		statusFill: Frame?,
 		statusLabel: TextLabel?,
@@ -257,7 +275,19 @@ local BARREL_SPIN_LINGER_SEC = 0.2
 local BARREL_SPIN_DOWN_SEC = 1.2
 local BARREL_SPIN_UP_FALLBACK_SEC = 1
 local STATUS_CHARGING_TEXT = "Charging"
-local STATUS_LOCKED_FORMAT = "Locked x%d"
+-- the AA Launcher's reticle (2026-10-20): its colour by what is under
+-- it, and the line beneath it
+local LOCK_RETICLE_NONE_COLOR = Color3.fromRGB(240, 80, 70)
+local LOCK_RETICLE_GROUND_COLOR = Color3.fromRGB(255, 255, 255)
+local LOCK_RETICLE_AIR_COLOR = Color3.fromRGB(90, 230, 100)
+local LOCK_COUNT_FORMAT = "%d / %d"
+-- the share of the reticle picture's square that counts as inside its
+-- frame (the picture has a little air round the frame); a monster
+-- anywhere inside it locks, not only one under the centre (2026-10-20)
+local LOCK_FRAME_SHARE = 0.9
+local LOCK_TEXT_NONE = "No target"
+local LOCK_TEXT_LOCKING = "Locking on target"
+local LOCK_TEXT_LOCKED = "Target locked"
 -- the fire pool: flames across the radius, and the mine's blink
 -- the Napalm pool's Fire: Roblox clamps a Fire's Size to this range
 local FIRE_SIZE_MIN = 2
@@ -565,17 +595,21 @@ function ClientPostManager:sendAimIfNeeded()
 	end
 	local lastYaw = self.lastSentYaw
 	local lastPitch = self.lastSentPitch
-	if lastYaw and lastPitch and math.abs(PostRules.wrapDegrees(self.yawDegrees - lastYaw)) < SEND_MIN_CHANGE_DEGREES and math.abs(self.pitchDegrees - lastPitch) < SEND_MIN_CHANGE_DEGREES then
+	local isAimedChanged = self.aimedId ~= self.lastSentAimedId
+	if not isAimedChanged and lastYaw and lastPitch and math.abs(PostRules.wrapDegrees(self.yawDegrees - lastYaw)) < SEND_MIN_CHANGE_DEGREES and math.abs(self.pitchDegrees - lastPitch) < SEND_MIN_CHANGE_DEGREES then
 		return
 	end
 	self.lastSentYaw = self.yawDegrees
 	self.lastSentPitch = self.pitchDegrees
+	self.lastSentAimedId = self.aimedId
 	self.lastSendTime = now
 	ClientNetManager:fireServer(
 		NetEventNames.TRY_SET_POST_AIM,
 		{
 			yawDegrees = self.yawDegrees,
 			pitchDegrees = self.pitchDegrees,
+			-- a lock kind names what the reticle is on; the server locks that
+			aimedId = self.aimedId,
 		}
 	)
 end
@@ -616,6 +650,7 @@ function ClientPostManager:onRenderStep(deltaTime: number)
 		self:updateTurnSound(previousYaw, previousPitch, deltaTime)
 		self:sendAimIfNeeded()
 		self:updateTargetMarker()
+		self:renderLock()
 	end
 	local now = workspace:GetServerTimeNow()
 	for _, view in self.viewsByModel do
@@ -935,17 +970,20 @@ function ClientPostManager:getIsReloading(): boolean
 end
 
 -- the AA Launcher's locks as the server last wrote them: how many are
--- locked and the furthest-along share, with the tone once per new lock
-function ClientPostManager:readLocks(): (number, number)
+-- locked, the furthest-along share, and each target's share by its
+-- damageable id, with the tone once per new lock
+function ClientPostManager:readLocks(): (number, number, { [string]: number })
+	local shareById: { [string]: number } = {}
+	self.lockedIds = {}
 	local view = self.mountedView
 	local encoded = if view then view.model:GetAttribute(Attributes.POST_WEAPON_LOCKS) else nil
 	if typeof(encoded) ~= "string" or encoded == "" then
 		self.announcedLockIds = {}
-		return 0, 0
+		return 0, 0, shareById
 	end
 	local isSuccess, rows = pcall(HttpService.JSONDecode, HttpService, encoded)
 	if not isSuccess or typeof(rows) ~= "table" then
-		return 0, 0
+		return 0, 0, shareById
 	end
 	local lockedCount = 0
 	local bestShare = 0
@@ -954,10 +992,17 @@ function ClientPostManager:readLocks(): (number, number)
 		if typeof(row) ~= "table" or typeof(row.share) ~= "number" then
 			continue
 		end
-		bestShare = math.max(bestShare, row.share)
+		if typeof(row.id) == "string" then
+			shareById[row.id] = row.share
+		end
+		-- a lock still building is what the bar shows; a held one reads as full elsewhere
+		if row.share < 1 then
+			bestShare = math.max(bestShare, row.share)
+		end
 		if row.share >= 1 then
 			lockedCount += 1
 			if typeof(row.id) == "string" then
+				table.insert(self.lockedIds, row.id)
 				seen[row.id] = true
 				if not self.announcedLockIds[row.id] then
 					self.announcedLockIds[row.id] = true
@@ -974,7 +1019,92 @@ function ClientPostManager:readLocks(): (number, number)
 			self.announcedLockIds[id] = nil
 		end
 	end
-	return lockedCount, bestShare
+	return lockedCount, bestShare, shareById
+end
+
+function ClientPostManager:setAimQuery(aimQuery: (camera: Camera, frameCenter: Vector2?, frameHalfSize: Vector2?) -> (string?, boolean))
+	self.aimQuery = aimQuery
+end
+
+-- the damageable ids the mounted post holds locked, as of this frame
+function ClientPostManager:getLockedIds(): { string }
+	return self.lockedIds
+end
+
+-- the Missile Launcher's reticle every frame (2026-10-20): red with NO
+-- TARGET over nothing, green over a flyer and white over a ground
+-- monster, with LOCKING ON TARGET while the aimed target's lock fills the
+-- bar beside the reticle and TARGET LOCKED once it has; the bar shows
+-- the aimed target's own lock, or the furthest-along one while the
+-- reticle is off every target
+function ClientPostManager:renderLock()
+	local reticle = self.reticle
+	local lockBar = self.lockBar
+	local lockFill = self.lockFill
+	local lockLabel = self.lockLabel
+	local kindData = self.kindData
+	local isLockKind = self.isMounted and kindData ~= nil and kindData.LOCK ~= nil
+	if lockBar then
+		lockBar.Visible = isLockKind
+	end
+	if lockLabel then
+		lockLabel.Visible = isLockKind
+	end
+	if self.lockCount then
+		self.lockCount.Visible = isLockKind
+	end
+	if not isLockKind then
+		self.lockedIds = {}
+		self.aimedId = nil
+		if reticle then
+			reticle.ImageColor3 = Color3.new(1, 1, 1)
+		end
+		return
+	end
+	local lockedCount, bestShare, shareById = self:readLocks()
+	local lockData = if kindData then kindData.LOCK else nil
+	local stats = self.stats
+	local maxLocks = if stats and stats.lockCount then stats.lockCount elseif lockData then lockData.COUNT else 0
+	if self.lockCountLabel then
+		self.lockCountLabel.Text = string.format(LOCK_COUNT_FORMAT, lockedCount, maxLocks)
+	end
+	local camera = workspace.CurrentCamera
+	local aimQuery = self.aimQuery
+	local aimedId: string? = nil
+	local isAimedAir = false
+	if camera and aimQuery then
+		local frameCenter: Vector2? = nil
+		local frameHalfSize: Vector2? = nil
+		if reticle then
+			frameCenter = reticle.AbsolutePosition + reticle.AbsoluteSize / 2
+			frameHalfSize = reticle.AbsoluteSize / 2 * LOCK_FRAME_SHARE
+		end
+		aimedId, isAimedAir = aimQuery(camera, frameCenter, frameHalfSize)
+	end
+	self.aimedId = aimedId
+	local color = LOCK_RETICLE_NONE_COLOR
+	local text = LOCK_TEXT_NONE
+	-- the bar is the lock in progress, whichever monster it is on
+	local share = bestShare
+	if aimedId then
+		color = if isAimedAir then LOCK_RETICLE_AIR_COLOR else LOCK_RETICLE_GROUND_COLOR
+		local aimedShare = shareById[aimedId] or 0
+		text = if aimedShare >= 1 then LOCK_TEXT_LOCKED else LOCK_TEXT_LOCKING
+	end
+	if reticle then
+		reticle.ImageColor3 = color
+	end
+	-- the bar fills while a lock builds and empties once it holds (the
+	-- marker on the target says so from then on, decided 2026-10-20)
+	local barShare = if share >= 1 then 0 else math.clamp(share, 0, 1)
+	if lockFill then
+		lockFill.Size = UDim2.fromScale(1, barShare)
+		lockFill.BackgroundColor3 = STATUS_HOT_COLOR:Lerp(STATUS_COOL_COLOR, barShare)
+	end
+	if lockLabel then
+		lockLabel.Text = UiStyle.formatTitle(text)
+		lockLabel.TextColor3 = color
+	end
 end
 
 -- the trigger of a spin-up or charge kind follows the hold: the server is
@@ -1259,18 +1389,8 @@ function ClientPostManager:renderStatusBar()
 		end
 		return
 	end
-	if kindData.LOCK then
-		-- the AA Launcher: the bar is the best lock's progress, the label
-		-- how many are locked
-		local lockedCount, bestShare = self:readLocks()
-		fill.Size = UDim2.fromScale(bestShare, 1)
-		fill.BackgroundColor3 = STATUS_HOT_COLOR:Lerp(STATUS_COOL_COLOR, bestShare)
-		if label then
-			label.Text = UiStyle.formatTitle(string.format(STATUS_LOCKED_FORMAT, lockedCount))
-			label.Visible = lockedCount > 0
-		end
-		return
-	end
+	-- a lock kind (the AA Launcher) reads its locks beside the reticle
+	-- (renderLock, 2026-10-20); the bar below is its reload like any other
 	if kindData.HEAT then
 		local heat, isOverheated = self:getCurrentHeat()
 		fill.Size = UDim2.fromScale(heat, 1)
@@ -1355,6 +1475,9 @@ end
 
 function ClientPostManager:enterMode()
 	self:setHudHidden(true)
+	-- a lock kind aims by its coloured reticle alone: no centre dot over it (2026-10-20)
+	local kindData = self.kindData
+	ClientCursorManager:setDotHidden(kindData ~= nil and kindData.LOCK ~= nil)
 	if self.isTouchOnly then
 		ClientTouchLayoutManager:setJumpButtonHidden(true)
 		self:placeExitButton()
@@ -1376,12 +1499,16 @@ function ClientPostManager:enterMode()
 	UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 	self.lastSentYaw = nil
 	self.lastSentPitch = nil
+	self.aimedId = nil
+	self.lastSentAimedId = nil
 	self.wantedYawDelta = 0
 	self.wantedPitchDelta = 0
 end
 
 function ClientPostManager:exitMode()
 	self:removeTargetMarker()
+	ClientCursorManager:setDotHidden(false)
+	self:renderLock()
 	self:setHudHidden(false)
 	ClientTouchLayoutManager:setJumpButtonHidden(false)
 	local camera = workspace.CurrentCamera
@@ -1497,6 +1624,19 @@ function ClientPostManager:findHud()
 	end
 	local reticle = gui:FindFirstChild(Constants.POST_HUD_RETICLE)
 	self.reticle = if reticle and reticle:IsA("ImageLabel") then reticle else nil
+	local lockBar = if reticle then reticle:FindFirstChild(Constants.POST_HUD_LOCK_BAR) else nil
+	self.lockBar = if lockBar and lockBar:IsA("Frame") then lockBar else nil
+	local lockFill = if lockBar then lockBar:FindFirstChild(Constants.POST_HUD_LOCK_FILL) else nil
+	self.lockFill = if lockFill and lockFill:IsA("Frame") then lockFill else nil
+	local lockLabel = if reticle then reticle:FindFirstChild(Constants.POST_HUD_LOCK_LABEL) else nil
+	self.lockLabel = if lockLabel and lockLabel:IsA("TextLabel") then lockLabel else nil
+	local lockCount = gui:FindFirstChild(Constants.POST_HUD_LOCK_COUNT)
+	self.lockCount = if lockCount and lockCount:IsA("Frame") then lockCount else nil
+	local lockCountLabel = if lockCount then lockCount:FindFirstChild(Constants.POST_HUD_LOCK_COUNT_LABEL) else nil
+	self.lockCountLabel = if lockCountLabel and lockCountLabel:IsA("TextLabel") then lockCountLabel else nil
+	if self.lockCount then
+		self.lockCount.Visible = false
+	end
 	local statusBar = gui:FindFirstChild(Constants.POST_HUD_STATUS_BAR)
 	self.statusBar = if statusBar and statusBar:IsA("Frame") then statusBar else nil
 	local statusFill = if statusBar then statusBar:FindFirstChild(Constants.POST_HUD_STATUS_FILL) else nil
@@ -1680,6 +1820,8 @@ function ClientPostManager.new(): ClientPostManager
 	self.wantedPitchDelta = 0
 	self.lastSentYaw = nil
 	self.lastSentPitch = nil
+	self.aimedId = nil
+	self.lastSentAimedId = nil
 	self.lastSendTime = 0
 	self.stats = nil
 	self.kindData = nil
@@ -1689,6 +1831,13 @@ function ClientPostManager.new(): ClientPostManager
 	self.exitButton = nil
 	self.exitHint = nil
 	self.reticle = nil
+	self.lockBar = nil
+	self.lockFill = nil
+	self.lockLabel = nil
+	self.lockCount = nil
+	self.lockCountLabel = nil
+	self.lockedIds = {}
+	self.aimQuery = nil
 	self.statusBar = nil
 	self.statusFill = nil
 	self.statusLabel = nil

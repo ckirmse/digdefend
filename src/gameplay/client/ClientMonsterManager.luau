@@ -1172,6 +1172,47 @@ function ClientMonsterManager:findAimedMonster(camera: Camera, isAnyHp: boolean)
 	return best
 end
 
+-- the monster inside a rectangle of the screen (the Missile Launcher's
+-- reticle frame, 2026-10-20), the one nearest its centre: a body is in
+-- if its drawn centre projects inside the rectangle and nothing in the
+-- world stands between the camera and it
+function ClientMonsterManager:findMonsterInFrame(camera: Camera, frameCenter: Vector2, frameHalfSize: Vector2): ClientMonster?
+	local origin = camera.CFrame.Position
+	local best: ClientMonster? = nil
+	local bestOffset = math.huge
+	for _, monster in self.monstersById do
+		local cframe = monster.renderCFrame
+		if not cframe then
+			continue
+		end
+		local position = cframe.Position + Vector3.new(0, monster.body.boxOffsetY, 0)
+		-- screen space, not viewport space: a gui's AbsolutePosition counts
+		-- from under the top bar inset even when it ignores the inset, and
+		-- the viewport point does not (58 px apart; measured 2026-10-20)
+		local point, isOnScreen = camera:WorldToScreenPoint(position)
+		if not isOnScreen then
+			continue
+		end
+		local dx = math.abs(point.X - frameCenter.X) / math.max(frameHalfSize.X, 1)
+		local dy = math.abs(point.Y - frameCenter.Y) / math.max(frameHalfSize.Y, 1)
+		if dx > 1 or dy > 1 then
+			continue
+		end
+		local offset = dx * dx + dy * dy
+		if offset >= bestOffset then
+			continue
+		end
+		local toMonster = position - origin
+		local worldHit = workspace:Raycast(origin, toMonster, self.aimParameters)
+		if worldHit and worldHit.Distance < toMonster.Magnitude - monster.body.boxSize.Magnitude / 2 then
+			continue
+		end
+		best = monster
+		bestOffset = offset
+	end
+	return best
+end
+
 function ClientMonsterManager:getHpBillboard(): BillboardGui?
 	local billboard = self.hpBillboard
 	if billboard and billboard.Parent then
@@ -1270,8 +1311,10 @@ function ClientMonsterManager:updateHpBar(now: number)
 		end
 		return
 	end
-	-- from a post the outline and the bar read through the wall
-	self:setAimHighlight(if isMounted then (if monster.rig then (monster.rig :: Rig).model else adornee) else nil)
+	-- from a post the outline and the bar read through the wall; a monster
+	-- the post has locked wears the lock's own green instead (2026-10-20)
+	local isLocked = isMounted and table.find(ClientPostManager:getLockedIds(), monster.damageableId) ~= nil
+	self:setAimHighlight(if isMounted and not isLocked then (if monster.rig then (monster.rig :: Rig).model else adornee) else nil)
 	if self.shownAdornee ~= adornee then
 		self.shownAdornee = adornee
 		billboard.Adornee = adornee
@@ -1598,6 +1641,16 @@ function ClientMonsterManager:init()
 	self:readTuning()
 	self:refreshAimFilter()
 	ClientDamageableManager:setBodyProvider(self)
+	-- the AA Launcher's reticle asks what it is on (ClientPostManager:renderLock, 2026-10-20)
+	ClientPostManager:setAimQuery(
+		function(camera: Camera, frameCenter: Vector2?, frameHalfSize: Vector2?): (string?, boolean)
+			local aimed = if frameCenter and frameHalfSize then self:findMonsterInFrame(camera, frameCenter, frameHalfSize) else self:findAimedMonster(camera, true)
+			if not aimed then
+				return nil, false
+			end
+			return aimed.damageableId, aimed.visual.isAir
+		end
+	)
 	for _, key in { Attributes.MONSTER_VISUAL_CATALOG, Attributes.MONSTER_INTERPOLATION_DELAY_SEC, Attributes.MONSTER_DRAW_BUDGETS, Attributes.MONSTER_HP_MULTIPLIER } do
 		ClientDataManager:subscribeGameMetadataAttribute(
 			key,

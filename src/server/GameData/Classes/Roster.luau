@@ -101,14 +101,16 @@ return {
 				WEAPON = Enums.WeaponKind.RIFLE,
 				POST = Enums.PostWeaponKind.AA_LAUNCHER,
 				TOWER = Enums.TowerKind.AA_TURRET,
-				GADGET = Enums.GadgetKind.GROUNDING_NET,
+				-- a thrown lure every monster in range goes for (2026-10-20,
+				-- in place of the Grounding Net, which only mattered on a flyer night)
+				GADGET = Enums.GadgetKind.FLARE,
 			},
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
 				[Enums.ClassModifier.MINING_POWER] = 1.0,
-				[Enums.ClassModifier.FLYER_DAMAGE] = 1.5,
-				[Enums.ClassModifier.GROUND_DAMAGE] = 0.85,
+				-- no damage split (flyers 1.5, ground 0.85 until 2026-10-20):
+				-- the Missile Launcher's own ground share carries it
 			},
 		},
 		-- Combat: Foot Soldier / Mining: Balanced

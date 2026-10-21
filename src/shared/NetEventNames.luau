@@ -224,6 +224,8 @@ module = {
 	TRY_PLACE_REMOTE_CHARGE = "TryPlaceRemoteCharge",
 	TRY_DETONATE_REMOTE_CHARGE = "TryDetonateRemoteCharge",
 	NOTIFY_REMOTE_CHARGE_DETONATED = "NotifyRemoteChargeDetonated",
+	-- the Flare (2026-10-20): throw it
+	TRY_THROW_FLARE = "TryThrowFlare",
 	-- gadget upgrades (M67): buy the class gadget's next level at the Post
 	-- & Gadget Upgrades table, and to that client: it went through
 	-- ({ level, price }), for the sound

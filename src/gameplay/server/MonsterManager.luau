@@ -39,6 +39,7 @@ local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 local AutoTurretManager = require(script.Parent.AutoTurretManager)
+local FlareManager = require(script.Parent.FlareManager)
 local DamageableManager = require(script.Parent.DamageableManager)
 local MonsterPathManager = require(script.Parent.MonsterPathManager)
 local PlacementManager = require(script.Parent.PlacementManager)
@@ -498,6 +499,26 @@ function MonsterManager:buildCandidates()
 			table.insert(candidatesByType[Enums.MonsterTargetType.REFINERY], candidate)
 		end
 	end
+	-- a lit Flare (2026-10-20) is listed under every type with its draw
+	-- radius, so whatever a kind hunts first, a flare within the radius
+	-- wins over it; hitting it hurts nothing (hurt), and it goes when it
+	-- burns out
+	for _, flare in FlareManager:getFlares() do
+		local shadow = flare.shadow
+		local candidate: MonsterRules.Candidate = {
+			id = flare.id,
+			targetType = Enums.MonsterTargetType.PLAYERS,
+			position = shadow.Position,
+			cframe = shadow.CFrame,
+			size = shadow.Size,
+			radiusStuds = MonsterRules.boxRadius(shadow.Size),
+			drawRangeStuds = flare.drawRadiusStuds,
+		}
+		add(candidate)
+		for _, targetType in { Enums.MonsterTargetType.TOWERS, Enums.MonsterTargetType.TRAPS, Enums.MonsterTargetType.WALLS, Enums.MonsterTargetType.REFINERY } do
+			table.insert(candidatesByType[targetType], candidate)
+		end
+	end
 	for _, box in StructureManager:getStructureBoxes() do
 		if box.isDestroyed then
 			continue
@@ -549,7 +570,7 @@ end
 -- hurts one candidate by whatever owns it; kind is the attacker's
 -- Enums.MonsterKind, for the run report
 function MonsterManager:hurt(candidate: MonsterRules.Candidate, amount: number, kind: number)
-	if amount <= 0 then
+	if amount <= 0 or FlareManager:hasFlare(candidate.id) then
 		return
 	end
 	local targetType = candidate.targetType

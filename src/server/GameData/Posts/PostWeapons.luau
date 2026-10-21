@@ -61,6 +61,7 @@ local COOLDOWN = Enums.PostAttribute.COOLDOWN
 local IMPACT_RADIUS = Enums.PostAttribute.IMPACT_RADIUS
 local FIRE_DAMAGE = Enums.PostAttribute.FIRE_DAMAGE
 local FIRE_LENGTH = Enums.PostAttribute.FIRE_LENGTH
+local LOCK_COUNT = Enums.PostAttribute.LOCK_COUNT
 
 -- the gun sits a dozen studs over the ground, so a monster at the foot
 -- of the tower needs a steep look down (-70 since 2026-09-30, was -40);
@@ -124,6 +125,9 @@ return {
 		[IMPACT_RADIUS] = 0.2,
 		[FIRE_DAMAGE] = 0.25,
 		[FIRE_LENGTH] = 0.25,
+		-- the Missile Launcher's Lock Count (2026-10-20): a whole lock per
+		-- level, two to six
+		[LOCK_COUNT] = 1,
 	},
 	-- how far from the muzzle the server lets a shot start: the client's
 	-- base may be a fraction of a second ahead of the last aim it sent
@@ -302,8 +306,13 @@ return {
 		-- near the target so a cluster is shredded; against the ground a
 		-- missile dumb-fires with a small splash weaker than a Rocket
 		[Enums.PostWeaponKind.AA_LAUNCHER] = {
-			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
-			DAMAGE = 90,
+			-- its rows (decided 2026-10-20): the missile, its burst, how many
+			-- it holds, and the turn to hold them
+			UPGRADE_ATTRIBUTES = { DAMAGE, IMPACT_RADIUS, LOCK_COUNT, TURN_SPEED },
+			-- 350 from 90 through 180 (2026-10-20): a locked missile drops a
+			-- base Flyer (350 HP) in one, the class's whole point; a ground
+			-- lock's missile does GROUND_DAMAGE_SHARE of it
+			DAMAGE = 350,
 			FIRE_INTERVAL_SEC = 3,
 			FIRE_COOLDOWN_SEC = 2.8,
 			TURN_SPEED_DEGREES_PER_SEC = 20,
@@ -313,18 +322,38 @@ return {
 			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
 			RELOAD_SEC = 3,
 			PROJECTILE = {
-				TEMPLATE = "AAMissile",
+				-- the Rocket Launcher's rocket (2026-10-20; an AAMissile part
+				-- that was never made before it)
+				TEMPLATE = "Rocket",
 				BLAST_TEMPLATE = "RocketBlast",
 				SPEED_STUDS_PER_SEC = 140,
-				SPLASH_RADIUS_STUDS = 8,
+				-- 5 from 8 (2026-10-20): a missile is one target's, the lock
+				-- picked it; the Rocket's 12 is the crowd's
+				SPLASH_RADIUS_STUDS = 5,
 				HOMING = {
 					TURN_DEGREES_PER_SEC = 240,
 				},
 			},
+			-- it locks anything since 2026-10-20 (flyers alone until then,
+			-- which left the class with nothing on a night without them):
+			-- one target at a time, held inside the reticle for SEC (a
+			-- flyer) or GROUND_SEC (a ground monster, whose missile does
+			-- GROUND_DAMAGE_SHARE); best in the game against air, still a
+			-- post on the ground. 3 s from 0.8 the same day (a flock in the
+			-- cone locked at once), then 2, then 1, then 0.5 with the whole
+			-- reticle frame counting as on target; a held lock stays until
+			-- the volley fires
 			LOCK = {
-				SEC = 0.8,
-				ANGLE_DEGREES = 8,
-				COUNT = 3,
+				SEC = 0.5,
+				GROUND_SEC = 0.5,
+				GROUND_DAMAGE_SHARE = 0.6,
+				-- half the reticle frame's width, measured from the gunner's
+				-- look (2.5 from 8 on 2026-10-20: the cone locked what the
+				-- reticle was nowhere near); the client names what is inside
+				-- the frame and the server checks it against this, loosened
+				ANGLE_DEGREES = 2.5,
+				-- 2 from 3 (2026-10-20); Lock Count adds one per level, so six at the top
+				COUNT = 2,
 				DUMB_FIRE_DAMAGE_SHARE = 0.5,
 			},
 		},

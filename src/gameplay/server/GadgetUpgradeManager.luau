@@ -14,6 +14,7 @@ local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local AutoTurretData = require("@game/ServerScriptService/GameData/Gadgets/AutoTurret")
 local RemoteChargeData = require("@game/ServerScriptService/GameData/Gadgets/RemoteCharge")
+local FlareData = require("@game/ServerScriptService/GameData/Gadgets/Flare")
 local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
@@ -135,6 +136,7 @@ function GadgetUpgradeManager:init()
 		pricesByKind = {
 			[Enums.GadgetKind.AUTO_TURRET] = AutoTurretData.UPGRADE_PRICE_IRON_BY_LEVEL,
 			[Enums.GadgetKind.REMOTE_CHARGE] = RemoteChargeData.UPGRADE_PRICE_IRON_BY_LEVEL,
+			[Enums.GadgetKind.FLARE] = FlareData.UPGRADE_PRICE_IRON_BY_LEVEL,
 		},
 	}
 	SplendidReplicationManager:setGameMetadata(Attributes.GADGET_UPGRADE_CATALOG, GadgetRules.encodeCatalog(self.catalog))

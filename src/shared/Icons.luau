@@ -34,6 +34,9 @@ Icons.POST_WEAPON_RETICLE = {
 	-- the Minigun shares the Machine Gun's reticle (2026-10-19)
 	[Enums.PostWeaponKind.MINI_GUN] = "rbxassetid://134742178329103",
 	[Enums.PostWeaponKind.ROCKET_LAUNCHER] = "rbxassetid://105502906242582",
+	-- the AA Launcher shares the Rocket Launcher's reticle (2026-10-20),
+	-- coloured by what is under it and with the lock bar beside it
+	[Enums.PostWeaponKind.AA_LAUNCHER] = "rbxassetid://105502906242582",
 }
 
 -- the tool bar slot picture per Enums.ToolKind (one for every pick axe
@@ -66,6 +69,8 @@ Icons.GADGET_DETONATOR = "rbxassetid://110586066527047"
 -- the Binoculars' tag callout over a tagged monster (2026-10-19): the
 -- Sniper's reticle stands in until the Binoculars' own art lands
 Icons.TAG_RETICLE = "rbxassetid://75294207181536"
+-- the Missile Launcher's locked-target marker and lock counter (2026-10-20): the Machine Gun's reticle
+Icons.LOCK_MARKER = "rbxassetid://134742178329103"
 
 -- the scope glass drawn over the screen while a scope kind's scope is
 -- raised (ScopeHud, 2026-10-19): the designer's reticle, black outside it

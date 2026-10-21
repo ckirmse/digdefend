@@ -34,6 +34,9 @@ export type TowerBehavior = {
 	ATTACK: number,
 	TARGETS_GROUND: boolean,
 	TARGETS_AIR: boolean,
+	-- a flyer in range is picked before any ground target (the Missile
+	-- Turret, 2026-10-20); the priority then orders within the kind
+	PREFERS_AIR: boolean?,
 	HAS_TURRET: boolean,
 	CONE_ANGLE_DEGREES: number?,
 	TICK_INTERVAL_SEC: number?,

@@ -58,11 +58,12 @@ export type ClientToolBarManager = typeof(setmetatable(
 		-- icon dimmed, the effect counted down on the badge, then the grey sheet
 		isStimShotUsed: boolean,
 		stimShotEffectEndTime: number,
-		-- the Remote Charge's cooldown after a detonation (2026-10-20): the
-		-- server time the next mine is in hand and the cooldown's length,
-		-- the slot's grey sheet draining down over it
-		remoteChargeReadyTime: number,
-		remoteChargeCooldownSec: number,
+		-- the gadget's cooldown (2026-10-20; the Remote Charge after a
+		-- detonation, the Flare after a throw): the server time it is in
+		-- hand again and each cooldown's length, the slot's grey sheet
+		-- draining down over it
+		gadgetReadyTime: number,
+		cooldownSecByGadget: { [number]: number },
 		-- the gadget's held variant ("" for the gadget itself), which renames the slot
 		gadgetVariant: string,
 		-- the Demolitionist's next stick (2026-10-20): when it is in hand and
@@ -78,6 +79,13 @@ local FEEDBACK_NOT_AVAILABLE_BY_GADGET: { [number]: string } = {
 	[Enums.GadgetKind.AUTO_TURRET] = "Auto Turret not available yet.",
 	[Enums.GadgetKind.STIM_SHOT] = "You'll receive another STIM in the morning",
 	[Enums.GadgetKind.REMOTE_CHARGE] = "Next charge is on its way",
+	[Enums.GadgetKind.FLARE] = "Next flare is on its way",
+}
+-- the gadgets whose slot runs a cooldown (GadgetReadyTime) shown by the
+-- sheet draining, and the GameMetadata key holding each one's length
+local COOLDOWN_SEC_ATTRIBUTE_BY_GADGET: { [number]: string } = {
+	[Enums.GadgetKind.REMOTE_CHARGE] = Attributes.REMOTE_CHARGE_COOLDOWN_SEC,
+	[Enums.GadgetKind.FLARE] = Attributes.FLARE_COOLDOWN_SEC,
 }
 -- the Demolitionist's empty dynamite slot while the next stick comes (2026-10-20)
 local FEEDBACK_DYNAMITE_COMING = "Next stick in %d s"
@@ -128,8 +136,8 @@ function ClientToolBarManager:isGadgetLost(tool: number): boolean
 		-- the sheet waits until the effect has run out; the countdown shows first
 		return self.isStimShotUsed and self:getStimSecondsLeft() <= 0
 	end
-	if self.gadgetKind == Enums.GadgetKind.REMOTE_CHARGE then
-		return self:getRemoteChargeSecondsLeft() > 0
+	if COOLDOWN_SEC_ATTRIBUTE_BY_GADGET[self.gadgetKind] then
+		return self:getGadgetSecondsLeft() > 0
 	end
 	return false
 end
@@ -146,8 +154,8 @@ function ClientToolBarManager:getStimSecondsLeft(): number
 	return math.max(0, self.stimShotEffectEndTime - workspace:GetServerTimeNow())
 end
 
-function ClientToolBarManager:getRemoteChargeSecondsLeft(): number
-	return math.max(0, self.remoteChargeReadyTime - workspace:GetServerTimeNow())
+function ClientToolBarManager:getGadgetSecondsLeft(): number
+	return math.max(0, self.gadgetReadyTime - workspace:GetServerTimeNow())
 end
 
 function ClientToolBarManager:getDynamiteSecondsLeft(): number
@@ -181,8 +189,8 @@ function ClientToolBarManager:renderStim()
 				timerLabel.Text = tostring(math.ceil(secondsLeft))
 				timerLabel.Visible = self.isStimShotUsed and secondsLeft > 0
 			end
-		elseif self.gadgetKind == Enums.GadgetKind.REMOTE_CHARGE then
-			secondsLeft = self:getRemoteChargeSecondsLeft()
+		elseif COOLDOWN_SEC_ATTRIBUTE_BY_GADGET[self.gadgetKind] then
+			secondsLeft = self:getGadgetSecondsLeft()
 			if icon and icon:IsA("ImageLabel") then
 				icon.ImageTransparency = 0
 			end
@@ -328,8 +336,8 @@ end
 -- left as a share of its length (the sheet is anchored to the slot's
 -- bottom, so it drains from the top down)
 function ClientToolBarManager:getLostShare(tool: number): number
-	if tool == Enums.ToolKind.GADGET and self.gadgetKind == Enums.GadgetKind.REMOTE_CHARGE then
-		return math.clamp(self:getRemoteChargeSecondsLeft() / math.max(self.remoteChargeCooldownSec, 1e-3), 0, 1)
+	if tool == Enums.ToolKind.GADGET and COOLDOWN_SEC_ATTRIBUTE_BY_GADGET[self.gadgetKind] then
+		return math.clamp(self:getGadgetSecondsLeft() / math.max(self.cooldownSecByGadget[self.gadgetKind] or 1, 1e-3), 0, 1)
 	end
 	if tool == Enums.ToolKind.DYNAMITE and self.dynamiteReadyTime > 0 then
 		return math.clamp(self:getDynamiteSecondsLeft() / math.max(self.dynamiteRespawnSec, 1e-3), 0, 1)
@@ -457,10 +465,14 @@ function ClientToolBarManager:init()
 	self.gadgetKind = if typeof(gadgetKind) == "number" then gadgetKind else Enums.GadgetKind.NONE
 	self.isAutoTurretLost = ClientDataManager:getCurrentPlayerAttribute(Attributes.AUTO_TURRET_IS_LOST) == true
 	self.isStimShotUsed = ClientDataManager:getCurrentPlayerAttribute(Attributes.STIM_SHOT_IS_USED) == true
-	local readyTime = ClientDataManager:getCurrentPlayerAttribute(Attributes.REMOTE_CHARGE_READY_TIME)
-	self.remoteChargeReadyTime = if typeof(readyTime) == "number" then readyTime else 0
-	local cooldownSec = ClientDataManager:getGameMetadata(Attributes.REMOTE_CHARGE_COOLDOWN_SEC)
-	self.remoteChargeCooldownSec = if typeof(cooldownSec) == "number" then cooldownSec else self.remoteChargeCooldownSec
+	local readyTime = ClientDataManager:getCurrentPlayerAttribute(Attributes.GADGET_READY_TIME)
+	self.gadgetReadyTime = if typeof(readyTime) == "number" then readyTime else 0
+	for gadgetKind, attribute in COOLDOWN_SEC_ATTRIBUTE_BY_GADGET do
+		local cooldownSec = ClientDataManager:getGameMetadata(attribute)
+		if typeof(cooldownSec) == "number" then
+			self.cooldownSecByGadget[gadgetKind] = cooldownSec
+		end
+	end
 	local gadgetVariant = ClientDataManager:getCurrentPlayerAttribute(Attributes.GADGET_VARIANT)
 	self.gadgetVariant = if typeof(gadgetVariant) == "string" then gadgetVariant else ""
 	local dynamiteReadyTime = ClientDataManager:getCurrentPlayerAttribute(Attributes.DYNAMITE_READY_TIME)
@@ -508,9 +520,9 @@ function ClientToolBarManager:init()
 		end
 	)
 	ClientDataManager:subscribeCurrentPlayerAttribute(
-		Attributes.REMOTE_CHARGE_READY_TIME,
+		Attributes.GADGET_READY_TIME,
 		function(value: any)
-			self.remoteChargeReadyTime = if typeof(value) == "number" then value else 0
+			self.gadgetReadyTime = if typeof(value) == "number" then value else 0
 			self:renderStim()
 		end
 	)
@@ -565,8 +577,8 @@ function ClientToolBarManager.new(): ClientToolBarManager
 	self.isAutoTurretLost = false
 	self.isStimShotUsed = false
 	self.stimShotEffectEndTime = 0
-	self.remoteChargeReadyTime = 0
-	self.remoteChargeCooldownSec = 15
+	self.gadgetReadyTime = 0
+	self.cooldownSecByGadget = {}
 	self.gadgetVariant = ""
 	self.dynamiteReadyTime = 0
 	self.dynamiteRespawnSec = 90

@@ -97,6 +97,9 @@ return {
 				{ DAMAGE = 16, FLAME_SEC = 4, RANGE_STUDS = 28, MAX_HP = 400 },
 			},
 		},
+		-- the Missile Turret (2026-10-20; air only as the AA Turret until
+		-- then): it fires at the ground too, but a flyer in range always
+		-- comes first, so an air night is its night
 		[Enums.TowerKind.AA_TURRET] = {
 			BUILD_PRICE_IRON = 105,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 45, 75, 150, 300 },
@@ -104,8 +107,9 @@ return {
 			STAT_ROWS = { Enums.TowerStat.FIRE_RATE, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
 			BEHAVIOR = {
 				ATTACK = Enums.TowerAttack.SINGLE,
-				TARGETS_GROUND = false,
+				TARGETS_GROUND = true,
 				TARGETS_AIR = true,
+				PREFERS_AIR = true,
 				HAS_TURRET = true,
 			},
 			STATS_BY_LEVEL = {

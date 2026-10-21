@@ -12,8 +12,10 @@ local ClientAutoTurretDevTools = require(script.Parent.ClientAutoTurretDevTools)
 local ClientAutoTurretManager = require(script.Parent.ClientAutoTurretManager)
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
 local ClientBinocularsManager = require(script.Parent.ClientBinocularsManager)
+local ClientLockMarkerManager = require(script.Parent.ClientLockMarkerManager)
 local ClientStimShotManager = require(script.Parent.ClientStimShotManager)
 local ClientRemoteChargeManager = require(script.Parent.ClientRemoteChargeManager)
+local ClientFlareManager = require(script.Parent.ClientFlareManager)
 local ClientCampMapManager = require(script.Parent.ClientCampMapManager)
 local ClientDiamondTapManager = require(script.Parent.ClientDiamondTapManager)
 local ClientCompassManager = require(script.Parent.ClientCompassManager)
@@ -118,9 +120,14 @@ ClientAutoTurretManager:init()
 -- the Binoculars (2026-10-19): the scope, the tag callouts, and the marks
 -- the Camp Map and compass read from it below
 ClientBinocularsManager:init()
+-- the Missile Launcher's locked-target markers (2026-10-20): after the
+-- post manager that names the locks and the monster manager that draws the bodies
+ClientLockMarkerManager:init()
 ClientStimShotManager:init()
 -- the Remote Charge (2026-10-20): the planted charges and their blasts
 ClientRemoteChargeManager:init()
+-- the Flare (2026-10-20): the thrown sticks and the lit flares
+ClientFlareManager:init()
 -- the day clock reads GameMetadata the server set before anyone was Ready
 ClientRunCycleManager:init()
 -- the Refinery HP bar that takes the clock's place at night

@@ -100,10 +100,8 @@ local sfx = {
 	RAIL_GUN_CHARGE = "Post_Railgun_Charge",
 	MORTAR_HIT = "Post_Mortar_Hit",
 	MORTAR_FLIGHT = "Post_Mortar_Flight",
-	AA_LAUNCHER_FIRE = "Post_AALauncher_Fire",
-	AA_LAUNCHER_HIT = "Post_AALauncher_Hit",
-	AA_LAUNCHER_FLIGHT = "Post_AALauncher_Flight",
-	AA_LAUNCHER_EXPLODE = "Post_AALauncher_Explode",
+	-- the Missile Launcher's lock tone; it fires, flies, hits, and bursts
+	-- with the Rocket Launcher's sounds (decided 2026-10-20)
 	AA_LAUNCHER_LOCK = "Post_AALauncher_Lock",
 	MACHINE_GUN_AUTOMATED_FIRE = "Post_AutoMachineGun_Fire",
 	MACHINE_GUN_AUTOMATED_HIT = "Post_AutoMachineGun_Hit",
@@ -237,11 +235,12 @@ local postWeaponSfxByKindName: { [string]: PostWeaponSfx } = {
 		FLIGHT = sfx.MORTAR_FLIGHT,
 		EXPLODE = sfx.ROCKET_LAUNCHER_EXPLODE,
 	},
+	-- the Missile Launcher: the Rocket Launcher's sounds and its own lock tone
 	AA_LAUNCHER = {
-		FIRE = sfx.AA_LAUNCHER_FIRE,
-		HIT = sfx.AA_LAUNCHER_HIT,
-		FLIGHT = sfx.AA_LAUNCHER_FLIGHT,
-		EXPLODE = sfx.AA_LAUNCHER_EXPLODE,
+		FIRE = sfx.ROCKET_LAUNCHER_FIRE,
+		HIT = sfx.ROCKET_LAUNCHER_HIT,
+		FLIGHT = sfx.ROCKET_LAUNCHER_FLIGHT,
+		EXPLODE = sfx.ROCKET_LAUNCHER_EXPLODE,
 		WINDUP = sfx.AA_LAUNCHER_LOCK,
 	},
 	MACHINE_GUN_AUTOMATED = {

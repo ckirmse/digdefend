@@ -11,6 +11,7 @@ local BackpackManager = require(script.Parent.BackpackManager)
 local BinocularsManager = require(script.Parent.BinocularsManager)
 local StimShotManager = require(script.Parent.StimShotManager)
 local RemoteChargeManager = require(script.Parent.RemoteChargeManager)
+local FlareManager = require(script.Parent.FlareManager)
 local BalanceAudit = require(script.Parent.BalanceAudit)
 local BootsManager = require(script.Parent.BootsManager)
 local DiamondTapManager = require(script.Parent.DiamondTapManager)
@@ -225,6 +226,14 @@ RemoteChargeManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
 		RemoteChargeManager:onRunStarted()
+	end
+)
+-- Air Defense's Flare (2026-10-20): before the monsters, which list its
+-- lit flares among their targets
+FlareManager:init()
+RunManager:subscribeRunStarted(
+	function(_map: number, _difficulty: number)
+		FlareManager:onRunStarted()
 	end
 )
 -- the monsters (M29): the path grid reads the fresh camp once the

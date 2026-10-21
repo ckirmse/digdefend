@@ -135,6 +135,54 @@ reticleSize.MaxSize = Vector2.new(160, 160)
 reticleSize.Parent = reticle
 reticle.Parent = gui
 
+-- the AA Launcher's lock readout (2026-10-20), children of the reticle so
+-- they sit with it: a thin vertical bar to its right whose Fill rises
+-- from the bottom with the aimed target's lock, and a line under it that
+-- ClientPostManager sets (NO TARGET, LOCKING ON TARGET, TARGET LOCKED,
+-- CANNOT LOCK GROUND UNITS); both shown only on a lock kind
+local lockBar = Instance.new("Frame")
+lockBar.Name = "LockBar"
+lockBar.AnchorPoint = Vector2.new(0, 0.5)
+lockBar.Position = UDim2.fromScale(1.12, 0.5)
+lockBar.Size = UDim2.fromScale(0.08, 1)
+-- an outline only: the bar is empty air until a lock fills it (designer, 2026-10-20)
+lockBar.BackgroundTransparency = 1
+lockBar.BorderSizePixel = 0
+lockBar.Visible = false
+addCorner(lockBar)
+local lockStroke = Instance.new("UIStroke")
+lockStroke.Thickness = 1
+lockStroke.Color = Color3.new(1, 1, 1)
+lockStroke.Parent = lockBar
+local lockFill = Instance.new("Frame")
+lockFill.Name = "Fill"
+lockFill.AnchorPoint = Vector2.new(0, 1)
+lockFill.Position = UDim2.fromScale(0, 1)
+lockFill.Size = UDim2.fromScale(1, 0)
+lockFill.BackgroundColor3 = UiStyle.POSITIVE_COLOR
+lockFill.BorderSizePixel = 0
+addCorner(lockFill)
+lockFill.Parent = lockBar
+lockBar.Parent = reticle
+
+local lockLabel = Instance.new("TextLabel")
+lockLabel.Name = "LockLabel"
+lockLabel.AnchorPoint = Vector2.new(0.5, 0)
+lockLabel.Position = UDim2.fromScale(0.5, 1.06)
+lockLabel.Size = UDim2.fromScale(2.6, 0.2)
+lockLabel.BackgroundTransparency = 1
+lockLabel.Text = UiStyle.formatTitle("No target")
+lockLabel.TextColor3 = UiStyle.TEXT_COLOR
+lockLabel.TextScaled = true
+lockLabel.FontFace = UiStyle.TITLE_FONT
+lockLabel.Visible = false
+addTextSizeBounds(lockLabel, UiStyle.LABEL_TEXT_MIN_PX, 22)
+local lockLabelStroke = Instance.new("UIStroke")
+lockLabelStroke.Thickness = UiStyle.STROKE_PX
+lockLabelStroke.Color = UiStyle.BACKGROUND_COLOR
+lockLabelStroke.Parent = lockLabel
+lockLabel.Parent = reticle
+
 -- the status bar just above the exit hint: heat (green to red) for a gun
 -- that overheats, the reload (red filling, green when loaded) for one that
 -- reloads; ClientPostManager sizes and colours the Fill every frame, and
@@ -185,6 +233,56 @@ local statusLabelSize = Instance.new("UISizeConstraint")
 statusLabelSize.MaxSize = Vector2.new(480, 50)
 statusLabelSize.Parent = statusLabel
 statusLabel.Parent = gui
+
+-- the Missile Launcher's lock count (2026-10-20), above the reload bar and
+-- its label, shaped like the WeaponHud's ammo button: the marker reticle
+-- on the left and "2 / 3" (locks held over the most the post can hold);
+-- ClientPostManager fills it and shows it on a lock kind only
+local lockCount = Instance.new("Frame")
+lockCount.Name = "LockCount"
+lockCount.AnchorPoint = Vector2.new(0.5, 1)
+lockCount.Position = UDim2.fromScale(0.5, 0.81)
+-- 1.8x the ammo button's size (designer, 2026-10-20: half again, twice, then a fifth off)
+lockCount.Size = UDim2.fromScale(0.216, 0.072)
+lockCount.BackgroundColor3 = UiStyle.PANEL_COLOR
+lockCount.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
+lockCount.BorderSizePixel = 0
+lockCount.Visible = false
+local lockCountAspect = Instance.new("UIAspectRatioConstraint")
+lockCountAspect.AspectRatio = 4
+lockCountAspect.Parent = lockCount
+local lockCountSize = Instance.new("UISizeConstraint")
+lockCountSize.MaxSize = Vector2.new(360, 90)
+lockCountSize.Parent = lockCount
+addCorner(lockCount)
+local lockCountIcon = Instance.new("ImageLabel")
+lockCountIcon.Name = "Icon"
+lockCountIcon.AnchorPoint = Vector2.new(0, 0.5)
+lockCountIcon.Position = UDim2.fromScale(0.05, 0.5)
+lockCountIcon.Size = UDim2.fromScale(0.2, 0.8)
+lockCountIcon.BackgroundTransparency = 1
+lockCountIcon.Image = Icons.LOCK_MARKER
+lockCountIcon.ImageColor3 = UiStyle.POSITIVE_COLOR
+lockCountIcon.ScaleType = Enum.ScaleType.Fit
+local lockCountIconAspect = Instance.new("UIAspectRatioConstraint")
+lockCountIconAspect.AspectRatio = 1
+lockCountIconAspect.DominantAxis = Enum.DominantAxis.Height
+lockCountIconAspect.Parent = lockCountIcon
+lockCountIcon.Parent = lockCount
+local lockCountLabel = Instance.new("TextLabel")
+lockCountLabel.Name = "Label"
+lockCountLabel.AnchorPoint = Vector2.new(1, 0.5)
+lockCountLabel.Position = UDim2.fromScale(0.95, 0.5)
+lockCountLabel.Size = UDim2.fromScale(0.65, 0.85)
+lockCountLabel.BackgroundTransparency = 1
+lockCountLabel.Text = "0 / 2"
+lockCountLabel.TextColor3 = UiStyle.TEXT_COLOR
+lockCountLabel.TextScaled = true
+lockCountLabel.FontFace = UiStyle.BODY_BOLD_FONT
+-- the count fills the big box rather than stopping at the label cap (designer, 2026-10-20)
+addTextSizeBounds(lockCountLabel, UiStyle.LABEL_TEXT_MIN_PX, 64)
+lockCountLabel.Parent = lockCount
+lockCount.Parent = gui
 
 -- the Binoculars' tag hint (2026-10-19), against the right edge at the
 -- screen's vertical centre: the tag icon on a panel, a grey sheet that

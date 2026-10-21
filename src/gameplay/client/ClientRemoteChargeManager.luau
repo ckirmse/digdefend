@@ -272,7 +272,7 @@ end
 
 -- seconds until the next mine is in hand; 0 when it is
 function ClientRemoteChargeManager:getCooldownLeft(): number
-	local readyTime = ClientDataManager:getCurrentPlayerAttribute(Attributes.REMOTE_CHARGE_READY_TIME)
+	local readyTime = ClientDataManager:getCurrentPlayerAttribute(Attributes.GADGET_READY_TIME)
 	return if typeof(readyTime) == "number" then math.max(0, readyTime - workspace:GetServerTimeNow()) else 0
 end
 
@@ -308,7 +308,7 @@ function ClientRemoteChargeManager:init()
 		end
 	)
 	self:refreshActive()
-	for _, attribute in { Attributes.EQUIPPED_TOOL, Attributes.GADGET_KIND, Attributes.GADGET_VARIANT, Attributes.REMOTE_CHARGE_READY_TIME } do
+	for _, attribute in { Attributes.EQUIPPED_TOOL, Attributes.GADGET_KIND, Attributes.GADGET_VARIANT, Attributes.GADGET_READY_TIME } do
 		ClientDataManager:subscribeCurrentPlayerAttribute(
 			attribute,
 			function(_value: any)

@@ -40,7 +40,11 @@ export type SpinUpData = { SEC: number }
 export type ChargeData = { SEC: number }
 export type PierceData = { COUNT: number, COUNT_PER_DAMAGE_LEVEL: number }
 export type PoolData = { RADIUS_STUDS: number, SEC: number, BURN_DAMAGE_PER_SEC: number, BURN_SEC: number, TICK_SEC: number }
-export type LockData = { SEC: number, ANGLE_DEGREES: number, COUNT: number, DUMB_FIRE_DAMAGE_SHARE: number }
+-- SEC is a flyer's lock; a ground monster locks in GROUND_SEC and its
+-- missile does GROUND_DAMAGE_SHARE of the damage (2026-10-20, when the
+-- AA Launcher became the Missile Launcher and locked anything); both
+-- default to the flyer's when absent
+export type LockData = { SEC: number, GROUND_SEC: number?, GROUND_DAMAGE_SHARE: number?, ANGLE_DEGREES: number, COUNT: number, DUMB_FIRE_DAMAGE_SHARE: number }
 export type MinesData = { MAX_ARMED: number, TRIGGER_RADIUS_STUDS: number, ARM_SEC: number }
 export type ChainData = { COUNT: number, JUMP_STUDS: number }
 export type SalvageData = { IRON_PER_KILL: number, CAP_PER_NIGHT: number }
@@ -128,6 +132,9 @@ export type Stats = {
 	poolSec: number?,
 	burnDamagePerSec: number?,
 	burnSec: number?,
+	-- the Missile Launcher's locks held at once (2026-10-20): the kind's
+	-- count plus the Lock Count bonus per level, whole locks; nil without a LOCK block
+	lockCount: number?,
 }
 
 export type Offer = {
@@ -166,6 +173,7 @@ PostRules.UPGRADE_ATTRIBUTE_BY_POST_ATTRIBUTE = {
 	[Enums.PostAttribute.IMPACT_RADIUS] = Attributes.POST_UPGRADE_IMPACT_RADIUS,
 	[Enums.PostAttribute.FIRE_DAMAGE] = Attributes.POST_UPGRADE_FIRE_DAMAGE,
 	[Enums.PostAttribute.FIRE_LENGTH] = Attributes.POST_UPGRADE_FIRE_LENGTH,
+	[Enums.PostAttribute.LOCK_COUNT] = Attributes.POST_UPGRADE_LOCK_COUNT,
 }
 
 PostRules.NO_POST = 0
@@ -225,6 +233,7 @@ function PostRules.statsFor(catalog: Catalog, kind: number, upgrades: Upgrades):
 		poolSec = if data.POOL then data.POOL.SEC * multiplierFor(Enums.PostAttribute.FIRE_LENGTH) else nil,
 		burnDamagePerSec = if data.POOL then data.POOL.BURN_DAMAGE_PER_SEC * multiplierFor(Enums.PostAttribute.FIRE_DAMAGE) else nil,
 		burnSec = if data.POOL then data.POOL.BURN_SEC * multiplierFor(Enums.PostAttribute.FIRE_LENGTH) else nil,
+		lockCount = if data.LOCK then data.LOCK.COUNT + math.floor((bonuses[Enums.PostAttribute.LOCK_COUNT] or 0) * PostRules.upgradeLevel(upgrades, Enums.PostAttribute.LOCK_COUNT) + 0.5) else nil,
 	}
 end
 

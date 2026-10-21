@@ -386,6 +386,11 @@ local GADGETS = {
 		-- bounds frame is turned too; held by the world's axes instead
 		isHeldLevel = true,
 	},
+	-- the Flare (2026-10-20): the placeholder tube from build_flare_template.luau
+	{
+		key = "FLARE",
+		sourceName = "Flare",
+	},
 	{
 		key = "REMOTE_CHARGE",
 		variant = "DETONATOR",

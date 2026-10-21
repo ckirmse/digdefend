@@ -71,12 +71,18 @@ local monsterManager: any -- prevent circular reference by not initializing here
 type Lock = {
 	startTime: number,
 	isLocked: boolean,
+	-- how long this target takes to lock, and whether it flies (a ground
+	-- lock's missile does the lock data's ground share, 2026-10-20)
+	lockSec: number,
+	isAirborne: boolean,
 }
 
 type Post = {
 	index: number,
 	owner: Player?,
 	weaponKind: number,
+	-- the monster the gunner's reticle is on, as their client last said
+	aimedId: string?,
 	weaponModel: Model?,
 	rig: PostRules.Rig?,
 	yawDegrees: number,
@@ -159,7 +165,15 @@ local TRY_DISMOUNT_POST_SHAPE = {}
 local TRY_SET_POST_AIM_SHAPE = {
 	yawDegrees = "number",
 	pitchDegrees = "number",
+	-- the monster the gunner's reticle sits on as their client draws it
+	-- (2026-10-20), for a lock kind; absent when it is on nothing
+	aimedId = { type = "string", optional = true },
 }
+-- how far off the server's own look ray a named aimed monster may sit
+-- before it is disbelieved: the reticle's whole frame counts (about
+-- twice the lock angle), and the client's aim and its drawn monsters both
+-- run a little ahead or behind the server's
+local AIMED_ANGLE_SHARE = 6
 -- a quarter of a default message, like TrySetAim: the stream must never starve firing
 local TRY_SET_POST_AIM_COST = 0.25
 -- the machine gun fires every 0.1 s and Fire Rate 4 nearly doubles that,
@@ -194,9 +208,6 @@ local CLAIM_PROMPT_ATTACHMENT = "ClaimPromptAttachment"
 local HEADSHOT_FORMAT = "rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150"
 -- an unmanned post writes its aim this often, the clients' own cadence
 local AUTO_REPLICATE_INTERVAL_SEC = 0.1
--- a lock is kept while its target stays within this many times the lock
--- angle, so a flyer crossing the reticle is not lost the moment it leaves it
-local LOCK_KEEP_ANGLE_SHARE = 3
 -- R15: the chain each hand's IKControl solves from
 local IK_ARMS = {
 	{ root = "LeftUpperArm", hand = "LeftHand", handle = Constants.POST_WEAPON_HANDLE_LEFT_PART },
@@ -360,7 +371,7 @@ function PostManager:replicateLocks(post: Post, now: number, lockData: PostRules
 	for id, lock in post.locksById do
 		table.insert(rows, {
 			id = id,
-			share = if lock.isLocked then 1 else math.clamp((now - lock.startTime) / lockData.SEC, 0, 1),
+			share = if lock.isLocked then 1 else math.clamp((now - lock.startTime) / lock.lockSec, 0, 1),
 		})
 	end
 	local encoded = HttpService:JSONEncode(rows)
@@ -614,6 +625,21 @@ function PostManager:mount(player: Player, post: Post)
 	self:replicatePlayer(player)
 end
 
+-- the gunner's own look for the post's current aim: the camera's place
+-- and direction, which the reticle sits on (the camera is above the
+-- barrel, so the barrel's own line misses what the reticle is on at
+-- short range); the Missile Launcher locks along it (2026-10-20)
+function PostManager:getLookRay(post: Post): (Vector3?, Vector3?)
+	local rig = post.rig
+	local weaponModel = post.weaponModel
+	if not rig or not weaponModel or not weaponModel.PrimaryPart then
+		return nil, nil
+	end
+	local gunFrame = PostRules.gunFrame(PostRules.baseFrame(weaponModel.PrimaryPart.CFrame, post.yawDegrees), rig, post.pitchDegrees)
+	local cameraFrame = PostRules.cameraFrame(gunFrame, rig)
+	return cameraFrame.Position, cameraFrame.LookVector
+end
+
 -- the muzzle and the barrel's direction for the post's current aim
 function PostManager:getAim(post: Post): (Vector3?, Vector3?)
 	local rig = post.rig
@@ -625,54 +651,87 @@ function PostManager:getAim(post: Post): (Vector3?, Vector3?)
 	return PostRules.muzzlePosition(gunFrame, rig), PostRules.barrelDirection(gunFrame, rig)
 end
 
--- the AA Launcher's locks follow the aim: a flyer within the lock angle
--- accrues time and locks after the lock's seconds, up to the count; one
--- that drifts well out of the angle, out of range, or dies is dropped
+-- whether the gunner's reticle is on this target: their client said so
+-- with its last aim (the one source, so the white outline it draws and
+-- the lock agree; the server's own ray and the client's drawn monsters
+-- disagreed on which of two in a line was under the reticle,
+-- 2026-10-20), and the server's own look ray is not far off it
+function PostManager:isReticleOn(post: Post, target: DamageableManager.Target, lockData: PostRules.LockData, stats: PostRules.Stats, eye: Vector3, direction: Vector3): boolean
+	if post.aimedId ~= target.id then
+		return false
+	end
+	if (target.position - eye).Magnitude > stats.rangeStuds then
+		return false
+	end
+	return PostRules.angleToDegrees(eye, direction, target.position) <= lockData.ANGLE_DEGREES * AIMED_ANGLE_SHARE
+end
+
+-- the Missile Launcher's locks (reshaped 2026-10-20, twice): one target
+-- locks at a time, the one under the reticle, and it must stay inside the
+-- reticle for its seconds (a flyer's SEC, a ground monster's GROUND_SEC)
+-- or the lock in progress is dropped and the next starts from nothing. A
+-- held lock stays until the volley fires, however the aim wanders, and
+-- goes only with the target's death; once the count is held nothing more starts
 function PostManager:updateLocks(post: Post, lockData: PostRules.LockData, stats: PostRules.Stats, now: number)
-	local muzzle, direction = self:getAim(post)
-	if not muzzle or not direction then
+	-- angles from the gunner's own look, the ray the reticle sits on
+	local eye, direction = self:getLookRay(post)
+	if not eye or not direction then
 		return
 	end
-	local seen: { [string]: boolean } = {}
-	local lockCount = 0
-	for _, lock in post.locksById do
-		if lock.isLocked then
-			lockCount += 1
-		end
-	end
+	local targetById: { [string]: DamageableManager.Target } = {}
 	for _, target in DamageableManager:getTargets() do
-		if not target.isAirborne then
+		targetById[target.id] = target
+	end
+	-- the held locks, and the one still building
+	local lockCount = 0
+	local buildingId: string? = nil
+	for id, lock in post.locksById do
+		local target = targetById[id]
+		if not target then
+			post.locksById[id] = nil
 			continue
 		end
-		local distance = (target.position - muzzle).Magnitude
-		local angle = PostRules.angleToDegrees(muzzle, direction, target.position)
-		local lock = post.locksById[target.id]
-		if lock then
-			if distance > stats.rangeStuds or angle > lockData.ANGLE_DEGREES * LOCK_KEEP_ANGLE_SHARE then
-				continue
-			end
-			seen[target.id] = true
-			if not lock.isLocked and now - lock.startTime >= lockData.SEC and lockCount < lockData.COUNT then
+		if lock.isLocked then
+			lockCount += 1
+			continue
+		end
+		-- a lock in progress needs the reticle to stay on the target
+		if not self:isReticleOn(post, target, lockData, stats, eye, direction) then
+			post.locksById[id] = nil
+			continue
+		end
+		buildingId = id
+		if now - lock.startTime >= lock.lockSec then
+			if lockCount < (stats.lockCount or lockData.COUNT) then
 				lock.isLocked = true
 				lockCount += 1
+			else
+				post.locksById[id] = nil
 			end
-		elseif distance <= stats.rangeStuds and angle <= lockData.ANGLE_DEGREES and lockCount < lockData.COUNT then
-			post.locksById[target.id] = {
-				startTime = now,
-				isLocked = false,
-			}
-			seen[target.id] = true
+			buildingId = nil
 		end
 	end
-	for id in post.locksById do
-		if not seen[id] then
-			post.locksById[id] = nil
+	-- with the count held nothing more starts; otherwise the monster under
+	-- the reticle starts building
+	if buildingId == nil and lockCount < (stats.lockCount or lockData.COUNT) then
+		local aimedId = post.aimedId
+		local candidate = if aimedId and not post.locksById[aimedId] then targetById[aimedId] else nil
+		if candidate and not self:isReticleOn(post, candidate, lockData, stats, eye, direction) then
+			candidate = nil
+		end
+		if candidate then
+			post.locksById[candidate.id] = {
+				startTime = now,
+				isLocked = false,
+				lockSec = if candidate.isAirborne then lockData.SEC else (lockData.GROUND_SEC or lockData.SEC),
+				isAirborne = candidate.isAirborne,
+			}
 		end
 	end
 	self:replicateLocks(post, now, lockData)
 end
 
-function PostManager:setAim(player: Player, yawDegrees: number, pitchDegrees: number)
+function PostManager:setAim(player: Player, yawDegrees: number, pitchDegrees: number, aimedId: string?)
 	local post = self:getMannedPost(player)
 	local data = if post then self:getWeaponData(post.weaponKind) else nil
 	local stats = if post then self:getStats(post) else nil
@@ -692,10 +751,8 @@ function PostManager:setAim(player: Player, yawDegrees: number, pitchDegrees: nu
 	post.lastAimTime = now
 	post.yawDegrees = PostRules.wrapDegrees(yawDegrees)
 	post.pitchDegrees = PostRules.clampPitch(pitchDegrees, data)
+	post.aimedId = aimedId
 	self:replicatePost(post)
-	if data.LOCK then
-		self:updateLocks(post, data.LOCK, stats, now)
-	end
 end
 
 -- the trigger closed or opened (the class posts, 2026-10-16): a spin-up
@@ -959,7 +1016,9 @@ function PostManager:fireShot(post: Post, attacker: Player?, origin: Vector3, un
 			end
 			if #lockedIds > 0 then
 				for _, id in lockedIds do
-					self:launchProjectile(post, attacker, origin, unitDirection, stats, data, projectile, id, stats.damage)
+					local lock = post.locksById[id]
+					local damageShare = if lock and not lock.isAirborne then (lockData.GROUND_DAMAGE_SHARE or 1) else 1
+					self:launchProjectile(post, attacker, origin, unitDirection, stats, data, projectile, id, stats.damage * damageShare)
 				end
 			else
 				self:launchProjectile(post, attacker, origin, unitDirection, stats, data, projectile, nil, stats.damage * lockData.DUMB_FIRE_DAMAGE_SHARE)
@@ -1211,6 +1270,15 @@ function PostManager:step(deltaSec: number)
 		if data and data.IS_UNMANNED then
 			self:stepUnmanned(post, data, now, deltaSec)
 		end
+		-- a manned lock kind builds its lock every Heartbeat, aim moving or
+		-- still (until 2026-10-20 only an aim message ticked it, so a held
+		-- aim never locked and the bar never filled)
+		if data and data.LOCK and post.gunner then
+			local stats = self:getStats(post)
+			if stats then
+				self:updateLocks(post, data.LOCK, stats, now)
+			end
+		end
 	end
 	self:stepPools(now)
 	self:stepMines(now)
@@ -1433,6 +1501,7 @@ function PostManager:bindPostModels()
 				triggerStartTime = nil,
 				locksById = {},
 				replicatedLocks = "",
+				aimedId = nil,
 				lastAutoReplicateTime = 0,
 				gunner = nil,
 				ikControls = {},
@@ -1467,7 +1536,7 @@ function PostManager:getNetHandlers()
 			shape = TRY_SET_POST_AIM_SHAPE,
 			cost = TRY_SET_POST_AIM_COST,
 			handler = function(player: Player, payload: { [string]: any })
-				self:setAim(player, payload.yawDegrees, payload.pitchDegrees)
+				self:setAim(player, payload.yawDegrees, payload.pitchDegrees, payload.aimedId)
 			end,
 		},
 		[NetEventNames.TRY_FIRE_POST_WEAPON] = {

@@ -26,6 +26,13 @@ local BOTH = {
 	TARGETS_AIR = true,
 	HAS_TURRET = false,
 }
+local AIR_FIRST = {
+	ATTACK = Enums.TowerAttack.SINGLE,
+	TARGETS_GROUND = true,
+	TARGETS_AIR = true,
+	PREFERS_AIR = true,
+	HAS_TURRET = true,
+}
 
 local function target(id, x, z, hp, isAirborne)
 	return {
@@ -61,6 +68,27 @@ describe(
 			target("out", 0, -60, 5),
 			target("flyer", 0, -5, 50, true),
 		}
+		it(
+			"takes a flyer in range before any ground target when the kind prefers air",
+			function()
+				-- the flyer is further than "near" and weaker than it, and still wins
+				local mixed = {
+					target("near", 0, -10, 80),
+					target("flyer", 0, -30, 20, true),
+				}
+				expect(TowerRules.pickTarget(ORIGIN, 40, Enums.TargetPriority.CLOSEST, mixed, AIR_FIRST).id).toBe("flyer")
+				expect(TowerRules.pickTarget(ORIGIN, 40, Enums.TargetPriority.STRONGEST, mixed, AIR_FIRST).id).toBe("flyer")
+				-- with every flyer out of range the ground is hit as usual
+				expect(TowerRules.pickTarget(ORIGIN, 20, Enums.TargetPriority.CLOSEST, mixed, AIR_FIRST).id).toBe("near")
+				-- two flyers are ordered by the priority
+				local flock = {
+					target("highNear", 0, -10, 80, true),
+					target("highFar", 0, -30, 20, true),
+					target("ground", 0, -5, 5),
+				}
+				expect(TowerRules.pickTarget(ORIGIN, 40, Enums.TargetPriority.FURTHEST, flock, AIR_FIRST).id).toBe("highFar")
+			end
+		)
 		it(
 			"picks by priority within range and skips what it cannot hit",
 			function()

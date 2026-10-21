@@ -182,7 +182,9 @@ module = {
 			MINI_GUN = "Minigun",
 			RAIL_GUN = "Railgun",
 			MORTAR = "TNT Launcher",
-			AA_LAUNCHER = "AA Launcher",
+			-- the Missile Launcher since 2026-10-20 (the AA Launcher until
+			-- then): it locks anything, flyers fast and ground slow
+			AA_LAUNCHER = "Missile Launcher",
 			MACHINE_GUN_AUTOMATED = "Auto Machine Gun",
 			MINE_LAYER = "Mine Layer",
 			TESLA_ARC = "Tesla Arc",
@@ -223,6 +225,8 @@ module = {
 		IMPACT_RADIUS = 7,
 		FIRE_DAMAGE = 8,
 		FIRE_LENGTH = 9,
+		-- the Missile Launcher's row (2026-10-20): one more lock held per level
+		LOCK_COUNT = 10,
 
 		PublicNames = {
 			DAMAGE = "Damage",
@@ -234,6 +238,7 @@ module = {
 			IMPACT_RADIUS = "Impact Radius",
 			FIRE_DAMAGE = "Fire Damage",
 			FIRE_LENGTH = "Fire Length",
+			LOCK_COUNT = "Lock Count",
 		},
 	},
 	-- automated defense units (GDD "Defenses"), M26. The three DEFENSE
@@ -251,7 +256,9 @@ module = {
 		PublicNames = {
 			SENTRY_GUN = "Sentry Gun",
 			FLAMETHROWER = "Flamethrower",
-			AA_TURRET = "AA Turret",
+			-- the Missile Turret since 2026-10-20 (the AA Turret until then):
+			-- it fires at the ground too, flyers first
+			AA_TURRET = "Missile Turret",
 			FROST_TOWER = "Frost Tower",
 			TESLA_COIL = "Tesla Coil",
 			SNIPER_TOWER = "Sniper Tower",
@@ -688,9 +695,10 @@ module = {
 		-- not yet applied (see above)
 		ORE_YIELD = 10,
 		LARGE_MONSTER_DAMAGE = 11,
-		FLYER_DAMAGE = 12,
-		GROUND_DAMAGE = 13,
-		MAX_HEALTH = 14,
+		-- flyer and ground damage were 12 and 13 until 2026-10-20: Air
+		-- Defense's split lives on its Missile Launcher instead (the lock
+		-- data's ground share), applied for an afternoon and dropped
+		MAX_HEALTH = 12,
 
 		PublicNames = {
 			MINING_POWER = "Mining Power",
@@ -704,8 +712,6 @@ module = {
 			MOVE_SPEED = "Move Speed",
 			ORE_YIELD = "Ore Yield",
 			LARGE_MONSTER_DAMAGE = "Damage to Large Monsters",
-			FLYER_DAMAGE = "Damage to Flyers",
-			GROUND_DAMAGE = "Damage to Ground Monsters",
 			MAX_HEALTH = "Health",
 		},
 	},
@@ -717,7 +723,8 @@ module = {
 		AUTO_TURRET = 2,
 		BINOCULARS = 3,
 		REMOTE_CHARGE = 4,
-		GROUNDING_NET = 5,
+		-- the Flare since 2026-10-20 (the Grounding Net until then)
+		FLARE = 5,
 		STIM_SHOT = 6,
 		BUILD_TABLET = 7,
 		STORM_ROD = 8,
@@ -731,7 +738,7 @@ module = {
 			AUTO_TURRET = "Auto Turret",
 			BINOCULARS = "Binoculars",
 			REMOTE_CHARGE = "Remote Charge",
-			GROUNDING_NET = "Grounding Net",
+			FLARE = "Flare",
 			STIM_SHOT = "Stim Shot",
 			BUILD_TABLET = "Build Tablet",
 			STORM_ROD = "Storm Rod",
