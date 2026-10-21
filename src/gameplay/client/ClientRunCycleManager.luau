@@ -64,6 +64,12 @@ export type ClientRunCycleManager = typeof(setmetatable(
 		duskSongDay: number?,
 		duskSongEndTime: number?,
 		isDuskSongFading: boolean,
+		-- run right after the presets are written each frame, before the
+		-- render, with the sky stage and its share, for a manager that lays
+		-- its own value over the preset's or moves with the sky (the sunset
+		-- rays, the moon, 2026-10-21); a later Heartbeat write would be
+		-- overwritten by the next RenderStepped before it was ever drawn
+		skyAppliedHandlers: { (stage: number, share: number) -> () },
 		-- which preset the sky was last sent toward (Enums.RunState DAY or NIGHT)
 		warnedChildren: { [string]: boolean },
 	},
@@ -276,6 +282,13 @@ function ClientRunCycleManager:stepSky(runState: number, startTime: number, endT
 		end
 	end
 	Lighting.ClockTime = RunCycleRules.clockTimeBetween(from.LIGHTING.ClockTime, to.LIGHTING.ClockTime, share)
+	for _, handler in self.skyAppliedHandlers do
+		handler(stage, share)
+	end
+end
+
+function ClientRunCycleManager:subscribeSkyApplied(handler: (stage: number, share: number) -> ())
+	table.insert(self.skyAppliedHandlers, handler)
 end
 
 -- every frame: the bar from the published phase times against server time
@@ -466,6 +479,7 @@ function ClientRunCycleManager.new(): ClientRunCycleManager
 	self.duskSongDay = nil
 	self.duskSongEndTime = nil
 	self.isDuskSongFading = false
+	self.skyAppliedHandlers = {}
 	self.warnedChildren = {}
 	return self
 end

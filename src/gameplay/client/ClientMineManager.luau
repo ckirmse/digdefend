@@ -100,6 +100,9 @@ export type ClientMineManager = typeof(setmetatable(
 ))
 
 local FALLBACK_COLOR = Color3.fromRGB(120, 120, 120)
+-- how many of the mine's zones, from the mouth, are drawn at any distance
+-- (the starter band, then the designer's zone 1)
+local ALWAYS_RENDERED_ZONE_COUNT = 2
 -- how far the uranium hum carries from a block (designer, 2026-10-07)
 local HUM_FULL_VOLUME_STUDS = 4
 local HUM_SILENT_STUDS = 15
@@ -398,13 +401,28 @@ function ClientMineManager:refresh(playerDepth: number, playerHeight: number, pl
 	local radius = header.streamRadiusBlocks
 	local width = grid.width
 	local height = grid.height
+	-- the mouth's zones are drawn whatever the distance, so the mine never
+	-- reads as empty from the camp (designer, 2026-10-21): every exposed
+	-- block up to the last depth of the ALWAYS_RENDERED_ZONE_COUNTth zone
+	-- (the starter band and the designer's zone 1), kept first in the budget
+	local alwaysDepthEnd = -1
+	local alwaysZone = header.zones[ALWAYS_RENDERED_ZONE_COUNT]
+	if alwaysZone then
+		alwaysDepthEnd = alwaysZone.depthStart + alwaysZone.depth - 1
+	end
 	local desired: { [number]: number } = {}
 	local desiredCount = 0
 	for cellIndex in self.exposedCells do
 		local zeroBased = cellIndex - 1
+		local cellDepth = zeroBased // (width * height)
 		local dw = zeroBased % width - playerWidth
 		local dh = (zeroBased // width) % height - playerHeight
-		local dd = zeroBased // (width * height) - playerDepth
+		local dd = cellDepth - playerDepth
+		if cellDepth <= alwaysDepthEnd then
+			desired[cellIndex] = 0
+			desiredCount += 1
+			continue
+		end
 		if math.abs(dd) > radius or math.abs(dh) > radius or math.abs(dw) > radius then
 			continue
 		end

@@ -59,6 +59,11 @@ module = {
 	-- the model and fire onto it). The fired flare is a projectile, never
 	-- a part (2026-10-21)
 	FLARE = "Flare",
+	-- the map's night lighting (designer, 2026-10-21): lights that come up
+	-- over dusk to full at night, and the bulb meshes that turn solid with
+	-- them, both out again at dawn (ClientNightLightManager)
+	NIGHT_LIGHT = "NightLight",
+	NIGHT_LIGHT_BULB = "NightLightBulb",
 }
 
 return module

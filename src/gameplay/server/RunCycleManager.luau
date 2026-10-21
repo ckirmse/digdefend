@@ -334,9 +334,11 @@ function RunCycleManager:forceNight(isNight: boolean)
 	end
 end
 
--- a dev tool's jump: the rest of the day runs down so dusk begins
--- SKIP_TO_SUNSET_LEAD_SEC from now, the bar keeping its slope as
--- forceNight does; a day already that close to dusk is left alone
+-- a dev tool's jump to SKIP_TO_SUNSET_LEAD_SEC before dusk begins: the
+-- clock is moved there outright and runs at its normal pace from then
+-- (designer, 2026-10-21: the first cut compressed the rest of the day
+-- into the lead, which raced the sun); a day already that close to dusk
+-- is left alone
 function RunCycleManager:skipToSunset()
 	if self.runState ~= Enums.RunState.DAY then
 		return
@@ -347,9 +349,10 @@ function RunCycleManager:skipToSunset()
 	if endTime >= self.phaseEndTime then
 		return
 	end
-	local shareLeft = RunCycleRules.dayShareLeft(self.phaseStartTime, self.phaseEndTime, now)
-	self.phaseStartTime = if shareLeft > 0 then endTime - (endTime - now) / shareLeft else now
+	-- the day keeps its full length, so the bar, the sky, and the dusk
+	-- share all read as a day that simply started earlier
 	self.phaseEndTime = endTime
+	self.phaseStartTime = endTime - RunCycleData.DAY_SEC
 	self:replicate()
 	print(`[RunCycleManager] skipped to sunset: dusk in {RunCycleData.SKIP_TO_SUNSET_LEAD_SEC} s`)
 end

@@ -15,6 +15,7 @@ local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
 local ClientBinocularsManager = require(script.Parent.ClientBinocularsManager)
 local ClientLockMarkerManager = require(script.Parent.ClientLockMarkerManager)
 local ClientStimShotManager = require(script.Parent.ClientStimShotManager)
+local ClientSunsetRaysManager = require(script.Parent.ClientSunsetRaysManager)
 local ClientRemoteChargeManager = require(script.Parent.ClientRemoteChargeManager)
 local ClientFlareManager = require(script.Parent.ClientFlareManager)
 local ClientCampMapManager = require(script.Parent.ClientCampMapManager)
@@ -32,6 +33,8 @@ local ClientImpactManager = require(script.Parent.ClientImpactManager)
 local ClientJetPackManager = require(script.Parent.Parent.Client.ClientJetPackManager)
 local ClientMineDevTools = require(script.Parent.ClientMineDevTools)
 local ClientMineManager = require(script.Parent.ClientMineManager)
+local ClientMoonManager = require(script.Parent.ClientMoonManager)
+local ClientNightLightManager = require(script.Parent.ClientNightLightManager)
 local ClientMiningManager = require(script.Parent.ClientMiningManager)
 local ClientMiningStoreManager = require(script.Parent.ClientMiningStoreManager)
 local ClientMonsterDevTools = require(script.Parent.ClientMonsterDevTools)
@@ -82,6 +85,12 @@ pcall(
 ClientMineManager:init()
 -- the outdoor ambience reads the mine grid the manager above holds
 ClientAmbienceManager:init()
+-- the map's night lights follow the run clock the metadata publishes
+ClientNightLightManager:init()
+-- the sun's rays widen through dusk, laid over the preset's write
+ClientSunsetRaysManager:init()
+-- the map's moon rises and sets with the sky stages
+ClientMoonManager:init()
 ClientToolBarManager:init()
 ClientMiningManager:init()
 -- before the backpack and refinery, which fly icons across its layer
