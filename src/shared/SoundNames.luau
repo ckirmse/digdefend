@@ -286,6 +286,9 @@ local music = {
 	-- the outdoors, looping while the player is out of the mine
 	-- (ClientAmbienceManager, 2026-10-21)
 	OUTDOOR_AMBIENCE = "OutdoorAmbience",
+	-- the night's loop, in over 3 s as night falls and out over 1 s at its
+	-- end (ClientRunCycleManager, designer, 2026-10-21)
+	NIGHT_SONG = "NightSong",
 	-- the lobby's track, looping from the moment a player is Ready there
 	-- (designer, 2026-10-14)
 	LOBBY = "LobbyMusic",

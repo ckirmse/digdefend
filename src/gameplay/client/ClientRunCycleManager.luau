@@ -112,6 +112,9 @@ local DEFAULT_DUSK_SONG_FADE_SEC = 10
 local DEFAULT_DUSK_SONG_FADE_LEAD_SEC = 5
 -- the dusk song eases in from silence to its authored volume (designer, 2026-10-21)
 local DUSK_SONG_FADE_IN_SEC = 5
+-- the night song loops from night start to night end (designer, 2026-10-21)
+local NIGHT_SONG_FADE_IN_SEC = 3
+local NIGHT_SONG_FADE_OUT_SEC = 1
 local DEFAULT_DAWN_TRANSITION_SEC = 1
 local DEFAULT_DUSK_TRANSITION_SEC = 1
 local DEFAULT_NIGHT_SPAWN_SEC = 90
@@ -426,8 +429,22 @@ function ClientRunCycleManager:onRunEnded(payload: any)
 	end
 end
 
+-- the night's loop follows the server's IsNight flag (the rescue counts
+-- as night), eased to its authored volume as night falls and out again
+-- from wherever it is at the night's end
+function ClientRunCycleManager:applyNightSong(isNight: boolean)
+	ClientSoundManager:fadeMusicTo(SoundNames.Music.NIGHT_SONG, if isNight then 1 else 0, if isNight then NIGHT_SONG_FADE_IN_SEC else NIGHT_SONG_FADE_OUT_SEC)
+end
+
 function ClientRunCycleManager:init()
 	self:findGui()
+	self:applyNightSong(ClientDataManager:getGameMetadata(Attributes.IS_NIGHT) == true)
+	ClientDataManager:subscribeGameMetadataAttribute(
+		Attributes.IS_NIGHT,
+		function(value: any)
+			self:applyNightSong(value == true)
+		end
+	)
 	ClientNetManager:registerHandler(
 		NetEventNames.NOTIFY_RUN_DAY_STARTED,
 		function(payload: any)

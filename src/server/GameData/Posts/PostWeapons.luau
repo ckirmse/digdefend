@@ -309,10 +309,12 @@ return {
 			-- its rows (decided 2026-10-20): the missile, its burst, how many
 			-- it holds, and the turn to hold them
 			UPGRADE_ATTRIBUTES = { DAMAGE, IMPACT_RADIUS, LOCK_COUNT, TURN_SPEED },
-			-- 350 from 90 through 180 (2026-10-20): a locked missile drops a
-			-- base Flyer (350 HP) in one, the class's whole point; a ground
-			-- lock's missile does GROUND_DAMAGE_SHARE of it
-			DAMAGE = 350,
+			-- 280 from 350 (designer, 2026-10-21): the first Damage rung
+			-- (+25%) lands on 350, so a base Flyer (350 HP) takes one locked
+			-- missile only once the post is upgraded, two before; 350 from 90
+			-- through 180 on 2026-10-20. A ground lock's missile does
+			-- GROUND_DAMAGE_SHARE of it
+			DAMAGE = 280,
 			FIRE_INTERVAL_SEC = 3,
 			FIRE_COOLDOWN_SEC = 2.8,
 			TURN_SPEED_DEGREES_PER_SEC = 20,
