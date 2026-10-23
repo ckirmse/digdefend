@@ -14,6 +14,7 @@ local RunService = game:GetService("RunService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local ClassRules = require("@game/ReplicatedStorage/Shared/ClassRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
@@ -157,7 +158,8 @@ function ClientMiningStoreManager:renderStand(view: StandView)
 		return
 	end
 	local isMaxed = offer.status == Enums.StoreOffer.MAXED
-	local price = offer.price or 0
+	-- the class's price, from the same rule the server charges by
+	local price = StoreRules.scaledPrice(view.item, offer, catalog.consumables[view.item] ~= nil, ClassRules.decodeModifiers(ClientDataManager:getCurrentPlayerAttribute(Attributes.CLASS_MODIFIERS)))
 	if view.nameLabel then
 		view.nameLabel.Text = UiStyle.formatTitle(StoreRules.nameText(view.item, offer))
 	end
@@ -310,7 +312,7 @@ function ClientMiningStoreManager:init()
 			self:readCatalog()
 		end
 	)
-	local watched = { Attributes.BALANCE_GOLD_BARS }
+	local watched = { Attributes.BALANCE_GOLD_BARS, Attributes.CLASS_MODIFIERS }
 	for _, attribute in StoreRules.LEVEL_ATTRIBUTE_BY_ITEM do
 		table.insert(watched, attribute)
 	end

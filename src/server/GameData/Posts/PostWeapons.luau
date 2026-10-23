@@ -62,6 +62,7 @@ local IMPACT_RADIUS = Enums.PostAttribute.IMPACT_RADIUS
 local FIRE_DAMAGE = Enums.PostAttribute.FIRE_DAMAGE
 local FIRE_LENGTH = Enums.PostAttribute.FIRE_LENGTH
 local LOCK_COUNT = Enums.PostAttribute.LOCK_COUNT
+local DURATION = Enums.PostAttribute.DURATION
 
 -- the gun sits a dozen studs over the ground, so a monster at the foot
 -- of the tower needs a steep look down (-70 since 2026-09-30, was -40);
@@ -128,6 +129,9 @@ return {
 		-- the Missile Launcher's Lock Count (2026-10-20): a whole lock per
 		-- level, two to six
 		[LOCK_COUNT] = 1,
+		-- the Fault Line Drill's Duration (2026-10-22): a quarter of the
+		-- base hold per level, 2.5 s to 5 s, the spikes standing as long
+		[DURATION] = 0.25,
 	},
 	-- how far from the muzzle the server lets a shot start: the client's
 	-- base may be a fraction of a second ahead of the last aim it sent
@@ -433,19 +437,49 @@ return {
 		-- the Prospector: a weak fast shot, and every monster it kills drops
 		-- Iron Bars at its feet for anyone to pick up, capped per night so
 		-- it never prints money
-		[Enums.PostWeaponKind.SALVAGE_GUN] = {
-			UPGRADE_ATTRIBUTES = { DAMAGE, FIRE_RATE, TURN_SPEED, RANGE },
-			DAMAGE = 8,
-			FIRE_INTERVAL_SEC = 0.12,
-			FIRE_COOLDOWN_SEC = 0.1,
-			TURN_SPEED_DEGREES_PER_SEC = 24,
-			RANGE_STUDS = 300,
-			FIELD_OF_VIEW = 30,
+		-- the Fault Line Drill (2026-10-22; a hitscan tracer, a nail gun,
+		-- and a boomerang pick were tried that day and all felt like a
+		-- Machine Gun): the post fires a drill wherever the gunner aims
+		-- (the PROJECTILE, a straight flight up to Range), and where it
+		-- lands a crack races on along the ground in the shot's direction
+		-- for LENGTH_STUDS, rock spikes erupting along it; everything
+		-- standing on the crack takes the damage and is knocked flat for
+		-- KNOCKDOWN_SEC (the spikes stand as long). A crack never touches a
+		-- flyer. Upgrades (decided 2026-10-22): Duration lengthens the hold,
+		-- Damage, Fire Rate, and Turn Speed are the usual; Range is not
+		-- offered, the drill already reaching past any wall
+		[Enums.PostWeaponKind.DRILL_GUN] = {
+			UPGRADE_ATTRIBUTES = { DURATION, DAMAGE, FIRE_RATE, TURN_SPEED },
+			DAMAGE = 60,
+			FIRE_INTERVAL_SEC = 5,
+			FIRE_COOLDOWN_SEC = 4.8,
+			TURN_SPEED_DEGREES_PER_SEC = 30,
+			RANGE_STUDS = 220,
+			FIELD_OF_VIEW = 40,
 			PITCH_MIN_DEGREES = PITCH_MIN_DEGREES,
 			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
-			SALVAGE = {
-				IRON_PER_KILL = 2,
-				CAP_PER_NIGHT = 60,
+			-- the reload is the drill's trip: the bit leaves the barrel with
+			-- the shot and a new one is seated once the reload is done
+			RELOAD_SEC = 4.8,
+			PROJECTILE = {
+				TEMPLATE = "DrillBit",
+				-- the sand thrown up where the bit hits (designer, 2026-10-22)
+				BLAST_TEMPLATE = "DrillImpact",
+				CHAMBER_PART_NAME = "DrillSpawn",
+				SPEED_STUDS_PER_SEC = 160,
+				-- a heavy bit: it sags a little over a long shot (designer,
+				-- 2026-10-22), about 15 studs of drop by the end of a
+				-- second's flight, so aim a touch high at range
+				GRAVITY_STUDS_PER_SEC2 = 30,
+				SPLASH_RADIUS_STUDS = 0,
+			},
+			FAULT_LINE = {
+				LENGTH_STUDS = 100,
+				WIDTH_STUDS = 10,
+				KNOCKDOWN_SEC = 2.5,
+				SPIKE_SPACING_STUDS = 4,
+				GROUND_TOLERANCE_STUDS = 6,
+				RACE_STUDS_PER_SEC = 110,
 			},
 		},
 		-- the Hauler: launches a spinning saw blade that flies in a line and

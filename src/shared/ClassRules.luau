@@ -6,6 +6,8 @@
 -- is unit tested. The one idea here is the modifier table: a stat the
 -- class scales is a number in MODIFIERS, and every other stat is 1.0, so
 -- the place a stat is computed asks `modifier` and never checks the class.
+local HttpService = game:GetService("HttpService")
+
 local Enums = require(script.Parent.Enums)
 
 local ClassRules = {}
@@ -29,15 +31,47 @@ export type ClassData = {
 
 ClassRules.DEFAULT_MODIFIER = 1.0
 
--- the two stats every class states outright, 1.0 included (decided
--- 2026-10-19): speed and mining strength are the body of a class and a
--- designer reading the roster should see both side by side, where every
--- other modifier appears only when a class moves it. Health was a third
--- for an afternoon and dropped as one variable too many
+-- the stat every class states outright, 1.0 included (decided
+-- 2026-10-19): speed is the body of a class and a designer reading the
+-- roster should see it on every row, where every other modifier appears
+-- only when a class moves it. Mining strength was a second core stat
+-- until 2026-10-22, when every class came to swing alike and the mining
+-- identity moved into the upgrade price; health was a third for an
+-- afternoon and dropped as one variable too many
 ClassRules.CORE_MODIFIERS = {
 	Enums.ClassModifier.MOVE_SPEED,
-	Enums.ClassModifier.MINING_POWER,
 }
+
+-- the class's whole MODIFIERS table as the CurrentPlayer attribute the
+-- clients read (the stands' prices, 2026-10-22); JSON keeps the keys as
+-- strings, so the decoder turns them back into Enums.ClassModifier
+function ClassRules.encodeModifiers(classData: ClassData?): string
+	local encoded = {}
+	if classData then
+		for classModifier, scale in classData.MODIFIERS do
+			encoded[tostring(classModifier)] = scale
+		end
+	end
+	return HttpService:JSONEncode(encoded)
+end
+
+function ClassRules.decodeModifiers(json: any): { [number]: number }
+	local modifiers: { [number]: number } = {}
+	if typeof(json) ~= "string" or json == "" then
+		return modifiers
+	end
+	local isSuccess, decoded = pcall(HttpService.JSONDecode, HttpService, json)
+	if not isSuccess or typeof(decoded) ~= "table" then
+		return modifiers
+	end
+	for key, scale in decoded do
+		local classModifier = tonumber(key)
+		if classModifier and typeof(scale) == "number" then
+			modifiers[classModifier] = scale
+		end
+	end
+	return modifiers
+end
 
 -- the scale a class puts on one stat; 1.0 for a stat it leaves alone and
 -- for no class at all, so a caller never needs a nil check
@@ -53,6 +87,13 @@ end
 -- to the nearest whole number so a half-price trap never costs a fraction
 function ClassRules.scaleAmount(amount: number, scale: number): number
 	return math.floor(amount * scale + 0.5)
+end
+
+-- the same from a decoded modifiers table (the client's copy of the
+-- class, 2026-10-22): the menus price by this, the server by scaleAmount
+-- with the live class, and the two agree because the table is the same
+function ClassRules.scaleByModifiers(amount: number, modifiers: { [number]: number }, classModifier: number): number
+	return ClassRules.scaleAmount(amount, modifiers[classModifier] or ClassRules.DEFAULT_MODIFIER)
 end
 
 -- the kit item a gear slot names, as its kind enum value; nil for the

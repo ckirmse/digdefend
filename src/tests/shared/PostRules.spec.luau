@@ -44,6 +44,7 @@ local function makeCatalog()
 			[Enums.PostAttribute.FIRE_DAMAGE] = 0.25,
 			[Enums.PostAttribute.FIRE_LENGTH] = 0.25,
 			[Enums.PostAttribute.LOCK_COUNT] = 1,
+			[Enums.PostAttribute.DURATION] = 0.25,
 		},
 		headshotMultiplier = 1.5,
 		kinds = {
@@ -664,6 +665,27 @@ describe(
 				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.AA_LAUNCHER, { [Enums.PostAttribute.LOCK_COUNT] = 2 }).lockCount).toBe(5)
 				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.AA_LAUNCHER, { [Enums.PostAttribute.LOCK_COUNT] = 4 }).lockCount).toBe(7)
 				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.MACHINE_GUN, {}).lockCount).toBeNil()
+			end
+		)
+	end
+)
+
+describe(
+	"PostRules Fault Line Drill hold",
+	function()
+		it(
+			"lengthens the hold a quarter per Duration level, none without a FAULT_LINE block",
+			function()
+				local catalog = makeCatalog()
+				local drill = table.clone(MACHINE_GUN)
+				drill.HEAT = nil
+				drill.UPGRADE_ATTRIBUTES = { Enums.PostAttribute.DURATION, Enums.PostAttribute.DAMAGE, Enums.PostAttribute.FIRE_RATE, Enums.PostAttribute.TURN_SPEED }
+				drill.FAULT_LINE = { LENGTH_STUDS = 100, WIDTH_STUDS = 10, KNOCKDOWN_SEC = 4, SPIKE_SPACING_STUDS = 4, GROUND_TOLERANCE_STUDS = 6, RACE_STUDS_PER_SEC = 110 }
+				catalog.kinds[Enums.PostWeaponKind.DRILL_GUN] = drill
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.DRILL_GUN, {}).knockdownSec).toBe(4)
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.DRILL_GUN, { [Enums.PostAttribute.DURATION] = 2 }).knockdownSec).toBeCloseTo(6, 5)
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.DRILL_GUN, { [Enums.PostAttribute.DURATION] = 4 }).knockdownSec).toBeCloseTo(8, 5)
+				expect(PostRules.statsFor(catalog, Enums.PostWeaponKind.MACHINE_GUN, {}).knockdownSec).toBeNil()
 			end
 		)
 	end

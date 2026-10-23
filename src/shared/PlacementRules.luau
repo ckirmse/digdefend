@@ -27,6 +27,17 @@ export type TowerLevelStats = {
 	SLOW_SHARE: number?,
 	SLOW_SEC: number?,
 	CHAIN_COUNT: number?,
+	-- the Drill Rig (2026-10-22): ore a minute into its stock, and the
+	-- stock it holds before it stops
+	YIELD_PER_MINUTE: number?,
+	STOCK_CAP: number?,
+}
+
+-- what a Drill Rig mines (2026-10-22): the raw resources its yield is
+-- split between, by share, and how near a collector must stand
+export type DrillData = {
+	RESOURCE_SHARES: { { RESOURCE: number, SHARE: number } },
+	COLLECT_DISTANCE_STUDS: number,
 }
 
 -- how a kind fights, fixed across levels (M27)
@@ -54,7 +65,9 @@ export type TowerData = {
 	FOOTPRINT_CELLS: { number },
 	-- the four Enums.TowerStat the Tower Menu lists, in order
 	STAT_ROWS: { number }?,
+	-- nil for a Tower that never attacks (the Drill Rig)
 	BEHAVIOR: TowerBehavior?,
+	DRILL: DrillData?,
 	STATS_BY_LEVEL: { TowerLevelStats },
 }
 
@@ -522,6 +535,10 @@ function PlacementRules.towerStatValue(stat: number, stats: TowerLevelStats): nu
 		return stats.SLOW_SEC or 0
 	elseif stat == Enums.TowerStat.CHAIN_COUNT then
 		return stats.CHAIN_COUNT or 0
+	elseif stat == Enums.TowerStat.YIELD then
+		return stats.YIELD_PER_MINUTE or 0
+	elseif stat == Enums.TowerStat.STOCK then
+		return stats.STOCK_CAP or 0
 	end
 	return stats.MAX_HP
 end
@@ -535,6 +552,8 @@ function PlacementRules.towerStatText(stat: number, stats: TowerLevelStats): str
 		return string.format("%.1fs", value)
 	elseif stat == Enums.TowerStat.SLOW_RATE then
 		return string.format("%d%%", math.floor(value + 0.5))
+	elseif stat == Enums.TowerStat.YIELD then
+		return string.format("%d/min", math.floor(value + 0.5))
 	end
 	return tostring(math.floor(value + 0.5))
 end

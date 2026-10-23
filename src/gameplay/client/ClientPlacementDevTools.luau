@@ -28,6 +28,10 @@ local ADD_LOADOUT_TOWER_COMMAND = "addLoadoutTower"
 local CLEAR_LOADOUT_TOWERS_COMMAND = "clearLoadoutTowers"
 local DAMAGE_PLACEMENT_COMMAND = "damagePlacement"
 local CLEAR_PLACEMENTS_COMMAND = "clearPlacements"
+local BUILD_PLACEMENT_COMMAND = "buildPlacement"
+-- the free dev build stands the picked tower in the first zone's corner
+local DEV_BUILD_ZONE_INDEX = 1
+local DEV_BUILD_CELL = { column = 0, row = 0 }
 
 function ClientPlacementDevTools:send(command: string, args: { [string]: any })
 	ClientNetManager:fireServer(
@@ -51,6 +55,12 @@ function ClientPlacementDevTools:renderSection()
 	end
 	if Iris.Button({ "Clear tower loadout" }).clicked() then
 		self:send(CLEAR_LOADOUT_TOWERS_COMMAND, {})
+	end
+	if Iris.Button({ "Build tower free (zone 1 corner)" }).clicked() then
+		local kind = Enums.getValueByName(Enums.TowerKind, self.towerOption:get())
+		if kind then
+			self:send(BUILD_PLACEMENT_COMMAND, { placementKind = Enums.PlacementKind.TOWER, typeKind = kind, zoneIndex = DEV_BUILD_ZONE_INDEX, column = DEV_BUILD_CELL.column, row = DEV_BUILD_CELL.row })
+		end
 	end
 	Iris.InputText({ "Placement id" }, { text = self.placementIdInput })
 	Iris.InputNum({ "Damage", 10, 1, 10000 }, { number = self.damageInput })

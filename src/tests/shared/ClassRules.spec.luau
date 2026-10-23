@@ -164,3 +164,31 @@ describe(
 		)
 	end
 )
+
+describe(
+	"ClassRules modifiers codec",
+	function()
+		it(
+			"carries a class's modifiers through JSON and back with number keys",
+			function()
+				local classData = { KIT = {}, MODIFIERS = { [Enums.ClassModifier.MINING_POWER] = 1.2, [Enums.ClassModifier.DEFENSE_COST] = 1.25 } }
+				local decoded = ClassRules.decodeModifiers(ClassRules.encodeModifiers(classData :: any))
+				expect(decoded[Enums.ClassModifier.MINING_POWER]).toBe(1.2)
+				expect(decoded[Enums.ClassModifier.DEFENSE_COST]).toBe(1.25)
+				expect(decoded[Enums.ClassModifier.MOVE_SPEED]).toBeNil()
+				expect(ClassRules.decodeModifiers(nil)).toEqual({})
+				expect(ClassRules.decodeModifiers("not json")).toEqual({})
+				expect(ClassRules.decodeModifiers(ClassRules.encodeModifiers(nil))).toEqual({})
+			end
+		)
+		it(
+			"scales an amount by a decoded modifier, 1 for one the class leaves alone",
+			function()
+				local modifiers = { [Enums.ClassModifier.DEFENSE_COST] = 1.25 }
+				expect(ClassRules.scaleByModifiers(90, modifiers, Enums.ClassModifier.DEFENSE_COST)).toBe(113)
+				expect(ClassRules.scaleByModifiers(90, modifiers, Enums.ClassModifier.MINING_UPGRADE_COST)).toBe(90)
+				expect(ClassRules.scaleByModifiers(90, {}, Enums.ClassModifier.DEFENSE_COST)).toBe(90)
+			end
+		)
+	end
+)

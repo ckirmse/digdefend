@@ -331,6 +331,23 @@ function DamageableManager:applyStun(id: string, durationSec: number)
 	self:applySlow(id, 1, durationSec)
 end
 
+-- knocked flat (the Fault Line Drill, 2026-10-22): a stun the snapshot
+-- also carries so the clients lay the body down
+function DamageableManager:applyKnockdown(id: string, durationSec: number)
+	local damageable = self.damageableById[id]
+	if not damageable then
+		return
+	end
+	local now = workspace:GetServerTimeNow()
+	StatusRules.applyKnockdown(damageable.effects, durationSec, now)
+	self:replicateEffects(damageable, now)
+end
+
+function DamageableManager:isKnockedDown(id: string): boolean
+	local damageable = self.damageableById[id]
+	return damageable ~= nil and StatusRules.isKnockedDown(damageable.effects, workspace:GetServerTimeNow())
+end
+
 function DamageableManager:applyBurn(id: string, damagePerSec: number, durationSec: number)
 	local damageable = self.damageableById[id]
 	if not damageable then

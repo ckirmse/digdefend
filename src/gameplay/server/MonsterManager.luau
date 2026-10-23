@@ -355,6 +355,7 @@ function MonsterManager:createMonster(kind: number, data: MonsterRules.MonsterDa
 			attackCounter = 0,
 			isSlowed = false,
 			isBurning = false,
+			isKnockedDown = false,
 		},
 		isChanged = true,
 		wasChangedLastTick = true,
@@ -942,7 +943,8 @@ function MonsterManager:stepMonster(monster: Monster, now: number, deltaSec: num
 	if target and MonsterRules.isInAttackRange(monster.position, data, monster.reachStuds, target) then
 		monster.action = Enums.MonsterAction.ENGAGED
 		self:face(monster, target.position)
-		if now - monster.lastAttackTime >= MonsterRules.attackIntervalSec(data, BehaviorData.DEFAULT_ATTACK_INTERVAL_SEC) then
+		-- a monster on its back swings at nothing until it is up again
+		if now - monster.lastAttackTime >= MonsterRules.attackIntervalSec(data, BehaviorData.DEFAULT_ATTACK_INTERVAL_SEC) and not DamageableManager:isKnockedDown(monster.damageableId) then
 			self:attack(monster, target, now)
 		end
 		return
@@ -1093,6 +1095,7 @@ function MonsterManager:refreshRecords()
 		local hpShare = DamageableManager:getHpShare(monster.damageableId)
 		local isSlowed = DamageableManager:getSpeedMultiplier(monster.damageableId) < 1
 		local isBurning = DamageableManager:isBurning(monster.damageableId)
+		local isKnockedDown = DamageableManager:isKnockedDown(monster.damageableId)
 		local moved = monster.position - record.position
 		local isChanged = math.abs(moved.X) >= step
 			or math.abs(moved.Y) >= step
@@ -1103,6 +1106,7 @@ function MonsterManager:refreshRecords()
 			or record.attackCounter ~= monster.attackCounter
 			or record.isSlowed ~= isSlowed
 			or record.isBurning ~= isBurning
+			or record.isKnockedDown ~= isKnockedDown
 		monster.wasChangedLastTick = monster.isChanged
 		monster.isChanged = isChanged
 		if not isChanged then
@@ -1115,6 +1119,7 @@ function MonsterManager:refreshRecords()
 		record.attackCounter = monster.attackCounter
 		record.isSlowed = isSlowed
 		record.isBurning = isBurning
+		record.isKnockedDown = isKnockedDown
 		DamageableManager:setCFrame(monster.damageableId, self:hitBoxCFrame(monster))
 	end
 end

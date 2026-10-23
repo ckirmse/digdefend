@@ -403,6 +403,13 @@ local GADGETS = {
 		lengthStuds = 1.5,
 		muzzleHeightShare = 0.3,
 	},
+	-- the Ore Scanner (2026-10-22): the placeholder from
+	-- build_ore_scanner_template.luau until the designer's art lands
+	{
+		key = "ORE_SCANNER",
+		sourceName = "OreScanner",
+		lengthStuds = 1.2,
+	},
 	{
 		key = "REMOTE_CHARGE",
 		variant = "DETONATOR",

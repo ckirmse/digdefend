@@ -43,6 +43,7 @@ local UserInputService = game:GetService("UserInputService")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local BuildCameraRules = require("@game/ReplicatedStorage/Shared/BuildCameraRules")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local ClassRules = require("@game/ReplicatedStorage/Shared/ClassRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
@@ -250,6 +251,16 @@ function ClientDefenseTableManager:getIron(): number
 	return readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_IRON_BARS), 0)
 end
 
+-- a build's price for this player's class (the defense dial, 2026-10-22),
+-- the number the server charges
+function ClientDefenseTableManager:getBuildPrice(placementKind: number, typeKind: number): number
+	local catalog = self.catalog
+	if not catalog then
+		return 0
+	end
+	return ClassRules.scaleByModifiers(PlacementRules.buildPrice(catalog, placementKind, typeKind), ClassRules.decodeModifiers(ClientDataManager:getCurrentPlayerAttribute(Attributes.CLASS_MODIFIERS)), Enums.ClassModifier.DEFENSE_COST)
+end
+
 function ClientDefenseTableManager:getLoadout(): { number }
 	return PlacementRules.decodeTowerLoadout(ClientDataManager:getCurrentPlayerAttribute(Attributes.TOWER_LOADOUT))
 end
@@ -267,7 +278,7 @@ function ClientDefenseTableManager:canAffordEntry(placementKind: number, typeKin
 	if not catalog then
 		return false
 	end
-	return PlacementRules.canAfford(self:getIron(), PlacementRules.buildPrice(catalog, placementKind, typeKind))
+	return PlacementRules.canAfford(self:getIron(), self:getBuildPrice(placementKind, typeKind))
 end
 
 function ClientDefenseTableManager:renderEntry(entry: Entry, index: number)
@@ -321,7 +332,7 @@ function ClientDefenseTableManager:renderEntry(entry: Entry, index: number)
 		priceIcon.Image = if Icons.isPlaceholder(imageId) then "" else imageId
 	end
 	if priceLabel and priceLabel:IsA("TextLabel") then
-		priceLabel.Text = tostring(PlacementRules.buildPrice(catalog, entry.placementKind, entry.typeKind))
+		priceLabel.Text = tostring(self:getBuildPrice(entry.placementKind, entry.typeKind))
 		priceLabel.TextColor3 = if isAffordable then UiStyle.TEXT_COLOR else UiStyle.NEGATIVE_COLOR
 	end
 end
@@ -441,7 +452,7 @@ function ClientDefenseTableManager:renderPanel()
 	end
 	local priceLabel = self.placePriceLabel
 	if priceLabel then
-		priceLabel.Text = tostring(PlacementRules.buildPrice(catalog, selection.placementKind, selection.typeKind))
+		priceLabel.Text = tostring(self:getBuildPrice(selection.placementKind, selection.typeKind))
 	end
 end
 
@@ -1640,6 +1651,13 @@ function ClientDefenseTableManager:init()
 	)
 	ClientDataManager:subscribeCurrentPlayerAttribute(
 		Attributes.BALANCE_IRON_BARS,
+		function()
+			self:renderAffordability()
+		end
+	)
+	-- a class change moves every price
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.CLASS_MODIFIERS,
 		function()
 			self:renderAffordability()
 		end

@@ -48,6 +48,21 @@ export type Offer = {
 	isSinglePurchase: boolean?,
 }
 
+-- the class's hand on a price (2026-10-22): the combat classes' mining
+-- surcharge (MINING_UPGRADE_COST) on every rung of every upgrade track
+-- (designer, that evening: a pricing dial applies to every tier; the
+-- first pick rung was exempt for an afternoon), never on a consumable (a
+-- per-track discount for the mining classes was tried the same afternoon
+-- and dropped for a perk on the tool itself). The server charges this and
+-- the stands show it, from the same call, so the two never disagree
+function StoreRules.scaledPrice(_item: number, offer: Offer, isConsumable: boolean, modifiers: { [number]: number }): number
+	local base = offer.price or 0
+	if isConsumable then
+		return base
+	end
+	return math.floor(base * (modifiers[Enums.ClassModifier.MINING_UPGRADE_COST] or 1) + 0.5)
+end
+
 StoreRules.MAXED_TEXT = "Maxed out"
 StoreRules.OWNED_TEXT = "Owned"
 

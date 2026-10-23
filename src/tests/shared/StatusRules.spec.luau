@@ -107,6 +107,20 @@ describe(
 			end
 		)
 		it(
+			"a knockdown stuns, shows while it lasts, and prunes away",
+			function()
+				local effects = StatusRules.newEffects()
+				StatusRules.applyKnockdown(effects, 2, 10)
+				expect(StatusRules.isKnockedDown(effects, 11)).toBe(true)
+				expect(StatusRules.speedMultiplier(effects, 11)).toBe(0)
+				StatusRules.applyKnockdown(effects, 0.5, 11)
+				expect(StatusRules.isKnockedDown(effects, 11.9)).toBe(true)
+				expect(StatusRules.isKnockedDown(effects, 12)).toBe(false)
+				expect(StatusRules.prune(effects, 12)).toBe(false)
+				expect(effects.knockdownEndTime).toBeNil()
+			end
+		)
+		it(
 			"stays put when stunned",
 			function()
 				local position, isArrived = StatusRules.moveToward(Vector3.zero, Vector3.new(10, 0, 0), 8, 0, 1)

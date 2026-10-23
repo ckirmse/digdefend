@@ -8,6 +8,31 @@ local expect = JestGlobals.expect
 local Enums = require(game:GetService("ReplicatedStorage").Shared.Enums)
 local StoreRules = require(game:GetService("ReplicatedStorage").Shared.StoreRules)
 
+describe(
+	"StoreRules class prices",
+	function()
+		local rung = { status = Enums.StoreOffer.AVAILABLE, level = 3, price = 100 }
+		local firstRung = { status = Enums.StoreOffer.AVAILABLE, level = 2, price = 100 }
+		it(
+			"charges a combat class more on every rung and never on a consumable",
+			function()
+				local combat = { [Enums.ClassModifier.MINING_UPGRADE_COST] = 1.25 }
+				expect(StoreRules.scaledPrice(Enums.StoreItem.PICK_AXE, rung, false, combat)).toBe(125)
+				expect(StoreRules.scaledPrice(Enums.StoreItem.PICK_AXE, firstRung, false, combat)).toBe(125)
+				expect(StoreRules.scaledPrice(Enums.StoreItem.BACKPACK, rung, false, combat)).toBe(125)
+				expect(StoreRules.scaledPrice(Enums.StoreItem.TORCH, rung, true, combat)).toBe(100)
+			end
+		)
+		it(
+			"leaves a class without the surcharge at the base price, and rounds",
+			function()
+				expect(StoreRules.scaledPrice(Enums.StoreItem.PICK_AXE, rung, false, {})).toBe(100)
+				expect(StoreRules.scaledPrice(Enums.StoreItem.BACKPACK, { status = Enums.StoreOffer.AVAILABLE, level = 2, price = 15 }, false, { [Enums.ClassModifier.MINING_UPGRADE_COST] = 1.25 })).toBe(19)
+			end
+		)
+	end
+)
+
 local TRACK = {
 	priceByLevel = { 0, 15, 40, 100, 250 },
 }

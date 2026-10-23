@@ -14,6 +14,7 @@ local Players = game:GetService("Players")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local ClassRules = require("@game/ReplicatedStorage/Shared/ClassRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
@@ -88,6 +89,12 @@ end
 
 function ClientTowerMenuManager:getIron(): number
 	return readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.BALANCE_IRON_BARS), 0)
+end
+
+-- an upgrade's price for this player's class (the defense dial,
+-- 2026-10-22), the number the server charges
+function ClientTowerMenuManager:getUpgradePrice(basePrice: number): number
+	return ClassRules.scaleByModifiers(basePrice, ClassRules.decodeModifiers(ClientDataManager:getCurrentPlayerAttribute(Attributes.CLASS_MODIFIERS)), Enums.ClassModifier.DEFENSE_COST)
 end
 
 -- one stat's text as PlacementRules formats it; HP alone shows the
@@ -171,8 +178,9 @@ function ClientTowerMenuManager:renderMenu()
 		self.upgradePriceRow.Visible = offer ~= nil
 	end
 	if self.upgradePriceLabel and offer then
-		self.upgradePriceLabel.Text = tostring(offer.price)
-		self.upgradePriceLabel.TextColor3 = if PlacementRules.canAfford(iron, offer.price) then UiStyle.ACCENT_STROKE_COLOR else UiStyle.NEGATIVE_COLOR
+		local price = self:getUpgradePrice(offer.price)
+		self.upgradePriceLabel.Text = tostring(price)
+		self.upgradePriceLabel.TextColor3 = if PlacementRules.canAfford(iron, price) then UiStyle.ACCENT_STROKE_COLOR else UiStyle.NEGATIVE_COLOR
 	end
 	local nextStats = if offer then PlacementRules.towerStats(tower, offer.level) else nil
 	self:layoutStatRows(self.upgradeStatRows, tower)
@@ -294,7 +302,7 @@ function ClientTowerMenuManager:requestUpgrade()
 	if not offer then
 		return
 	end
-	if not PlacementRules.canAfford(self:getIron(), offer.price) then
+	if not PlacementRules.canAfford(self:getIron(), self:getUpgradePrice(offer.price)) then
 		ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
 		ClientPlayerFeedbackManager:giveLocal(FEEDBACK_NOT_ENOUGH_IRON)
 		return
@@ -462,14 +470,16 @@ end
 
 function ClientTowerMenuManager:init()
 	self:findMenu()
-	ClientDataManager:subscribeCurrentPlayerAttribute(
-		Attributes.BALANCE_IRON_BARS,
-		function()
-			if self.isMenuOpen then
-				self:renderMenu()
+	for _, key in { Attributes.BALANCE_IRON_BARS, Attributes.CLASS_MODIFIERS } do
+		ClientDataManager:subscribeCurrentPlayerAttribute(
+			key,
+			function()
+				if self.isMenuOpen then
+					self:renderMenu()
+				end
 			end
-		end
-	)
+		)
+	end
 	ClientNetManager:registerHandler(
 		NetEventNames.NOTIFY_TOWER_UPGRADED,
 		function(payload: any)

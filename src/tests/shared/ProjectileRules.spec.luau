@@ -135,6 +135,57 @@ describe(
 		)
 
 		it(
+			"raises a falling shot so it lands on the aim point",
+			function()
+				local origin = Vector3.new(0, 16, 0)
+				local target = Vector3.new(120, 2, 40)
+				local aim = ProjectileRules.aimToward(origin, target, 30, 160)
+				expect(aim.isReached).toBe(true)
+				near(aim.unitDirection.Magnitude, 1)
+				-- above the straight line, never a high mortar lob
+				local straight = (target - origin).Unit
+				expect(aim.unitDirection.Y > straight.Y).toBe(true)
+				expect(aim.unitDirection.Y < 0.5).toBe(true)
+				local flight = { origin = origin, unitDirection = aim.unitDirection, speedStudsPerSec = 160, gravityStudsPerSec2 = 30 }
+				near((ProjectileRules.positionAt(flight, aim.flightSec) - target).Magnitude, 0, 1e-2)
+				-- past the reach it is a straight shot that falls short
+				local far = ProjectileRules.aimToward(origin, Vector3.new(5000, 2, 0), 30, 160)
+				expect(far.isReached).toBe(false)
+				near(far.unitDirection.X, (Vector3.new(5000, 2, 0) - origin).Unit.X)
+				-- no gravity: the straight line is the answer
+				local flat = ProjectileRules.aimToward(origin, target, 0, 160)
+				expect(flat.isReached).toBe(true)
+				near(flat.unitDirection.Y, straight.Y)
+			end
+		)
+
+		it(
+			"flies a returning projectile out, turns it, and brings it home",
+			function()
+				local flight = { origin = Vector3.new(0, 5, 0), unitDirection = Vector3.zAxis, speedStudsPerSec = 100, gravityStudsPerSec2 = 0 }
+				local out = ProjectileRules.returningAt(flight, 0.5, 120)
+				expect(out.isReturning).toBe(false)
+				expect(out.isDone).toBe(false)
+				near(out.position.Z, 50)
+				expect(out.unitDirection).toEqual(Vector3.zAxis)
+				local turn = ProjectileRules.returningAt(flight, 1.2, 120)
+				near(turn.position.Z, 120)
+				expect(turn.isReturning).toBe(false)
+				local back = ProjectileRules.returningAt(flight, 1.7, 120)
+				expect(back.isReturning).toBe(true)
+				expect(back.isDone).toBe(false)
+				near(back.position.Z, 70)
+				expect(back.unitDirection).toEqual(-Vector3.zAxis)
+				local home = ProjectileRules.returningAt(flight, 2.4, 120)
+				expect(home.isDone).toBe(true)
+				near((home.position - flight.origin).Magnitude, 0)
+				local late = ProjectileRules.returningAt(flight, 9, 120)
+				expect(late.isDone).toBe(true)
+				near((late.position - flight.origin).Magnitude, 0)
+			end
+		)
+
+		it(
 			"fires up the elevation at a target under the gun",
 			function()
 				local origin = Vector3.new(0, 5, 0)

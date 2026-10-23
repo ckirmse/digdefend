@@ -24,12 +24,16 @@ export type Burn = {
 export type Effects = {
 	slows: { Slow },
 	burn: Burn?,
+	-- knocked flat (the Fault Line Drill, 2026-10-22): a stun the clients
+	-- also draw as a body on the ground; nil when standing
+	knockdownEndTime: number?,
 }
 
 function StatusRules.newEffects(): Effects
 	return {
 		slows = {},
 		burn = nil,
+		knockdownEndTime = nil,
 	}
 end
 
@@ -45,6 +49,20 @@ end
 
 function StatusRules.applyStun(effects: Effects, durationSec: number, now: number)
 	StatusRules.applySlow(effects, 1, durationSec, now)
+end
+
+-- a knockdown is a stun with a pose: the longer end wins
+function StatusRules.applyKnockdown(effects: Effects, durationSec: number, now: number)
+	if durationSec <= 0 then
+		return
+	end
+	StatusRules.applyStun(effects, durationSec, now)
+	effects.knockdownEndTime = math.max(effects.knockdownEndTime or 0, now + durationSec)
+end
+
+function StatusRules.isKnockedDown(effects: Effects, now: number): boolean
+	local endTime = effects.knockdownEndTime
+	return endTime ~= nil and endTime > now
 end
 
 function StatusRules.applyBurn(effects: Effects, damagePerSec: number, durationSec: number, now: number)
@@ -77,7 +95,11 @@ function StatusRules.prune(effects: Effects, now: number): boolean
 	if burn and burn.endTime <= now then
 		effects.burn = nil
 	end
-	return #effects.slows > 0 or effects.burn ~= nil
+	local knockdownEndTime = effects.knockdownEndTime
+	if knockdownEndTime and knockdownEndTime <= now then
+		effects.knockdownEndTime = nil
+	end
+	return #effects.slows > 0 or effects.burn ~= nil or effects.knockdownEndTime ~= nil
 end
 
 -- 1 at full speed, 0 stunned

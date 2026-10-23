@@ -12,6 +12,8 @@ local BinocularsManager = require(script.Parent.BinocularsManager)
 local StimShotManager = require(script.Parent.StimShotManager)
 local RemoteChargeManager = require(script.Parent.RemoteChargeManager)
 local FlareManager = require(script.Parent.FlareManager)
+local DrillRigManager = require(script.Parent.DrillRigManager)
+local OreScannerManager = require(script.Parent.OreScannerManager)
 local BalanceAudit = require(script.Parent.BalanceAudit)
 local BootsManager = require(script.Parent.BootsManager)
 local DiamondTapManager = require(script.Parent.DiamondTapManager)
@@ -234,6 +236,20 @@ FlareManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
 		FlareManager:onRunStarted()
+	end
+)
+-- the Prospector (2026-10-22): the Drill Rig's stock over the placements,
+-- and the Ore Scanner's sweep
+DrillRigManager:init()
+RunManager:subscribeRunStarted(
+	function()
+		DrillRigManager:onRunStarted()
+	end
+)
+OreScannerManager:init()
+RunManager:subscribeRunStarted(
+	function()
+		OreScannerManager:onRunStarted()
 	end
 )
 -- the monsters (M29): the path grid reads the fresh camp once the

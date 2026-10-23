@@ -1002,6 +1002,15 @@ Constants.REMOTE_CHARGE_DETONATOR_NAME = "Detonator"
 -- shadow folder
 Constants.FLARE_TEMPLATE = "FLARE"
 Constants.FLARE_SHADOW_FOLDER = "FlareShadows"
+-- the Drill Rig's stock billboard (2026-10-22) under GameAssets/Gui
+-- (build_drill_rig_billboard.luau): a row per raw resource, the icon
+-- and the count, and the Collect prompt's words
+Constants.DRILL_RIG_STOCK_BILLBOARD = "DrillRigStock"
+Constants.DRILL_RIG_STOCK_ROOT_FRAME = "Root"
+Constants.DRILL_RIG_STOCK_ROW_PREFIX = "Row"
+Constants.DRILL_RIG_STOCK_ROW_ICON = "Icon"
+Constants.DRILL_RIG_STOCK_ROW_COUNT = "Count"
+Constants.DRILL_RIG_COLLECT_ACTION_TEXT = "Collect"
 -- collision groups (PhysicsService, registered by DynamiteManager,
 -- 2026-10-20): every character's parts, and a thrown stick, which passes
 -- through them so it leaves the thrower's own body cleanly

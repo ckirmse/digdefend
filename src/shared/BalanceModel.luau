@@ -80,7 +80,8 @@ export type TowerBehavior = {
 export type TowerData = {
 	BUILD_PRICE_IRON: number,
 	UPGRADE_PRICE_IRON_BY_LEVEL: { number },
-	BEHAVIOR: TowerBehavior,
+	-- absent on a tower that never attacks (the Drill Rig)
+	BEHAVIOR: TowerBehavior?,
 	STATS_BY_LEVEL: { TowerLevelStats },
 }
 
@@ -229,6 +230,9 @@ function BalanceModel.towerDps(data: TowerData, level: number, attackKinds: Towe
 	end
 	local damage = stats.DAMAGE or 0
 	local behavior = data.BEHAVIOR
+	if behavior == nil then
+		return 0
+	end
 	if behavior.ATTACK == attackKinds.CONE then
 		local tickSec = behavior.TICK_INTERVAL_SEC or 0
 		local flameSec = stats.FLAME_SEC or 0

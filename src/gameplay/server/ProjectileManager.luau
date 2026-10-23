@@ -47,14 +47,19 @@ export type Launch = {
 	excludedInstances: { Instance }?,
 	-- flies on through every damageable it meets, hurting each once
 	isPiercing: boolean?,
+	-- flies rangeStuds out and back to the origin on the same line, through
+	-- the world (nothing turns it early), hurting each damageable once per
+	-- leg (ProjectileRules.returningAt; the Prospector's pick, 2026-10-22)
+	isReturning: boolean?,
 	-- bends toward this damageable at this rate (a straight flight only)
 	homingTargetId: string?,
 	homingTurnDegreesPerSec: number?,
 	-- a piercing projectile passing a damageable
 	onHit: ((hitId: string, position: Vector3) -> ())?,
 	-- where it stopped, and the damageable it struck if any; a piercing
-	-- one ends only on the world or its range
-	onEnd: (position: Vector3, hitId: string?) -> (),
+	-- one ends only on the world or its range. isSpent says the range ran
+	-- out with nothing struck (a drill bursting in the air, 2026-10-22)
+	onEnd: (position: Vector3, hitId: string?, isSpent: boolean) -> (),
 }
 
 type Projectile = {
@@ -67,6 +72,10 @@ type Projectile = {
 	travelledStuds: number,
 	hitIds: { [string]: boolean },
 	hitCount: number,
+	-- a returning flight's leg: the hits start over when it turns, and
+	-- the flight is over once the rule says it is home
+	isOnReturnLeg: boolean,
+	isReturnDone: boolean,
 }
 
 export type ProjectileManager = typeof(setmetatable(
@@ -121,6 +130,8 @@ function ProjectileManager:launch(launch: Launch): string
 		travelledStuds = 0,
 		hitIds = {},
 		hitCount = 0,
+		isOnReturnLeg = false,
+		isReturnDone = false,
 	})
 	NetManager:notifyAllClients(NetEventNames.NOTIFY_PROJECTILE_LAUNCHED, {
 		projectileId = id,
@@ -136,11 +147,13 @@ function ProjectileManager:launch(launch: Launch): string
 		homingTargetId = launch.homingTargetId or NO_TARGET,
 		homingTurn = launch.homingTurnDegreesPerSec or 0,
 		isPiercing = launch.isPiercing == true,
+		isReturning = launch.isReturning == true,
+		rangeStuds = launch.rangeStuds,
 	})
 	return id
 end
 
-function ProjectileManager:finish(projectile: Projectile, position: Vector3, hitId: string?)
+function ProjectileManager:finish(projectile: Projectile, position: Vector3, hitId: string?, isSpent: boolean)
 	local launch = projectile.launch
 	NetManager:notifyAllClients(NetEventNames.NOTIFY_PROJECTILE_ENDED, {
 		projectileId = projectile.id,
@@ -151,7 +164,7 @@ function ProjectileManager:finish(projectile: Projectile, position: Vector3, hit
 		isBurst = launch.blastTemplateName ~= nil,
 		hitCount = projectile.hitCount + (if hitId then 1 else 0),
 	})
-	launch.onEnd(position, hitId)
+	launch.onEnd(position, hitId, isSpent)
 end
 
 -- where the projectile wants to be after this step: the lob and the
@@ -167,6 +180,16 @@ function ProjectileManager:nextPosition(projectile: Projectile, deltaSec: number
 		return projectile.position + projectile.unitDirection * launch.speedStudsPerSec * deltaSec
 	end
 	projectile.elapsedSec += deltaSec
+	if launch.isReturning then
+		local leg = ProjectileRules.returningAt(projectile.flight, projectile.elapsedSec, launch.rangeStuds)
+		if leg.isReturning and not projectile.isOnReturnLeg then
+			projectile.isOnReturnLeg = true
+			projectile.hitIds = {}
+		end
+		projectile.unitDirection = leg.unitDirection
+		projectile.isReturnDone = leg.isDone
+		return leg.position
+	end
 	local position = ProjectileRules.positionAt(projectile.flight, projectile.elapsedSec)
 	projectile.unitDirection = ProjectileRules.headingAt(projectile.flight, projectile.elapsedSec)
 	return position
@@ -185,8 +208,11 @@ function ProjectileManager:stepProjectile(projectile: Projectile, deltaSec: numb
 		return true
 	end
 	local stepDirection = segment.Unit
-	local step = math.min(segmentLength, launch.rangeStuds - projectile.travelledStuds)
-	local worldDistance = self:getWorldDistance(projectile.position, stepDirection, step, launch.excludedInstances)
+	-- a returning flight's path is the range twice over, and the world
+	-- never stops it: its turn is the rule's, so the clients can agree
+	local pathStuds = if launch.isReturning then launch.rangeStuds * 2 else launch.rangeStuds
+	local step = math.min(segmentLength, pathStuds - projectile.travelledStuds)
+	local worldDistance = if launch.isReturning then step else self:getWorldDistance(projectile.position, stepDirection, step, launch.excludedInstances)
 	local endDistance = worldDistance
 	local hitId: string? = nil
 	if launch.isPiercing then
@@ -209,9 +235,12 @@ function ProjectileManager:stepProjectile(projectile: Projectile, deltaSec: numb
 	end
 	projectile.position += stepDirection * endDistance
 	projectile.travelledStuds += endDistance
-	local isEnded = hitId ~= nil or worldDistance < step or projectile.travelledStuds >= launch.rangeStuds
+	-- the rule ends a returning flight (not the distance count, whose
+	-- rounding could leave it a hair short of home forever)
+	local isStruck = hitId ~= nil or worldDistance < step
+	local isEnded = isStruck or projectile.travelledStuds >= pathStuds or projectile.isReturnDone
 	if isEnded then
-		self:finish(projectile, projectile.position, hitId)
+		self:finish(projectile, projectile.position, hitId, not isStruck)
 		return false
 	end
 	return true

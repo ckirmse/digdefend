@@ -24,6 +24,9 @@ export type PostWeaponSfx = {
 	-- the Minigun's spin-up, the Railgun's charge, the AA Launcher's lock
 	-- tone: the gunner's own, 2D, played where the mechanic starts
 	WINDUP: string?,
+	-- the Fault Line Drill's rock-breaking loop, ridden along the crack's
+	-- front by ClientFaultLineManager (2026-10-22)
+	CRACK: string?,
 }
 
 local sfx = {
@@ -111,8 +114,12 @@ local sfx = {
 	MINE_LAYER_EXPLODE = "Post_MineLayer_Explode",
 	TESLA_ARC_FIRE = "Post_TeslaArc_Fire",
 	TESLA_ARC_HIT = "Post_TeslaArc_Hit",
-	SALVAGE_GUN_FIRE = "Post_SalvageGun_Fire",
-	SALVAGE_GUN_HIT = "Post_SalvageGun_Hit",
+	DRILL_GUN_HIT = "Post_DrillGun_Hit",
+	-- the bit whirring in flight (designer, 2026-10-22)
+	DRILL_GUN_FLIGHT = "Post_DrillGun_Flight",
+	-- rock breaking, looped at the crack's front as it races out of the
+	-- ground where the drill landed, silent once the crack stops growing
+	DRILL_GUN_CRACK = "Post_DrillGun_Crack",
 	SAW_GUN_FIRE = "Post_SawGun_Fire",
 	SAW_GUN_HIT = "Post_SawGun_Hit",
 	SAW_GUN_FLIGHT = "Post_SawGun_Flight",
@@ -136,6 +143,9 @@ local sfx = {
 	FAIL = "Fail",
 	-- the Flare Gun's shot (2026-10-21), the gunner's own, 3D at the muzzle
 	FLARE_FIRE = "Gadget_Flare_Fire",
+	-- the Ore Scanner's sweep (2026-10-22), 3D from the scanner's spot for
+	-- everyone in range as the sphere grows
+	ORE_SCAN = "Gadget_Ore_Scan",
 	-- 2D: the Game Over screen (this player died, or the Refinery fell; M32)
 	GAME_OVER = "GameOver",
 	-- M28: a new day (the rooster) and a new night (the bell), with the
@@ -262,9 +272,14 @@ local postWeaponSfxByKindName: { [string]: PostWeaponSfx } = {
 		FIRE = sfx.TESLA_ARC_FIRE,
 		HIT = sfx.TESLA_ARC_HIT,
 	},
-	SALVAGE_GUN = {
-		FIRE = sfx.SALVAGE_GUN_FIRE,
-		HIT = sfx.SALVAGE_GUN_HIT,
+	-- the drill leaves with the grenade launcher's thump (designer,
+	-- 2026-10-22); no EXPLODE, the sand burst where it lands is silent
+	-- under the crack's rock-breaking loop
+	DRILL_GUN = {
+		FIRE = sfx.ASSAULT_RIFLE_GRENADE_FIRE,
+		HIT = sfx.DRILL_GUN_HIT,
+		FLIGHT = sfx.DRILL_GUN_FLIGHT,
+		CRACK = sfx.DRILL_GUN_CRACK,
 	},
 	SAW_GUN = {
 		FIRE = sfx.SAW_GUN_FIRE,

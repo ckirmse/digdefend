@@ -189,5 +189,34 @@ return {
 				{ DAMAGE = 200, FIRE_INTERVAL_SEC = 1.7, RANGE_STUDS = 175, MAX_HP = 420 },
 			},
 		},
+		-- the Prospector's Drill Rig (GDD "Classes", 2026-10-22): no gun and
+		-- no BEHAVIOR, so TowerBehaviorManager never steps it; it drills the
+		-- seam under the camp into a stock, YIELD_PER_MINUTE of ore a minute
+		-- split by DRILL.RESOURCE_SHARES, up to STOCK_CAP, and stops until
+		-- someone collects it (anyone, within COLLECT_DISTANCE_STUDS, into
+		-- their backpack; what does not fit stays). It has HP, is attacked,
+		-- and counts against the Tower cap, so a defensive slot is traded
+		-- for an income a bad night can wreck. Upgrades raise the yield,
+		-- the stock, and the HP. Every number is a first guess
+		[Enums.TowerKind.DRILL_RIG] = {
+			BUILD_PRICE_IRON = 90,
+			UPGRADE_PRICE_IRON_BY_LEVEL = { 45, 75, 150, 300 },
+			FOOTPRINT_CELLS = { 4, 4 },
+			STAT_ROWS = { Enums.TowerStat.YIELD, Enums.TowerStat.STOCK, Enums.TowerStat.HP },
+			DRILL = {
+				RESOURCE_SHARES = {
+					{ RESOURCE = Enums.RawResource.IRON_ORE, SHARE = 0.7 },
+					{ RESOURCE = Enums.RawResource.GOLD_ORE, SHARE = 0.3 },
+				},
+				COLLECT_DISTANCE_STUDS = 12,
+			},
+			STATS_BY_LEVEL = {
+				{ DAMAGE = 0, RANGE_STUDS = 0, MAX_HP = 200, YIELD_PER_MINUTE = 4, STOCK_CAP = 20 },
+				{ DAMAGE = 0, RANGE_STUDS = 0, MAX_HP = 240, YIELD_PER_MINUTE = 5, STOCK_CAP = 26 },
+				{ DAMAGE = 0, RANGE_STUDS = 0, MAX_HP = 290, YIELD_PER_MINUTE = 6, STOCK_CAP = 32 },
+				{ DAMAGE = 0, RANGE_STUDS = 0, MAX_HP = 350, YIELD_PER_MINUTE = 8, STOCK_CAP = 40 },
+				{ DAMAGE = 0, RANGE_STUDS = 0, MAX_HP = 420, YIELD_PER_MINUTE = 10, STOCK_CAP = 50 },
+			},
+		},
 	},
 }

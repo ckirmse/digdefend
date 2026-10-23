@@ -24,6 +24,8 @@ export type Record = {
 	attackCounter: number,
 	isSlowed: boolean,
 	isBurning: boolean,
+	-- flat on the ground (a knockdown, 2026-10-22)
+	isKnockedDown: boolean?,
 }
 
 MonsterSnapshotCodec.HEADER_BYTES = 10
@@ -36,6 +38,7 @@ local INT16_MIN = -32768
 local INT16_MAX = 32767
 local SLOWED_BIT = 16
 local BURNING_BIT = 32
+local KNOCKED_DOWN_BIT = 64
 
 function MonsterSnapshotCodec.recordsPerPacket(maxBytes: number): number
 	return math.max(1, (maxBytes - MonsterSnapshotCodec.HEADER_BYTES) // MonsterSnapshotCodec.RECORD_BYTES)
@@ -65,12 +68,15 @@ local function writeRecord(packet: buffer, offset: number, record: Record)
 	if record.isBurning then
 		flags += BURNING_BIT
 	end
+	if record.isKnockedDown then
+		flags += KNOCKED_DOWN_BIT
+	end
 	buffer.writeu8(packet, offset + 10, flags)
 end
 
 -- what a visitor is handed for each record, as plain numbers so the hot
 -- path on a client allocates nothing per monster
-export type RecordVisitor = (id: number, x: number, y: number, z: number, yawDegrees: number, hpShare: number, action: number, attackCounter: number, isSlowed: boolean, isBurning: boolean) -> ()
+export type RecordVisitor = (id: number, x: number, y: number, z: number, yawDegrees: number, hpShare: number, action: number, attackCounter: number, isSlowed: boolean, isBurning: boolean, isKnockedDown: boolean) -> ()
 
 local function isWellFormed(packet: any): boolean
 	if typeof(packet) ~= "buffer" then
@@ -105,7 +111,8 @@ function MonsterSnapshotCodec.forEachRecord(packet: any, visitor: RecordVisitor)
 			flags % 4,
 			(flags // 4) % MonsterSnapshotCodec.ATTACK_COUNTER_WRAP,
 			(flags // SLOWED_BIT) % 2 == 1,
-			(flags // BURNING_BIT) % 2 == 1
+			(flags // BURNING_BIT) % 2 == 1,
+			(flags // KNOCKED_DOWN_BIT) % 2 == 1
 		)
 	end
 	return buffer.readf64(packet, 0)

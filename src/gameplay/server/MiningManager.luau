@@ -81,7 +81,9 @@ function MiningManager:handleHit(player: Player, depth: number, height: number, 
 		return
 	end
 	local now = workspace:GetServerTimeNow()
-	if not MiningRules.canHit(self.lastHitTimeByPlayer[player], now, PickAxeData.HIT_COOLDOWN_SEC) then
+	-- the class's mining speed shortens the cooldown as it does the
+	-- client's swing (2026-10-22)
+	if not MiningRules.canHit(self.lastHitTimeByPlayer[player], now, PickAxeData.HIT_COOLDOWN_SEC / CharacterManager:getModifier(player, Enums.ClassModifier.MINING_SPEED)) then
 		return
 	end
 	self.lastHitTimeByPlayer[player] = now
@@ -125,6 +127,10 @@ function MiningManager:awardOre(player: Player, definition: any, blockCenter: Ve
 	-- the crew size sampled at dawn (M28), never the live count
 	local playerCount = RunCycleManager:getScalingCount()
 	local amount = BackpackRules.yieldForBreak(definition.yield, definition.resource, playerCount, PartyScalingData.ORE_YIELD_MULTIPLIER_BY_PLAYER_COUNT)
+	-- the class's ore yield (the Prospector's 1.2, applied 2026-10-22),
+	-- rounded so a block never pays a fraction
+	local yieldScale: number = CharacterManager:getModifier(player, Enums.ClassModifier.ORE_YIELD)
+	amount = math.floor(amount * yieldScale + 0.5)
 	local _, overflow = BackpackManager:add(player, definition.resource, amount, blockCenter)
 	if overflow > 0 then
 		OrePickupManager:drop(blockCenter, definition.resource, overflow)
@@ -142,6 +148,16 @@ function MiningManager:getNetHandlers()
 	}
 end
 
+-- the swing interval this player's class gives them, on CurrentPlayer so
+-- their client swings at their pace; the GameMetadata copy is the base
+function MiningManager:publishHitInterval(player: Player)
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.PICK_AXE_HIT_INTERVAL_SEC, PickAxeData.HIT_INTERVAL_SEC / CharacterManager:getModifier(player, Enums.ClassModifier.MINING_SPEED))
+end
+
+function MiningManager:onPlayerReady(player: Player)
+	self:publishHitInterval(player)
+end
+
 function MiningManager:onPlayerRemoved(player: Player)
 	self.lastHitTimeByPlayer[player] = nil
 end
@@ -152,6 +168,13 @@ function MiningManager:init()
 	SplendidReplicationManager:setGameMetadata(Attributes.PICK_AXE_HIT_INTERVAL_SEC, PickAxeData.HIT_INTERVAL_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.PICK_AXE_REACH_STUDS, PickAxeData.REACH_STUDS)
 	GameController:registerPlaceManager(self)
+	CharacterManager:subscribeClassChanged(
+		function(player: Player, _classKind: number)
+			if GameController:isPlayerReady(player) then
+				self:publishHitInterval(player)
+			end
+		end
+	)
 end
 
 function MiningManager.new(): MiningManager

@@ -96,6 +96,12 @@ type WeaponView = {
 	-- base, but the gun's own pitch has to be carried to them by hand
 	-- (seen 2026-10-19: they floated level while the gun looked down)
 	gunChildOffsets: { [BasePart]: CFrame },
+	-- a kind with a chambered projectile (the Fault Line Drill, 2026-10-22):
+	-- the model's seat part and the projectile copy shown on it while the
+	-- post is loaded, parented out of the world while it reloads
+	chamber: BasePart?,
+	chambered: BasePart?,
+	chamberedOffsets: { [BasePart]: CFrame }?,
 }
 
 export type ClientPostManager = typeof(setmetatable(
@@ -281,6 +287,8 @@ local LOCK_RETICLE_NONE_COLOR = Color3.fromRGB(240, 80, 70)
 local LOCK_RETICLE_GROUND_COLOR = Color3.fromRGB(255, 255, 255)
 local LOCK_RETICLE_AIR_COLOR = Color3.fromRGB(90, 230, 100)
 local LOCK_COUNT_FORMAT = "%d / %d"
+-- the projectile copy seated in a post's barrel between shots
+local CHAMBERED_PART_NAME = "ChamberedProjectile"
 -- the share of the reticle picture's square that counts as inside its
 -- frame (the picture has a little air round the frame); a monster
 -- anywhere inside it locks, not only one under the centre (2026-10-20)
@@ -438,7 +446,25 @@ function ClientPostManager:bindWeapon(model: Instance)
 		barrelAngleDegrees = 0,
 		barrelSpinShare = 0,
 		gunChildOffsets = {},
+		chamber = nil,
+		chambered = nil,
+		chamberedOffsets = nil,
 	}
+	local catalog = self.catalog
+	local viewKindData = if catalog then catalog.kinds[readNumber(model:GetAttribute(Attributes.POST_WEAPON_WEAPON_KIND), 0)] else nil
+	local viewProjectile = if viewKindData then viewKindData.PROJECTILE else nil
+	if viewProjectile and viewProjectile.CHAMBER_PART_NAME then
+		local chamber = model:FindFirstChild(viewProjectile.CHAMBER_PART_NAME, true)
+		local template = ClientProjectileManager:findTemplate(viewProjectile.TEMPLATE)
+		if chamber and chamber:IsA("BasePart") and template then
+			view.chamber = chamber
+			local chambered = template:Clone()
+			chambered.Name = CHAMBERED_PART_NAME
+			chambered.Anchored = true
+			view.chambered = chambered
+			view.chamberedOffsets = ClientProjectileManager:measureOffsets(chambered)
+		end
+	end
 	for _, descendant in gun:GetDescendants() do
 		if descendant:IsA("BasePart") and descendant ~= barrel then
 			view.gunChildOffsets[descendant] = gun.CFrame:ToObjectSpace(descendant.CFrame)
@@ -472,6 +498,10 @@ function ClientPostManager:unbindWeapon(model: Instance)
 	if self.mountedView == view then
 		self.mountedView = nil
 	end
+	if view.chambered then
+		view.chambered:Destroy()
+		view.chambered = nil
+	end
 end
 
 -- the weapon this player is manning, by the post number the server gave
@@ -500,6 +530,21 @@ function ClientPostManager:applyView(view: WeaponView)
 	local barrelOffset = view.barrelOffset
 	if barrel and barrelOffset then
 		barrel.CFrame = view.gun.CFrame * barrelOffset * CFrame.Angles(math.rad(view.barrelAngleDegrees), 0, 0)
+	end
+	local chamber = view.chamber
+	local chambered = view.chambered
+	if chamber and chambered then
+		-- the bit sits in the barrel while loaded and is gone while the
+		-- post reloads, the way the shot took it
+		local isLoaded = not WeaponRules.isReloading(readNumber(view.model:GetAttribute(Attributes.POST_WEAPON_RELOAD_END_TIME), 0), workspace:GetServerTimeNow())
+		if isLoaded then
+			ClientProjectileManager:place(chambered, chamber.CFrame, view.chamberedOffsets or {})
+			if chambered.Parent ~= workspace then
+				chambered.Parent = workspace
+			end
+		elseif chambered.Parent then
+			chambered.Parent = nil
+		end
 	end
 end
 
@@ -815,16 +860,17 @@ function ClientPostManager:fire(isFreshPress: boolean): boolean
 		{
 			origin = origin,
 			direction = unitDirection,
-			-- a lob lands on the reticle's point, as the marker showed
-			aimPosition = if projectile and projectile.LOB_ANGLE_DEGREES then aimPoint else nil,
+			-- a lob lands on the reticle's point, as the marker showed; a
+			-- falling shot is raised to land there too
+			aimPosition = if projectile and (projectile.LOB_ANGLE_DEGREES or (projectile.GRAVITY_STUDS_PER_SEC2 or 0) > 0) then aimPoint else nil,
 		}
 	)
 	ClientWeaponManager:playMuzzleEffects(view.muzzle)
 	local weaponKind = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.POST_WEAPON_KIND), 0)
 	local kindData = self.kindData
-	if kindData and kindData.PROJECTILE then
-		-- the rocket itself is drawn when the server announces it; the
-		-- launch sound is the gunner's own
+	if kindData and (kindData.PROJECTILE or kindData.FAULT_LINE) then
+		-- the rocket itself (or the crack) is drawn when the server
+		-- announces it; the launch sound is the gunner's own
 		local weaponSfx = self:getPostWeaponSfx(weaponKind)
 		if weaponSfx then
 			ClientSoundManager:playSfxAt(origin, weaponSfx.FIRE, FIRE_SOUND_FULL_VOLUME_STUDS, EFFECT_RANGE_STUDS)
@@ -875,8 +921,9 @@ function ClientPostManager:onPostWeaponFired(payload: any)
 			ClientHeadshotManager:showBonus(headshotId)
 		end
 	end
-	if isOwnMannedShot then
-		-- this client drew its own shot when it fired; the news is the hit
+	if isOwnMannedShot or (kindData and kindData.FAULT_LINE) then
+		-- this client drew its own shot when it fired, and a drill's crack
+		-- is drawn from its own message; the news here is the hit
 		return
 	end
 	local camera = workspace.CurrentCamera

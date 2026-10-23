@@ -361,8 +361,13 @@ end
 -- one build. Silent refusals are the cases an honest client never sends
 -- (not at the table, unknown kinds); the rest are told, because two
 -- players can race for the same cells
-function PlacementManager:build(player: Player, placementKind: number, typeKind: number, zoneIndex: number, cell: PlacementRules.Cell, rotation: number)
-	if not GameController:isPlayerReady(player) or not DefenseTableManager:isInBuildMode(player) or not PlacementRules.isValidRotation(rotation) then
+-- isDevBuild (the dev panel, 2026-10-22) skips the Build Mode gate and the
+-- Iron, so a tower can be stood up for a test without the table
+function PlacementManager:build(player: Player, placementKind: number, typeKind: number, zoneIndex: number, cell: PlacementRules.Cell, rotation: number, isDevBuild: boolean?)
+	if not GameController:isPlayerReady(player) or not PlacementRules.isValidRotation(rotation) then
+		return
+	end
+	if not isDevBuild and not DefenseTableManager:isInBuildMode(player) then
 		return
 	end
 	if not Enums.isValidValue(PlacementRules.typeEnumFor(placementKind), typeKind) then
@@ -394,11 +399,14 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 			return
 		end
 	end
-	-- the class scales the build price, a tower's and a trap's each by its
-	-- own modifier (M64); the Build Mode menu still shows the catalog price
-	local priceModifier = if placementKind == Enums.PlacementKind.TOWER then Enums.ClassModifier.TOWER_BUILD_COST else Enums.ClassModifier.TRAP_COST
-	local price = ClassRules.scaleAmount(PlacementRules.buildPrice(self.catalog, placementKind, typeKind), CharacterManager:getModifier(player, priceModifier))
-	if not PlacementRules.canAfford(RefineryManager:getIronBars(player), price) or not RefineryManager:spendIronBars(player, price) then
+	-- the class scales the build price (one defense dial for towers and
+	-- traps since 2026-10-22; two until then) on every build, the first
+	-- tower of the run included (designer, that evening: a pricing dial
+	-- applies to every tier); the menus show the same scaled price
+	local price = ClassRules.scaleAmount(PlacementRules.buildPrice(self.catalog, placementKind, typeKind), CharacterManager:getModifier(player, Enums.ClassModifier.DEFENSE_COST))
+	if isDevBuild then
+		price = 0
+	elseif not PlacementRules.canAfford(RefineryManager:getIronBars(player), price) or not RefineryManager:spendIronBars(player, price) then
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_IRON)
 		return
 	end
@@ -484,7 +492,9 @@ function PlacementManager:upgrade(player: Player, id: string)
 	if not tower or not offer then
 		return
 	end
-	if not PlacementRules.canAfford(RefineryManager:getIronBars(player), offer.price) or not RefineryManager:spendIronBars(player, offer.price) then
+	-- the class's defense dial scales an upgrade as it does a build (2026-10-22)
+	local price = ClassRules.scaleAmount(offer.price, CharacterManager:getModifier(player, Enums.ClassModifier.DEFENSE_COST))
+	if not PlacementRules.canAfford(RefineryManager:getIronBars(player), price) or not RefineryManager:spendIronBars(player, price) then
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_IRON)
 		return
 	end
@@ -496,10 +506,10 @@ function PlacementManager:upgrade(player: Player, id: string)
 	NetManager:notifyClient(player, NetEventNames.NOTIFY_TOWER_UPGRADED, {
 		id = id,
 		level = placement.level,
-		price = offer.price,
+		price = price,
 	})
-	print(`[PlacementManager] {player.Name} upgraded {id} to level {placement.level} for {offer.price} Iron`)
-	self:firePlacementSpent(player, Enums.PlacementAction.UPGRADED, placement.placementKind, placement.typeKind, offer.price)
+	print(`[PlacementManager] {player.Name} upgraded {id} to level {placement.level} for {price} Iron`)
+	self:firePlacementSpent(player, Enums.PlacementAction.UPGRADED, placement.placementKind, placement.typeKind, price)
 end
 
 function PlacementManager:setTargetPriority(player: Player, id: string, priority: number)

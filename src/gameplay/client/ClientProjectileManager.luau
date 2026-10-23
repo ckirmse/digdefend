@@ -44,6 +44,15 @@ type ProjectileView = {
 	isSpinning: boolean,
 	spinRadians: number,
 	tailOffset: Vector3,
+	-- a boomerang (the Prospector's pick): out rangeStuds and back on the
+	-- launch line, drawn lying flat and spinning about the world's up, so
+	-- its template is authored lying flat and needs no TailAttachment
+	isReturning: boolean,
+	rangeStuds: number,
+	-- a template of several parts (the DrillBit, 2026-10-22): each other
+	-- part's pose against the root, re-applied every frame, since a
+	-- client-made part moved by its CFrame leaves welded parts behind
+	partOffsets: { [BasePart]: CFrame },
 }
 
 export type ClientProjectileManager = typeof(setmetatable(
@@ -67,6 +76,7 @@ local BLAST_FLASH_SEC = 0.15
 -- a projectile that never hears its end (a lost message) is dropped after this
 local MAX_LIFETIME_SEC = 12
 local SPIN_RADIANS_PER_SEC = 24
+local BOOMERANG_SPIN_RADIANS_PER_SEC = 18
 -- the stand-in for a projectile with no part under GameAssets/Projectiles yet
 local PLACEHOLDER_SIZE = Vector3.new(0.8, 0.8, 1.6)
 local PLACEHOLDER_COLOR = Color3.fromRGB(230, 200, 90)
@@ -85,6 +95,8 @@ local NOTIFY_PROJECTILE_LAUNCHED_SHAPE = {
 	homingTargetId = "string",
 	homingTurn = "nonnegativeNumber",
 	isPiercing = "boolean",
+	isReturning = "boolean",
+	rangeStuds = "nonnegativeNumber",
 }
 local NOTIFY_PROJECTILE_ENDED_SHAPE = {
 	projectileId = "string",
@@ -115,6 +127,27 @@ function ClientProjectileManager:getSounds(postWeaponKind: number, weaponKind: n
 		end
 	end
 	return nil, nil, nil
+end
+
+-- a multi-part template is moved by hand: every part under the root is
+-- anchored and placed from its pose against the root (ClientPostManager
+-- seats a chambered copy the same way)
+function ClientProjectileManager:measureOffsets(root: BasePart): { [BasePart]: CFrame }
+	local offsets: { [BasePart]: CFrame } = {}
+	for _, descendant in root:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = true
+			offsets[descendant] = root.CFrame:ToObjectSpace(descendant.CFrame)
+		end
+	end
+	return offsets
+end
+
+function ClientProjectileManager:place(root: BasePart, cframe: CFrame, offsets: { [BasePart]: CFrame })
+	root.CFrame = cframe
+	for part, offset in offsets do
+		part.CFrame = cframe * offset
+	end
 end
 
 function ClientProjectileManager:findTemplate(templateName: string): BasePart?
@@ -211,7 +244,8 @@ function ClientProjectileManager:onLaunched(payload: any)
 	local tailOffset = if tail and tail:IsA("Attachment") then tail.Position else Vector3.zero
 	local direction: Vector3 = payload.direction
 	local unitDirection = if direction.Magnitude > 0.001 then direction.Unit else Vector3.zAxis
-	part.CFrame = PostRules.projectileFrame(payload.origin, unitDirection, tailOffset)
+	local partOffsets = self:measureOffsets(part)
+	self:place(part, PostRules.projectileFrame(payload.origin, unitDirection, tailOffset), partOffsets)
 	if tail and tail:IsA("Attachment") then
 		self:attachTrail(tail)
 	end
@@ -238,9 +272,12 @@ function ClientProjectileManager:onLaunched(payload: any)
 		unitDirection = unitDirection,
 		homingTargetId = if payload.homingTargetId ~= "" then payload.homingTargetId else nil,
 		homingTurnDegreesPerSec = payload.homingTurn,
-		isSpinning = payload.isPiercing,
+		isSpinning = payload.isPiercing and not payload.isReturning,
 		spinRadians = 0,
 		tailOffset = tailOffset,
+		isReturning = payload.isReturning,
+		rangeStuds = payload.rangeStuds,
+		partOffsets = partOffsets,
 	}
 	Debris:AddItem(part, MAX_LIFETIME_SEC)
 end
@@ -375,6 +412,14 @@ function ClientProjectileManager:step(deltaTime: number)
 				view.unitDirection = ProjectileRules.turnToward(view.unitDirection, view.position, targetPosition, view.homingTurnDegreesPerSec * deltaTime)
 			end
 			view.position += view.unitDirection * view.flight.speedStudsPerSec * deltaTime
+		elseif view.isReturning then
+			view.elapsedSec += deltaTime
+			local leg = ProjectileRules.returningAt(view.flight, view.elapsedSec, view.rangeStuds)
+			view.position = leg.position
+			view.unitDirection = leg.unitDirection
+			view.spinRadians += BOOMERANG_SPIN_RADIANS_PER_SEC * deltaTime
+			self:place(view.part, CFrame.new(view.position) * CFrame.Angles(0, view.spinRadians, 0), view.partOffsets)
+			continue
 		else
 			view.elapsedSec += deltaTime
 			view.position = ProjectileRules.positionAt(view.flight, view.elapsedSec)
@@ -385,7 +430,7 @@ function ClientProjectileManager:step(deltaTime: number)
 			view.spinRadians += SPIN_RADIANS_PER_SEC * deltaTime
 			frame = frame * CFrame.Angles(0, 0, view.spinRadians)
 		end
-		view.part.CFrame = frame
+		self:place(view.part, frame, view.partOffsets)
 	end
 end
 

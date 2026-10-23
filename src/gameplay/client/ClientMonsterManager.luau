@@ -165,6 +165,9 @@ type ClientMonster = {
 	-- while it is set (2026-10-20); the Fire moves when the body does
 	isBurning: boolean,
 	fire: Fire?,
+	-- the snapshot's knockdown flag (2026-10-22): the body is drawn flat on
+	-- its back while it is set
+	isKnockedDown: boolean,
 }
 
 type Dying = {
@@ -325,6 +328,10 @@ local function yawLerp(from: number, to: number, alpha: number): number
 end
 
 -- one allocation per placement: the rotation as a quaternion about Y
+-- a knocked-down body: tipped onto its back about its feet, with a little
+-- lift so the head clears the ground
+local KNOCKDOWN_POSE = CFrame.new(0, 0.6, 0) * CFrame.Angles(math.rad(-82), 0, 0)
+
 local function yawCFrame(x: number, y: number, z: number, yawDegrees: number): CFrame
 	local half = math.rad(yawDegrees) / 2
 	return CFrame.new(x, y, z, 0, math.sin(half), 0, math.cos(half))
@@ -756,7 +763,7 @@ end
 
 -- one record of a snapshot applied to its monster; an unreliable packet
 -- that arrives behind a newer one is dropped, the next is on its way
-function ClientMonsterManager:applyRecord(id: number, x: number, y: number, z: number, yawDegrees: number, hpShare: number, action: number, attackCounter: number, isBurning: boolean)
+function ClientMonsterManager:applyRecord(id: number, x: number, y: number, z: number, yawDegrees: number, hpShare: number, action: number, attackCounter: number, isBurning: boolean, isKnockedDown: boolean)
 	local monster = self.monstersById[id]
 	if not monster then
 		return
@@ -764,6 +771,13 @@ function ClientMonsterManager:applyRecord(id: number, x: number, y: number, z: n
 	if isBurning ~= monster.isBurning then
 		monster.isBurning = isBurning
 		self:updateFire(monster)
+	end
+	if isKnockedDown ~= monster.isKnockedDown then
+		-- the pose changed under a body that may not move: its frame is
+		-- rebuilt from the samples next render
+		monster.isKnockedDown = isKnockedDown
+		monster.renderCFrame = nil
+		monster.isBodyDirty = true
 	end
 	local time = self.packetServerTime
 	local count = monster.sampleCount
@@ -864,6 +878,7 @@ function ClientMonsterManager:onSpawned(payload: any)
 			isAlertPending = false,
 			isBurning = false,
 			fire = nil,
+			isKnockedDown = false,
 		}
 		self.monstersById[id] = monster
 		self.monsterByDamageableId[damageableId] = monster
@@ -1527,6 +1542,10 @@ function ClientMonsterManager:render()
 		if monster.visual.isCrawler and (isMoved or monster.renderCFrame == nil) then
 			cframe = self:clingCFrame(monster, cframe)
 		end
+		if monster.isKnockedDown and (isMoved or monster.renderCFrame == nil) then
+			-- flat on its back, feet where it stood
+			cframe = cframe * KNOCKDOWN_POSE
+		end
 		monster.renderCFrame = cframe
 		if monster.isBodyDirty then
 			self:updateFire(monster)
@@ -1751,8 +1770,8 @@ function ClientMonsterManager.new(): ClientMonsterManager
 	self.bulkCFrames = {}
 	self.bulkCount = 0
 	self.packetServerTime = 0
-	local visitor: MonsterSnapshotCodec.RecordVisitor = function(id: number, x: number, y: number, z: number, yawDegrees: number, hpShare: number, action: number, attackCounter: number, _isSlowed: boolean, isBurning: boolean)
-		self:applyRecord(id, x, y, z, yawDegrees, hpShare, action, attackCounter, isBurning)
+	local visitor: MonsterSnapshotCodec.RecordVisitor = function(id: number, x: number, y: number, z: number, yawDegrees: number, hpShare: number, action: number, attackCounter: number, _isSlowed: boolean, isBurning: boolean, isKnockedDown: boolean)
+		self:applyRecord(id, x, y, z, yawDegrees, hpShare, action, attackCounter, isBurning, isKnockedDown)
 	end
 	self.recordVisitor = visitor
 	self.bytesThisSecond = 0

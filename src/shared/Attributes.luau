@@ -68,6 +68,7 @@ module = {
 	-- each cooldown's length (GameMetadata), so the sheet drains by its share
 	REMOTE_CHARGE_COOLDOWN_SEC = "RemoteChargeCooldownSec",
 	FLARE_COOLDOWN_SEC = "FlareCooldownSec",
+	ORE_SCANNER_COOLDOWN_SEC = "OreScannerCooldownSec",
 	BINOCULARS_TAG = "BinocularsTag",
 	BINOCULARS_COOLDOWN_END_TIME = "BinocularsCooldownEndTime",
 	-- the cooldown's length (GameMetadata), so the hint can show its share
@@ -125,6 +126,8 @@ module = {
 	STAND_DISPLAY_SCALE = "DisplayScale",
 	JET_PACK_CLIMB_SPEED = "JetPackClimbSpeed",
 	-- GameMetadata (gameplay): pick axe input tuning the client needs
+	-- GameMetadata: the base swing interval; CurrentPlayer: the player's
+	-- own, their class's Mining Speed applied (2026-10-22)
 	PICK_AXE_HIT_INTERVAL_SEC = "PickAxeHitIntervalSec",
 	PICK_AXE_REACH_STUDS = "PickAxeReachStuds",
 	-- backpack (BackpackManager, gameplay): private CurrentPlayer run state,
@@ -188,6 +191,9 @@ module = {
 	CHARACTER_NIGHTS_SURVIVED = "CharacterNightsSurvived",
 	-- Enums.ClassKind value (M64)
 	CHARACTER_CLASS_KIND = "CharacterClassKind",
+	-- CurrentPlayer (private): the active class's MODIFIERS table as JSON
+	-- (ClassRules codec), for the prices the stands show (2026-10-22)
+	CLASS_MODIFIERS = "ClassModifiers",
 	CHARACTER_WEAPON_KIND = "CharacterWeaponKind",
 	CHARACTER_WEAPON_STARS = "CharacterWeaponStars",
 	CHARACTER_POST_KIND = "CharacterPostKind",
@@ -426,6 +432,7 @@ module = {
 	POST_UPGRADE_FIRE_DAMAGE = "PostUpgradeFireDamage",
 	POST_UPGRADE_FIRE_LENGTH = "PostUpgradeFireLength",
 	POST_UPGRADE_LOCK_COUNT = "PostUpgradeLockCount",
+	POST_UPGRADE_DURATION = "PostUpgradeDuration",
 	-- on a Tools/WEAPON_* template (ClientViewModelManager, 2026-10-19): a
 	-- CFrame the designer sets in the Explorer to move that gun from the
 	-- shared first-person hold (the Assault Rifle sat too far forward)
@@ -458,6 +465,9 @@ module = {
 	POST_WEAPON_TRIGGER_TIME = "PostWeaponTriggerTime",
 	POST_WEAPON_LOCKS = "PostWeaponLocks",
 	POST_WEAPON_IS_UNMANNED = "PostWeaponIsUnmanned",
+	-- the Enums.PostWeaponKind the model is, for a client's look-up of its
+	-- catalogue block (the chambered projectile, 2026-10-22)
+	POST_WEAPON_WEAPON_KIND = "PostWeaponWeaponKind",
 	-- placements (PlacementManager, M26). GameMetadata: the defense
 	-- catalogue as JSON (PlacementRules codec): every Tower's prices and
 	-- stats by level, every Trap's price and HP, footprints, the grid cell
@@ -526,6 +536,9 @@ module = {
 	-- it burns out
 	FLARE_OWNER_USER_ID = "FlareOwnerUserId",
 	FLARE_END_TIME = "FlareEndTime",
+	-- on a Drill Rig's placement shadow (DrillRigManager, 2026-10-22): the
+	-- whole ore it holds, as DrillRigRules' JSON list
+	DRILL_RIG_STOCK = "DrillRigStock",
 	-- on a ParticleEmitter in a burst effect template (GameAssets/Effects):
 	-- how many particles one burst emits
 	BURST_COUNT = "BurstCount",

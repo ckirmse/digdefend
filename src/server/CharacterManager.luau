@@ -495,6 +495,7 @@ end
 
 function CharacterManager:replicate(player: Player)
 	splendidReplicationManager:replicateCharacters(player)
+	splendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.CLASS_MODIFIERS, ClassRules.encodeModifiers(self:getClassData(player)))
 end
 
 function CharacterManager:setActiveCharacter(player: Player, characterId: string): boolean

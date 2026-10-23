@@ -158,6 +158,24 @@ end
 
 -- Validates the global rock table so a bad data edit fails loudly at startup
 -- rather than as a silent hole in a mine. Returns (isValid, message).
+-- the raw resource a rock holds, from its Enums.RockName key alone ("GOLD_3"
+-- is gold ore), so a client with no GameData can sort ore by kind (the
+-- Ore Scanner, 2026-10-22); nil for stone and bedrock
+function RockRules.rawResourceForRock(rock: number): number?
+	local name = Enums.getName(Enums.RockName, rock)
+	if not name then
+		return nil
+	end
+	if string.sub(name, 1, 5) == "IRON_" then
+		return Enums.RawResource.IRON_ORE
+	elseif string.sub(name, 1, 5) == "GOLD_" then
+		return Enums.RawResource.GOLD_ORE
+	elseif name == "URANIUM" then
+		return Enums.RawResource.URANIUM_ORE
+	end
+	return nil
+end
+
 function RockRules.validateRockTable(rockTable: any): (boolean, string?)
 	if typeof(rockTable) ~= "table" then
 		return false, "rock table is not a table"

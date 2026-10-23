@@ -36,6 +36,7 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local FaultLineRules = require("@game/ReplicatedStorage/Shared/FaultLineRules")
 local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
 local RunCycleRules = require("@game/ReplicatedStorage/Shared/RunCycleRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
@@ -50,6 +51,7 @@ local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 local DamageableManager = require(script.Parent.DamageableManager)
+local MonsterPathManager = require(script.Parent.MonsterPathManager)
 local MapManager = require(script.Parent.MapManager)
 local OrePickupManager = require(script.Parent.OrePickupManager)
 local ProjectileManager = require(script.Parent.ProjectileManager)
@@ -495,6 +497,7 @@ function PostManager:spawnWeapon(post: Post)
 	post.replicatedLocks = ""
 	CollectionService:AddTag(model, Tags.POST_WEAPON)
 	model:SetAttribute(Attributes.POST_WEAPON_IS_UNMANNED, data.IS_UNMANNED == true)
+	model:SetAttribute(Attributes.POST_WEAPON_WEAPON_KIND, post.weaponKind)
 	model.Parent = folder
 	post.weaponModel = model
 	self:replicateFireState(post)
@@ -961,6 +964,14 @@ function PostManager:launchProjectile(post: Post, attacker: Player?, origin: Vec
 		unitDirection = lob.unitDirection
 		speedStudsPerSec = lob.speedStudsPerSec
 		rangeStuds = speedStudsPerSec * lob.flightSec * 2 + rangeStuds
+	elseif aimPosition and (projectile.GRAVITY_STUDS_PER_SEC2 or 0) > 0 then
+		-- a falling shot is raised to land on the reticle's point (the
+		-- drill, 2026-10-22); out of reach it flies the straight line
+		local aim = ProjectileRules.aimToward(origin, aimPosition, projectile.GRAVITY_STUDS_PER_SEC2 or 0, speedStudsPerSec)
+		if aim.isReached then
+			unitDirection = aim.unitDirection
+			rangeStuds = math.max(rangeStuds, speedStudsPerSec * aim.flightSec * 1.5)
+		end
 	end
 	local excludedInstances: { Instance } = {}
 	if post.weaponModel then
@@ -978,6 +989,7 @@ function PostManager:launchProjectile(post: Post, attacker: Player?, origin: Vec
 		rangeStuds = rangeStuds,
 		excludedInstances = excludedInstances,
 		isPiercing = projectile.IS_PIERCING,
+		isReturning = projectile.IS_RETURNING,
 		homingTargetId = homingTargetId,
 		homingTurnDegreesPerSec = if homing then homing.TURN_DEGREES_PER_SEC else nil,
 		onHit = if projectile.IS_PIERCING
@@ -985,14 +997,27 @@ function PostManager:launchProjectile(post: Post, attacker: Player?, origin: Vec
 				self:damageTarget(post, hitId, damage, attacker)
 			end
 			else nil,
-		onEnd = function(position: Vector3, _hitId: string?)
+		onEnd = function(position: Vector3, hitId: string?, isSpent: boolean)
 			if data.MINES and owner then
 				self:placeMine(post, owner, data.MINES, projectile, stats, position)
+				return
+			end
+			local faultLine = data.FAULT_LINE
+			if faultLine then
+				-- a drill that ran out of range in the air bursts and that is
+				-- all: no crack under a bit that struck nothing (designer,
+				-- 2026-10-22)
+				if not isSpent then
+					self:runFaultLine(post, attacker, position, unitDirection, stats, faultLine)
+				end
 				return
 			end
 			local splashRadius = stats.splashRadiusStuds or projectile.SPLASH_RADIUS_STUDS
 			if splashRadius > 0 then
 				self:splash(post, position, splashRadius, damage, attacker)
+			elseif hitId and not projectile.IS_PIERCING then
+				-- a plain shot (the Nail Gun's nail) hurts the one body it lands on
+				self:damageTarget(post, hitId, damage, attacker)
 			end
 			if data.POOL then
 				self:startPool(post, data.POOL, stats, position, attacker)
@@ -1001,9 +1026,54 @@ function PostManager:launchProjectile(post: Post, attacker: Player?, origin: Vec
 	})
 end
 
+-- the Fault Line Drill's crack: where its drill stopped (a body, the
+-- world, or the end of its flight), the crack starts on the ground under
+-- that spot and runs on in the shot's flat direction for the block's
+-- length. The hits and the crack's points are FaultLineRules' over the
+-- path grid's ground heights; the points go to every client, which draws
+-- the same spikes from them. The body the drill struck itself is on the
+-- crack's first point, so it is hit the same way as the rest
+function PostManager:runFaultLine(post: Post, attacker: Player?, landing: Vector3, unitDirection: Vector3, stats: PostRules.Stats, faultLine: PostRules.FaultLineData)
+	local flatDirection = FaultLineRules.flatDirection(unitDirection)
+	if not flatDirection then
+		return
+	end
+	local groundHeightAt: FaultLineRules.GroundHeightAt = function(x: number, z: number): number?
+		return MonsterPathManager:getGroundHeight(x, z)
+	end
+	local origin = Vector3.new(landing.X, groundHeightAt(landing.X, landing.Z) or landing.Y, landing.Z)
+	local lengthStuds = faultLine.LENGTH_STUDS
+	local holdSec = stats.knockdownSec or faultLine.KNOCKDOWN_SEC
+	local hitIds = FaultLineRules.hitsAlong(origin, flatDirection, lengthStuds, faultLine.WIDTH_STUDS, DamageableManager:getTargets(), groundHeightAt, faultLine.GROUND_TOLERANCE_STUDS)
+	for _, hitId in hitIds do
+		self:damageTarget(post, hitId, stats.damage, attacker)
+		DamageableManager:applyKnockdown(hitId, holdSec)
+	end
+	local userId = if attacker then attacker.UserId else PostRules.NOBODY
+	NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_FAULT_LINE, {
+		userId = userId,
+		weaponKind = post.weaponKind,
+		points = FaultLineRules.samplePoints(origin, flatDirection, lengthStuds, faultLine.SPIKE_SPACING_STUDS, groundHeightAt),
+		widthStuds = faultLine.WIDTH_STUDS,
+		spikeSec = holdSec,
+		raceStudsPerSec = faultLine.RACE_STUDS_PER_SEC,
+	})
+	-- the hit flashes and the gunner's hit confirm ride the usual message
+	NetManager:notifyAllClients(NetEventNames.NOTIFY_POST_WEAPON_FIRED, {
+		userId = userId,
+		postIndex = post.index,
+		weaponKind = post.weaponKind,
+		origin = origin,
+		endPosition = origin + flatDirection * lengthStuds,
+		isImpact = false,
+		hitId = hitIds[1] or NO_HIT_ID,
+		hitIds = hitIds,
+	})
+end
+
 -- the shot itself, once the gunner (or the unmanned post) is allowed it:
 -- the kind's block decides what leaves the muzzle
-function PostManager:fireShot(post: Post, attacker: Player?, origin: Vector3, unitDirection: Vector3, stats: PostRules.Stats, data: PostRules.KindData, aimPosition: Vector3?)
+function PostManager:fireShot(post: Post, attacker: Player?, origin: Vector3, unitDirection: Vector3, stats: PostRules.Stats, data: PostRules.KindData, aimPosition: Vector3?, _chargeProgress: number?)
 	local projectile = data.PROJECTILE
 	if projectile then
 		local lockData = data.LOCK
@@ -1216,7 +1286,7 @@ function PostManager:fire(player: Player, origin: Vector3, direction: Vector3, a
 		end
 		stats = partStats
 	end
-	self:fireShot(post, player, origin, direction.Unit, stats, data, aimPosition)
+	self:fireShot(post, player, origin, direction.Unit, stats, data, aimPosition, chargeProgress)
 end
 
 -- an unmanned post (the Auto Machine Gun): every Heartbeat it turns

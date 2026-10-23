@@ -24,6 +24,9 @@ PlacementDevTools.ADD_LOADOUT_TOWER_COMMAND = "addLoadoutTower"
 PlacementDevTools.CLEAR_LOADOUT_TOWERS_COMMAND = "clearLoadoutTowers"
 PlacementDevTools.DAMAGE_PLACEMENT_COMMAND = "damagePlacement"
 PlacementDevTools.CLEAR_PLACEMENTS_COMMAND = "clearPlacements"
+-- a tower stood up free, without the table (2026-10-22: the Drill Rig's
+-- first test; the loadout rule still applies)
+PlacementDevTools.BUILD_PLACEMENT_COMMAND = "buildPlacement"
 
 local ADD_LOADOUT_TOWER_ARGS_SHAPE = {
 	kind = { type = "enum", name = "TowerKind" },
@@ -32,6 +35,13 @@ local CLEAR_ARGS_SHAPE = {}
 local DAMAGE_PLACEMENT_ARGS_SHAPE = {
 	id = "string",
 	amount = "positiveInteger",
+}
+local BUILD_PLACEMENT_ARGS_SHAPE = {
+	placementKind = { type = "enum", name = "PlacementKind" },
+	typeKind = "positiveInteger",
+	zoneIndex = "positiveInteger",
+	column = "integer",
+	row = "integer",
 }
 
 -- as many slots as the loadout has
@@ -70,6 +80,17 @@ function PlacementDevTools:init()
 			self.loadoutByPlayer[player] = nil
 			PlacementManager:setLoadoutOverride(player, nil)
 			PlayerFeedbackManager:give(player, "Tower loadout back to the saved one")
+		end
+	)
+	DevTools:registerPlaceCommand(
+		PlacementDevTools.BUILD_PLACEMENT_COMMAND,
+		function(player: Player, args: { [string]: any })
+			local isValid, err = Validate.isTableShape(args, BUILD_PLACEMENT_ARGS_SHAPE)
+			if not isValid then
+				warn("PlacementDevTools: buildPlacement with invalid args:", err)
+				return
+			end
+			PlacementManager:build(player, args.placementKind, args.typeKind, args.zoneIndex, { column = args.column, row = args.row }, 0, true)
 		end
 	)
 	DevTools:registerPlaceCommand(

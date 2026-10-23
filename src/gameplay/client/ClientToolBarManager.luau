@@ -80,12 +80,14 @@ local FEEDBACK_NOT_AVAILABLE_BY_GADGET: { [number]: string } = {
 	[Enums.GadgetKind.STIM_SHOT] = "You'll receive another STIM in the morning",
 	[Enums.GadgetKind.REMOTE_CHARGE] = "Next charge is on its way",
 	[Enums.GadgetKind.FLARE] = "Next flare is on its way",
+	[Enums.GadgetKind.ORE_SCANNER] = "The scanner is recharging",
 }
 -- the gadgets whose slot runs a cooldown (GadgetReadyTime) shown by the
 -- sheet draining, and the GameMetadata key holding each one's length
 local COOLDOWN_SEC_ATTRIBUTE_BY_GADGET: { [number]: string } = {
 	[Enums.GadgetKind.REMOTE_CHARGE] = Attributes.REMOTE_CHARGE_COOLDOWN_SEC,
 	[Enums.GadgetKind.FLARE] = Attributes.FLARE_COOLDOWN_SEC,
+	[Enums.GadgetKind.ORE_SCANNER] = Attributes.ORE_SCANNER_COOLDOWN_SEC,
 }
 -- the Demolitionist's empty dynamite slot while the next stick comes (2026-10-20)
 local FEEDBACK_DYNAMITE_COMING = "Next stick in %d s"

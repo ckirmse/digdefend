@@ -85,6 +85,9 @@ export type ClientMineManager = typeof(setmetatable(
 		poolByRock: { [number]: { BasePart } },
 		pooledCount: number,
 		exposedInRadius: number,
+		-- told the cell index of every block cleared from this client's grid
+		-- (the Ore Scanner drops its highlight, 2026-10-22)
+		cellClearedHandlers: { (cellIndex: number) -> () },
 		lastRefreshMs: number,
 		lastCell: { number }?,
 		isDirty: boolean,
@@ -133,6 +136,10 @@ end
 function ClientMineManager:getRockMaxHp(rock: number): number?
 	local header = self.header
 	return if header and header.rockHp then header.rockHp[rock] else nil
+end
+
+function ClientMineManager:subscribeCellCleared(handler: (cellIndex: number) -> ())
+	table.insert(self.cellClearedHandlers, handler)
 end
 
 -- the Enums.RockKind of the rock currently in a grid cell, nil outside the mine
@@ -205,6 +212,9 @@ function ClientMineManager:clearCell(depth: number, height: number, width: numbe
 		self.renderedCount -= 1
 	end
 	grid.cells[cellIndex] = MineGenerator.AIR
+	for _, handler in self.cellClearedHandlers do
+		handler(cellIndex)
+	end
 	self.exposedCells[cellIndex] = nil
 	self.crackStageByCell[cellIndex] = nil
 	self.uraniumCells[cellIndex] = nil
@@ -631,6 +641,7 @@ function ClientMineManager.new(): ClientMineManager
 	self.poolByRock = {}
 	self.pooledCount = 0
 	self.exposedInRadius = 0
+	self.cellClearedHandlers = {}
 	self.lastRefreshMs = 0
 	self.lastCell = nil
 	self.isDirty = false

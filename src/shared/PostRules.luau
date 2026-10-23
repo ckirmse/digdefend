@@ -26,6 +26,14 @@ export type ProjectileData = {
 	SPLASH_RADIUS_STUDS: number,
 	GRAVITY_STUDS_PER_SEC2: number?,
 	IS_PIERCING: boolean?,
+	-- flies its range out and the same line back to the muzzle, through
+	-- the world, hurting what it passes on each leg (a boomerang)
+	IS_RETURNING: boolean?,
+	-- the weapon model's part where the loaded projectile is shown between
+	-- shots (the Fault Line Drill's DrillSpawn, 2026-10-22): the clients
+	-- seat a copy of TEMPLATE on it while the post is not reloading, so
+	-- the gunner sees the next shot sitting in the barrel
+	CHAMBER_PART_NAME: string?,
 	HOMING: { TURN_DEGREES_PER_SEC: number }?,
 	-- a lob at this fixed elevation toward the aim point, the speed solved
 	-- per shot up to SPEED_STUDS_PER_SEC (ProjectileRules.lobToward); the
@@ -37,6 +45,19 @@ export type ProjectileData = {
 -- the class posts' blocks (2026-10-16); GameData/Posts/PostWeapons says
 -- what each does
 export type SpinUpData = { SEC: number }
+-- the Fault Line Drill (2026-10-22): where its PROJECTILE (the drill)
+-- lands, a crack runs on along the ground in the shot's direction for
+-- LENGTH_STUDS, hurting and knocking down what stands on it for
+-- KNOCKDOWN_SEC (grown by Duration), the spikes standing as long; the
+-- clients race the spikes out at RACE_STUDS_PER_SEC
+export type FaultLineData = {
+	LENGTH_STUDS: number,
+	WIDTH_STUDS: number,
+	KNOCKDOWN_SEC: number,
+	SPIKE_SPACING_STUDS: number,
+	GROUND_TOLERANCE_STUDS: number,
+	RACE_STUDS_PER_SEC: number,
+}
 export type ChargeData = { SEC: number }
 export type PierceData = { COUNT: number, COUNT_PER_DAMAGE_LEVEL: number }
 export type PoolData = { RADIUS_STUDS: number, SEC: number, BURN_DAMAGE_PER_SEC: number, BURN_SEC: number, TICK_SEC: number }
@@ -63,6 +84,7 @@ export type KindData = {
 	HEAT: HeatData?,
 	SPIN_UP: SpinUpData?,
 	CHARGE: ChargeData?,
+	FAULT_LINE: FaultLineData?,
 	PIERCE: PierceData?,
 	POOL: PoolData?,
 	LOCK: LockData?,
@@ -130,6 +152,8 @@ export type Stats = {
 	splashRadiusStuds: number?,
 	poolRadiusStuds: number?,
 	poolSec: number?,
+	-- the Fault Line Drill's hold (2026-10-22)
+	knockdownSec: number?,
 	burnDamagePerSec: number?,
 	burnSec: number?,
 	-- the Missile Launcher's locks held at once (2026-10-20): the kind's
@@ -174,6 +198,7 @@ PostRules.UPGRADE_ATTRIBUTE_BY_POST_ATTRIBUTE = {
 	[Enums.PostAttribute.FIRE_DAMAGE] = Attributes.POST_UPGRADE_FIRE_DAMAGE,
 	[Enums.PostAttribute.FIRE_LENGTH] = Attributes.POST_UPGRADE_FIRE_LENGTH,
 	[Enums.PostAttribute.LOCK_COUNT] = Attributes.POST_UPGRADE_LOCK_COUNT,
+	[Enums.PostAttribute.DURATION] = Attributes.POST_UPGRADE_DURATION,
 }
 
 PostRules.NO_POST = 0
@@ -234,6 +259,8 @@ function PostRules.statsFor(catalog: Catalog, kind: number, upgrades: Upgrades):
 		burnDamagePerSec = if data.POOL then data.POOL.BURN_DAMAGE_PER_SEC * multiplierFor(Enums.PostAttribute.FIRE_DAMAGE) else nil,
 		burnSec = if data.POOL then data.POOL.BURN_SEC * multiplierFor(Enums.PostAttribute.FIRE_LENGTH) else nil,
 		lockCount = if data.LOCK then data.LOCK.COUNT + math.floor((bonuses[Enums.PostAttribute.LOCK_COUNT] or 0) * PostRules.upgradeLevel(upgrades, Enums.PostAttribute.LOCK_COUNT) + 0.5) else nil,
+		-- the crack's hold and its spikes stand the same stretch
+		knockdownSec = if data.FAULT_LINE then data.FAULT_LINE.KNOCKDOWN_SEC * multiplierFor(Enums.PostAttribute.DURATION) else nil,
 	}
 end
 

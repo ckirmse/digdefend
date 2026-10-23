@@ -37,6 +37,8 @@ Icons.POST_WEAPON_RETICLE = {
 	-- the AA Launcher shares the Rocket Launcher's reticle (2026-10-20),
 	-- coloured by what is under it and with the lock bar beside it
 	[Enums.PostWeaponKind.AA_LAUNCHER] = "rbxassetid://105502906242582",
+	-- the Salvage Gun shares the Machine Gun's reticle (designer, 2026-10-22)
+	[Enums.PostWeaponKind.DRILL_GUN] = "rbxassetid://134742178329103",
 }
 
 -- the tool bar slot picture per Enums.ToolKind (one for every pick axe

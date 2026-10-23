@@ -172,7 +172,9 @@ module = {
 		MACHINE_GUN_AUTOMATED = 7,
 		MINE_LAYER = 8,
 		TESLA_ARC = 9,
-		SALVAGE_GUN = 10,
+		-- the Prospector's (renamed from SALVAGE_GUN on 2026-10-22 when the
+		-- designer's DRILL_GUN model replaced the placeholder)
+		DRILL_GUN = 10,
 		SAW_GUN = 11,
 		MAGNET_GUN = 12,
 
@@ -188,7 +190,7 @@ module = {
 			MACHINE_GUN_AUTOMATED = "Auto Machine Gun",
 			MINE_LAYER = "Mine Layer",
 			TESLA_ARC = "Tesla Arc",
-			SALVAGE_GUN = "Salvage Gun",
+			DRILL_GUN = "Fault Line Drill",
 			SAW_GUN = "Saw Gun",
 			MAGNET_GUN = "Magnet Gun",
 		},
@@ -227,6 +229,9 @@ module = {
 		FIRE_LENGTH = 9,
 		-- the Missile Launcher's row (2026-10-20): one more lock held per level
 		LOCK_COUNT = 10,
+		-- the Fault Line Drill's row (2026-10-22): how long its crack holds
+		-- a monster down and its spikes stand
+		DURATION = 11,
 
 		PublicNames = {
 			DAMAGE = "Damage",
@@ -239,6 +244,7 @@ module = {
 			FIRE_DAMAGE = "Fire Damage",
 			FIRE_LENGTH = "Fire Length",
 			LOCK_COUNT = "Lock Count",
+			DURATION = "Duration",
 		},
 	},
 	-- automated defense units (GDD "Defenses"), M26. The three DEFENSE
@@ -252,9 +258,12 @@ module = {
 		FROST_TOWER = 4,
 		TESLA_COIL = 5,
 		SNIPER_TOWER = 6,
+		-- the Prospector's (2026-10-22): no gun, drills ore into a stock
+		DRILL_RIG = 7,
 
 		PublicNames = {
 			SENTRY_GUN = "Sentry Gun",
+			DRILL_RIG = "Drill Rig",
 			FLAMETHROWER = "Flamethrower",
 			-- the Missile Turret since 2026-10-20 (the AA Turret until then):
 			-- it fires at the ground too, flyers first
@@ -328,12 +337,17 @@ module = {
 		SLOW_RATE = 6,
 		FREEZE_LENGTH = 7,
 		CHAIN_COUNT = 8,
+		-- the Drill Rig (2026-10-22): ore a minute, and the stock it holds
+		YIELD = 9,
+		STOCK = 10,
 
 		PublicNames = {
 			FIRE_RATE = "Fire Rate",
 			RANGE = "Range",
 			DAMAGE = "Damage",
 			HP = "HP",
+			YIELD = "Yield",
+			STOCK = "Stock",
 			FLAME_LENGTH = "Flame Length",
 			SLOW_RATE = "Slow Rate",
 			FREEZE_LENGTH = "Freeze Length",
@@ -669,13 +683,19 @@ module = {
 	-- 1.0 and read through ClassRules.modifier in the one place that stat
 	-- is computed. Applied as of 2026-10-16: MINING_POWER (MiningManager),
 	-- HANDHELD_DAMAGE (WeaponManager), POST_DAMAGE (PostManager),
-	-- TOWER_BUILD_COST and TRAP_COST (PlacementManager), REPAIR_SPEED and
-	-- REPAIR_COST (StructureManager, PlacementManager), BACKPACK_CAPACITY
-	-- (BackpackManager), MOVE_SPEED (BootsManager), MAX_HEALTH
-	-- (ReviveManager, 2026-10-19). The rest are recorded in the roster for
-	-- content that does not exist yet and do nothing until their system
-	-- reads them. MOVE_SPEED and MINING_POWER are the core stats every
-	-- class states outright (ClassRules.CORE_MODIFIERS); MAX_HEALTH is
+	-- DEFENSE_COST (PlacementManager: tower builds, tower upgrades, and
+	-- traps; TOWER_BUILD_COST and TRAP_COST until 2026-10-22) and
+	-- MINING_UPGRADE_COST (MiningStoreManager, 2026-10-22), REPAIR_SPEED
+	-- and REPAIR_COST (StructureManager, PlacementManager),
+	-- BACKPACK_CAPACITY (BackpackManager), MOVE_SPEED (BootsManager),
+	-- MAX_HEALTH (ReviveManager, 2026-10-19). The rest are recorded in
+	-- the roster for content that does not exist yet and do nothing until
+	-- their system reads them. MOVE_SPEED is the core stat every class
+	-- states outright (ClassRules.CORE_MODIFIERS); MINING_POWER was the
+	-- other until 2026-10-22, when the designer made every class swing
+	-- alike and moved the mining identity into the upgrade price (a 1.4
+	-- hid inside a swing count), so no class sets it now (the Prospector's
+	-- felt perk is MINING_SPEED, MiningManager, that evening); MAX_HEALTH is
 	-- applied but no class sets it (dropped as a core stat 2026-10-19).
 	-- A modifier that would only touch a thing one class alone owns is
 	-- not a modifier but that thing's own GameData number (decided
@@ -686,26 +706,38 @@ module = {
 		MINING_POWER = 1,
 		HANDHELD_DAMAGE = 2,
 		POST_DAMAGE = 3,
-		TOWER_BUILD_COST = 4,
-		TRAP_COST = 5,
+		-- the price of a tower, its upgrades, and a trap at the Defense
+		-- Table (2026-10-22, in place of TOWER_BUILD_COST and TRAP_COST)
+		DEFENSE_COST = 4,
+		-- the price of every Mining Supplies upgrade rung (2026-10-22); the
+		-- consumables stay flat
+		MINING_UPGRADE_COST = 5,
 		REPAIR_SPEED = 6,
 		REPAIR_COST = 7,
 		BACKPACK_CAPACITY = 8,
 		MOVE_SPEED = 9,
-		-- not yet applied (see above)
+		-- applied in MiningManager:awardOre since 2026-10-22
 		ORE_YIELD = 10,
+		-- not yet applied (see above)
 		LARGE_MONSTER_DAMAGE = 11,
 		-- flyer and ground damage were 12 and 13 until 2026-10-20: Air
 		-- Defense's split lives on its Missile Launcher instead (the lock
 		-- data's ground share), applied for an afternoon and dropped
 		MAX_HEALTH = 12,
+		-- how fast the pick swings (the Prospector, 2026-10-22: a scale on
+		-- the swing interval and the server's hit cooldown, felt on every
+		-- block where a 1.2 on MINING_POWER changed no swing count, the
+		-- pick and the rock tripling together). 13 and 14 were a pick axe
+		-- and a backpack discount for an afternoon the same day
+		MINING_SPEED = 13,
 
 		PublicNames = {
 			MINING_POWER = "Mining Power",
 			HANDHELD_DAMAGE = "Weapon Damage",
 			POST_DAMAGE = "Post Damage",
-			TOWER_BUILD_COST = "Tower Build Cost",
-			TRAP_COST = "Trap Cost",
+			DEFENSE_COST = "Defense Cost",
+			MINING_UPGRADE_COST = "Mining Upgrade Cost",
+			MINING_SPEED = "Mining Speed",
 			REPAIR_SPEED = "Repair Speed",
 			REPAIR_COST = "Repair Cost",
 			BACKPACK_CAPACITY = "Backpack Capacity",

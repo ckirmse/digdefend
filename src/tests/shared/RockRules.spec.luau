@@ -431,3 +431,20 @@ describe(
 		)
 	end
 )
+
+describe(
+	"RockRules.rawResourceForRock",
+	function()
+		it(
+			"names the ore by the rock's key and nothing for stone or bedrock",
+			function()
+				expect(RockRules.rawResourceForRock(RockName.IRON_3)).toBe(RawResource.IRON_ORE)
+				expect(RockRules.rawResourceForRock(RockName.GOLD_1)).toBe(RawResource.GOLD_ORE)
+				expect(RockRules.rawResourceForRock(RockName.URANIUM)).toBe(RawResource.URANIUM_ORE)
+				expect(RockRules.rawResourceForRock(RockName.STONE_2)).toBeNil()
+				expect(RockRules.rawResourceForRock(RockName.BEDROCK)).toBeNil()
+				expect(RockRules.rawResourceForRock(99)).toBeNil()
+			end
+		)
+	end
+)

@@ -28,6 +28,8 @@ local COLOR_BY_KIND = {
 	[Enums.TowerKind.FROST_TOWER] = Color3.fromRGB(150, 220, 240),
 	[Enums.TowerKind.TESLA_COIL] = Color3.fromRGB(190, 120, 230),
 	[Enums.TowerKind.SNIPER_TOWER] = Color3.fromRGB(70, 110, 70),
+	-- the Drill Rig (2026-10-22): rust, until the designer's rig lands
+	[Enums.TowerKind.DRILL_RIG] = Color3.fromRGB(170, 95, 50),
 }
 
 ChangeHistoryService:SetWaypoint("Before tower templates")

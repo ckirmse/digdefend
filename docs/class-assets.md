@@ -26,7 +26,7 @@ A Model under `GameAssets/PostWeapons/<KEY>` with the same parts as the Machine 
 | `AUTO_MACHINE_GUN` | Auto Machine Gun | Ranger | an unmanned machine gun on the post mount (decided 2026-10-16, replacing the Grenade Launcher): no `CharacterSpawn`, `HandleLeft`, `HandleRight`, or `CameraLocation`, since nobody mans it; a sensor or dish so it reads as automatic; fires by itself at 60% of the Machine Gun's damage so the Ranger stays on foot |
 | `MINE_LAYER` | Mine Layer | Engineer | a stubby lobber with a mine drum; drops proximity mines on the path (2026-10-16, replacing the Salvage Gun) |
 | `TESLA_ARC` | Tesla Arc | Electrician | a coil emitter, no barrel; the arc comes from the coil tip |
-| `SALVAGE_GUN` | Salvage Gun | Prospector | a light fast gun with a scrap hopper or magnet; kills drop Iron (moved from the Engineer on 2026-10-16) |
+| `DRILL_GUN` | Fault Line Drill | Prospector | a drill rig on a mount that fires its bit at the aim; where it lands a crack of rock spikes races on, knocking monsters flat (the Salvage Gun, whose kills dropped Iron, until 2026-10-22) |
 | `SAW_GUN` | Saw Gun | Hauler | a wide flat launcher with a blade magazine; fires a spinning saw blade in a line (2026-10-16, replacing the Catapult) |
 | `MAGNET_GUN` | Magnet Gun | Medic | a horseshoe magnet or dish on a mount; no damage, a pull |
 

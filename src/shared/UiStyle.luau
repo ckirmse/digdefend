@@ -35,6 +35,14 @@ UiStyle.DISABLED_COLOR = Color3.fromRGB(110, 106, 100)
 UiStyle.ODDS_BUTTON_COLOR = Color3.fromRGB(124, 124, 124)
 -- every HP bar runs HP_FULL_COLOR to HP_EMPTY_COLOR as the thing weakens
 UiStyle.HP_FULL_COLOR = Color3.fromRGB(90, 200, 110)
+-- the Ore Scanner (2026-10-22): the sweep's sphere, and the highlight
+-- over each ore kind it finds, keyed by Enums.RawResource
+UiStyle.ORE_SCAN_SPHERE_COLOR = Color3.fromRGB(255, 40, 40)
+UiStyle.ORE_SCAN_COLOR_BY_RESOURCE = {
+	[Enums.RawResource.IRON_ORE] = Color3.fromRGB(170, 190, 215),
+	[Enums.RawResource.GOLD_ORE] = Color3.fromRGB(255, 200, 40),
+	[Enums.RawResource.URANIUM_ORE] = Color3.fromRGB(90, 255, 90),
+}
 UiStyle.HP_EMPTY_COLOR = Color3.fromRGB(220, 70, 60)
 UiStyle.EMPTY_SLOT_COLOR = Color3.fromRGB(52, 48, 44)
 -- the announcement box (top centre): blue so it never reads as an error

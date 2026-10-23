@@ -125,6 +125,7 @@ module = {
 	NOTIFY_POST_MINE_PLACED = "NotifyPostMinePlaced",
 	NOTIFY_POST_MINE_REMOVED = "NotifyPostMineRemoved",
 	NOTIFY_POST_PULL = "NotifyPostPull",
+	NOTIFY_POST_FAULT_LINE = "NotifyPostFaultLine",
 	-- every projectile a weapon or post launches (ProjectileManager,
 	-- 2026-10-16; the post rocket messages of M25 folded into these):
 	-- clients fly a copy from the launch and end it where the server says
@@ -227,6 +228,12 @@ module = {
 	-- the Flare (2026-10-20; a gun since 2026-10-21): fire it from the
 	-- gun's muzzle toward where the camera looks
 	TRY_FIRE_FLARE = "TryFireFlare",
+	-- the Drill Rig (2026-10-22): take what it holds into the backpack
+	TRY_COLLECT_DRILL_RIG = "TryCollectDrillRig",
+	-- the Ore Scanner (2026-10-22): sweep the mine around the player, and
+	-- to every client: the sweep's origin, radius, and timings
+	TRY_USE_ORE_SCANNER = "TryUseOreScanner",
+	NOTIFY_ORE_SCAN = "NotifyOreScan",
 	-- gadget upgrades (M67): buy the class gadget's next level at the Post
 	-- & Gadget Upgrades table, and to that client: it went through
 	-- ({ level, price }), for the sound

@@ -24,6 +24,7 @@ local ClientCompassManager = require(script.Parent.ClientCompassManager)
 local ClientCursorManager = require(script.Parent.ClientCursorManager)
 local ClientDamageableManager = require(script.Parent.ClientDamageableManager)
 local ClientDefenseTableManager = require(script.Parent.ClientDefenseTableManager)
+local ClientDrillRigManager = require(script.Parent.ClientDrillRigManager)
 local ClientDynamiteManager = require(script.Parent.ClientDynamiteManager)
 local ClientGeigerCounterManager = require(script.Parent.ClientGeigerCounterManager)
 local ClientGiveCurrencyManager = require(script.Parent.ClientGiveCurrencyManager)
@@ -35,6 +36,7 @@ local ClientMineDevTools = require(script.Parent.ClientMineDevTools)
 local ClientMineManager = require(script.Parent.ClientMineManager)
 local ClientMoonManager = require(script.Parent.ClientMoonManager)
 local ClientNightLightManager = require(script.Parent.ClientNightLightManager)
+local ClientOreScannerManager = require(script.Parent.ClientOreScannerManager)
 local ClientMiningManager = require(script.Parent.ClientMiningManager)
 local ClientMiningStoreManager = require(script.Parent.ClientMiningStoreManager)
 local ClientMonsterDevTools = require(script.Parent.ClientMonsterDevTools)
@@ -52,6 +54,7 @@ local ClientTrapBehaviorManager = require(script.Parent.ClientTrapBehaviorManage
 local ClientPostDevTools = require(script.Parent.ClientPostDevTools)
 local ClientPostManager = require(script.Parent.ClientPostManager)
 local ClientProjectileManager = require(script.Parent.ClientProjectileManager)
+local ClientFaultLineManager = require(script.Parent.ClientFaultLineManager)
 local ClientPostUpgradeManager = require(script.Parent.ClientPostUpgradeManager)
 local ClientRefineryHpManager = require(script.Parent.ClientRefineryHpManager)
 local ClientRefineryManager = require(script.Parent.ClientRefineryManager)
@@ -114,6 +117,7 @@ ClientAimManager:init()
 -- after the weapon manager, whose tracer and muzzle effects it borrows
 -- flies every launched projectile the posts and the weapon announce
 ClientProjectileManager:init()
+ClientFaultLineManager:init()
 ClientPostManager:init()
 ClientPostUpgradeManager:init()
 ClientWeaponUpgradeManager:init()
@@ -140,6 +144,10 @@ ClientStimShotManager:init()
 ClientRemoteChargeManager:init()
 -- the Flare (2026-10-20): the gun's shot and the lit flares
 ClientFlareManager:init()
+-- the Prospector (2026-10-22): the rig's stock billboard and prompt over
+-- the placements, and the scanner's sweep from the mine grid
+ClientDrillRigManager:init()
+ClientOreScannerManager:init()
 -- the day clock reads GameMetadata the server set before anyone was Ready
 ClientRunCycleManager:init()
 -- the Refinery HP bar that takes the clock's place at night

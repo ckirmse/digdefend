@@ -6,13 +6,19 @@
 -- gadget; exactly one of each, decided 2026-10-19, so no class is better
 -- at building by kit alone) and its buff and debuff as MODIFIERS, entries in the
 -- Enums.ClassModifier table scaled from a default of 1.0 (a key that is
--- absent is 1.0, except the two core stats, speed and mining strength,
--- which every class states outright since 2026-10-19 so they read side
--- by side; a row missing one is a startup error. Health was a third core
--- stat for an afternoon and was dropped the same day as one variable too
--- many: every class has the same health). A buff is a
--- modifier on something shared, never a
--- tuning number on the class's own kit.
+-- absent is 1.0, except the core stat, speed, which every class states
+-- outright since 2026-10-19; a row missing it is a startup error. Mining
+-- strength was a second core stat until 2026-10-22, when the designer
+-- made every class swing alike: a 1.4 hid inside a swing count, so the
+-- mining identity is a price instead. Health was a third core stat for
+-- an afternoon and was dropped the same day as one variable too many:
+-- every class has the same health). A buff is a modifier on something
+-- shared, never a tuning number on the class's own kit. The two cost
+-- columns (decided 2026-10-22): the five combat classes pay 1.25 on
+-- Mining Supplies upgrades past the first pick rung, the three mining
+-- classes pay 1.25 on towers, tower upgrades, and traps past their
+-- first tower, and the Engineer builds at 0.8; the Pyro's half-price
+-- traps went with it, for one dial a side.
 --
 -- Every weapon and post exists since 2026-10-16. The four new towers and
 -- every gadget are not built yet: a tower row points at the nearest built
@@ -26,6 +32,13 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 return {
 	-- the class every new character is, and the one a save is repaired to
 	DEFAULT_CLASS = Enums.ClassKind.RECRUIT,
+	-- designed and in the roster but not in the launch set (designer,
+	-- 2026-10-22): the class menus and prices leave them out until a
+	-- post-launch update; the dev dropdown still reaches them
+	POST_LAUNCH_KINDS = {
+		Enums.ClassKind.ELECTRICIAN,
+		Enums.ClassKind.MEDIC,
+	},
 	BY_KIND = {
 		-- free; no roles, no buff, no debuff. The baseline every bought
 		-- class must beat on a solo Normal run, and playable forever
@@ -39,7 +52,6 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_POWER] = 1.0,
 			},
 		},
 		-- Combat: Balanced / Building: Tower
@@ -57,7 +69,7 @@ return {
 				-- The pick's damage rounds, so 0.75 reads as 0.8 at the low
 				-- rungs (5 to 4, 15 to 11) and bites more from rung 3 up
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_POWER] = 0.75,
+				[Enums.ClassModifier.MINING_UPGRADE_COST] = 1.25,
 			},
 		},
 		-- Combat: Tank Destroyer / Support
@@ -73,9 +85,8 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_POWER] = 1.0,
+				[Enums.ClassModifier.MINING_UPGRADE_COST] = 1.25,
 				[Enums.ClassModifier.LARGE_MONSTER_DAMAGE] = 1.5,
-				[Enums.ClassModifier.TOWER_BUILD_COST] = 1.3,
 			},
 		},
 		-- Combat: Group Destroyer / Building: Trap
@@ -91,8 +102,7 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_POWER] = 0.8,
-				[Enums.ClassModifier.TRAP_COST] = 0.5,
+				[Enums.ClassModifier.MINING_UPGRADE_COST] = 1.25,
 			},
 		},
 		-- Combat: Air Defender / Building: Tower
@@ -108,7 +118,7 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_POWER] = 1.0,
+				[Enums.ClassModifier.MINING_UPGRADE_COST] = 1.25,
 				-- no damage split (flyers 1.5, ground 0.85 until 2026-10-20):
 				-- the Missile Launcher's own ground share carries it
 			},
@@ -124,9 +134,8 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.1,
-				[Enums.ClassModifier.MINING_POWER] = 1.0,
+				[Enums.ClassModifier.MINING_UPGRADE_COST] = 1.25,
 				[Enums.ClassModifier.HANDHELD_DAMAGE] = 1.3,
-				[Enums.ClassModifier.TOWER_BUILD_COST] = 1.3,
 			},
 		},
 		-- Building: Tower / Combat: Balanced
@@ -140,8 +149,7 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_POWER] = 0.8,
-				[Enums.ClassModifier.TOWER_BUILD_COST] = 0.7,
+				[Enums.ClassModifier.DEFENSE_COST] = 0.8,
 			},
 		},
 		-- Building: Tower / Combat: Group Destroyer
@@ -155,23 +163,25 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_POWER] = 0.8,
 			},
 		},
 		-- Mining: Balanced / Combat: Group Destroyer
 		[Enums.ClassKind.PROSPECTOR] = {
 			KIT = {
 				WEAPON = Enums.WeaponKind.PISTOL,
-				POST = Enums.PostWeaponKind.SALVAGE_GUN,
-				TOWER = Enums.TowerKind.SENTRY_GUN, -- designed: Drill Rig
+				POST = Enums.PostWeaponKind.DRILL_GUN,
+				TOWER = Enums.TowerKind.DRILL_RIG,
 				GADGET = Enums.GadgetKind.ORE_SCANNER,
 			},
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_POWER] = 1.4,
+				[Enums.ClassModifier.DEFENSE_COST] = 1.25,
 				[Enums.ClassModifier.ORE_YIELD] = 1.2,
-				[Enums.ClassModifier.TOWER_BUILD_COST] = 1.3,
+				-- the one class that swings faster (designer, 2026-10-22, after
+				-- a 30% pick axe discount and then a 1.2 on swing damage that
+				-- afternoon both felt like nothing)
+				[Enums.ClassModifier.MINING_SPEED] = 1.2,
 			},
 		},
 		-- Mining: Clearing / Combat: Tank Destroyer. Its blasts clear one
@@ -190,8 +200,7 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_POWER] = 1.0,
-				[Enums.ClassModifier.TOWER_BUILD_COST] = 1.3,
+				[Enums.ClassModifier.DEFENSE_COST] = 1.25,
 			},
 		},
 		-- Mining: Hauling / Support
@@ -205,8 +214,9 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_POWER] = 1.0,
-				[Enums.ClassModifier.BACKPACK_CAPACITY] = 2.0,
+				[Enums.ClassModifier.DEFENSE_COST] = 1.25,
+				-- half again the room (designer, 2026-10-22; double before)
+				[Enums.ClassModifier.BACKPACK_CAPACITY] = 1.5,
 				[Enums.ClassModifier.HANDHELD_DAMAGE] = 0.7,
 			},
 		},
@@ -221,7 +231,6 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_POWER] = 0.8,
 				[Enums.ClassModifier.REPAIR_SPEED] = 2.0,
 				[Enums.ClassModifier.REPAIR_COST] = 0.5,
 			},

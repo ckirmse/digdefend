@@ -75,6 +75,9 @@ export type ClientMiningManager = typeof(setmetatable(
 		pointerPosition: Vector2?,
 		lastSwingTime: number,
 		hitIntervalSec: number,
+		-- the base interval every class starts from; the swing animation
+		-- plays faster by the ratio of the two
+		baseHitIntervalSec: number,
 		reachStuds: number,
 		-- remaining hp per cell index as the server last reported it
 		remainingHpByCell: { [number]: number },
@@ -212,7 +215,7 @@ function ClientMiningManager:swing()
 		return
 	end
 	self.lastSwingTime = workspace:GetServerTimeNow()
-	ClientHeldToolManager:playSwing()
+	ClientHeldToolManager:playSwing(self.baseHitIntervalSec / math.max(self.hitIntervalSec, 0.01))
 	ClientNetManager:fireServer(
 		NetEventNames.TRY_HIT_ROCK,
 		{
@@ -477,9 +480,14 @@ function ClientMiningManager:setActive(isActive: boolean)
 end
 
 function ClientMiningManager:readTuning()
-	local interval = ClientDataManager:getGameMetadata(Attributes.PICK_AXE_HIT_INTERVAL_SEC)
+	-- the class's own swing pace on CurrentPlayer (2026-10-22), the base
+	-- in GameMetadata behind it
+	local ownInterval = ClientDataManager:getCurrentPlayerAttribute(Attributes.PICK_AXE_HIT_INTERVAL_SEC)
+	local baseInterval = ClientDataManager:getGameMetadata(Attributes.PICK_AXE_HIT_INTERVAL_SEC)
+	local interval = if typeof(ownInterval) == "number" then ownInterval else baseInterval
 	local reach = ClientDataManager:getGameMetadata(Attributes.PICK_AXE_REACH_STUDS)
 	self.hitIntervalSec = if typeof(interval) == "number" then interval else DEFAULT_HIT_INTERVAL_SEC
+	self.baseHitIntervalSec = if typeof(baseInterval) == "number" then baseInterval else DEFAULT_HIT_INTERVAL_SEC
 	self.reachStuds = if typeof(reach) == "number" then reach else DEFAULT_REACH_STUDS
 end
 
@@ -532,6 +540,12 @@ function ClientMiningManager:init()
 			end
 		)
 	end
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.PICK_AXE_HIT_INTERVAL_SEC,
+		function()
+			self:readTuning()
+		end
+	)
 
 	ClientNetManager:registerHandler(
 		NetEventNames.NOTIFY_ROCK_DAMAGED,
@@ -599,6 +613,7 @@ function ClientMiningManager.new(): ClientMiningManager
 	self.pointerPosition = nil
 	self.lastSwingTime = 0
 	self.hitIntervalSec = DEFAULT_HIT_INTERVAL_SEC
+	self.baseHitIntervalSec = DEFAULT_HIT_INTERVAL_SEC
 	self.reachStuds = DEFAULT_REACH_STUDS
 	self.remainingHpByCell = {}
 	self.aimConnection = nil

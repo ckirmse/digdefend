@@ -183,7 +183,7 @@ describe(
 			function()
 				expect(CharacterRules.describeKindOdds(Enums.GearSlot.WEAPON)).toBe("Each of the 5 kinds has a 20% chance")
 				expect(CharacterRules.describeKindOdds(Enums.GearSlot.POST)).toBe("Each of the 12 kinds has a 8% chance")
-				expect(CharacterRules.describeKindOdds(Enums.GearSlot.TOWER_2)).toBe("Each of the 6 kinds has a 17% chance")
+				expect(CharacterRules.describeKindOdds(Enums.GearSlot.TOWER_2)).toBe("Each of the 7 kinds has a 14% chance")
 			end
 		)
 
