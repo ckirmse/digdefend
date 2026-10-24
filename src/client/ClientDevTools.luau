@@ -39,6 +39,8 @@ export type ClientDevTools = typeof(setmetatable(
 		characterNightsInput: any,
 		characterClassOption: any,
 		characterClassOptions: { string },
+		-- Enums.ClassKind names the roster calls unbuilt
+		unbuiltClassNames: { [string]: boolean },
 		lastSentClassName: string?,
 		characterGearSlotInput: any,
 		characterGearKindInput: any,
@@ -81,6 +83,8 @@ local TOGGLE_TAP_COUNT = 3
 local TOGGLE_TAP_WINDOW_SEC = 0.6
 
 local TEST_FEEDBACK_MESSAGE = "Test feedback from the dev tools"
+-- on a class dropdown option whose kit is not built yet
+local NOT_IMPLEMENTED_SUFFIX = " (NOT IMPLEMENTED)"
 local TEST_FEEDBACK_DISPLAY_SEC = 3
 
 -- the framing stage sits high above the map so nothing else is in frame; the
@@ -429,7 +433,7 @@ function ClientDevTools:renderCharacterSection()
 	-- moment it changes. It starts on the character's current class, and
 	-- a change made elsewhere (another character picked) resets it, so the
 	-- dropdown never sends a class the character already is
-	local currentClassName = Enums.getName(Enums.ClassKind, character.classKind)
+	local currentClassName = self:classOptionLabel(Enums.getName(Enums.ClassKind, character.classKind))
 	if self.lastSentClassName == nil or (currentClassName ~= nil and currentClassName ~= self.lastSentClassName and self.characterClassOption:get() == self.lastSentClassName) then
 		self.lastSentClassName = currentClassName
 		self.characterClassOption:set(currentClassName)
@@ -437,7 +441,7 @@ function ClientDevTools:renderCharacterSection()
 	Iris.ComboArray({ "Class" }, { index = self.characterClassOption }, self.characterClassOptions)
 	local pickedClassName = self.characterClassOption:get()
 	if pickedClassName ~= self.lastSentClassName then
-		local pickedClass = Enums.getValueByName(Enums.ClassKind, pickedClassName)
+		local pickedClass = Enums.getValueByName(Enums.ClassKind, self:classNameFromOptionLabel(pickedClassName))
 		if pickedClass then
 			self.lastSentClassName = pickedClassName
 			sendDevTool("setCharacterClass", { classKind = pickedClass })
@@ -635,6 +639,20 @@ function ClientDevTools:onToggleTap(position: Vector3)
 	end
 end
 
+-- "ENGINEER (NOT IMPLEMENTED)" for a class whose kit is not built; the
+-- plain name otherwise. nil stays nil
+function ClientDevTools:classOptionLabel(className: string?): string?
+	if className == nil then
+		return nil
+	end
+	return if self.unbuiltClassNames[className] then className .. NOT_IMPLEMENTED_SUFFIX else className
+end
+
+function ClientDevTools:classNameFromOptionLabel(label: string): string
+	local suffixStart = string.find(label, NOT_IMPLEMENTED_SUFFIX, 1, true)
+	return if suffixStart then string.sub(label, 1, suffixStart - 1) else label
+end
+
 function ClientDevTools:init()
 	if self.isConnected then
 		return
@@ -658,9 +676,19 @@ function ClientDevTools:init()
 	self.framingHeight = Iris.State(0)
 	self.framingFov = Iris.State(30)
 	self.characterNightsInput = Iris.State(0)
+	-- a class whose kit is not built yet is marked in the dropdown so a
+	-- tester never mistakes its placeholder kit for the class (the list
+	-- is the roster's, published once as GameMetadata)
+	self.unbuiltClassNames = {}
+	local unbuilt = ClientDataManager:getGameMetadata(Attributes.CLASS_UNBUILT_KINDS)
+	if typeof(unbuilt) == "string" then
+		for name in string.gmatch(unbuilt, "[^,]+") do
+			self.unbuiltClassNames[name] = true
+		end
+	end
 	self.characterClassOptions = {}
 	for _, classKind in Enums.getAllValues(Enums.ClassKind) do
-		table.insert(self.characterClassOptions, Enums.getName(Enums.ClassKind, classKind) or "?")
+		table.insert(self.characterClassOptions, self:classOptionLabel(Enums.getName(Enums.ClassKind, classKind) or "?") or "?")
 	end
 	self.characterClassOption = Iris.State(self.characterClassOptions[1])
 	self.characterGearSlotInput = Iris.State(1)

@@ -54,7 +54,8 @@ return {
 	MUZZLE_HEIGHT_STUDS = 3,
 	BY_KIND = {
 		[Enums.TowerKind.SENTRY_GUN] = {
-			BUILD_PRICE_IRON = 60,
+			-- 50 (designer, 2026-10-23; 60 before)
+			BUILD_PRICE_IRON = 50,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 30, 60, 120, 240 },
 			FOOTPRINT_CELLS = { 4, 4 },
 			STAT_ROWS = { Enums.TowerStat.FIRE_RATE, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },

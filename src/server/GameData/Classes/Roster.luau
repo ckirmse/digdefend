@@ -9,16 +9,15 @@
 -- absent is 1.0, except the core stat, speed, which every class states
 -- outright since 2026-10-19; a row missing it is a startup error. Mining
 -- strength was a second core stat until 2026-10-22, when the designer
--- made every class swing alike: a 1.4 hid inside a swing count, so the
--- mining identity is a price instead. Health was a third core stat for
--- an afternoon and was dropped the same day as one variable too many:
--- every class has the same health). A buff is a modifier on something
--- shared, never a tuning number on the class's own kit. The two cost
--- columns (decided 2026-10-22): the five combat classes pay 1.25 on
--- Mining Supplies upgrades past the first pick rung, the three mining
--- classes pay 1.25 on towers, tower upgrades, and traps past their
--- first tower, and the Engineer builds at 0.8; the Pyro's half-price
--- traps went with it, for one dial a side.
+-- made every class swing alike: a 1.4 hid inside a swing count. Health
+-- was a third core stat for an afternoon and was dropped the same day
+-- as one variable too many: every class has the same health). A buff is
+-- a modifier on something shared, never a tuning number on the class's
+-- own kit. The mining identity is the swing pace (MINING_SPEED, the
+-- Prospector up and the Gunner down, 2026-10-23); the price columns
+-- (MINING_UPGRADE_COST, DEFENSE_COST) were the dials for a day on
+-- 2026-10-22 and were dropped as confusing, so no class sets them and
+-- every stand and table charges its catalogue price.
 --
 -- Every weapon and post exists since 2026-10-16. The four new towers and
 -- every gadget are not built yet: a tower row points at the nearest built
@@ -36,6 +35,15 @@ return {
 	-- 2026-10-22): the class menus and prices leave them out until a
 	-- post-launch update; the dev dropdown still reaches them
 	POST_LAUNCH_KINDS = {
+		Enums.ClassKind.ELECTRICIAN,
+		Enums.ClassKind.MEDIC,
+	},
+	-- classes whose kit is not built yet (2026-10-23): the dev dropdown
+	-- marks them NOT IMPLEMENTED so a tester never mistakes a placeholder
+	-- kit for the class. Remove a class here when its pass is closed
+	UNBUILT_KINDS = {
+		Enums.ClassKind.ENGINEER,
+		Enums.ClassKind.HAULER,
 		Enums.ClassKind.ELECTRICIAN,
 		Enums.ClassKind.MEDIC,
 	},
@@ -63,13 +71,17 @@ return {
 				GADGET = Enums.GadgetKind.AUTO_TURRET,
 			},
 			MODIFIERS = {
-				-- core stats. Mining 0.75 (2026-10-19, after 0.8 then 0.6 for a
-				-- day each; a 0.7 move speed was tried the same day and felt
-				-- like friction with no decision in it, so speed stays 1.0).
-				-- The pick's damage rounds, so 0.75 reads as 0.8 at the low
-				-- rungs (5 to 4, 15 to 11) and bites more from rung 3 up
+				-- core stats (a 0.7 move speed was tried on 2026-10-19 and felt
+				-- like friction with no decision in it, so speed stays 1.0)
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_UPGRADE_COST] = 1.25,
+				-- the swing pays for the combat edge over the Recruit (designer,
+				-- 2026-10-23: about 2% of pace per 10% of combat; the Gunner is
+				-- 142% of the Recruit on one body. A mining power of 0.75, 0.8,
+				-- and 0.6 were each played a day the week before, and a 1.25 on
+				-- mining upgrade prices for a day after that, dropped as
+				-- confusing): the swing interval and the server's cooldown
+				-- stretch by it, felt on every block
+				[Enums.ClassModifier.MINING_SPEED] = 0.75,
 			},
 		},
 		-- Combat: Tank Destroyer / Support
@@ -85,7 +97,10 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_UPGRADE_COST] = 1.25,
+				-- the swing pays for the combat edge over the Recruit (designer,
+				-- 2026-10-23: about 2% of pace per 10% of combat for a generalist,
+				-- a specialist paying for its lane at a discount; a flat 0.85 first)
+				[Enums.ClassModifier.MINING_SPEED] = 0.85,
 				[Enums.ClassModifier.LARGE_MONSTER_DAMAGE] = 1.5,
 			},
 		},
@@ -102,7 +117,10 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_UPGRADE_COST] = 1.25,
+				-- the swing pays for the combat edge over the Recruit (designer,
+				-- 2026-10-23: about 2% of pace per 10% of combat for a generalist,
+				-- a specialist paying for its lane at a discount; a flat 0.85 first)
+				[Enums.ClassModifier.MINING_SPEED] = 0.9,
 			},
 		},
 		-- Combat: Air Defender / Building: Tower
@@ -118,7 +136,10 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.MINING_UPGRADE_COST] = 1.25,
+				-- the swing pays for the combat edge over the Recruit (designer,
+				-- 2026-10-23: about 2% of pace per 10% of combat for a generalist,
+				-- a specialist paying for its lane at a discount; a flat 0.85 first)
+				[Enums.ClassModifier.MINING_SPEED] = 0.8,
 				-- no damage split (flyers 1.5, ground 0.85 until 2026-10-20):
 				-- the Missile Launcher's own ground share carries it
 			},
@@ -134,7 +155,10 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.1,
-				[Enums.ClassModifier.MINING_UPGRADE_COST] = 1.25,
+				-- the swing pays for the combat edge over the Recruit (designer,
+				-- 2026-10-23: about 2% of pace per 10% of combat for a generalist,
+				-- a specialist paying for its lane at a discount; a flat 0.85 first)
+				[Enums.ClassModifier.MINING_SPEED] = 0.7,
 				[Enums.ClassModifier.HANDHELD_DAMAGE] = 1.3,
 			},
 		},
@@ -149,7 +173,6 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.DEFENSE_COST] = 0.8,
 			},
 		},
 		-- Building: Tower / Combat: Group Destroyer
@@ -176,7 +199,6 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.DEFENSE_COST] = 1.25,
 				[Enums.ClassModifier.ORE_YIELD] = 1.2,
 				-- the one class that swings faster (designer, 2026-10-22, after
 				-- a 30% pick axe discount and then a 1.2 on swing damage that
@@ -200,7 +222,9 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.DEFENSE_COST] = 1.25,
+				-- a tenth faster swing (designer, 2026-10-23): the clearing class
+				-- clears a little faster by hand too, under the Prospector's 1.2
+				[Enums.ClassModifier.MINING_SPEED] = 1.1,
 			},
 		},
 		-- Mining: Hauling / Support
@@ -214,7 +238,6 @@ return {
 			MODIFIERS = {
 				-- core stats
 				[Enums.ClassModifier.MOVE_SPEED] = 1.0,
-				[Enums.ClassModifier.DEFENSE_COST] = 1.25,
 				-- half again the room (designer, 2026-10-22; double before)
 				[Enums.ClassModifier.BACKPACK_CAPACITY] = 1.5,
 				[Enums.ClassModifier.HANDHELD_DAMAGE] = 0.7,

@@ -53,7 +53,8 @@ return {
 	-- the sheet has a solo player at 40 on day 14; zone 5 holds a big
 	-- crew's supply, plentiful enough that its rate of finding it is set
 	-- by its rock, not by running out
-	uraniumTarget = 40,
+	-- 35 (designer, 2026-10-23; 40 before): a solo run ends a little sooner
+	uraniumTarget = 35,
 
 	defaultZoneHeight = 5,
 	-- vein counts are single blocks since 2026-09-28: four times the old
@@ -83,7 +84,8 @@ return {
 			-- 60 later that day: with the clearance at 1 and the band 7 rows the
 			-- corridor is full of gold, and day 1 refined 92 against an aim of
 			-- 50 (designer); about half the finds in the first 14 blocks
-			gold = 60,
+			-- 78 (2026-10-23): up 30%, the first rungs 5 Gold cheaper the same day
+			gold = 78,
 			uranium = 0,
 			-- 1 since 2026-10-08 (was 4 radius 1 holes): one 4 by 4 room in the
 			-- 8 by 7 by 24 band
@@ -110,7 +112,10 @@ return {
 			-- zone 1 ends at 20, so any iron here is crammed into one row (240
 			-- placed 58%, 150 about 70%); zone 1's 240 sits in zone 2, which
 			-- starts one row later, so the first iron is still about 17 blocks in
-			iron = 0,
+			-- 60 (2026-10-23; none before): a first taste of tier 1 iron over
+			-- these 12 blocks, about a third of the next zone's density, so
+			-- Iron starts a zone early without rivalling the band's gold
+			iron = 60,
 			-- 200 (2026-10-07, after 383, 255, and 170 in one day: the first two
 			-- bought all three first rungs by dusk, 170 felt starved); the aim is
 			-- the pick on day 1 and the backpack nearly, about 45 gold refined on

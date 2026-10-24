@@ -23,16 +23,18 @@ return {
 		-- trips, not one; 20 from 2026-10-02, 30 before that), so a new
 		-- player's first run buys a pick before anything else
 		-- level 6 (2026-10-06): the ladder's next step, the Gold sink a run
-		-- past day 10 was missing
-		[Enums.StoreItem.PICK_AXE] = { priceByLevel = { 0, 30, 100, 270, 800, 2400 } },
+		-- past day 10 was missing. Every first rung 5 Gold down on 2026-10-23
+		-- (pick 25, boots, backpack, and jet pack 35) now the combat classes
+		-- pay a quarter more on them
+		[Enums.StoreItem.PICK_AXE] = { priceByLevel = { 0, 25, 100, 270, 800, 2400 } },
 		-- boots and backpack first rungs 40 (2026-10-07; 20, then 25 earlier that
 		-- day): day 1 gold is capped by the 15-ore pack times about 5 trips, near
 		-- 75, so pick 30 + backpack 40 is a full excellent day and the three first
 		-- rungs can never all land on day 1; the backpack's second rung 80 (75
 		-- then 60 before; pick 100 and boots 70 the same day)
-		[Enums.StoreItem.BOOTS] = { priceByLevel = { 0, 40, 70, 180, 540 } },
-		[Enums.StoreItem.BACKPACK] = { priceByLevel = { 0, 40, 80, 225, 675 } },
-		[Enums.StoreItem.JET_PACK] = { priceByLevel = { 0, 40, 120, 360, 1080 } },
+		[Enums.StoreItem.BOOTS] = { priceByLevel = { 0, 35, 70, 180, 540 } },
+		[Enums.StoreItem.BACKPACK] = { priceByLevel = { 0, 35, 80, 225, 675 } },
+		[Enums.StoreItem.JET_PACK] = { priceByLevel = { 0, 35, 120, 360, 1080 } },
 		-- bought once, never upgraded: a track with a single rung, priced
 		-- like the level 2 pick axe (2026-09-30)
 		[Enums.StoreItem.COMPASS] = { priceByLevel = { 0, 30 }, startsUnowned = true },

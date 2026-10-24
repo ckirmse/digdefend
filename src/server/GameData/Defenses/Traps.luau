@@ -27,7 +27,8 @@ return {
 	SELL_SHARE = 0.5,
 	BY_KIND = {
 		[Enums.TrapKind.WALL] = {
-			PRICE_IRON = 12,
+			-- 10 (designer, 2026-10-23; 12 before)
+			PRICE_IRON = 10,
 			MAX_HP = 300,
 			-- a run of wall, four cells along the zone's columns and two deep
 			-- (2026-10-02; four by one from 2026-09-25, a 2 x 2 block before): the

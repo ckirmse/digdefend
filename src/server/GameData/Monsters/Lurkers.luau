@@ -20,11 +20,11 @@ return {
 	COUNT_PER_EXTRA_CREW = 2,
 	MAX_COUNT = 20,
 	-- the first zone whose pockets may hold one, as the mine file lists
-	-- them (1 is the starter band, the designer's zone 0): 4 is the
-	-- designer's zone 3, so the first three zones are spider-free
-	-- (designer, 2026-10-08: a new player learns the mine before the
-	-- mine bites back)
-	MIN_ZONE_INDEX = 4,
+	-- them (1 is the starter band, the designer's zone 0): 3 is the
+	-- designer's zone 2, the first iron band, so the first two zones are
+	-- spider-free (designer, 2026-10-23; 4 from 2026-10-08, when a new
+	-- player was to learn the mine before the mine bit back)
+	MIN_ZONE_INDEX = 3,
 	-- added to the mine seed for the pocket draw, so the pick is its own
 	-- stream and a change here does not move the ore
 	SEED_OFFSET = 7777,

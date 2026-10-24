@@ -727,6 +727,11 @@ function CharacterManager:init(gameControllerIn: any, splendidReplicationManager
 	splendidReplicationManager:setGameMetadata(Attributes.CHARACTER_SLOT_PRICING, CharacterRules.encodePricing(self:getSlotPricing()))
 	splendidReplicationManager:setGameMetadata(Attributes.CHARACTER_REROLL_PRICING, CharacterRules.encodeRerollPricing(self:getRerollPricing()))
 	splendidReplicationManager:setGameMetadata(Attributes.CHARACTER_SKILL_CATALOGUE, CharacterRules.encodeSkillCatalogue(self:getSkillCatalogue()))
+	local unbuiltNames = {}
+	for _, classKind in ClassRosterData.UNBUILT_KINDS do
+		table.insert(unbuiltNames, Enums.getName(Enums.ClassKind, classKind) or "?")
+	end
+	splendidReplicationManager:setGameMetadata(Attributes.CLASS_UNBUILT_KINDS, table.concat(unbuiltNames, ","))
 	splendidReplicationManager:setGameMetadata(Attributes.CHARACTER_GEAR_STATS, GearStatsRules.encodeCatalogue(self:getGearStatsCatalogue()))
 
 	-- an unresolved roll is paid for and lost with the player who left; the

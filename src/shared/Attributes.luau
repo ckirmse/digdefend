@@ -218,6 +218,9 @@ module = {
 	-- row and its odds without requiring GameData
 	CHARACTER_REROLL_PRICING = "CharacterRerollPricing",
 	CHARACTER_SKILL_CATALOGUE = "CharacterSkillCatalogue",
+	-- GameMetadata: the Enums.ClassKind names of the classes whose kit is
+	-- not built yet, comma-joined, for the dev panel's dropdown (2026-10-23)
+	CLASS_UNBUILT_KINDS = "ClassUnbuiltKinds",
 	-- GameMetadata: JSON of every gear kind's base stats as label and value
 	-- rows (GearStatsRules codec), the stats page behind a gear card
 	-- (2026-10-13)

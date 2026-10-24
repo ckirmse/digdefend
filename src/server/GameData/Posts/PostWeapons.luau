@@ -270,7 +270,12 @@ return {
 			UPGRADE_ATTRIBUTES = { IMPACT_RADIUS, FIRE_DAMAGE, TURN_SPEED, FIRE_LENGTH },
 			-- 48 from 60 (2026-10-20): the Demolitionist's post since then, a
 			-- mining class, so a fifth off the burst
-			DAMAGE = 48,
+			-- 100 (designer, 2026-10-23; 48 before, 120 for an hour): 20 a
+			-- second per body on the burst, under the Pyro's Rocket, and with
+			-- the pool's burn below about 42 on a body that stands in the fire
+			-- for the pool's whole life, which is the condition the Rocket
+			-- never needs
+			DAMAGE = 100,
 			FIRE_INTERVAL_SEC = 5,
 			FIRE_COOLDOWN_SEC = 4.8,
 			-- 20 from 12 (2026-10-20): the turn speed is also the pitch
@@ -299,7 +304,8 @@ return {
 			POOL = {
 				RADIUS_STUDS = 10,
 				SEC = 6,
-				BURN_DAMAGE_PER_SEC = 12,
+				-- 18 (designer, 2026-10-23; 12 before): see DAMAGE above
+				BURN_DAMAGE_PER_SEC = 18,
 				BURN_SEC = 3,
 				-- how often the pool stacks its burn on what stands in it
 				TICK_SEC = 0.5,
@@ -450,9 +456,13 @@ return {
 		-- offered, the drill already reaching past any wall
 		[Enums.PostWeaponKind.DRILL_GUN] = {
 			UPGRADE_ATTRIBUTES = { DURATION, DAMAGE, FIRE_RATE, TURN_SPEED },
-			DAMAGE = 60,
-			FIRE_INTERVAL_SEC = 5,
-			FIRE_COOLDOWN_SEC = 4.8,
+			-- 100 every 4 s (designer, 2026-10-23; 60 every 5 s that morning,
+			-- 150 every 3 s for an hour, which on a line of three outgunned
+			-- the Minigun): 25 a second per body, a little under the Rocket's
+			-- 33, with the whole line and the hold as the rest of its worth
+			DAMAGE = 100,
+			FIRE_INTERVAL_SEC = 4,
+			FIRE_COOLDOWN_SEC = 3.8,
 			TURN_SPEED_DEGREES_PER_SEC = 30,
 			RANGE_STUDS = 220,
 			FIELD_OF_VIEW = 40,
@@ -460,7 +470,7 @@ return {
 			PITCH_MAX_DEGREES = PITCH_MAX_DEGREES,
 			-- the reload is the drill's trip: the bit leaves the barrel with
 			-- the shot and a new one is seated once the reload is done
-			RELOAD_SEC = 4.8,
+			RELOAD_SEC = 3.8,
 			PROJECTILE = {
 				TEMPLATE = "DrillBit",
 				-- the sand thrown up where the bit hits (designer, 2026-10-22)
