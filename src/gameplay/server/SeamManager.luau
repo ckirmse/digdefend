@@ -8,8 +8,8 @@
 -- seated at run start from the mine's seed (pure SeamRules), each asleep
 -- inside one stone cell. A cleared neighbour wakes one: from then on its
 -- cells are published to every client (NOTIFY_SEAMS, the whole awake list,
--- small), it drifts a cell at a time over the exposed stone around it and
--- spreads onto neighbouring stone. A swing at any of its cells is taken
+-- small); it never moves or grows (the drift and the spread of the first
+-- design were cut on 2026-10-26). A swing at any of its cells is taken
 -- by MiningManager's interceptor and breaks the block outright, whatever
 -- the pick (designer, 2026-10-26: one hit, and the damage is the break,
 -- not the swing). Every broken cell of an awake Seam, by a swing or by
@@ -21,7 +21,6 @@
 -- never travel to a client.
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
-local MineGenerator = require("@game/ReplicatedStorage/Shared/MineGenerator")
 local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SeamRules = require("@game/ReplicatedStorage/Shared/SeamRules")
@@ -50,8 +49,6 @@ type Seam = {
 	id: number,
 	cells: { Cell },
 	isAwake: boolean,
-	nextDriftTime: number,
-	nextSpreadTime: number,
 	nextHumTime: number,
 	-- the dev tool's marker over a sleeping Seam while the locations are shown
 	marker: BasePart?,
@@ -250,8 +247,6 @@ end
 function SeamManager:wake(seam: Seam, now: number)
 	self:removeMarker(seam)
 	seam.isAwake = true
-	seam.nextDriftTime = now + SeamsData.DRIFT_INTERVAL_SEC
-	seam.nextSpreadTime = now + SeamsData.SPREAD_INTERVAL_SEC
 	seam.nextHumTime = now
 	local cell = seam.cells[1]
 	if cell then
@@ -348,48 +343,6 @@ function SeamManager:breakCell(breaker: Player, cell: Cell): boolean
 	return true
 end
 
--- one face of an awake Seam steps to a neighbouring exposed stone cell
-function SeamManager:drift(seam: Seam, grid: MineGenerator.MineGrid): boolean
-	if #seam.cells == 0 then
-		return false
-	end
-	local fromIndex = self.random:NextInteger(1, #seam.cells)
-	local from = seam.cells[fromIndex]
-	local options = SeamRules.exposedHoldableNeighbours(grid, from, isStone, self.occupied)
-	if #options == 0 then
-		return false
-	end
-	local to = options[self.random:NextInteger(1, #options)]
-	self.occupied[SeamRules.cellKey(from.depth, from.height, from.width)] = nil
-	self.occupied[SeamRules.cellKey(to.depth, to.height, to.width)] = true
-	seam.cells[fromIndex] = to
-	return true
-end
-
--- an awake Seam takes a neighbouring exposed stone cell as well
-function SeamManager:spread(seam: Seam, grid: MineGenerator.MineGrid): boolean
-	if #seam.cells == 0 or #seam.cells >= SeamsData.SPREAD_MAX_BLOCKS then
-		return false
-	end
-	local options: { Cell } = {}
-	for _, cell in seam.cells do
-		for _, option in SeamRules.exposedHoldableNeighbours(grid, cell, isStone, self.occupied) do
-			table.insert(options, option)
-		end
-	end
-	if #options == 0 then
-		return false
-	end
-	local to = options[self.random:NextInteger(1, #options)]
-	self.occupied[SeamRules.cellKey(to.depth, to.height, to.width)] = true
-	table.insert(seam.cells, to)
-	local centre = self:cellCentre(to)
-	if centre then
-		SpatialSoundManager:playAt(centre, SoundNames.Sfx.SEAM_CRACK, SeamsData.CRACK_FULL_VOLUME_STUDS, SeamsData.CRACK_SILENT_STUDS)
-	end
-	return true
-end
-
 function SeamManager:hum(seam: Seam)
 	local cell = seam.cells[1]
 	local centre = if cell then self:cellCentre(cell) else nil
@@ -407,30 +360,14 @@ function SeamManager:step()
 		return
 	end
 	local now = workspace:GetServerTimeNow()
-	local isChanged = false
 	for _, seam in self.seams do
 		if not seam.isAwake then
 			continue
-		end
-		if now >= seam.nextDriftTime then
-			seam.nextDriftTime = now + SeamsData.DRIFT_INTERVAL_SEC
-			if self:drift(seam, grid) then
-				isChanged = true
-			end
-		end
-		if now >= seam.nextSpreadTime then
-			seam.nextSpreadTime = now + SeamsData.SPREAD_INTERVAL_SEC
-			if self:spread(seam, grid) then
-				isChanged = true
-			end
 		end
 		if now >= seam.nextHumTime then
 			seam.nextHumTime = now + SeamsData.HUM_INTERVAL_SEC
 			self:hum(seam)
 		end
-	end
-	if isChanged then
-		self:publish()
 	end
 end
 
@@ -518,8 +455,6 @@ function SeamManager:addSeam(cells: { Cell }): Seam
 		id = self.nextId,
 		cells = cells,
 		isAwake = false,
-		nextDriftTime = 0,
-		nextSpreadTime = 0,
 		nextHumTime = 0,
 		marker = nil,
 	}

@@ -71,19 +71,6 @@ function SeamRules.isHoldable(grid: MineGenerator.MineGrid, depth: number, heigh
 	return not occupied[SeamRules.cellKey(depth, height, width)]
 end
 
--- the exposed stone cells a face could step or spread onto from a cell:
--- its rock neighbours that touch air and are free
-function SeamRules.exposedHoldableNeighbours(grid: MineGenerator.MineGrid, cell: Cell, isStone: (rock: number) -> boolean, occupied: { [string]: boolean }): { Cell }
-	local result = {}
-	for _, step in NEIGHBOUR_STEPS do
-		local depth, height, width = cell.depth + step[1], cell.height + step[2], cell.width + step[3]
-		if SeamRules.isHoldable(grid, depth, height, width, isStone, occupied) and SeamRules.isExposedRock(grid, depth, height, width) then
-			table.insert(result, { depth = depth, height = height, width = width })
-		end
-	end
-	return result
-end
-
 -- draws count sleeping Seams from the seed: one buried stone cell each, at
 -- or past minDepth, never touching a pocket (so a room's wall stays the
 -- spiders' discovery), never two on neighbouring cells. Deterministic for

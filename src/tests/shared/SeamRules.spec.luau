@@ -71,29 +71,6 @@ describe(
 		)
 
 		it(
-			"offers only the exposed stone neighbours a face may step or spread onto",
-			function()
-				local grid = makeGrid(5, 5, 5)
-				-- a corridor of air along depth at height 2, width 2; the seam
-				-- sits in the floor under it
-				for depth = 0, 4 do
-					carve(grid, depth, 2, 2)
-				end
-				setCell(grid, 3, 1, 2, ORE)
-				local occupied = { [SeamRules.cellKey(2, 1, 2)] = true, [SeamRules.cellKey(1, 1, 2)] = true }
-				local options = SeamRules.exposedHoldableNeighbours(grid, cell(2, 1, 2), isStone, occupied)
-				-- the neighbours of (2,1,2): (3,1,2) is ore, (1,1,2) is held,
-				-- (2,0,2) is buried, (2,1,1) and (2,1,3) are buried, (2,2,2)
-				-- is air
-				expect(#options).toBe(0)
-				carve(grid, 2, 2, 1)
-				options = SeamRules.exposedHoldableNeighbours(grid, cell(2, 1, 2), isStone, occupied)
-				expect(#options).toBe(1)
-				expect(options[1].width).toBe(1)
-			end
-		)
-
-		it(
 			"seats the asked count of sleeping seams from the seed, past the minimum depth, apart, and away from pockets",
 			function()
 				local grid = makeGrid(20, 6, 8)

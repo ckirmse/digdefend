@@ -53,10 +53,9 @@ local sfx = {
 	CAVE_SPIDER_ATTACK = "CaveSpiderAttack",
 	CAVE_SPIDER_DIE = "CaveSpiderDie",
 	-- the Seam (M68): 3D from its block; the hum while a player stands
-	-- near an awake face and the crack as it spreads onto a neighbouring
-	-- block (the burst's laugh is a Sound on the designer's model)
+	-- near an awake face (the burst's laugh is a Sound on the designer's
+	-- model)
 	SEAM_HUM = "SeamHum",
-	SEAM_CRACK = "SeamCrack",
 	-- the Drag (M68): its release cry, 3D from the body as it wakes (the
 	-- roster's ALERT; the designer's asset, 2026-10-26)
 	DRAG_RELEASE = "DragRelease",

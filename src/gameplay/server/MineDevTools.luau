@@ -15,6 +15,7 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local BackpackManager = require(script.Parent.BackpackManager)
 local MineManager = require(script.Parent.MineManager)
 local ToolManager = require(script.Parent.ToolManager)
+local MiningStoreManager = require(script.Parent.MiningStoreManager)
 local RefineryManager = require(script.Parent.RefineryManager)
 local RunManager = require(script.Parent.RunManager)
 
@@ -29,6 +30,7 @@ MineDevTools.EMPTY_BACKPACK_COMMAND = "emptyBackpack"
 MineDevTools.RESET_REFINERY_COMMAND = "resetRefinery"
 MineDevTools.ADD_GOLD_COMMAND = "addGold"
 MineDevTools.GIVE_CONSUMABLES_COMMAND = "giveConsumables"
+MineDevTools.MAX_MINING_GEAR_COMMAND = "maxMiningGear"
 
 local ADD_GOLD_ARGS_SHAPE = {
 	amount = "integer",
@@ -91,6 +93,15 @@ function MineDevTools:init()
 			end
 			RefineryManager:addGoldBars(player, args.amount)
 			PlayerFeedbackManager:give(player, `Gold is now {RefineryManager:getGoldBars(player)}`)
+		end
+	)
+	-- every mining ladder (pick, backpack, boots, jet pack, Geiger, compass)
+	-- at its top, for testing the deep mine without the Gold
+	DevTools:registerPlaceCommand(
+		MineDevTools.MAX_MINING_GEAR_COMMAND,
+		function(player: Player, _args: { [string]: any })
+			local count = MiningStoreManager:maxUpgrades(player)
+			PlayerFeedbackManager:give(player, if count > 0 then `{count} mining upgrade(s) maxed` else "Mining gear is already maxed")
 		end
 	)
 	DevTools:registerPlaceCommand(

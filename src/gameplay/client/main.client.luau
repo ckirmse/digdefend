@@ -29,6 +29,7 @@ local ClientDynamiteManager = require(script.Parent.ClientDynamiteManager)
 local ClientGeigerCounterManager = require(script.Parent.ClientGeigerCounterManager)
 local ClientGiveCurrencyManager = require(script.Parent.ClientGiveCurrencyManager)
 local ClientHeadshotManager = require(script.Parent.ClientHeadshotManager)
+local ClientDragVignetteManager = require(script.Parent.ClientDragVignetteManager)
 local ClientHurtManager = require(script.Parent.ClientHurtManager)
 local ClientIconFlightManager = require(script.Parent.ClientIconFlightManager)
 local ClientImpactManager = require(script.Parent.ClientImpactManager)
@@ -146,6 +147,8 @@ ClientLockMarkerManager:init()
 ClientStimShotManager:init()
 -- the red edges and the hit sound on every drop in the player's health
 ClientHurtManager:init()
+-- the black edges that close in as the Drag nears, read from the drawn monsters
+ClientDragVignetteManager:init()
 -- the Remote Charge (2026-10-20): the planted charges and their blasts
 ClientRemoteChargeManager:init()
 -- the Flare (2026-10-20): the gun's shot and the lit flares

@@ -110,21 +110,61 @@ function DragRules.pickChasePath(grid: MineGenerator.MineGrid, from: Cell, victi
 	return nil
 end
 
--- the sleepers' pockets: count pockets from the eligible zones that no
--- lurker holds, drawn from the seed, as a set of indices into pockets
-function DragRules.pickDragPockets(pockets: { MineGenerator.Pocket }, count: number, random: Random, minZoneIndex: number, heldIndices: { [number]: boolean }): { [number]: boolean }
-	local eligible: { number } = {}
+-- the sleepers' pockets: countPerZone pockets in every zone from
+-- minZoneIndex down, among those no lurker holds, drawn from the seed
+-- zone by zone (designer, 2026-10-26: one in each deep zone rather than a
+-- handful wherever the draw fell), as a set of indices into pockets
+function DragRules.pickDragPockets(pockets: { MineGenerator.Pocket }, countPerZone: number, random: Random, minZoneIndex: number, heldIndices: { [number]: boolean }): { [number]: boolean }
+	local eligibleByZone: { [number]: { number } } = {}
+	local zones: { number } = {}
 	for index, pocket in pockets do
 		if pocket.zoneIndex >= minZoneIndex and not heldIndices[index] then
-			table.insert(eligible, index)
+			local list = eligibleByZone[pocket.zoneIndex]
+			if not list then
+				list = {}
+				eligibleByZone[pocket.zoneIndex] = list
+				table.insert(zones, pocket.zoneIndex)
+			end
+			table.insert(list, index)
 		end
 	end
-	random:Shuffle(eligible)
+	-- zones in order, so the seed draws the same rooms whatever order the
+	-- pockets were listed in
+	table.sort(zones)
 	local picked: { [number]: boolean } = {}
-	for position = 1, math.min(count, #eligible) do
-		picked[eligible[position]] = true
+	for _, zoneIndex in zones do
+		local eligible = eligibleByZone[zoneIndex]
+		random:Shuffle(eligible)
+		for position = 1, math.min(countPerZone, #eligible) do
+			picked[eligible[position]] = true
+		end
 	end
 	return picked
+end
+
+-- how many air cells up from the floor a floater centres itself in: a
+-- passage two tall carries it on the seam, and a taller space keeps it
+-- at that same height off the floor rather than its mid-height, so it
+-- stays near the ground (designer, 2026-10-26)
+DragRules.HOVER_CELLS = 2
+
+-- the height a floater hangs at over a cell: the middle of the bottom
+-- HOVER_CELLS air cells of the open column the cell sits in (the air
+-- stacked below and above it, joined), as a height index that may fall
+-- between rows; a one-cell passage is its own centre (designer,
+-- 2026-10-26: the cell centres put it in the floor or the ceiling of every
+-- passage, and the column's middle floated it to the roof of a room)
+function DragRules.columnCentreHeight(grid: MineGenerator.MineGrid, cell: Cell): number
+	local lowest = cell.height
+	while LurkerRules.isAir(grid, cell.depth, lowest - 1, cell.width) do
+		lowest -= 1
+	end
+	local highest = cell.height
+	while LurkerRules.isAir(grid, cell.depth, highest + 1, cell.width) do
+		highest += 1
+	end
+	local span = math.min(highest - lowest + 1, DragRules.HOVER_CELLS)
+	return lowest + (span - 1) / 2
 end
 
 -- the cell a sleeper floats up in: the room's middle

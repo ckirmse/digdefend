@@ -83,6 +83,20 @@ function MiningStoreManager:applyUpgrade(player: Player, item: number, level: nu
 	end
 end
 
+-- every upgrade track at its top level, as if each rung had been bought
+-- (the dev panel, 2026-10-26); the count of tracks raised
+function MiningStoreManager:maxUpgrades(player: Player): number
+	local count = 0
+	for item, track in self.catalog.upgrades do
+		local topLevel = #track.priceByLevel
+		if self:getLevel(player, item) < topLevel then
+			self:applyUpgrade(player, item, topLevel)
+			count += 1
+		end
+	end
+	return count
+end
+
 function MiningStoreManager:buy(player: Player, item: number)
 	if not GameController:isPlayerReady(player) then
 		return

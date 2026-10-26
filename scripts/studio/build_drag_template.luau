@@ -62,6 +62,30 @@ for _, descendant in template:GetDescendants() do
 	end
 end
 
+-- a rig jointed with AnimationConstraints animates only under physics,
+-- which the renderer's anchored, massless rigs never run (2026-10-26: the
+-- Animator played at full weight and no limb moved); every constraint
+-- becomes the Motor6D the Cave Spider and the wave rigs use, which the
+-- Animator drives directly
+for _, descendant in template:GetDescendants() do
+	if descendant:IsA("AnimationConstraint") then
+		local attachment0 = descendant.Attachment0
+		local attachment1 = descendant.Attachment1
+		local part0 = attachment0 and attachment0.Parent
+		local part1 = attachment1 and attachment1.Parent
+		if attachment0 and attachment1 and part0 and part1 and part0:IsA("BasePart") and part1:IsA("BasePart") then
+			local motor = Instance.new("Motor6D")
+			motor.Name = descendant.Name
+			motor.Part0 = part0
+			motor.Part1 = part1
+			motor.C0 = attachment0.CFrame
+			motor.C1 = attachment1.CFrame
+			motor.Parent = part1
+		end
+		descendant:Destroy()
+	end
+end
+
 local controller = template:FindFirstChildOfClass("AnimationController") or Instance.new("AnimationController")
 controller.Parent = template
 if not controller:FindFirstChildOfClass("Animator") then

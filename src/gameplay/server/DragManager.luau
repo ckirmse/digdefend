@@ -1,9 +1,9 @@
 --!strict
 
 -- The Drags (GDD "Monster Types": Drag, M68; the name is a placeholder):
--- the chase. DragsData.COUNT of them sleep sealed in the deep pockets
--- (zone MIN_ZONE_INDEX and down, never a pocket the spiders hold), picked
--- from the mine's seed. Opening a pocket wakes its Drag, which floats up
+-- the chase. DragsData.COUNT_PER_ZONE of them sleep sealed in the pockets
+-- of every zone from MIN_ZONE_INDEX down (never a pocket the spiders
+-- hold), picked from the mine's seed zone by zone. Opening a pocket wakes its Drag, which floats up
 -- in the room's middle as a MonsterManager crawler (so it never counts
 -- toward a night, is never pushed apart, and dies to no forced dawn),
 -- stepped here through MonsterManager:setCrawlStepperForKind, and hunts
@@ -65,6 +65,9 @@ type Drag = {
 	damageableId: string?,
 	-- the chase begins here; until then it hangs where it woke
 	chaseStartTime: number,
+	-- its Monster record, kept from its first step so a death handler can
+	-- retire it outside the tick
+	monster: MonsterManager.Monster?,
 }
 
 export type DragManager = typeof(setmetatable(
@@ -102,10 +105,15 @@ function DragManager:cellCentre(cell: Cell): Vector3?
 	return MineSpace.cellToWorld(space, cell.depth, cell.height, cell.width)
 end
 
--- where it floats for a cell: the centre, lifted so its legs clear the floor
+-- where it floats for a cell: the middle of the open column the cell sits
+-- in, so a passage of any height carries it down its centre
 function DragManager:floatPoint(cell: Cell): Vector3?
-	local centre = self:cellCentre(cell)
-	return if centre then centre + Vector3.new(0, DragsData.FLOAT_LIFT_STUDS, 0) else nil
+	local space = MineManager:getSpace()
+	local grid = MineManager:getGrid()
+	if not space or not grid then
+		return nil
+	end
+	return MineSpace.cellToWorld(space, cell.depth, DragRules.columnCentreHeight(grid, cell), cell.width)
 end
 
 function DragManager:cellAt(position: Vector3): Cell?
@@ -258,6 +266,7 @@ function DragManager:wake(entry: DragPocket, victim: Player?): number?
 		lastPosition = centre,
 		damageableId = nil,
 		chaseStartTime = workspace:GetServerTimeNow() + DragsData.WAKE_DELAY_SEC,
+		monster = nil,
 	}
 	MonsterManager:queueAlert(id)
 	return id
@@ -315,6 +324,25 @@ function DragManager:onCellCleared(depth: number, height: number, width: number)
 	end
 end
 
+-- its victim died: every Drag after them goes back to sleep at once. The
+-- tick would do it on its next step, but a solo death pauses the run and
+-- the tick with it, so this runs from the death itself and flushes the
+-- death notice the paused tick would have held (designer, 2026-10-26: it
+-- stood over the body)
+function DragManager:onPlayerDied(player: Player)
+	local isAnyRetired = false
+	for _, drag in self.dragById do
+		local monster = drag.monster
+		if monster and drag.victimUserId == player.UserId then
+			self:retire(monster, drag, true)
+			isAnyRetired = true
+		end
+	end
+	if isAnyRetired then
+		MonsterManager:flushNotifies()
+	end
+end
+
 -- gone for good (it left the mine) or back to sleep (its victim died)
 function DragManager:retire(monster: MonsterManager.Monster, drag: Drag, isSleepingAgain: boolean)
 	self.dragById[monster.id] = nil
@@ -340,10 +368,22 @@ function DragManager:findVictim(drag: Drag): Player?
 	return player
 end
 
--- moves toward a point at the kind's speed (stunned to a stop by dynamite
+-- its pace: the victim's walk speed less the data's margin, never under
+-- the roster's speed, so a faster player is still a chase
+function DragManager:chaseSpeed(monster: MonsterManager.Monster, victim: Player?): number
+	local base = monster.data.SPEED_STUDS_PER_SEC
+	local character = if victim then victim.Character else nil
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	if humanoid then
+		base = math.max(base, humanoid.WalkSpeed - DragsData.SPEED_UNDER_VICTIM_STUDS_PER_SEC)
+	end
+	return base
+end
+
+-- moves toward a point at the chase speed (stunned to a stop by dynamite
 -- like any monster), facing the way it goes; true when it got there
-function DragManager:moveToward(monster: MonsterManager.Monster, destination: Vector3, deltaSec: number, speedShare: number): boolean
-	local speed = monster.data.SPEED_STUDS_PER_SEC * DamageableManager:getSpeedMultiplier(monster.damageableId) * speedShare
+function DragManager:moveToward(monster: MonsterManager.Monster, destination: Vector3, deltaSec: number, speedShare: number, victim: Player?): boolean
+	local speed = self:chaseSpeed(monster, victim) * DamageableManager:getSpeedMultiplier(monster.damageableId) * speedShare
 	local position, isArrived = MonsterRules.stepToward(monster.position, destination, speed, deltaSec)
 	if (destination - monster.position).Magnitude > DragsData.ARRIVE_STUDS then
 		MonsterManager:face(monster, destination)
@@ -353,13 +393,13 @@ function DragManager:moveToward(monster: MonsterManager.Monster, destination: Ve
 	return isArrived or (destination - position).Magnitude <= DragsData.ARRIVE_STUDS
 end
 
-function DragManager:followPath(monster: MonsterManager.Monster, drag: Drag, deltaSec: number): boolean
+function DragManager:followPath(monster: MonsterManager.Monster, drag: Drag, deltaSec: number, victim: Player): boolean
 	local cell = drag.path[drag.pathIndex]
 	local centre = if cell then self:floatPoint(cell) else nil
 	if not centre then
 		return false
 	end
-	if self:moveToward(monster, centre, deltaSec, 1) then
+	if self:moveToward(monster, centre, deltaSec, 1, victim) then
 		drag.pathIndex += 1
 	end
 	return true
@@ -371,6 +411,7 @@ function DragManager:stepDrag(monster: MonsterManager.Monster, now: number, delt
 		return
 	end
 	drag.lastPosition = monster.position
+	drag.monster = monster
 	if not drag.damageableId then
 		-- nothing hurts it inside the mine: every hit on its body is scaled to zero
 		drag.damageableId = monster.damageableId
@@ -395,6 +436,12 @@ function DragManager:stepDrag(monster: MonsterManager.Monster, now: number, delt
 	if not root or not root:IsA("BasePart") then
 		return
 	end
+	-- the victim out of the mine is the chase lost: it fades where it is
+	-- rather than hanging at the mouth (designer, 2026-10-26)
+	if not self:isInsideMine(root.Position) then
+		self:retire(monster, drag, false)
+		return
+	end
 	local grid = MineManager:getGrid()
 	if not grid then
 		return
@@ -413,7 +460,11 @@ function DragManager:stepDrag(monster: MonsterManager.Monster, now: number, delt
 		monster.action = Enums.MonsterAction.ENGAGED
 		MonsterManager:face(monster, candidate.position)
 		if now - monster.lastAttackTime >= MonsterRules.attackIntervalSec(monster.data, BehaviorData.DEFAULT_ATTACK_INTERVAL_SEC) then
+			-- the touch: the kind's damage through the monster path, then the
+			-- recoil, a slow on its own body (the status every monster has) so
+			-- the victim can get clear
 			MonsterManager:attack(monster, candidate, now)
+			DamageableManager:applySlow(monster.damageableId, 1 - DragsData.RECOIL_SLOW_SHARE, DragsData.RECOIL_SLOW_SEC)
 		end
 		return
 	end
@@ -430,7 +481,7 @@ function DragManager:stepDrag(monster: MonsterManager.Monster, now: number, delt
 			end
 		end
 	end
-	if self:followPath(monster, drag, deltaSec) then
+	if self:followPath(monster, drag, deltaSec, victim) then
 		return
 	end
 	-- no path left: a victim outside the grid (out of the mine, or at its
@@ -440,13 +491,13 @@ function DragManager:stepDrag(monster: MonsterManager.Monster, now: number, delt
 	local from = self:cellAt(monster.position)
 	local victimCell = self:cellAt(root.Position)
 	if not victimCell or (from and LurkerRules.hasLineOfSight(grid, from, victimCell)) then
-		self:moveToward(monster, root.Position, deltaSec, 1)
+		self:moveToward(monster, root.Position, deltaSec, 1, victim)
 		return
 	end
 	local last = drag.trail[#drag.trail]
 	local lastCentre = if last then self:floatPoint(last) else nil
 	if lastCentre then
-		self:moveToward(monster, lastCentre, deltaSec, DragsData.LOST_DRIFT_SHARE)
+		self:moveToward(monster, lastCentre, deltaSec, DragsData.LOST_DRIFT_SHARE, victim)
 	else
 		monster.action = Enums.MonsterAction.ENGAGED
 	end
@@ -467,7 +518,7 @@ function DragManager:onRunStarted()
 	self.dragPockets = {}
 	local pockets = MineManager:getPockets()
 	local seed = MineManager:getSeed() or 0
-	local picked = DragRules.pickDragPockets(pockets, DragsData.COUNT, Random.new(seed + DragsData.SEED_OFFSET), DragsData.MIN_ZONE_INDEX, LurkerManager:getHeldPocketIndices())
+	local picked = DragRules.pickDragPockets(pockets, DragsData.COUNT_PER_ZONE, Random.new(seed + DragsData.SEED_OFFSET), DragsData.MIN_ZONE_INDEX, LurkerManager:getHeldPocketIndices())
 	for index, pocket in pockets do
 		if picked[index] then
 			table.insert(self.dragPockets, {
@@ -487,7 +538,7 @@ function DragManager:onRunStarted()
 	if self.isPocketsVisible then
 		self:setPocketsVisible(true)
 	end
-	print(`[DragManager] {#self.dragPockets} of {#pockets} pockets hold a Drag ({DragsData.COUNT} asked)`)
+	print(`[DragManager] {#self.dragPockets} of {#pockets} pockets hold a Drag ({DragsData.COUNT_PER_ZONE} per zone from zone index {DragsData.MIN_ZONE_INDEX})`)
 end
 
 function DragManager:init()
@@ -505,6 +556,11 @@ function DragManager:init()
 	DynamiteManager:subscribeBlast(
 		function(position: Vector3, radiusStuds: number)
 			self:onBlast(position, radiusStuds)
+		end
+	)
+	ReviveManager:subscribeDied(
+		function(player: Player)
+			self:onPlayerDied(player)
 		end
 	)
 end

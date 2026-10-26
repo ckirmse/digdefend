@@ -1171,6 +1171,21 @@ end
 
 -- the ground location of every monster drawn so far, for the Camp Map
 -- (M33); a monster whose first sample has not arrived is skipped
+-- how far the nearest drawn floater (the Drag, M68) is from a position,
+-- or nil with none drawn: the dread vignette's input
+function ClientMonsterManager:nearestFloaterDistance(position: Vector3): number?
+	local best: number? = nil
+	for _, monster in self.monstersById do
+		if monster.visual.isFloater and monster.renderCFrame ~= nil then
+			local distance = (Vector3.new(monster.renderX, monster.renderY, monster.renderZ) - position).Magnitude
+			if best == nil or distance < best then
+				best = distance
+			end
+		end
+	end
+	return best
+end
+
 function ClientMonsterManager:forEachRenderedLocation(callback: (x: number, z: number, damageableId: string) -> ())
 	for _, monster in self.monstersById do
 		if monster.renderCFrame ~= nil then

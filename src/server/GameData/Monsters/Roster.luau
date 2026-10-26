@@ -51,6 +51,13 @@ local ATTACK_ANIMATION_ID = "rbxassetid://129967390"
 local DEATH_ANIMATION_ID = "rbxassetid://180436148"
 -- flyers hold the arms-up fall pose while they cruise (decided 2026-09-23)
 local FLYER_WALK_ANIMATION_ID = DEATH_ANIMATION_ID
+-- the clips above are R6 (the wave rigs are R6-jointed: "Right Shoulder");
+-- the Drag is the designer's R15 rig (LeftHip, Waist, Neck), which those
+-- clips cannot move (2026-10-26: the track played at full weight and no
+-- joint turned), so it takes Roblox's R15 walk, idle, and tool slash
+local R15_WALK_ANIMATION_ID = "rbxassetid://507777826"
+local R15_IDLE_ANIMATION_ID = "rbxassetid://507766666"
+local R15_ATTACK_ANIMATION_ID = "rbxassetid://522635514"
 local FIREBALL = "Fireball"
 
 return {
@@ -497,12 +504,17 @@ return {
 		-- sleep sealed in deep pockets; woken, one hunts its waker through
 		-- the mine's open air at just under a fresh player's run (15 against
 		-- 16), cannot be hurt inside the mine, and dies on crossing the
-		-- mine's mouth (GameData/Monsters/Drags). A touch kills a full-health
-		-- player. Drawn as a flat image with effects, so no clips yet
+		-- mine's mouth (GameData/Monsters/Drags). A touch takes 30 of a
+		-- player's base 100 health (designer, 2026-10-26: a kill on touch
+		-- was too brutal, then half) and the Drag itself slows for the
+		-- interval, so the victim has that long to get clear before the
+		-- next touch is possible. Drawn as the designer's R15 rig with
+		-- Roblox's R15 walk, idle, and tool-slash clips (the Zombie's R6
+		-- clips were asked for and cannot move an R15 rig, 2026-10-26)
 		[Enums.MonsterKind.DRAG] = {
 			DIFFICULTY_VALUE = 0,
 			MAX_HP = 1,
-			DAMAGE = 100,
+			DAMAGE = 30,
 			SPEED_STUDS_PER_SEC = 15,
 			TARGET_PRIORITIES = { PLAYERS },
 			TARGET_DAMAGE_TYPES = {},
@@ -513,11 +525,11 @@ return {
 			DIE_ON_ATTACK = false,
 			DAMAGE_ON_DEATH = false,
 			TRAVERSAL = FLOAT,
-			WALK_ANIMATION_ID = DEATH_ANIMATION_ID,
-			IDLE_ANIMATION_ID = nil,
-			ATTACK_ANIMATION_ID = DEATH_ANIMATION_ID,
+			WALK_ANIMATION_ID = R15_WALK_ANIMATION_ID,
+			IDLE_ANIMATION_ID = R15_IDLE_ANIMATION_ID,
+			ATTACK_ANIMATION_ID = R15_ATTACK_ANIMATION_ID,
 			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
-			ATTACK_INTERVAL_SEC = 1,
+			ATTACK_INTERVAL_SEC = 5,
 			-- the release cry as it wakes (designer, 2026-10-26), heard far;
 			-- its looping theme is a Sound on the template's root, played
 			-- and faded by the client with the body

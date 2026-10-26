@@ -107,22 +107,49 @@ describe(
 		)
 
 		it(
-			"picks sleepers' pockets from the deep zones the lurkers left free, the same for a seed",
+			"hangs at the middle of the bottom two air cells of a column, from any cell of it",
+			function()
+				local grid = makeGrid(3, 8, 3)
+				-- a two-block passage at heights 1 and 2: the seam between them
+				carve(grid, 1, 1, 1)
+				carve(grid, 1, 2, 1)
+				expect(DragRules.columnCentreHeight(grid, cell(1, 1, 1))).toBe(1.5)
+				expect(DragRules.columnCentreHeight(grid, cell(1, 2, 1))).toBe(1.5)
+				-- a shaft of five: the seam of its bottom two, from any cell of it
+				for height = 1, 5 do
+					carve(grid, 2, height, 1)
+				end
+				expect(DragRules.columnCentreHeight(grid, cell(2, 1, 1))).toBe(1.5)
+				expect(DragRules.columnCentreHeight(grid, cell(2, 5, 1))).toBe(1.5)
+				-- a single cell: its own centre
+				carve(grid, 0, 4, 0)
+				expect(DragRules.columnCentreHeight(grid, cell(0, 4, 0))).toBe(4)
+			end
+		)
+
+		it(
+			"picks one sleeper's pocket per deep zone among those the lurkers left free, the same for a seed",
 			function()
 				local pockets = {
 					{ zoneIndex = 2, depth = 10, height = 2, width = 4, radius = 2 },
 					{ zoneIndex = 5, depth = 60, height = 2, width = 4, radius = 2 },
 					{ zoneIndex = 5, depth = 70, height = 2, width = 4, radius = 2 },
 					{ zoneIndex = 6, depth = 100, height = 2, width = 4, radius = 2 },
+					{ zoneIndex = 6, depth = 110, height = 2, width = 4, radius = 2 },
 				}
-				local picked = DragRules.pickDragPockets(pockets, 3, Random.new(3), 5, { [2] = true })
+				local picked = DragRules.pickDragPockets(pockets, 1, Random.new(3), 5, { [2] = true })
 				local count = 0
+				local zonesSeen = {}
 				for index in picked do
 					count += 1
 					expect(index ~= 1 and index ~= 2).toBe(true)
+					zonesSeen[pockets[index].zoneIndex] = true
 				end
+				-- one in zone 5 (the free one) and one in zone 6, never the shallow one
 				expect(count).toBe(2)
-				local again = DragRules.pickDragPockets(pockets, 3, Random.new(3), 5, { [2] = true })
+				expect(zonesSeen[5]).toBe(true)
+				expect(zonesSeen[6]).toBe(true)
+				local again = DragRules.pickDragPockets(pockets, 1, Random.new(3), 5, { [2] = true })
 				for index in picked do
 					expect(again[index]).toBe(true)
 				end

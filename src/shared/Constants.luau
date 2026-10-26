@@ -1034,6 +1034,8 @@ Constants.TAG_FOLDER = "TagCallouts"
 Constants.STIM_VIGNETTE_GUI_NAME = "StimVignette"
 -- the red edge glow on a hit (2026-10-26), the Stim vignette's shape in red
 Constants.HURT_VIGNETTE_GUI_NAME = "HurtVignette"
+-- the black edges that close in as the Drag nears (M68, 2026-10-26)
+Constants.DRAG_VIGNETTE_GUI_NAME = "DragVignette"
 -- the tool bar's grey cooldown sheet over a slot (build_tool_bar_gui)
 Constants.TOOL_SLOT_COOLDOWN_OVERLAY = "CooldownOverlay"
 -- the gadget block of the Post & Gadget Upgrades menu (M67): its heading

@@ -28,6 +28,7 @@ local EMPTY_BACKPACK_COMMAND = "emptyBackpack"
 local RESET_REFINERY_COMMAND = "resetRefinery"
 local ADD_GOLD_COMMAND = "addGold"
 local GIVE_CONSUMABLES_COMMAND = "giveConsumables"
+local MAX_MINING_GEAR_COMMAND = "maxMiningGear"
 
 function ClientMineDevTools:renderSection()
 	local stats = ClientMineManager:getStats()
@@ -59,6 +60,9 @@ function ClientMineDevTools:renderSection()
 	end
 	if Iris.Button({ "Give torches and dynamite" }).clicked() then
 		ClientNetManager:fireServer(NetEventNames.TRY_DEV_TOOL, { command = GIVE_CONSUMABLES_COMMAND })
+	end
+	if Iris.Button({ "Max all mining gear" }).clicked() then
+		ClientNetManager:fireServer(NetEventNames.TRY_DEV_TOOL, { command = MAX_MINING_GEAR_COMMAND })
 	end
 
 	Iris.Checkbox({ "Use seed" }, { isChecked = self.useSeed })
