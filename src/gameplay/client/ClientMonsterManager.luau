@@ -36,6 +36,7 @@ local ContentProvider = game:GetService("ContentProvider")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 local UserInputService = game:GetService("UserInputService")
 
@@ -106,6 +107,8 @@ type Rig = {
 	-- its own hit flash, toggled rather than made and destroyed
 	highlight: Highlight,
 	flashUntil: number,
+	-- a floater's theme at its authored volume, restored before each play
+	themeVolume: number?,
 }
 
 -- a kind's hit box, measured from its template's Proxy
@@ -277,6 +280,13 @@ local LOOP_SPEED_MIN_CHANGE = 0.1
 local DEATH_HOLD_SEC = 1
 local DEATH_SINK_SEC = 0.6
 local DEATH_SINK_STUDS = 3
+-- a floater (the Drag, M68) does not fall and sink: its body and its theme
+-- fade out over this long once it dies (at the mine's mouth, or with its
+-- victim), then the clone goes rather than back to its pool
+local FLOATER_FADE_SEC = 2
+-- the designer's looping theme under a floater's root, played from the
+-- moment it is drawn and faded with it
+local FLOATER_THEME_SOUND_NAME = "MinerTheme"
 local HIT_FLASH_SEC = 0.12
 local HIT_FLASH_COLOR = Color3.fromRGB(255, 255, 255)
 local MAX_FLASHES = 8
@@ -312,6 +322,7 @@ local DEFAULT_VISUAL: MonsterRules.Visual = {
 	maxHp = 1,
 	isAir = false,
 	isCrawler = false,
+	isFloater = false,
 	walkAnimationId = "",
 	idleAnimationId = nil,
 	attackAnimationId = "",
@@ -462,6 +473,7 @@ function ClientMonsterManager:acquireRig(visual: MonsterRules.Visual): Rig?
 		loopSpeed = 1,
 		highlight = highlight,
 		flashUntil = 0,
+		themeVolume = nil,
 	}
 end
 
@@ -474,8 +486,56 @@ function ClientMonsterManager:stopTracks(rig: Rig)
 	rig.loopId = nil
 end
 
+-- a floater's theme: the looping Sound under its root, started when its
+-- rig is drawn and stopped when the rig goes back to its pool
+function ClientMonsterManager:playThemeIfNeeded(rig: Rig)
+	local sound = rig.root:FindFirstChild(FLOATER_THEME_SOUND_NAME)
+	if sound and sound:IsA("Sound") and not sound.IsPlaying then
+		sound.Volume = rig.themeVolume or sound.Volume
+		rig.themeVolume = sound.Volume
+		sound:Play()
+	end
+end
+
+function ClientMonsterManager:stopTheme(rig: Rig)
+	for _, child in rig.root:GetChildren() do
+		if child:IsA("Sound") and child.IsPlaying then
+			child:Stop()
+		end
+	end
+end
+
+-- a floater's death: every part and decal fades to clear and its theme to
+-- silence over FLOATER_FADE_SEC, then the clone is destroyed and its clone
+-- budget refunded (a faded rig cannot go back to a pool)
+function ClientMonsterManager:fadeOutRig(rig: Rig)
+	self:stopTracks(rig)
+	rig.highlight.Enabled = false
+	local info = TweenInfo.new(FLOATER_FADE_SEC, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+	for _, descendant in rig.model:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			TweenService:Create(descendant, info, { Transparency = 1 }):Play()
+		elseif descendant:IsA("Decal") then
+			TweenService:Create(descendant, info, { Transparency = 1 }):Play()
+		elseif descendant:IsA("ParticleEmitter") then
+			descendant.Enabled = false
+		elseif descendant:IsA("Sound") then
+			TweenService:Create(descendant, info, { Volume = 0 }):Play()
+		end
+	end
+	self.rigClonesLeft += 1
+	task.delay(
+		FLOATER_FADE_SEC,
+		function()
+			self:stopTheme(rig)
+			rig.model:Destroy()
+		end
+	)
+end
+
 function ClientMonsterManager:releaseRig(rig: Rig)
 	self:stopTracks(rig)
+	self:stopTheme(rig)
 	rig.highlight.Enabled = false
 	rig.flashUntil = 0
 	rig.root.CFrame = PARKED_CFRAME
@@ -702,6 +762,9 @@ function ClientMonsterManager:setMode(monster: ClientMonster, mode: number)
 	if not rig then
 		return
 	end
+	if monster.visual.isFloater then
+		self:playThemeIfNeeded(rig)
+	end
 	if mode == MODE_ANIMATED then
 		monster.shownAttackCounter = monster.attackCounter
 		self:playLoop(monster, rig)
@@ -896,6 +959,15 @@ function ClientMonsterManager:removeMonster(monster: ClientMonster, isDeath: boo
 	self:updateFire(monster)
 	local cframe = monster.renderCFrame
 	local body = monster.held or monster.proxy
+	if isDeath and monster.visual.isFloater and monster.rig then
+		-- a floater fades where it is instead of falling and sinking
+		self:fadeOutRig(monster.rig :: Rig)
+		monster.rig = nil
+		if body then
+			self:releaseBody(body)
+		end
+		return
+	end
 	if isDeath and cframe and (monster.rig or body) then
 		local rig = monster.rig
 		if rig and monster.mode == MODE_ANIMATED then
@@ -1530,6 +1602,8 @@ function ClientMonsterManager:render()
 			or previousY ~= monster.renderY
 			or previousZ ~= monster.renderZ
 			or previousYaw ~= monster.renderYaw
+			-- a floater is a flat image that turns to the camera every frame
+			or monster.visual.isFloater
 		if monster.isAlertPending then
 			monster.isAlertPending = false
 			self:playSound(monster, monster.visual.alertSound)
@@ -1541,6 +1615,10 @@ function ClientMonsterManager:render()
 		local cframe: CFrame = if isMoved or monster.renderCFrame == nil then yawCFrame(monster.renderX, monster.renderY, monster.renderZ, monster.renderYaw) else monster.renderCFrame :: CFrame
 		if monster.visual.isCrawler and (isMoved or monster.renderCFrame == nil) then
 			cframe = self:clingCFrame(monster, cframe)
+		end
+		if monster.visual.isFloater and camera then
+			local eye = camera.CFrame.Position
+			cframe = CFrame.lookAt(cframe.Position, Vector3.new(eye.X, cframe.Position.Y, eye.Z))
 		end
 		if monster.isKnockedDown and (isMoved or monster.renderCFrame == nil) then
 			-- flat on its back, feet where it stood

@@ -43,6 +43,7 @@ local RANGED = Enums.MonsterAttackType.RANGED
 local LAND = Enums.MonsterTraversal.LAND
 local AIR = Enums.MonsterTraversal.AIR
 local CRAWL = Enums.MonsterTraversal.CRAWL
+local FLOAT = Enums.MonsterTraversal.FLOAT
 
 local WALK_ANIMATION_ID = "rbxassetid://180426354"
 local IDLE_ANIMATION_ID = "rbxassetid://180435571"
@@ -463,6 +464,65 @@ return {
 				ALERT = { NAME = SoundNames.Sfx.CAVE_SPIDER_ALERT, FULL_VOLUME_STUDS = 15, SILENT_STUDS = 60 },
 				ATTACK = { NAME = SoundNames.Sfx.CAVE_SPIDER_ATTACK, FULL_VOLUME_STUDS = 8, SILENT_STUDS = 30 },
 				DEATH = { NAME = SoundNames.Sfx.CAVE_SPIDER_DIE, FULL_VOLUME_STUDS = 10, SILENT_STUDS = 40 },
+			},
+		},
+		-- the Seam (M68, 2026-10-26): the face in the rock that bursts.
+		-- Never a body and never in a wave: SeamManager holds it as grid
+		-- cells, so no weapon reaches it; any swing breaks a block of it in
+		-- one hit and the break bursts on whoever stands close. The row
+		-- exists so the run report and the damage path can name the
+		-- attacker; DAMAGE is the burst (half of the base health; the manager
+		-- reads GameData/Monsters/Seams BURST_DAMAGE, which must match), and
+		-- nothing here moves or animates
+		[Enums.MonsterKind.SEAM] = {
+			DIFFICULTY_VALUE = 0,
+			MAX_HP = 1,
+			DAMAGE = 50,
+			SPEED_STUDS_PER_SEC = 0,
+			TARGET_PRIORITIES = {},
+			TARGET_DAMAGE_TYPES = {},
+			ATTACK_TYPE = MELEE,
+			DETECTION_RANGE_STUDS = 0,
+			ATTACK_RANGE_STUDS = 0,
+			ATTACK_RADIUS_STUDS = 0,
+			DIE_ON_ATTACK = false,
+			DAMAGE_ON_DEATH = false,
+			TRAVERSAL = CRAWL,
+			WALK_ANIMATION_ID = DEATH_ANIMATION_ID,
+			IDLE_ANIMATION_ID = nil,
+			ATTACK_ANIMATION_ID = DEATH_ANIMATION_ID,
+			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
+		},
+		-- the Drag (M68, 2026-10-26; placeholder name): the chase. Three
+		-- sleep sealed in deep pockets; woken, one hunts its waker through
+		-- the mine's open air at just under a fresh player's run (15 against
+		-- 16), cannot be hurt inside the mine, and dies on crossing the
+		-- mine's mouth (GameData/Monsters/Drags). A touch kills a full-health
+		-- player. Drawn as a flat image with effects, so no clips yet
+		[Enums.MonsterKind.DRAG] = {
+			DIFFICULTY_VALUE = 0,
+			MAX_HP = 1,
+			DAMAGE = 100,
+			SPEED_STUDS_PER_SEC = 15,
+			TARGET_PRIORITIES = { PLAYERS },
+			TARGET_DAMAGE_TYPES = {},
+			ATTACK_TYPE = MELEE,
+			DETECTION_RANGE_STUDS = 200,
+			ATTACK_RANGE_STUDS = 3,
+			ATTACK_RADIUS_STUDS = 0,
+			DIE_ON_ATTACK = false,
+			DAMAGE_ON_DEATH = false,
+			TRAVERSAL = FLOAT,
+			WALK_ANIMATION_ID = DEATH_ANIMATION_ID,
+			IDLE_ANIMATION_ID = nil,
+			ATTACK_ANIMATION_ID = DEATH_ANIMATION_ID,
+			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
+			ATTACK_INTERVAL_SEC = 1,
+			-- the release cry as it wakes (designer, 2026-10-26), heard far;
+			-- its looping theme is a Sound on the template's root, played
+			-- and faded by the client with the body
+			SOUNDS = {
+				ALERT = { NAME = SoundNames.Sfx.DRAG_RELEASE, FULL_VOLUME_STUDS = 20, SILENT_STUDS = 160 },
 			},
 		},
 	},

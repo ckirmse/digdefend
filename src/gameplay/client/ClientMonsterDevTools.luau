@@ -26,6 +26,8 @@ export type ClientMonsterDevTools = typeof(setmetatable(
 		stressCountInput: any,
 		isPathVisible: boolean,
 		isLurkerSpawnsVisible: boolean,
+		isSeamLocationsVisible: boolean,
+		isDragPocketsVisible: boolean,
 		previewNightInput: any,
 	},
 	ClientMonsterDevTools
@@ -41,6 +43,12 @@ local PREVIEW_CURVE_COMMAND = "previewWaveCurve"
 local BALANCE_REPORT_COMMAND = "balanceReport"
 local SPAWN_LURKER_COMMAND = "spawnLurker"
 local SET_LURKER_SPAWNS_VISIBLE_COMMAND = "setLurkerSpawnsVisible"
+local SPAWN_SEAM_COMMAND = "spawnSeam"
+local WAKE_SEAMS_COMMAND = "wakeSeams"
+local SET_SEAM_LOCATIONS_VISIBLE_COMMAND = "setSeamLocationsVisible"
+local BREAK_SEAM_COMMAND = "breakSeam"
+local SPAWN_DRAG_COMMAND = "spawnDrag"
+local SET_DRAG_POCKETS_VISIBLE_COMMAND = "setDragPocketsVisible"
 
 function ClientMonsterDevTools:send(command: string, args: { [string]: any })
 	ClientNetManager:fireServer(
@@ -74,6 +82,30 @@ function ClientMonsterDevTools:renderSection()
 		self.isLurkerSpawnsVisible = not self.isLurkerSpawnsVisible
 		self:send(SET_LURKER_SPAWNS_VISIBLE_COMMAND, {
 			isVisible = self.isLurkerSpawnsVisible,
+		})
+	end
+	if Iris.Button({ "Spawn Seam on the nearest stone (in the mine)" }).clicked() then
+		self:send(SPAWN_SEAM_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Wake every sleeping Seam" }).clicked() then
+		self:send(WAKE_SEAMS_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Break the nearest Seam (as dynamite would)" }).clicked() then
+		self:send(BREAK_SEAM_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Spawn Drag ahead, hunting me (in the mine)" }).clicked() then
+		self:send(SPAWN_DRAG_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ if self.isDragPocketsVisible then "Hide Drag pockets" else "Show Drag pockets" }).clicked() then
+		self.isDragPocketsVisible = not self.isDragPocketsVisible
+		self:send(SET_DRAG_POCKETS_VISIBLE_COMMAND, {
+			isVisible = self.isDragPocketsVisible,
+		})
+	end
+	if Iris.Button({ if self.isSeamLocationsVisible then "Hide Seam locations" else "Show Seam locations" }).clicked() then
+		self.isSeamLocationsVisible = not self.isSeamLocationsVisible
+		self:send(SET_SEAM_LOCATIONS_VISIBLE_COMMAND, {
+			isVisible = self.isSeamLocationsVisible,
 		})
 	end
 	Iris.InputNum({ "Stress count", 50, 1, 500 }, { number = self.stressCountInput })
@@ -134,6 +166,8 @@ function ClientMonsterDevTools.new(): ClientMonsterDevTools
 	self.stressCountInput = nil
 	self.isPathVisible = false
 	self.isLurkerSpawnsVisible = false
+	self.isSeamLocationsVisible = false
+	self.isDragPocketsVisible = false
 	self.previewNightInput = Iris.State(1)
 	return self
 end

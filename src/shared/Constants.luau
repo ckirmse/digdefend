@@ -677,6 +677,9 @@ Constants.HEADSHOT_FOLDER = "HeadshotBonuses"
 -- the markers live in while they are shown
 Constants.SPIDER_SPAWN_BILLBOARD = "SpiderSpawn"
 Constants.SPIDER_SPAWN_MARKERS_FOLDER = "SpiderSpawnMarkers"
+-- the Seams' dev markers (M68) reuse the spider billboard with its own text
+Constants.SEAM_MARKERS_FOLDER = "SeamMarkers"
+Constants.DRAG_MARKERS_FOLDER = "DragMarkers"
 Constants.FLIGHT_ICON_IMAGE = "Icon"
 Constants.FLIGHT_ICON_FOLDER = "FlightIcons"
 -- the ore icon on each face of a ground pickup's plate (GameAssets/Gui/
@@ -1029,6 +1032,8 @@ Constants.TAG_LABEL = "Label"
 Constants.TAG_FOLDER = "TagCallouts"
 -- the Stim Shot's white edge flash (scripts/studio/build_stim_vignette_gui.luau, 2026-10-19)
 Constants.STIM_VIGNETTE_GUI_NAME = "StimVignette"
+-- the red edge glow on a hit (2026-10-26), the Stim vignette's shape in red
+Constants.HURT_VIGNETTE_GUI_NAME = "HurtVignette"
 -- the tool bar's grey cooldown sheet over a slot (build_tool_bar_gui)
 Constants.TOOL_SLOT_COOLDOWN_OVERLAY = "CooldownOverlay"
 -- the gadget block of the Post & Gadget Upgrades menu (M67): its heading

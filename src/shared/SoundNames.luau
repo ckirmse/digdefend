@@ -52,6 +52,14 @@ local sfx = {
 	CAVE_SPIDER_ALERT = "CaveSpiderAlert",
 	CAVE_SPIDER_ATTACK = "CaveSpiderAttack",
 	CAVE_SPIDER_DIE = "CaveSpiderDie",
+	-- the Seam (M68): 3D from its block; the hum while a player stands
+	-- near an awake face and the crack as it spreads onto a neighbouring
+	-- block (the burst's laugh is a Sound on the designer's model)
+	SEAM_HUM = "SeamHum",
+	SEAM_CRACK = "SeamCrack",
+	-- the Drag (M68): its release cry, 3D from the body as it wakes (the
+	-- roster's ALERT; the designer's asset, 2026-10-26)
+	DRAG_RELEASE = "DragRelease",
 	-- M24: every weapon has its own four sounds, never shared ones
 	-- (decided 2026-09-17). Fire is 3D from the muzzle; reload, the dry
 	-- click, and the hit confirm are the shooter's own
@@ -80,6 +88,9 @@ local sfx = {
 	BINOCULARS_TAG = "BinocularsTag",
 	-- the Stim Shot going in (2026-10-19), the user's own
 	STIM_SHOT_USE = "StimShotUse",
+	-- the player's own hit (2026-10-26): 2D, theirs alone, on every drop
+	-- in their health
+	PLAYER_HURT = "PlayerHurt",
 	-- the Remote Charge's detonator beeping as its button goes down
 	-- (2026-10-20), the user's own
 	REMOTE_CHARGE_DETONATE = "RemoteChargeDetonate",

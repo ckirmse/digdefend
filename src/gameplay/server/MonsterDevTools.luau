@@ -12,6 +12,8 @@ local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedback
 local BalanceAudit = require(script.Parent.BalanceAudit)
 local LurkerManager = require(script.Parent.LurkerManager)
 local MonsterManager = require(script.Parent.MonsterManager)
+local DragManager = require(script.Parent.DragManager)
+local SeamManager = require(script.Parent.SeamManager)
 local MonsterPathManager = require(script.Parent.MonsterPathManager)
 local MonsterWaveManager = require(script.Parent.MonsterWaveManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
@@ -31,6 +33,12 @@ MonsterDevTools.PREVIEW_CURVE_COMMAND = "previewWaveCurve"
 MonsterDevTools.BALANCE_REPORT_COMMAND = "balanceReport"
 MonsterDevTools.SPAWN_LURKER_COMMAND = "spawnLurker"
 MonsterDevTools.SET_LURKER_SPAWNS_VISIBLE_COMMAND = "setLurkerSpawnsVisible"
+MonsterDevTools.SPAWN_SEAM_COMMAND = "spawnSeam"
+MonsterDevTools.WAKE_SEAMS_COMMAND = "wakeSeams"
+MonsterDevTools.SET_SEAM_LOCATIONS_VISIBLE_COMMAND = "setSeamLocationsVisible"
+MonsterDevTools.BREAK_SEAM_COMMAND = "breakSeam"
+MonsterDevTools.SPAWN_DRAG_COMMAND = "spawnDrag"
+MonsterDevTools.SET_DRAG_POCKETS_VISIBLE_COMMAND = "setDragPocketsVisible"
 
 local SPAWN_MONSTERS_ARGS_SHAPE = {
 	kind = { type = "enum", name = "MonsterKind" },
@@ -48,6 +56,8 @@ local PREVIEW_WAVE_ARGS_SHAPE = {
 }
 local NO_ARGS_SHAPE = {}
 local PREVIEW_CURVE_NIGHTS = 20
+-- how far from the player the dev Seam may be seated
+local SPAWN_SEAM_REACH_STUDS = 14
 
 local function register(name: string, shape: { [string]: any }, handler: (player: Player, args: { [string]: any }) -> ())
 	DevTools:registerPlaceCommand(
@@ -96,6 +106,65 @@ function MonsterDevTools:init()
 			if not LurkerManager:spawnAtPlayer(player) then
 				PlayerFeedbackManager:give(player, "Stand inside the mine to spawn a lurker")
 			end
+		end
+	)
+	-- an awake Seam on the nearest exposed stone block, and every sleeping
+	-- Seam woken at once (M68)
+	register(
+		MonsterDevTools.SPAWN_SEAM_COMMAND,
+		NO_ARGS_SHAPE,
+		function(player: Player, _args: { [string]: any })
+			local character = player.Character
+			local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+			if not root or not root:IsA("BasePart") or not SeamManager:spawnNear(root.Position, SPAWN_SEAM_REACH_STUDS) then
+				PlayerFeedbackManager:give(player, "Stand by a stone wall inside the mine to spawn a Seam")
+			end
+		end
+	)
+	register(
+		MonsterDevTools.SET_SEAM_LOCATIONS_VISIBLE_COMMAND,
+		SET_VISIBLE_ARGS_SHAPE,
+		function(_player: Player, args: { [string]: any })
+			SeamManager:setLocationsVisible(args.isVisible)
+		end
+	)
+	-- the nearest awake Seam block cleared as dynamite would, to see a
+	-- Seam go without a stick
+	register(
+		MonsterDevTools.BREAK_SEAM_COMMAND,
+		NO_ARGS_SHAPE,
+		function(player: Player, _args: { [string]: any })
+			local character = player.Character
+			local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+			if not root or not root:IsA("BasePart") or not SeamManager:breakNearest(player, root.Position, SPAWN_SEAM_REACH_STUDS) then
+				PlayerFeedbackManager:give(player, "No awake Seam within reach to break")
+			end
+		end
+	)
+	-- a Drag woken in front of the player, after them, and the sleepers'
+	-- rooms marked (M68)
+	register(
+		MonsterDevTools.SPAWN_DRAG_COMMAND,
+		NO_ARGS_SHAPE,
+		function(player: Player, _args: { [string]: any })
+			if not DragManager:spawnAtPlayer(player) then
+				PlayerFeedbackManager:give(player, "Stand inside the mine to spawn a Drag")
+			end
+		end
+	)
+	register(
+		MonsterDevTools.SET_DRAG_POCKETS_VISIBLE_COMMAND,
+		SET_VISIBLE_ARGS_SHAPE,
+		function(_player: Player, args: { [string]: any })
+			DragManager:setPocketsVisible(args.isVisible)
+		end
+	)
+	register(
+		MonsterDevTools.WAKE_SEAMS_COMMAND,
+		NO_ARGS_SHAPE,
+		function(player: Player, _args: { [string]: any })
+			local count = SeamManager:wakeAll()
+			PlayerFeedbackManager:give(player, `{count} Seam(s) woken; {SeamManager:getAwakeCount()} awake of {SeamManager:getSeamCount()}`)
 		end
 	)
 	-- spread over every spawn so the crowd walks in as a wide front

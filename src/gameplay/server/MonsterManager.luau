@@ -162,6 +162,9 @@ export type MonsterManager = typeof(setmetatable(
 		separationUsedKeys: { number },
 		-- steps every crawler each tick (LurkerManager, M62)
 		crawlStepper: ((monster: Monster, now: number, deltaSec: number) -> ())?,
+		-- a crawler kind with a stepper of its own (the Drag, M68) is stepped
+		-- by that instead
+		crawlSteppersByKind: { [number]: (monster: Monster, now: number, deltaSec: number) -> () },
 	},
 	MonsterManager
 ))
@@ -218,9 +221,25 @@ function MonsterManager:setCrawlStepper(stepper: (monster: Monster, now: number,
 	self.crawlStepper = stepper
 end
 
+function MonsterManager:setCrawlStepperForKind(kind: number, stepper: (monster: Monster, now: number, deltaSec: number) -> ())
+	self.crawlSteppersByKind[kind] = stepper
+end
+
 -- the tick's player candidates, for a stepper that hunts players only
 function MonsterManager:getPlayerCandidates(): { MonsterRules.Candidate }
 	return self.candidatesByType[Enums.MonsterTargetType.PLAYERS]
+end
+
+-- the candidate that is this player this tick, or nil while they are not
+-- a target (dead, or not Ready)
+function MonsterManager:getPlayerCandidate(player: Player): MonsterRules.Candidate?
+	local id = PLAYER_CANDIDATE_PREFIX .. player.UserId
+	for _, candidate in self:getPlayerCandidates() do
+		if candidate.id == id then
+			return candidate
+		end
+	end
+	return nil
 end
 
 -- every monster spawned from now on has this many times its roster HP
@@ -905,7 +924,8 @@ end
 
 function MonsterManager:stepMonster(monster: Monster, now: number, deltaSec: number)
 	if monster.isCrawler then
-		local stepper = self.crawlStepper
+		-- a kind with its own stepper (the Drag, M68) first, else the lurkers'
+		local stepper = self.crawlSteppersByKind[monster.kind] or self.crawlStepper
 		if stepper then
 			stepper(monster, now, deltaSec)
 		end
@@ -1389,6 +1409,7 @@ function MonsterManager.new(): MonsterManager
 	self.separationBuckets = {}
 	self.separationUsedKeys = {}
 	self.crawlStepper = nil
+	self.crawlSteppersByKind = {}
 	return self
 end
 

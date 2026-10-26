@@ -35,6 +35,8 @@ export type MiningManager = typeof(setmetatable(
 		-- every swing that landed: the rock it hit and whether it broke
 		-- (the run report, M34)
 		hitHandlers: { (player: Player, depth: number, height: number, width: number, rock: number, isBroken: boolean) -> () },
+		-- offered every validated swing before it lands; true takes it (M68)
+		hitInterceptor: ((player: Player, depth: number, height: number, width: number) -> boolean)?,
 	},
 	MiningManager
 ))
@@ -47,6 +49,13 @@ local TRY_HIT_ROCK_SHAPE = {
 
 function MiningManager:subscribeHit(handler: (player: Player, depth: number, height: number, width: number, rock: number, isBroken: boolean) -> ())
 	table.insert(self.hitHandlers, handler)
+end
+
+-- the one hook before a swing lands (M68, the Seam): a validated swing at
+-- a cell is offered to the interceptor first, and a true answer means it
+-- was taken and the pick's own damage is never applied
+function MiningManager:setHitInterceptor(interceptor: ((player: Player, depth: number, height: number, width: number) -> boolean)?)
+	self.hitInterceptor = interceptor
 end
 
 function MiningManager:getPlayerPosition(player: Player): Vector3?
@@ -87,6 +96,14 @@ function MiningManager:handleHit(player: Player, depth: number, height: number, 
 		return
 	end
 	self.lastHitTimeByPlayer[player] = now
+
+	-- a swing at a Seam's block is the Seam's to answer (M68): the
+	-- interceptor breaks the block itself and announces it, whatever the
+	-- pick's damage
+	local interceptor = self.hitInterceptor
+	if interceptor and interceptor(player, depth, height, width) then
+		return
+	end
 
 	-- the class's mining power scales the pick axe's rung (M64)
 	local damage = ClassRules.scaleAmount(

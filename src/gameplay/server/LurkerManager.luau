@@ -64,6 +64,9 @@ type Lurker = {
 export type LurkerManager = typeof(setmetatable(
 	{} :: {
 		lurkerPockets: { LurkerPocket },
+		-- the indices into MineManager:getPockets() the spiders hold, so
+		-- another sleeper (the Drag, M68) picks elsewhere
+		heldPocketIndices: { [number]: boolean },
 		lurkerById: { [number]: Lurker },
 		random: Random,
 		sleepingSoundAccumulatorSec: number,
@@ -73,6 +76,10 @@ export type LurkerManager = typeof(setmetatable(
 	},
 	LurkerManager
 ))
+
+function LurkerManager:getHeldPocketIndices(): { [number]: boolean }
+	return self.heldPocketIndices
+end
 
 function LurkerManager:getPocketCount(): number
 	return #self.lurkerPockets
@@ -418,6 +425,7 @@ end
 function LurkerManager:onRunStarted()
 	self.lurkerById = {}
 	self.lurkerPockets = {}
+	self.heldPocketIndices = {}
 	local pockets = MineManager:getPockets()
 	local seed = MineManager:getSeed() or 0
 	-- the crew that teleported in sets the count, the mine's seed the pockets
@@ -428,6 +436,7 @@ function LurkerManager:onRunStarted()
 	local grid = MineManager:getGrid()
 	for index, pocket in pockets do
 		if picked[index] then
+			self.heldPocketIndices[index] = true
 			local resting = if grid then LurkerRules.findRestingCell(grid, pocket) else nil
 			table.insert(self.lurkerPockets, {
 				pocket = pocket,
@@ -468,6 +477,7 @@ end
 
 function LurkerManager.new(): LurkerManager
 	local self = setmetatable({}, LurkerManager) :: LurkerManager
+	self.heldPocketIndices = {}
 	self.lurkerPockets = {}
 	self.lurkerById = {}
 	self.random = Random.new()

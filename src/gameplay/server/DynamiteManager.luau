@@ -147,6 +147,11 @@ function DynamiteManager:applyGadget(player: Player)
 	ToolManager:setConsumableCount(player, Enums.ToolKind.DYNAMITE, if isDemolitionist then 1 else 0)
 end
 
+-- every blast, with its centre and the radius it hurt monsters in
+function DynamiteManager:subscribeBlast(handler: (position: Vector3, radiusStuds: number) -> ())
+	table.insert(self.blastHandlers, handler)
+end
+
 function DynamiteManager:explode(stick: BasePart, position: Vector3, thrower: Player)
 	stick:Destroy()
 	SpatialSoundManager:playAt(position, SoundNames.Sfx.DYNAMITE_EXPLODE)
@@ -156,6 +161,10 @@ function DynamiteManager:explode(stick: BasePart, position: Vector3, thrower: Pl
 	-- the monsters within the blast, wherever it went off
 	for _, hitId in PostRules.findSplashHits(position, DynamiteData.MONSTER_BLAST_RADIUS_STUDS, DamageableManager:getHitBoxes()) do
 		DamageableManager:damage(hitId, DynamiteData.MONSTER_DAMAGE, thrower)
+	end
+	-- whoever else cares where a stick went off (the Drag's stagger, M68)
+	for _, handler in self.blastHandlers do
+		handler(position, DynamiteData.MONSTER_BLAST_RADIUS_STUDS)
 	end
 	local space = MineManager:getSpace()
 	local grid = MineManager:getGrid()
@@ -353,6 +362,7 @@ end
 
 function DynamiteManager.new(): DynamiteManager
 	local self = setmetatable({}, DynamiteManager) :: DynamiteManager
+	self.blastHandlers = {}
 	self.lastThrowTimeByPlayer = {}
 	self.readyTimeByPlayer = {}
 	self.respawnTokenByPlayer = {}

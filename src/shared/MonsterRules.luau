@@ -92,6 +92,8 @@ export type Visual = {
 	isAir: boolean,
 	-- clings to the mine's surfaces; the client orients it to its face
 	isCrawler: boolean,
+	-- floats through the mine's air (the Drag, M68): drawn facing the camera
+	isFloater: boolean,
 	walkAnimationId: string,
 	idleAnimationId: string?,
 	attackAnimationId: string,
@@ -332,6 +334,7 @@ function MonsterRules.visualFor(kind: number, data: MonsterData): Visual
 		maxHp = data.MAX_HP,
 		isAir = MonsterRules.isAir(data),
 		isCrawler = MonsterRules.isCrawler(data),
+		isFloater = data.TRAVERSAL == Enums.MonsterTraversal.FLOAT,
 		walkAnimationId = data.WALK_ANIMATION_ID,
 		idleAnimationId = data.IDLE_ANIMATION_ID,
 		attackAnimationId = data.ATTACK_ANIMATION_ID,

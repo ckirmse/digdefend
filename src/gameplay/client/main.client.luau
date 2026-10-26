@@ -29,6 +29,7 @@ local ClientDynamiteManager = require(script.Parent.ClientDynamiteManager)
 local ClientGeigerCounterManager = require(script.Parent.ClientGeigerCounterManager)
 local ClientGiveCurrencyManager = require(script.Parent.ClientGiveCurrencyManager)
 local ClientHeadshotManager = require(script.Parent.ClientHeadshotManager)
+local ClientHurtManager = require(script.Parent.ClientHurtManager)
 local ClientIconFlightManager = require(script.Parent.ClientIconFlightManager)
 local ClientImpactManager = require(script.Parent.ClientImpactManager)
 local ClientJetPackManager = require(script.Parent.Parent.Client.ClientJetPackManager)
@@ -49,6 +50,7 @@ local ClientRescueManager = require(script.Parent.ClientRescueManager)
 local ClientReviveManager = require(script.Parent.ClientReviveManager)
 local ClientRunCycleManager = require(script.Parent.ClientRunCycleManager)
 local ClientScopeGlassManager = require(script.Parent.ClientScopeGlassManager)
+local ClientSeamManager = require(script.Parent.ClientSeamManager)
 local ClientTowerBehaviorManager = require(script.Parent.ClientTowerBehaviorManager)
 local ClientTrapBehaviorManager = require(script.Parent.ClientTrapBehaviorManager)
 local ClientPostDevTools = require(script.Parent.ClientPostDevTools)
@@ -86,6 +88,8 @@ pcall(
 )
 
 ClientMineManager:init()
+-- the Seams (M68) lay their faces from the grid the manager above holds
+ClientSeamManager:init()
 -- the outdoor ambience reads the mine grid the manager above holds
 ClientAmbienceManager:init()
 -- the map's night lights follow the run clock the metadata publishes
@@ -140,6 +144,8 @@ ClientBinocularsManager:init()
 -- post manager that names the locks and the monster manager that draws the bodies
 ClientLockMarkerManager:init()
 ClientStimShotManager:init()
+-- the red edges and the hit sound on every drop in the player's health
+ClientHurtManager:init()
 -- the Remote Charge (2026-10-20): the planted charges and their blasts
 ClientRemoteChargeManager:init()
 -- the Flare (2026-10-20): the gun's shot and the lit flares
