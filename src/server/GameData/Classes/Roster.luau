@@ -32,9 +32,13 @@ return {
 	-- the class every new character is, and the one a save is repaired to
 	DEFAULT_CLASS = Enums.ClassKind.RECRUIT,
 	-- designed and in the roster but not in the launch set (designer,
-	-- 2026-10-22): the class menus and prices leave them out until a
-	-- post-launch update; the dev dropdown still reaches them
+	-- 2026-10-22; the Engineer and the Hauler joined on 2026-10-26, when
+	-- the class passes were paused with eight built as enough for launch):
+	-- the class menus and prices leave them out until a post-launch
+	-- update; the dev dropdown still reaches them
 	POST_LAUNCH_KINDS = {
+		Enums.ClassKind.ENGINEER,
+		Enums.ClassKind.HAULER,
 		Enums.ClassKind.ELECTRICIAN,
 		Enums.ClassKind.MEDIC,
 	},
