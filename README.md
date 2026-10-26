@@ -11,6 +11,8 @@ Two places:
 
 ## Setup
 
+New to the project? `docs/setup.md` is the full from-scratch checklist (tools, Studio plugin, MCP, access). The short version:
+
 ```
 foreman install
 wally install

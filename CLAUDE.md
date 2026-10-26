@@ -10,6 +10,7 @@ The game has two places:
 
 Game design doc: `gdd.txt` (export of the Google Doc linked in `milestones.md`)
 Build milestones: `milestones.md`
+Developer setup from a fresh PC: `docs/setup.md`
 Reference games (copy patterns and standards, never ship their code directly): `~/square` (Lucky Squares, "lights", primary reference) and `~/md` (Fuse Dragons, "dragons").
 
 ## Working with the user
