@@ -46,7 +46,10 @@ local LOOKS = {
 	GOLD_3 = { color = Color3.fromRGB(220, 170, 30), material = Enum.Material.Metal },
 	GOLD_4 = { color = Color3.fromRGB(200, 140, 0), material = Enum.Material.Metal },
 	GOLD_5 = { color = Color3.fromRGB(255, 190, 40), material = Enum.Material.Metal },
-	URANIUM = { color = Color3.fromRGB(110, 255, 90), material = Enum.Material.Neon },
+	-- uranium brightens and cools as the tier rises (three tiers, 2026-10-26)
+	URANIUM_1 = { color = Color3.fromRGB(110, 255, 90), material = Enum.Material.Neon },
+	URANIUM_2 = { color = Color3.fromRGB(60, 255, 160), material = Enum.Material.Neon },
+	URANIUM_3 = { color = Color3.fromRGB(40, 240, 255), material = Enum.Material.Neon },
 	BEDROCK = { color = Color3.fromRGB(28, 28, 32), material = Enum.Material.Basalt },
 }
 

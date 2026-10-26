@@ -19,7 +19,14 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 -- crew digs the faster they arrive, while Iron per rock only doubles a
 -- tier, under the rock's HP, so a bigger pick in deeper rock does not
 -- flood the tower budget (option 1 of
--- the simulator plan: the mining loop ramps, Iron does not). Uranium stays one a rock at 100 HP: a hunt, not a number.
+-- the simulator plan: the mining loop ramps, Iron does not). Uranium is
+-- three tiers since 2026-10-26 (one rock kind at one ore before): HP and
+-- ore per rock triple to 300 for 3 and then 600 for 6, so swings per ore
+-- stay level while a deep zone holds a sixth of the rocks for the same
+-- supply. The designer's reason: zone 5 held 362 one-ore rocks, one in
+-- every 70 cells, so the Geiger Counter was lit everywhere and the hunt
+-- was gone. The mine authors each uranium tier's count itself (uranium,
+-- uranium2, uranium3), so tierBias never touches it.
 -- FILLER_ORDER is load-bearing: the hardness kernel maps a center of 1.0 to
 -- the first entry and a center equal to the list length to the last, so it
 -- must stay sorted by HP. One filler rock, Stone, in five tiers (decided
@@ -49,9 +56,11 @@ return {
 			Enums.RockName.GOLD_4,
 			Enums.RockName.GOLD_5,
 		},
-		-- uranium has no tiers; tierBias never applies to it
+		-- uranium's tiers are authored per zone, never split by tierBias
 		[Enums.RawResource.URANIUM_ORE] = {
-			Enums.RockName.URANIUM,
+			Enums.RockName.URANIUM_1,
+			Enums.RockName.URANIUM_2,
+			Enums.RockName.URANIUM_3,
 		},
 	},
 
@@ -157,12 +166,32 @@ return {
 			clusterRadiusMax = 0,
 		},
 
-		[Enums.RockName.URANIUM] = {
+		[Enums.RockName.URANIUM_1] = {
 			kind = Enums.RockKind.RESOURCE,
 			resource = Enums.RawResource.URANIUM_ORE,
 			tier = 1,
 			hp = 100,
 			yield = 1,
+			clusterRadiusMin = 0,
+			clusterRadiusMax = 0,
+		},
+		[Enums.RockName.URANIUM_2] = {
+			kind = Enums.RockKind.RESOURCE,
+			resource = Enums.RawResource.URANIUM_ORE,
+			tier = 2,
+			hp = 300,
+			yield = 3,
+			clusterRadiusMin = 0,
+			clusterRadiusMax = 0,
+		},
+		-- 6 a rock (designer, 2026-10-26: 9 was too big a jump), so 600 HP
+		-- keeps the 100 HP an ore of the lower tiers
+		[Enums.RockName.URANIUM_3] = {
+			kind = Enums.RockKind.RESOURCE,
+			resource = Enums.RawResource.URANIUM_ORE,
+			tier = 3,
+			hp = 600,
+			yield = 6,
 			clusterRadiusMin = 0,
 			clusterRadiusMax = 0,
 		},

@@ -50,7 +50,12 @@ export type ZoneDefinition = {
 	tierBias: number?,
 	iron: number?,
 	gold: number?,
+	-- uranium is authored per tier (2026-10-26): uranium is the Uranium 1
+	-- count, uranium2 and uranium3 the higher tiers, each inherited on its
+	-- own, so a deep zone can hold a few rich rocks instead of many
 	uranium: number?,
+	uranium2: number?,
+	uranium3: number?,
 	pockets: number?,
 	-- a zone's own pocket size, inherited; the mine's pocketRadiusMin and
 	-- pocketRadiusMax until a zone sets them (2026-10-06: deeper zones carve
@@ -127,7 +132,9 @@ export type ResolvedZone = {
 	width: number,
 	hardness: number,
 	tierBias: number,
-	veins: { [number]: number },
+	-- vein counts after the difficulty divisor, keyed by the authored field
+	-- (iron, gold, uranium, uranium2, uranium3)
+	veins: { [string]: number },
 	pockets: number,
 	pocketRadiusMin: number,
 	pocketRadiusMax: number,
@@ -224,11 +231,27 @@ type Bedrock = {
 	side: number,
 }
 
+-- a field with a tier places that one rock of the resource's tier list
+-- (uranium, authored per tier); a field without one is split across the
+-- resource's tiers by the zone's tierBias
 local RESOURCE_FIELDS = {
 	{ field = "iron", resource = Enums.RawResource.IRON_ORE },
 	{ field = "gold", resource = Enums.RawResource.GOLD_ORE },
-	{ field = "uranium", resource = Enums.RawResource.URANIUM_ORE },
+	{ field = "uranium", resource = Enums.RawResource.URANIUM_ORE, tier = 1 },
+	{ field = "uranium2", resource = Enums.RawResource.URANIUM_ORE, tier = 2 },
+	{ field = "uranium3", resource = Enums.RawResource.URANIUM_ORE, tier = 3 },
 }
+
+-- the tier counts a field places: its one tier, or the tierBias split
+local function tierCountsFor(entry: { field: string, resource: number, tier: number? }, count: number, zone: ResolvedZone, tiers: { number }, spread: number): { [number]: number }
+	if entry.tier ~= nil then
+		return { [entry.tier] = count }
+	end
+	if #tiers == 1 then
+		return { count }
+	end
+	return RockRules.resolveTierCounts(count, zone.tierBias, #tiers, spread)
+end
 
 local INHERITED_FIELDS = {
 	"depth",
@@ -240,6 +263,8 @@ local INHERITED_FIELDS = {
 	"iron",
 	"gold",
 	"uranium",
+	"uranium2",
+	"uranium3",
 	"pockets",
 	"pocketRadiusMin",
 	"pocketRadiusMax",
@@ -404,6 +429,8 @@ local function resolveZones(definition: MineDefinition, config: GeneratorConfig,
 		iron = 0,
 		gold = 0,
 		uranium = 0,
+		uranium2 = 0,
+		uranium3 = 0,
 		pockets = 0,
 		pocketRadiusMin = definition.pocketRadiusMin,
 		pocketRadiusMax = definition.pocketRadiusMax,
@@ -465,9 +492,9 @@ local function resolveZones(definition: MineDefinition, config: GeneratorConfig,
 				baseCount = 0
 			end
 			if entry.resource == Enums.RawResource.URANIUM_ORE then
-				veins[entry.resource] = RockRules.effectiveVeinCount(baseCount, config.uraniumVeinDivisor or 1)
+				veins[entry.field] = RockRules.effectiveVeinCount(baseCount, config.uraniumVeinDivisor or 1)
 			else
-				veins[entry.resource] = RockRules.effectiveVeinCount(baseCount, config.veinDivisor)
+				veins[entry.field] = RockRules.effectiveVeinCount(baseCount, config.veinDivisor)
 			end
 		end
 
@@ -542,14 +569,29 @@ local function validateMine(definition: MineDefinition, zones: { ResolvedZone },
 		table.insert(errors, "uraniumTarget must be at least 1")
 	end
 
+	-- the supply is ore, not rocks: a higher uranium tier yields several
 	local uraniumTotal = 0
+	local uraniumTiers = config.rockTable.RESOURCE_TIERS[Enums.RawResource.URANIUM_ORE]
 	for _, zone in zones do
-		uraniumTotal += zone.veins[Enums.RawResource.URANIUM_ORE]
+		for _, entry in RESOURCE_FIELDS do
+			if entry.resource ~= Enums.RawResource.URANIUM_ORE then
+				continue
+			end
+			local rock = uraniumTiers[entry.tier :: number]
+			local definitionOfRock = if rock then config.rockTable.ROCKS[rock] else nil
+			if definitionOfRock == nil then
+				if zone.veins[entry.field] > 0 then
+					table.insert(errors, zoneLabel(zone.index) .. ": " .. entry.field .. " is authored but the rock table has no uranium tier " .. tostring(entry.tier))
+				end
+				continue
+			end
+			uraniumTotal += zone.veins[entry.field] * (definitionOfRock.yield :: number)
+		end
 	end
 	if typeof(definition.uraniumTarget) == "number" then
 		local required = RefineryRules.roundUraniumTarget(definition.uraniumTarget * config.maxPartyUraniumTargetMultiplier)
 		if uraniumTotal < required then
-			table.insert(errors, "uranium: " .. uraniumTotal .. " rocks authored across all zones, but uraniumTarget " .. definition.uraniumTarget .. " x " .. config.maxPartyUraniumTargetMultiplier .. " for the largest party needs " .. required .. "; the run is unwinnable")
+			table.insert(errors, "uranium: " .. uraniumTotal .. " ore authored across all zones, but uraniumTarget " .. definition.uraniumTarget .. " x " .. config.maxPartyUraniumTargetMultiplier .. " for the largest party needs " .. required .. "; the run is unwinnable")
 		end
 	end
 	return errors
@@ -853,7 +895,7 @@ local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: Gener
 		local random = zoneRandoms[zone.index]
 		local bounds = zoneBox(zone)
 		for _, entry in RESOURCE_FIELDS do
-			local count = zone.veins[entry.resource]
+			local count = zone.veins[entry.field]
 			if count == 0 then
 				continue
 			end
@@ -863,12 +905,10 @@ local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: Gener
 				continue
 			end
 			local tiers = config.rockTable.RESOURCE_TIERS[entry.resource]
-			local tierCounts
-			if #tiers == 1 then
-				tierCounts = { count }
-			else
-				tierCounts = RockRules.resolveTierCounts(count, zone.tierBias, #tiers, config.spread)
-			end
+			local tierCounts = tierCountsFor(entry, count, zone, tiers, config.spread)
+			-- a per-tier field (uranium) is authored where the designer wants
+			-- it, so the depth floors and the half-zone split do not apply
+			local isSplitByBias = entry.tier == nil and #tiers > 1
 			-- uranium is the win condition, so it never lands on another
 			-- uranium rock and placed equals authored. It may sit at any
 			-- height (decided 2026-09-29; until then it was held within pick
@@ -877,10 +917,14 @@ local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: Gener
 			for wantedTier, tierCount in tierCounts do
 				-- a tier the floors keep out of this zone entirely drops to the
 				-- deepest one allowed at the zone's last row
-				local tier = math.min(wantedTier, highestTierAllowedAt(bounds.depthEnd, config.tierMinDepthBlocks, #tiers))
+				local tier = if isSplitByBias then math.min(wantedTier, highestTierAllowedAt(bounds.depthEnd, config.tierMinDepthBlocks, #tiers)) else wantedTier
 				local rock = tiers[tier]
+				if rock == nil then
+					table.insert(warnings, zoneLabel(zone.index) .. ": the rock table has no " .. entry.field .. " tier " .. tier .. "; none placed")
+					continue
+				end
 				local definitionOfRock = rocks[rock]
-				local minDepth, maxDepth = tierDepthRange(tier, zone, bounds, if #tiers > 1 then config.tierMinDepthBlocks else nil)
+				local minDepth, maxDepth = tierDepthRange(tier, zone, bounds, if isSplitByBias then config.tierMinDepthBlocks else nil)
 				if not hasRockOutside(grid, bounds, exclude, minDepth, maxDepth, maxCenterHeight) then
 					minDepth, maxDepth = bounds.depthStart, bounds.depthEnd
 				end
@@ -900,7 +944,7 @@ local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: Gener
 						centerWidth = random:NextInteger(bounds.widthStart, bounds.widthEnd)
 						if not isInBox(exclude, centerDepth, centerHeight, centerWidth)
 							and MineGenerator.getCell(grid, centerDepth, centerHeight, centerWidth) ~= MineGenerator.AIR
-							and (entry.resource ~= Enums.RawResource.URANIUM_ORE or MineGenerator.getCell(grid, centerDepth, centerHeight, centerWidth) ~= rock)
+							and (entry.resource ~= Enums.RawResource.URANIUM_ORE or not RockRules.isUraniumRock(MineGenerator.getCell(grid, centerDepth, centerHeight, centerWidth)))
 						then
 							isPlaced = true
 							break
@@ -1009,16 +1053,14 @@ local function requestedOre(zone: ResolvedZone, config: GeneratorConfig): { [num
 		totals[definitionOfRock.resource :: number] += cells * (definitionOfRock.yield :: number)
 	end
 	for _, entry in RESOURCE_FIELDS do
-		local count = zone.veins[entry.resource]
+		local count = zone.veins[entry.field]
 		local tiers = config.rockTable.RESOURCE_TIERS[entry.resource]
-		local tierCounts
-		if #tiers == 1 then
-			tierCounts = { count }
-		else
-			tierCounts = RockRules.resolveTierCounts(count, zone.tierBias, #tiers, config.spread)
-		end
+		local tierCounts = tierCountsFor(entry, count, zone, tiers, config.spread)
 		for tier, tierCount in tierCounts do
-			local definitionOfRock = rocks[tiers[tier]]
+			local definitionOfRock = if tiers[tier] then rocks[tiers[tier]] else nil
+			if definitionOfRock == nil then
+				continue
+			end
 			local meanCells = meanClusterCells(definitionOfRock.clusterRadiusMin :: number, definitionOfRock.clusterRadiusMax :: number)
 			totals[entry.resource] += tierCount * meanCells * (definitionOfRock.yield :: number)
 		end
@@ -1139,7 +1181,7 @@ function MineGenerator.generate(definition: MineDefinition, config: GeneratorCon
 	local placedUranium = report.zones[#report.zones].uraniumSoFar
 	local requiredUranium = RefineryRules.roundUraniumTarget(definition.uraniumTarget * config.maxPartyUraniumTargetMultiplier)
 	if placedUranium < requiredUranium then
-		return nil, { "uranium: only " .. placedUranium .. " rocks survived generation with seed " .. (resolvedSeed :: number) .. ", but the largest party needs " .. requiredUranium .. "; the run is unwinnable" }, warnings
+		return nil, { "uranium: only " .. placedUranium .. " ore survived generation with seed " .. (resolvedSeed :: number) .. ", but the largest party needs " .. requiredUranium .. "; the run is unwinnable" }, warnings
 	end
 
 	return { grid = grid, zones = zones, report = report, pockets = pockets }, errors, warnings
@@ -1182,16 +1224,14 @@ function MineGenerator.preview(definition: MineDefinition, config: GeneratorConf
 		local volume = math.max(zone.depth * zone.height * zone.width - zone.pockets * meanPocketCells(zone.pocketRadiusMin, zone.pocketRadiusMax), 0)
 		local expectedHp = volume * meanFillerHp
 		for _, entry in RESOURCE_FIELDS do
-			local count = zone.veins[entry.resource]
+			local count = zone.veins[entry.field]
 			local tiers = config.rockTable.RESOURCE_TIERS[entry.resource]
-			local tierCounts
-			if #tiers == 1 then
-				tierCounts = { count }
-			else
-				tierCounts = RockRules.resolveTierCounts(count, zone.tierBias, #tiers, config.spread)
-			end
+			local tierCounts = tierCountsFor(entry, count, zone, tiers, config.spread)
 			for tier, tierCount in tierCounts do
-				local definitionOfRock = rocks[tiers[tier]]
+				local definitionOfRock = if tiers[tier] then rocks[tiers[tier]] else nil
+				if definitionOfRock == nil then
+					continue
+				end
 				local meanCells = meanClusterCells(definitionOfRock.clusterRadiusMin :: number, definitionOfRock.clusterRadiusMax :: number)
 				expectedHp += tierCount * meanCells * (definitionOfRock.hp :: number)
 			end
@@ -1214,6 +1254,10 @@ function MineGenerator.formatReport(report: Report): string
 		local parts = {}
 		local densities = {}
 		for _, entry in RESOURCE_FIELDS do
+			-- ore and rocks are counted by resource, so one line per resource
+			if entry.tier ~= nil and entry.tier > 1 then
+				continue
+			end
 			table.insert(parts, string.format("%s %d/%d", entry.field, zone.placedOre[entry.resource], math.floor(zone.requestedOre[entry.resource] + 0.5)))
 			local rocks = zone.placedRocks[entry.resource]
 			table.insert(densities, string.format("%s %s", entry.field, if rocks > 0 then string.format("1 in %d", math.floor(zone.diggableVolume / rocks + 0.5)) else "none"))

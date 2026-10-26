@@ -170,10 +170,15 @@ function RockRules.rawResourceForRock(rock: number): number?
 		return Enums.RawResource.IRON_ORE
 	elseif string.sub(name, 1, 5) == "GOLD_" then
 		return Enums.RawResource.GOLD_ORE
-	elseif name == "URANIUM" then
+	elseif string.sub(name, 1, 8) == "URANIUM_" then
 		return Enums.RawResource.URANIUM_ORE
 	end
 	return nil
+end
+
+-- any tier of uranium: what the Geiger Counter hears and the hum marks
+function RockRules.isUraniumRock(rock: number): boolean
+	return RockRules.rawResourceForRock(rock) == Enums.RawResource.URANIUM_ORE
 end
 
 function RockRules.validateRockTable(rockTable: any): (boolean, string?)

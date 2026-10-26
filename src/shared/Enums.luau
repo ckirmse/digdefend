@@ -535,8 +535,10 @@ module = {
 		GOLD_3 = 13,
 		GOLD_4 = 14,
 		GOLD_5 = 15,
-		URANIUM = 16,
-		BEDROCK = 17,
+		URANIUM_1 = 16,
+		URANIUM_2 = 17,
+		URANIUM_3 = 18,
+		BEDROCK = 19,
 
 		PublicNames = {
 			STONE_1 = "Stone 1",
@@ -554,7 +556,9 @@ module = {
 			GOLD_3 = "Gold 3",
 			GOLD_4 = "Gold 4",
 			GOLD_5 = "Gold 5",
-			URANIUM = "Uranium",
+			URANIUM_1 = "Uranium 1",
+			URANIUM_2 = "Uranium 2",
+			URANIUM_3 = "Uranium 3",
 			BEDROCK = "Bedrock",
 		},
 	},

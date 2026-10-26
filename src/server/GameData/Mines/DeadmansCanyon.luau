@@ -184,7 +184,10 @@ return {
 			tierBias = 4.0,
 			iron = 280,
 			gold = 180,
-			uranium = 14,
+			-- Uranium 2 here (2026-10-26): 8 rocks of 3 for 24 ore (14 rocks
+			-- of 1 before), so a find counts for a day's progress
+			uranium = 0,
+			uranium2 = 8,
 			-- radius 2 at most in every zone (designer, 2026-10-07: rooms 12 to 20 studs across, never touching; a radius 3 room was 28 studs)
 			-- 13 since 2026-10-08 (was 30 spheres): 5% of 16128 cells
 			pockets = 13,
@@ -193,8 +196,11 @@ return {
 			-- 5: the abyss (added 2026-09-29 for the 15-night run): the
 			-- hardest stone, the best ore, and the big crew's uranium supply.
 			-- The mine must hold the worst-case target or the generator
-			-- refuses it: 40 x 1.7 Nightmare x 5 six players = 340, against
-			-- (7 + 8 + 9 + 14 + 362) / 1.15 thinned at Nightmare = 348.
+			-- refuses it: 35 x 1.7 Nightmare x 5 six players = 300, against
+			-- the Nightmare-thinned 6 + 7 + 8 + 7 x 3 + 52 x 6 = 354 ore.
+			-- Uranium 3 only (2026-10-26): 60 rocks of 6 for 360 ore, where
+			-- 362 rocks of 1 sat one in every 70 cells and kept the Geiger
+			-- Counter lit everywhere; now one in about 400 cells
 			-- Uranium may sit at any height since 2026-09-29 (it was held to
 			-- the floor rows before, and 1,500 in 28 rows of that band hung
 			-- the generator). A big crew lives here from about day 10 and
@@ -207,7 +213,9 @@ return {
 			tierBias = 5.0,
 			iron = 280,
 			gold = 180,
-			uranium = 362,
+			uranium = 0,
+			uranium2 = 0,
+			uranium3 = 60,
 			-- 15 since 2026-10-08 (was 30 spheres): 3.5% of 24960 cells
 			pockets = 15,
 		},

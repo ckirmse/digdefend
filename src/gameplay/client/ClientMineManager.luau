@@ -19,6 +19,7 @@ local MineGridCodec = require("@game/ReplicatedStorage/Shared/MineGridCodec")
 local MineGridQuery = require("@game/ReplicatedStorage/Shared/MineGridQuery")
 local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local RockRules = require("@game/ReplicatedStorage/Shared/RockRules")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
@@ -299,7 +300,7 @@ end
 function ClientMineManager:releasePart(rock: number, part: BasePart)
 	part.Parent = nil
 	part:SetAttribute(Attributes.MINE_CELL_INDEX, nil)
-	if rock == Enums.RockName.URANIUM then
+	if RockRules.isUraniumRock(rock) then
 		for _, child in part:GetChildren() do
 			if child:IsA("AudioEmitter") then
 				child:Destroy()
@@ -481,7 +482,7 @@ function ClientMineManager:refresh(playerDepth: number, playerHeight: number, pl
 		part.CFrame = CFrame.new(MineSpace.cellToWorld(space, cellDepth, cellHeight, cellWidth))
 		part:SetAttribute(Attributes.MINE_CELL_INDEX, cellIndex)
 		self:applyCrackLook(part, rock, self.crackStageByCell[cellIndex] or 0)
-		if rock == Enums.RockName.URANIUM then
+		if RockRules.isUraniumRock(rock) then
 			self:attachHum(part)
 		end
 		part.Parent = folder
@@ -559,7 +560,7 @@ function ClientMineManager:onMineComplete()
 	local exposedCount = self:rebuildExposedCells()
 	local uraniumCells = {}
 	for cellIndex, rock in grid.cells do
-		if rock == Enums.RockName.URANIUM then
+		if RockRules.isUraniumRock(rock) then
 			uraniumCells[cellIndex] = true
 		end
 	end

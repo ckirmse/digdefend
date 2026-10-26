@@ -7,6 +7,7 @@ local expect = JestGlobals.expect
 
 local Enums = require(game:GetService("ReplicatedStorage").Shared.Enums)
 local MineGenerator = require(game:GetService("ReplicatedStorage").Shared.MineGenerator)
+local RockRules = require(game:GetService("ReplicatedStorage").Shared.RockRules)
 
 local RockName = Enums.RockName
 local RawResource = Enums.RawResource
@@ -33,7 +34,7 @@ local function makeRockTable()
 		RESOURCE_TIERS = {
 			[RawResource.IRON_ORE] = { RockName.IRON_1, RockName.IRON_2, RockName.IRON_3, RockName.IRON_4 },
 			[RawResource.GOLD_ORE] = { RockName.GOLD_1, RockName.GOLD_2, RockName.GOLD_3, RockName.GOLD_4 },
-			[RawResource.URANIUM_ORE] = { RockName.URANIUM },
+			[RawResource.URANIUM_ORE] = { RockName.URANIUM_1, RockName.URANIUM_2, RockName.URANIUM_3 },
 		},
 		ROCKS = {
 			[RockName.STONE_1] = { kind = RockKind.FILLER, hp = 10 },
@@ -49,7 +50,9 @@ local function makeRockTable()
 			[RockName.GOLD_2] = makeResource(RawResource.GOLD_ORE, 2, 40, 10, 1, 2),
 			[RockName.GOLD_3] = makeResource(RawResource.GOLD_ORE, 3, 75, 30, 1, 1),
 			[RockName.GOLD_4] = makeResource(RawResource.GOLD_ORE, 4, 140, 87, 0, 1),
-			[RockName.URANIUM] = makeResource(RawResource.URANIUM_ORE, 1, 100, 1, 0, 0),
+			[RockName.URANIUM_1] = makeResource(RawResource.URANIUM_ORE, 1, 100, 1, 0, 0),
+			[RockName.URANIUM_2] = makeResource(RawResource.URANIUM_ORE, 2, 300, 3, 0, 0),
+			[RockName.URANIUM_3] = makeResource(RawResource.URANIUM_ORE, 3, 600, 6, 0, 0),
 			[RockName.BEDROCK] = { kind = RockKind.BEDROCK },
 		},
 	}
@@ -173,7 +176,7 @@ describe(
 				expect(#zones).toBe(4)
 				expect(zones[2].height).toBe(8)
 				expect(zones[2].width).toBe(24)
-				expect(zones[2].veins[RawResource.URANIUM_ORE]).toBe(4)
+				expect(zones[2].veins.uranium).toBe(4)
 				expect(zones[2].pockets).toBe(3)
 				expect(zones[4].height).toBe(16)
 				expect(zones[1].depthStart).toBe(1)
@@ -670,9 +673,9 @@ describe(
 				local result = generateOrFail(makeMine(), makeConfig({ veinDivisor = 1.4, difficultyValue = 1.9 }))
 				local zone2 = result.zones[2]
 				expect(zone2.hardness).toBeCloseTo(2.0, 9)
-				expect(zone2.veins[RawResource.IRON_ORE]).toBe(21)
-				expect(zone2.veins[RawResource.GOLD_ORE]).toBe(13)
-				expect(result.zones[4].veins[RawResource.URANIUM_ORE]).toBe(14)
+				expect(zone2.veins.iron).toBe(21)
+				expect(zone2.veins.gold).toBe(13)
+				expect(result.zones[4].veins.uranium).toBe(14)
 			end
 		)
 
@@ -686,7 +689,7 @@ describe(
 				for depth = 0, grid.depth - 1 do
 					for height = 0, grid.height - 1 do
 						for width = 0, grid.width - 1 do
-							if MineGenerator.getCell(grid, depth, height, width) == RockName.URANIUM then
+							if RockRules.isUraniumRock(MineGenerator.getCell(grid, depth, height, width)) then
 								found += 1
 								highest = math.max(highest, height)
 							end
@@ -718,6 +721,54 @@ describe(
 				local mine = makeMine()
 				mine.zones[4].uranium = 6
 				expectFatal(mine, "uranium")
+			end
+		)
+
+		it(
+			"counts the supply in ore, so a few rich rocks cover the target",
+			function()
+				-- 2 + 4 + 8 + 2 x 6 = 26 ore covers 20 x 1.25 = 25, where the
+				-- same rocks at one ore each (16) would not
+				local mine = makeMine()
+				mine.zones[4].uranium = 0
+				mine.zones[4].uranium3 = 2
+				local result = generateOrFail(mine)
+				local zone4 = result.report.zones[4]
+				expect(result.zones[4].veins.uranium).toBe(0)
+				expect(result.zones[4].veins.uranium3).toBe(2)
+				expect(zone4.placedRocks[RawResource.URANIUM_ORE]).toBe(2)
+				expect(zone4.placedOre[RawResource.URANIUM_ORE]).toBe(12)
+				expect(zone4.requestedOre[RawResource.URANIUM_ORE]).toBe(12)
+				expect(zone4.uraniumSoFar).toBe(26)
+				local found = {}
+				local grid = result.grid
+				for depth = result.zones[4].depthStart, grid.depth - 1 do
+					for height = 0, grid.height - 1 do
+						for width = 0, grid.width - 1 do
+							local rock = MineGenerator.getCell(grid, depth, height, width)
+							if RockRules.isUraniumRock(rock) then
+								found[rock] = (found[rock] or 0) + 1
+							end
+						end
+					end
+				end
+				expect(found[RockName.URANIUM_3]).toBe(2)
+				expect(found[RockName.URANIUM_1]).toBeNil()
+				expect(found[RockName.URANIUM_2]).toBeNil()
+			end
+		)
+
+		it(
+			"inherits each uranium tier's count on its own",
+			function()
+				local mine = makeMine()
+				mine.zones[3].uranium2 = 3
+				local result = generateOrFail(mine)
+				-- zone 4 sets uranium but not uranium2, so it inherits zone 3's 3
+				expect(result.zones[4].veins.uranium2).toBe(3)
+				expect(result.zones[4].veins.uranium).toBe(14)
+				expect(result.zones[3].veins.uranium2).toBe(3)
+				expect(result.zones[2].veins.uranium2).toBe(0)
 			end
 		)
 

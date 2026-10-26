@@ -111,7 +111,9 @@ return {
 			tierBias = 4.0,
 			iron = 249,
 			gold = 180,
-			uranium = 14,
+			-- uranium tiers as Deadman's Canyon (2026-10-26)
+			uranium = 0,
+			uranium2 = 8,
 			-- 9 since 2026-10-08 (was 15): 4 by 4 rooms, see DeadmansCanyon
 			pockets = 9,
 			-- radius 2 at most in every zone (designer, 2026-10-07: rooms 12 to 20 studs across, never touching; a radius 3 room was 28 studs)
@@ -126,7 +128,9 @@ return {
 			tierBias = 5.0,
 			iron = 249,
 			gold = 180,
-			uranium = 362,
+			uranium = 0,
+			uranium2 = 0,
+			uranium3 = 60,
 			-- 10 since 2026-10-08 (was 15): 4 by 4 rooms, see DeadmansCanyon
 			pockets = 10,
 		},

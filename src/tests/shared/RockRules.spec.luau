@@ -48,7 +48,7 @@ local function makeRockTable()
 		RESOURCE_TIERS = {
 			[RawResource.IRON_ORE] = { RockName.IRON_1, RockName.IRON_2, RockName.IRON_3, RockName.IRON_4, RockName.IRON_5 },
 			[RawResource.GOLD_ORE] = { RockName.GOLD_1, RockName.GOLD_2, RockName.GOLD_3, RockName.GOLD_4, RockName.GOLD_5 },
-			[RawResource.URANIUM_ORE] = { RockName.URANIUM },
+			[RawResource.URANIUM_ORE] = { RockName.URANIUM_1, RockName.URANIUM_2, RockName.URANIUM_3 },
 		},
 		ROCKS = {
 			[RockName.STONE_1] = { kind = RockKind.FILLER, hp = 10 },
@@ -66,7 +66,9 @@ local function makeRockTable()
 			[RockName.GOLD_3] = makeResource(RawResource.GOLD_ORE, 3, 75, 30, 1, 1),
 			[RockName.GOLD_4] = makeResource(RawResource.GOLD_ORE, 4, 140, 87, 0, 1),
 			[RockName.GOLD_5] = makeResource(RawResource.GOLD_ORE, 5, 1620, 768, 0, 0),
-			[RockName.URANIUM] = makeResource(RawResource.URANIUM_ORE, 1, 100, 1, 0, 0),
+			[RockName.URANIUM_1] = makeResource(RawResource.URANIUM_ORE, 1, 100, 1, 0, 0),
+			[RockName.URANIUM_2] = makeResource(RawResource.URANIUM_ORE, 2, 300, 3, 0, 0),
+			[RockName.URANIUM_3] = makeResource(RawResource.URANIUM_ORE, 3, 600, 6, 0, 0),
 			[RockName.BEDROCK] = { kind = RockKind.BEDROCK },
 		},
 	}
@@ -440,10 +442,22 @@ describe(
 			function()
 				expect(RockRules.rawResourceForRock(RockName.IRON_3)).toBe(RawResource.IRON_ORE)
 				expect(RockRules.rawResourceForRock(RockName.GOLD_1)).toBe(RawResource.GOLD_ORE)
-				expect(RockRules.rawResourceForRock(RockName.URANIUM)).toBe(RawResource.URANIUM_ORE)
+				expect(RockRules.rawResourceForRock(RockName.URANIUM_1)).toBe(RawResource.URANIUM_ORE)
+				expect(RockRules.rawResourceForRock(RockName.URANIUM_3)).toBe(RawResource.URANIUM_ORE)
 				expect(RockRules.rawResourceForRock(RockName.STONE_2)).toBeNil()
 				expect(RockRules.rawResourceForRock(RockName.BEDROCK)).toBeNil()
 				expect(RockRules.rawResourceForRock(99)).toBeNil()
+			end
+		)
+
+		it(
+			"calls every uranium tier uranium and nothing else",
+			function()
+				expect(RockRules.isUraniumRock(RockName.URANIUM_1)).toBe(true)
+				expect(RockRules.isUraniumRock(RockName.URANIUM_2)).toBe(true)
+				expect(RockRules.isUraniumRock(RockName.URANIUM_3)).toBe(true)
+				expect(RockRules.isUraniumRock(RockName.GOLD_5)).toBe(false)
+				expect(RockRules.isUraniumRock(RockName.BEDROCK)).toBe(false)
 			end
 		)
 	end
