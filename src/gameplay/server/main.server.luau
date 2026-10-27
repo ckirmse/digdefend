@@ -25,6 +25,7 @@ local DynamiteManager = require(script.Parent.DynamiteManager)
 local GameplayMapManager = require(script.Parent.GameplayMapManager)
 local GeigerCounterManager = require(script.Parent.GeigerCounterManager)
 local GiveCurrencyManager = require(script.Parent.GiveCurrencyManager)
+local HelicopterManager = require(script.Parent.Parent.Server.HelicopterManager)
 local JetPackManager = require(script.Parent.Parent.Server.JetPackManager)
 local MapManager = require(script.Parent.MapManager)
 local MineDevTools = require(script.Parent.MineDevTools)
@@ -70,6 +71,8 @@ local WeaponManager = require(script.Parent.WeaponManager)
 GameplayMapManager:init()
 RunManager:init()
 MapManager:init()
+-- the flight config the clients fly every approach and departure from (M75)
+HelicopterManager:init()
 
 -- run-start order matters: the map must exist before the helicopter is
 -- placed on its pad and before the mine reads the entrance part

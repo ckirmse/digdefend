@@ -37,6 +37,14 @@ describe(
 			end
 		)
 		it(
+			"leaves empty only with nobody aboard once the empty window is up",
+			function()
+				expect(RescueRules.shouldDepartEmpty(0, 100, 130, 45)).toBe(false)
+				expect(RescueRules.shouldDepartEmpty(0, 100, 145, 45)).toBe(true)
+				expect(RescueRules.shouldDepartEmpty(1, 100, 200, 45)).toBe(false)
+			end
+		)
+		it(
 			"records a completion only when every prerequisite is held",
 			function()
 				local held = { ["DEADMANS_CANYON/NORMAL"] = true }

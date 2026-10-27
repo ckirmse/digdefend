@@ -4,17 +4,26 @@
 -- for both places: the lobby pads and the camp pad. A helicopter is a
 -- server model tagged Tags.HELICOPTER whose HelicopterPhase attribute drives
 -- every visual on the clients (ClientHelicopterManager); the server never
--- animates it. Seats are kept Disabled so the engine never auto-seats a
--- passer-by; a caller enables one only for its own Sit call.
+-- animates it. A flight (an approach onto a pad, a departure from one;
+-- M75) is three more attributes, the server time it began, the pad's
+-- CFrame, and the departure's heading, which every client samples through
+-- pure HelicopterFlightRules against the flight config this manager
+-- publishes once as GameMetadata JSON (GameData/Control/Helicopter), so
+-- all clients draw the same flight. Seats are kept Disabled so the engine
+-- never auto-seats a passer-by; a caller enables one only for its own Sit
+-- call.
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local HelicopterFlightRules = require("@game/ReplicatedStorage/Shared/HelicopterFlightRules")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
+local HelicopterData = require("@game/ServerScriptService/GameData/Control/Helicopter")
 local SpatialSoundManager = require(script.Parent.SpatialSoundManager)
+local SplendidReplicationManager = require(script.Parent.SplendidReplicationManager)
 
 local HelicopterManager = {}
 HelicopterManager.__index = HelicopterManager
@@ -80,6 +89,12 @@ function HelicopterManager:getSeats(helicopter: Model): { Seat }
 	return seats
 end
 
+-- the template's authored Board prompt (M75), wherever the designer put it
+function HelicopterManager:getBoardPrompt(helicopter: Model): ProximityPrompt?
+	local prompt = helicopter:FindFirstChild(Constants.HELICOPTER_BOARD_PROMPT, true)
+	return if prompt and prompt:IsA("ProximityPrompt") then prompt else nil
+end
+
 function HelicopterManager:setPhase(helicopter: Model, phase: number)
 	helicopter:SetAttribute(Attributes.HELICOPTER_PHASE, phase)
 end
@@ -96,6 +111,11 @@ function HelicopterManager:spawnAt(spawnPart: BasePart, parent: Instance, phase:
 	for _, seat in self:getSeats(helicopter) do
 		seat.Disabled = true
 	end
+	-- the authored prompt is for the rescue alone, and only once landed
+	local boardPrompt = self:getBoardPrompt(helicopter)
+	if boardPrompt then
+		boardPrompt.Enabled = false
+	end
 	self:setPhase(helicopter, phase)
 	CollectionService:AddTag(helicopter, Tags.HELICOPTER)
 	helicopter.Parent = parent
@@ -109,10 +129,44 @@ function HelicopterManager:spawnAt(spawnPart: BasePart, parent: Instance, phase:
 	return helicopter
 end
 
+-- a helicopter in the air on its way to a pad (M75): spawned at the
+-- approach part, it flies in from flightStartTime and is on the pad
+-- APPROACH_SEC later; the caller lands it then (land). nil when the
+-- template is missing
+function HelicopterManager:spawnApproaching(approachPart: BasePart, padPart: BasePart, parent: Instance, flightStartTime: number): Model?
+	local helicopter = self:spawnAt(approachPart, parent, Enums.HelicopterPhase.APPROACHING)
+	if not helicopter then
+		return nil
+	end
+	helicopter:SetAttribute(Attributes.HELICOPTER_PAD_CFRAME, padPart.CFrame)
+	helicopter:SetAttribute(Attributes.HELICOPTER_FLIGHT_START_TIME, flightStartTime)
+	return helicopter
+end
+
+-- a flight in progress is shifted (the dev tool's pause lifted)
+function HelicopterManager:shiftFlightStart(helicopter: Model, deltaSec: number)
+	local startTime = helicopter:GetAttribute(Attributes.HELICOPTER_FLIGHT_START_TIME)
+	if typeof(startTime) == "number" then
+		helicopter:SetAttribute(Attributes.HELICOPTER_FLIGHT_START_TIME, startTime + deltaSec)
+	end
+end
+
+-- the approach is over: the model sits on the pad for real (the clients
+-- already drew it there) with its rotor turning
+function HelicopterManager:land(helicopter: Model, padPart: BasePart)
+	helicopter:PivotTo(padPart.CFrame)
+	self:setPhase(helicopter, Enums.HelicopterPhase.SPINNING)
+end
+
 -- a launched helicopter stays in the world (renamed, so it is no longer the
--- pad's helicopter) while clients fly it off, then goes away for good
-function HelicopterManager:retire(helicopter: Model, lifetimeSec: number)
+-- pad's helicopter) while clients fly it off along the heading (flat; its
+-- own facing when none is given), then goes away for good
+function HelicopterManager:retire(helicopter: Model, lifetimeSec: number, heading: Vector3?)
 	helicopter.Name = Constants.DEPARTED_HELICOPTER_NAME
+	local pivot = helicopter:GetPivot()
+	helicopter:SetAttribute(Attributes.HELICOPTER_PAD_CFRAME, pivot)
+	helicopter:SetAttribute(Attributes.HELICOPTER_HEADING, HelicopterFlightRules.flatDirection(Vector3.zero, HelicopterFlightRules.flatten(heading or pivot.LookVector), pivot.LookVector))
+	helicopter:SetAttribute(Attributes.HELICOPTER_FLIGHT_START_TIME, workspace:GetServerTimeNow())
 	self:setPhase(helicopter, Enums.HelicopterPhase.FLYING)
 	task.delay(
 		lifetimeSec,
@@ -122,6 +176,27 @@ function HelicopterManager:retire(helicopter: Model, lifetimeSec: number)
 			end
 		end
 	)
+end
+
+-- an approach called off mid-air (the run lost under it): the server
+-- puts the model where every client is drawing it at this moment (the
+-- same pure pose) and sends it away from there, so it turns off rather
+-- than vanishing or snapping to its spawn
+function HelicopterManager:abortApproach(helicopter: Model, lifetimeSec: number)
+	local padCFrame = helicopter:GetAttribute(Attributes.HELICOPTER_PAD_CFRAME)
+	local startTime = helicopter:GetAttribute(Attributes.HELICOPTER_FLIGHT_START_TIME)
+	local heading: Vector3? = nil
+	if typeof(padCFrame) == "CFrame" and typeof(startTime) == "number" then
+		local pose = HelicopterFlightRules.approachPose(helicopter:GetPivot().Position, padCFrame, HelicopterData :: any, workspace:GetServerTimeNow() - startTime)
+		helicopter:PivotTo(pose)
+		heading = pose.LookVector
+	end
+	self:retire(helicopter, lifetimeSec, heading)
+end
+
+-- the flight config reaches every client once, as GameMetadata
+function HelicopterManager:init()
+	SplendidReplicationManager:setGameMetadata(Attributes.HELICOPTER_FLIGHT_CONFIG, HelicopterFlightRules.encodeConfig(HelicopterData :: any))
 end
 
 function HelicopterManager.new(): HelicopterManager

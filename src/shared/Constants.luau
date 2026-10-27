@@ -98,6 +98,16 @@ Constants.HELICOPTER_TEMPLATE = "Helicopter"
 Constants.HELICOPTER_PLAYER_SPAWNS_FOLDER = "PlayerSpawns"
 -- a launched helicopter is renamed to this while clients fly it away
 Constants.DEPARTED_HELICOPTER_NAME = "DepartedHelicopter"
+-- authored on the template (M75): the Board prompt the rescue enables once
+-- it has landed, and the SpotLight lit on the way in
+Constants.HELICOPTER_BOARD_PROMPT = "BoardPrompt"
+Constants.HELICOPTER_SEARCHLIGHT = "Searchlight"
+-- on the camp's HelicopterPad (M75): where the rescue approach begins, the
+-- part whose facing the departure heads along, and the part carrying the
+-- touchdown dust emitter
+Constants.PAD_APPROACH_SPAWN_PART = "ApproachSpawn"
+Constants.PAD_DEPARTURE_HEADING_PART = "DepartureHeading"
+Constants.PAD_DUST_PART = "Dust"
 
 -- gameplay map layout (Studio-authored; GameplayMapManager checks it when a
 -- map loads). Every map is a Folder under ServerStorage/Maps named by its
@@ -537,6 +547,12 @@ Constants.RUN_PAUSED_LABEL = "Label"
 -- build_rescue_countdown_gui.luau, ClientRescueManager)
 Constants.RESCUE_COUNTDOWN_GUI_NAME = "RescueCountdown"
 Constants.RESCUE_COUNTDOWN_LABEL = "Label"
+-- the designer's RESCUE HELICOPTER INCOMING flash (M75, 2026-10-27), shown
+-- once the radio's dispatch message (the Rescue Sound on Camp.Radio) has
+-- played
+Constants.RESCUE_INCOMING_GUI_NAME = "RescueIncoming"
+Constants.RESCUE_INCOMING_LABEL = "TextLabel"
+Constants.RADIO_DISPATCH_SOUND = "Rescue"
 Constants.REFINERY_HP_GUI_NAME = "RefineryHp"
 Constants.REFINERY_HP_ROOT_FRAME = "Root"
 Constants.REFINERY_HP_ICON = "Icon"

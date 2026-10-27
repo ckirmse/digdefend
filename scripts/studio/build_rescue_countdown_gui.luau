@@ -1,8 +1,8 @@
 -- Builds the "RescueCountdown" ScreenGui under StarterGui (2026-10-07): one
 -- line of title text in the day clock's spot, top centre, that
 -- ClientRescueManager slides down once the radio is used and the clock
--- has slid away: "FINAL WAVE ARRIVES IN: 00:30", then "HELICOPTER
--- ARRIVES IN: 01:00", then "THE HELICOPTER HAS ARRIVED. BOARD IT NOW!".
+-- has slid away: "FINAL NIGHT BEGINS IN: 00:30", then "HELICOPTER
+-- ARRIVES IN: 01:00", then the boarding deadline (M75).
 -- Run from the Studio command bar (or the MCP execute_luau tool) in the
 -- gameplay place; it replaces any existing copy. Names must match
 -- Constants.RESCUE_COUNTDOWN_*. Scale only, a max size, no pixel minimums
@@ -42,7 +42,7 @@ label.BackgroundTransparency = 1
 label.FontFace = UiStyle.TITLE_FONT
 label.TextColor3 = UiStyle.TEXT_COLOR
 label.TextScaled = true
-label.Text = UiStyle.formatTitle("Final Wave Arrives In: 00:30")
+label.Text = UiStyle.formatTitle("Final Night Begins In: 00:30")
 label.TextXAlignment = Enum.TextXAlignment.Center
 local sizeConstraint = Instance.new("UISizeConstraint")
 sizeConstraint.MaxSize = Vector2.new(CLOCK_MAX_SIZE.X * 1.6, CLOCK_MAX_SIZE.Y * 0.5)
@@ -51,10 +51,7 @@ local textSize = Instance.new("UITextSizeConstraint")
 textSize.MinTextSize = UiStyle.TITLE_TEXT_MIN_PX
 textSize.MaxTextSize = UiStyle.TITLE_TEXT_MAX_PX
 textSize.Parent = label
-local stroke = Instance.new("UIStroke")
-stroke.Thickness = UiStyle.STROKE_PX
-stroke.Color = UiStyle.ACCENT_STROKE_COLOR
-stroke.Parent = label
+-- no stroke: the designer dropped the outline (2026-10-27)
 label.Parent = gui
 
 gui.Parent = StarterGui

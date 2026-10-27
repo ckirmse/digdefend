@@ -110,6 +110,9 @@ export type ClientReviveManager = typeof(setmetatable(
 		savedCameraMode: Enum.CameraMode?,
 		isDead: boolean,
 		hasShownRunEnd: boolean,
+		-- a rider's lift-off camera (ClientRescueCameraManager, M75) holds
+		-- the run's end back until its ride is over
+		isRunEndDeferred: boolean,
 		stepAccumulatorSec: number,
 		graveTemplate: Model?,
 		graveFolder: Folder?,
@@ -429,6 +432,22 @@ function ClientReviveManager:openMenu()
 	menuGui.Enabled = true
 	ClientOverlayManager:notifyBeginOverlay(overlay)
 	self:setHudHidden(self.isDead)
+	-- a won run's sting, as its RUN WON opens (M75)
+	if ClientDataManager:getGameMetadata(Attributes.RUN_STATE) == Enums.RunState.WON then
+		ClientSoundManager:playSfx(SoundNames.Sfx.RESCUE_WIN)
+	end
+end
+
+-- while a rider's camera is on the lift-off the run's end waits; once
+-- the ride is over the deferred end shows at once
+function ClientReviveManager:setRunEndDeferred(isDeferred: boolean)
+	if self.isRunEndDeferred == isDeferred then
+		return
+	end
+	self.isRunEndDeferred = isDeferred
+	if not isDeferred then
+		self:onRunStateChanged()
+	end
 end
 
 -- a limp body must not be animated: the joint that holds the root part
@@ -774,7 +793,7 @@ function ClientReviveManager:onRunStateChanged()
 		self.hasShownRunEnd = false
 		return
 	end
-	if self.hasShownRunEnd then
+	if self.hasShownRunEnd or self.isRunEndDeferred then
 		return
 	end
 	self.hasShownRunEnd = true
@@ -1254,6 +1273,7 @@ function ClientReviveManager.new(): ClientReviveManager
 	self.savedCameraMode = nil
 	self.isDead = false
 	self.hasShownRunEnd = false
+	self.isRunEndDeferred = false
 	self.stepAccumulatorSec = 0
 	self.graveTemplate = nil
 	self.graveFolder = nil

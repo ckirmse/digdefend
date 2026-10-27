@@ -1009,6 +1009,36 @@ function ClientMonsterManager:onDied(payload: any)
 	end
 end
 
+-- monsters that go without a death (the mine's at the rescue call, M75):
+-- a drawn rig fades where it stands, the floater's way; a far body or a
+-- monster never drawn simply goes
+function ClientMonsterManager:onFaded(payload: any)
+	local isValid, errorMessage = Validate.isTableShape(payload, NOTIFY_MONSTERS_DIED_SHAPE)
+	if not isValid then
+		warn("ClientMonsterManager: malformed NotifyMonstersFaded:", errorMessage)
+		return
+	end
+	for _, id in payload.ids do
+		local monster = self.monstersById[id]
+		if not monster then
+			continue
+		end
+		self.monstersById[monster.id] = nil
+		self.monsterByDamageableId[monster.damageableId] = nil
+		monster.isBurning = false
+		self:updateFire(monster)
+		local rig = monster.rig
+		if rig then
+			self:fadeOutRig(rig :: Rig)
+			monster.rig = nil
+		end
+		local body = monster.held or monster.proxy
+		if body then
+			self:releaseBody(body)
+		end
+	end
+end
+
 function ClientMonsterManager:onProjectile(payload: any)
 	local isValid, errorMessage = Validate.isTableShape(payload, NOTIFY_MONSTER_PROJECTILE_SHAPE)
 	if not isValid then
@@ -1793,6 +1823,12 @@ function ClientMonsterManager:init()
 		NetEventNames.NOTIFY_MONSTERS_DIED,
 		function(payload: any)
 			self:onDied(payload)
+		end
+	)
+	ClientNetManager:registerHandler(
+		NetEventNames.NOTIFY_MONSTERS_FADED,
+		function(payload: any)
+			self:onFaded(payload)
 		end
 	)
 	ClientNetManager:registerHandler(

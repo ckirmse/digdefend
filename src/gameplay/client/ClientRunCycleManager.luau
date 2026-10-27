@@ -271,7 +271,10 @@ function ClientRunCycleManager:stepSky(runState: number, startTime: number, endT
 	local duskTransitionSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_LIGHTING_DUSK_TRANSITION_SEC), DEFAULT_DUSK_TRANSITION_SEC)
 	local spawnSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_NIGHT_SPAWN_SEC), DEFAULT_NIGHT_SPAWN_SEC)
 	local heldDayShare = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_RESCUE_HELD_DAY_SHARE), -1)
-	local stage, share = RunCycleRules.skyStage(runState, startTime, endTime, now, dawnTransitionSec, duskTransitionSec, spawnSec, heldDayShare)
+	-- a Rescue Wait's sky holds through the call sequence, then eases to
+	-- the day's end over the breather (M75)
+	local breatherStartTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_COUNTDOWN_START_TIME), startTime)
+	local stage, share = RunCycleRules.skyStage(runState, startTime, endTime, now, dawnTransitionSec, duskTransitionSec, spawnSec, heldDayShare, breatherStartTime)
 	local from, to = LightingPresets.stageEnds(presets, stage)
 	self:applyBlend(Lighting, from.LIGHTING, to.LIGHTING, share)
 	for childName, fromChild in from.CHILDREN do

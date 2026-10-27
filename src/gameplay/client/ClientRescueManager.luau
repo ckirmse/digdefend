@@ -18,12 +18,14 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local ClientHudSlide = require(script.Parent.Parent.Client.ClientHudSlide)
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
+local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 
 local ClientRescueManager = {}
 ClientRescueManager.__index = ClientRescueManager
@@ -46,6 +48,18 @@ export type ClientRescueManager = typeof(setmetatable(
 		countdownSlide: ClientHudSlide.ClientHudSlide?,
 		isCountdownShown: boolean,
 		shownCountdown: string,
+		-- how many were aboard last frame, so each new rider chimes once
+		shownAboardCount: number,
+		lastRunState: number,
+		-- the call sequence: the designer's INCOMING gui, the tint while it
+		-- is up, and a counter that lets a dropped sequence stop short
+		incomingGui: ScreenGui?,
+		incomingLabel: TextLabel?,
+		incomingFirstText: string?,
+		colorCorrection: ColorCorrectionEffect?,
+		callGeneration: number,
+		-- the countdown waits for the sequence to finish (designer, 2026-10-27)
+		isCallSequenceRunning: boolean,
 	},
 	ClientRescueManager
 ))
@@ -64,14 +78,29 @@ local STATUS_WAITING = "Complete your Uranium quota to call in a rescue helicopt
 local STATUS_READY = "Quota Complete. Call in a rescue helicopter"
 local STATUS_FLYING = "Rescue helicopter incoming. Hold the line until it arrives."
 local STATUS_BOARDING_FORMAT = "Boarding  %d / %d aboard, leaving in %d s"
-local STATUS_BOARDING_WAITING_FORMAT = "Boarding  %d / %d aboard"
 local STATUS_WON = "Rescued"
 local STATUS_LOST = "No rescue is coming"
 -- the countdown where the day clock was: it follows the clock up the
--- screen and comes down in its place (designer, 2026-10-07)
-local COUNTDOWN_WAVE_FORMAT = "Final Wave Arrives In: %s"
+-- screen and comes down in its place (designer, 2026-10-07); its last
+-- stretch names the approach, and once landed it counts the deadline
+-- down (M75)
+local COUNTDOWN_WAVE_FORMAT = "Final Night Begins In: %s"
 local COUNTDOWN_HELICOPTER_FORMAT = "Helicopter Arrives In: %s"
-local COUNTDOWN_LANDED_TEXT = "The helicopter has arrived. Board it now!"
+local COUNTDOWN_INBOUND_FORMAT = "Helicopter Inbound: %s"
+local COUNTDOWN_LEAVING_FORMAT = "Leaving In: %s"
+local COUNTDOWN_BOARD_FORMAT = "Board Now. Leaving In: %s"
+-- the call sequence (designer, 2026-10-27): the green tint stays up
+-- INCOMING_TEXT_SWAP_SEC, at which moment the gui's line changes to the
+-- second one with the day card's sting, and the gui itself stays up
+-- INCOMING_FLASH_SEC in all; then how long to wait on a dispatch Sound
+-- whose length is unknown
+local INCOMING_FLASH_SEC = 6
+local INCOMING_TEXT_SWAP_SEC = 3
+local INCOMING_SECOND_TEXT = "Survive the final night"
+local DISPATCH_FALLBACK_SEC = 8
+local DISPATCH_END_GRACE_SEC = 0.5
+local INCOMING_TINT_NAME = "RescueIncomingTint"
+local INCOMING_TINT_COLOR = Color3.fromRGB(0, 255, 0)
 local COUNTDOWN_HIDDEN_POSITION_Y_SCALE = -0.3
 -- the radio's screen once the quota is met (the designer's colour)
 local QUOTA_COMPLETE_TEXT = "QUOTA COMPLETE"
@@ -102,6 +131,9 @@ function ClientRescueManager:attachBillboard()
 	-- the designer places GuiPart where the sign should float
 	billboard.Adornee = adornee
 	billboard.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	-- a run already past its call shows no sign (a late viewer)
+	local runState = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_STATE), Enums.RunState.DAY)
+	billboard.Enabled = runState == Enums.RunState.DAY or runState == Enums.RunState.NIGHT or runState == Enums.RunState.WAITING
 	self:findScreen(radio)
 	self.billboard = billboard
 	local root = billboard:FindFirstChild(Constants.RESCUE_RADIO_ROOT_FRAME)
@@ -171,9 +203,6 @@ function ClientRescueManager:statusText(now: number): string
 		end
 		local aboard = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_ABOARD_COUNT), 0)
 		local crew = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_CREW_COUNT), 0)
-		if aboard <= 0 then
-			return string.format(STATUS_BOARDING_WAITING_FORMAT, aboard, crew)
-		end
 		return string.format(STATUS_BOARDING_FORMAT, aboard, crew, secondsLeft)
 	end
 	local total = readNumber(ClientDataManager:getGameMetadata(Attributes.URANIUM_TOTAL), 0)
@@ -195,15 +224,188 @@ function ClientRescueManager:countdownText(now: number): string?
 		now = pauseStartTime
 	end
 	if runState == Enums.RunState.RESCUE_WAIT then
+		-- nothing until the call sequence has played out here and the
+		-- breather has begun on the server (a late viewer sees it at once)
+		local countdownStartTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_COUNTDOWN_START_TIME), 0)
+		if self.isCallSequenceRunning or now < countdownStartTime then
+			return nil
+		end
 		return UiStyle.formatTitle(string.format(COUNTDOWN_WAVE_FORMAT, formatClock(endTime - now)))
 	end
 	if runState == Enums.RunState.RESCUE then
+		local clock = formatClock(endTime - now)
 		if ClientDataManager:getGameMetadata(Attributes.RESCUE_IS_LANDED) == true then
-			return UiStyle.formatTitle(COUNTDOWN_LANDED_TEXT)
+			local aboard = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_ABOARD_COUNT), 0)
+			return UiStyle.formatTitle(string.format(if aboard > 0 then COUNTDOWN_LEAVING_FORMAT else COUNTDOWN_BOARD_FORMAT, clock))
 		end
-		return UiStyle.formatTitle(string.format(COUNTDOWN_HELICOPTER_FORMAT, formatClock(endTime - now)))
+		local approachSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_APPROACH_SEC), 0)
+		if endTime - now <= approachSec then
+			return UiStyle.formatTitle(string.format(COUNTDOWN_INBOUND_FORMAT, clock))
+		end
+		return UiStyle.formatTitle(string.format(COUNTDOWN_HELICOPTER_FORMAT, clock))
 	end
 	return nil
+end
+
+-- each crewmate boarding chimes for everyone (M75); a count that falls
+-- (a rider died or left) is quiet
+function ClientRescueManager:chimeBoardingIfNeeded()
+	local aboard = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_ABOARD_COUNT), 0)
+	if aboard > self.shownAboardCount then
+		ClientSoundManager:playSfx(SoundNames.Sfx.RESCUE_BOARD)
+	end
+	self.shownAboardCount = aboard
+end
+
+-- the designer's dispatch message on the radio model, a Sound under
+-- Camp.Radio (3D, so it is heard from the table)
+function ClientRescueManager:findDispatchSound(): Sound?
+	local camp = workspace:FindFirstChild(Constants.CAMP_FOLDER)
+	local radio = if camp then camp:FindFirstChild(Constants.CAMP_RADIO_MODEL) else nil
+	local sound = if radio then radio:FindFirstChild(Constants.RADIO_DISPATCH_SOUND, true) else nil
+	return if sound and sound:IsA("Sound") then sound else nil
+end
+
+-- the flash comes off: the gui (its first line put back for the next
+-- call), the green tint
+function ClientRescueManager:endIncomingFlash()
+	local gui = self.incomingGui
+	if gui then
+		gui.Enabled = false
+	end
+	local label = self.incomingLabel
+	if label and self.incomingFirstText then
+		label.Text = self.incomingFirstText
+	end
+	self:endIncomingTint()
+	self:endCallSequence()
+end
+
+function ClientRescueManager:endIncomingTint()
+	local colorCorrection = self.colorCorrection
+	if colorCorrection then
+		colorCorrection:Destroy()
+		self.colorCorrection = nil
+	end
+end
+
+-- the call sequence (designer, 2026-10-27): the radio's dispatch message
+-- plays out from the table, then the RESCUE HELICOPTER INCOMING gui and
+-- a green tint come up with the incoming sting; INCOMING_TEXT_SWAP_SEC in
+-- the tint goes and the line becomes SURVIVE THE FINAL NIGHT with the day
+-- card's sting, and INCOMING_FLASH_SEC after it came up the gui goes
+-- away. A call that is over before the sequence finishes (the Team
+-- Revive starting the day over) drops the rest of it
+function ClientRescueManager:playCallSequence()
+	self.callGeneration += 1
+	local generation = self.callGeneration
+	self.isCallSequenceRunning = true
+	task.spawn(
+		function()
+			local dispatch = self:findDispatchSound()
+			if dispatch then
+				dispatch:Play()
+				-- a Sound that has not loaded reports no length; the wait is
+				-- bounded either way
+				local waitSec = if dispatch.TimeLength > 0 then dispatch.TimeLength else DISPATCH_FALLBACK_SEC
+				local deadline = workspace:GetServerTimeNow() + waitSec + DISPATCH_END_GRACE_SEC
+				while dispatch.IsPlaying and workspace:GetServerTimeNow() < deadline do
+					task.wait(0.1)
+				end
+			else
+				warn(`ClientRescueManager: the radio has no {Constants.RADIO_DISPATCH_SOUND} Sound; the dispatch message is skipped`)
+			end
+			if generation ~= self.callGeneration then
+				return
+			end
+			local gui = self.incomingGui
+			if gui then
+				gui.Enabled = true
+			end
+			local camera = workspace.CurrentCamera
+			if camera and not self.colorCorrection then
+				local colorCorrection = Instance.new("ColorCorrectionEffect")
+				colorCorrection.Name = INCOMING_TINT_NAME
+				colorCorrection.TintColor = INCOMING_TINT_COLOR
+				colorCorrection.Parent = camera
+				self.colorCorrection = colorCorrection
+			end
+			ClientSoundManager:playSfx(SoundNames.Sfx.RESCUE_INCOMING)
+			task.wait(INCOMING_TEXT_SWAP_SEC)
+			if generation ~= self.callGeneration then
+				return
+			end
+			self:endIncomingTint()
+			local label = self.incomingLabel
+			if label then
+				label.Text = UiStyle.formatTitle(INCOMING_SECOND_TEXT)
+			end
+			ClientSoundManager:playSfx(SoundNames.Sfx.DAY_CARD)
+			task.wait(INCOMING_FLASH_SEC - INCOMING_TEXT_SWAP_SEC)
+			if generation ~= self.callGeneration then
+				return
+			end
+			self:endIncomingFlash()
+		end
+	)
+end
+
+-- the sequence is over (or dropped): the countdown may show
+function ClientRescueManager:endCallSequence()
+	self.isCallSequenceRunning = false
+end
+
+-- the call sequence starts as the run enters its Rescue Wait and is
+-- dropped when the run leaves it: the final wave, the day starting over,
+-- or the run's end
+function ClientRescueManager:onRunStateChanged()
+	local runState = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_STATE), Enums.RunState.DAY)
+	if runState == self.lastRunState then
+		return
+	end
+	local wasWaiting = self.lastRunState == Enums.RunState.RESCUE_WAIT
+	self.lastRunState = runState
+	if runState == Enums.RunState.RESCUE_WAIT then
+		-- the radio has done its job: its sign goes (designer, 2026-10-27)
+		self:setBillboardShown(false)
+		self:playCallSequence()
+		return
+	end
+	if wasWaiting then
+		self.callGeneration += 1
+		self:endIncomingFlash()
+		-- the day starting over (the Team Revive) brings the sign back;
+		-- the final wave and the run's end leave it off
+		if runState == Enums.RunState.DAY or runState == Enums.RunState.NIGHT then
+			self:setBillboardShown(true)
+		end
+	end
+end
+
+function ClientRescueManager:setBillboardShown(isShown: boolean)
+	local billboard = self.billboard
+	if billboard then
+		billboard.Enabled = isShown
+	end
+end
+
+function ClientRescueManager:findIncomingGui()
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local gui = playerGui:WaitForChild(Constants.RESCUE_INCOMING_GUI_NAME, 10)
+	if not gui or not gui:IsA("ScreenGui") then
+		warn(`ClientRescueManager: no {Constants.RESCUE_INCOMING_GUI_NAME} ScreenGui in StarterGui; the incoming flash is skipped`)
+		return
+	end
+	gui.Enabled = false
+	self.incomingGui = gui
+	local label = gui:FindFirstChild(Constants.RESCUE_INCOMING_LABEL)
+	if label and label:IsA("TextLabel") then
+		self.incomingLabel = label
+		-- the designer's own line, restored after each flash
+		self.incomingFirstText = label.Text
+	else
+		warn(`ClientRescueManager: the {Constants.RESCUE_INCOMING_GUI_NAME} gui has no {Constants.RESCUE_INCOMING_LABEL}; its line cannot change`)
+	end
 end
 
 function ClientRescueManager:renderCountdown(now: number)
@@ -247,6 +449,8 @@ end
 function ClientRescueManager:render()
 	local now = workspace:GetServerTimeNow()
 	self:renderCountdown(now)
+	self:chimeBoardingIfNeeded()
+	self:onRunStateChanged()
 	local total = readNumber(ClientDataManager:getGameMetadata(Attributes.URANIUM_TOTAL), 0)
 	local target = readNumber(ClientDataManager:getGameMetadata(Attributes.URANIUM_TARGET), 0)
 	local uraniumText = string.format(URANIUM_FORMAT, total, target)
@@ -307,6 +511,11 @@ function ClientRescueManager:init()
 			self:findCountdownGui()
 		end
 	)
+	task.spawn(
+		function()
+			self:findIncomingGui()
+		end
+	)
 	RunService.Heartbeat:Connect(
 		function()
 			self:step()
@@ -331,6 +540,14 @@ function ClientRescueManager.new(): ClientRescueManager
 	self.countdownSlide = nil
 	self.isCountdownShown = false
 	self.shownCountdown = ""
+	self.shownAboardCount = 0
+	self.lastRunState = Enums.RunState.DAY
+	self.incomingGui = nil
+	self.incomingLabel = nil
+	self.incomingFirstText = nil
+	self.colorCorrection = nil
+	self.callGeneration = 0
+	self.isCallSequenceRunning = false
 	return self
 end
 

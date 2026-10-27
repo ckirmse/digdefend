@@ -138,6 +138,8 @@ export type MonsterManager = typeof(setmetatable(
 		-- batched for the next tick's notifies
 		pendingSpawnIds: { number },
 		pendingDeathIds: { number },
+		-- monsters gone without a death: the clients fade them (M75)
+		pendingFadeIds: { number },
 		-- monsters that took a new target they announce (a lurker's cry);
 		-- sent after the spawns so a client never hears an id it has not met
 		pendingAlertIds: { number },
@@ -474,6 +476,25 @@ function MonsterManager:killWave()
 	self.projectiles = {}
 	self:sweepDead()
 	self:clearRefineryAttack()
+end
+
+-- the mine's monsters (the crawlers: lurkers, Drags) go without a death
+-- as the rescue call's INCOMING flash goes up (M75, designer): no death
+-- cry or fall, the clients fade them where they stand. Sent at once,
+-- since a day's tick has no other notifies to ride with
+function MonsterManager:fadeOutCrawlers()
+	for _, monster in self.monsters do
+		if not monster.isCrawler or monster.isDead then
+			continue
+		end
+		DamageableManager:unregister(monster.damageableId)
+		monster.isDead = true
+		self.monsterById[monster.id] = nil
+		self.monsterByDamageableId[monster.damageableId] = nil
+		table.insert(self.pendingFadeIds, monster.id)
+	end
+	self:sweepDead()
+	self:flushNotifies()
 end
 
 function MonsterManager:killAll()
@@ -1208,6 +1229,12 @@ function MonsterManager:flushNotifies()
 		})
 		self.pendingDeathIds = {}
 	end
+	if #self.pendingFadeIds > 0 then
+		NetManager:notifyAllClients(NetEventNames.NOTIFY_MONSTERS_FADED, {
+			ids = self.pendingFadeIds,
+		})
+		self.pendingFadeIds = {}
+	end
 	if #self.pendingAlertIds > 0 then
 		for _, id in self.pendingAlertIds do
 			if self.monsterById[id] then
@@ -1392,6 +1419,7 @@ function MonsterManager.new(): MonsterManager
 	self.lastRefineryHitTime = -math.huge
 	self.pendingSpawnIds = {}
 	self.pendingDeathIds = {}
+	self.pendingFadeIds = {}
 	self.pendingAlertIds = {}
 	self.metricsByModel = {}
 	self.warnedModels = {}

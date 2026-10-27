@@ -19,13 +19,20 @@ function RescueRules.finalWaveNight(day: number): number
 end
 
 -- the helicopter leaves once everyone still standing is aboard, or
--- timeoutSec after landing with at least one aboard; with nobody aboard it
--- waits (decided 2026-09-24)
+-- timeoutSec after landing with at least one aboard; with nobody aboard
+-- this never says so (decided 2026-09-24; the empty case is
+-- shouldDepartEmpty since M75)
 function RescueRules.shouldDepart(aboardCount: number, livingCount: number, landedTime: number, now: number, timeoutSec: number): boolean
 	if aboardCount <= 0 then
 		return false
 	end
 	return aboardCount >= livingCount or now - landedTime >= timeoutSec
+end
+
+-- with nobody aboard the helicopter leaves empty emptyTimeoutSec after
+-- landing, and the run is lost (M75; it waited forever before)
+function RescueRules.shouldDepartEmpty(aboardCount: number, landedTime: number, now: number, emptyTimeoutSec: number): boolean
+	return aboardCount <= 0 and now - landedTime >= emptyTimeoutSec
 end
 
 -- a completion counts only for a player who already holds every

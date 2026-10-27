@@ -111,6 +111,9 @@ module = {
 		IDLE = 1,
 		SPINNING = 2,
 		FLYING = 3,
+		-- on its way in to a pad (M75), flown by the clients from the
+		-- flight start time
+		APPROACHING = 4,
 	},
 	-- what a player can hold (GDD "Tools"); the tool bar shows these in a
 	-- stable order and only one is equipped at a time
@@ -594,6 +597,9 @@ module = {
 		RESCUED = 1,
 		REFINERY_DESTROYED = 2,
 		CREW_DEAD = 3,
+		-- the rescue helicopter waited its window and left with nobody
+		-- aboard (M75)
+		HELICOPTER_LEFT = 4,
 	},
 	-- the three ways a dead player comes back (GDD "Health and Revives",
 	-- M32), each its own Robux developer product; keys double as the

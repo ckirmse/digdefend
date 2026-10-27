@@ -191,6 +191,9 @@ module = {
 	-- monster in one spawned message
 	NOTIFY_MONSTERS_SPAWNED = "NotifyMonstersSpawned",
 	NOTIFY_MONSTERS_DIED = "NotifyMonstersDied",
+	-- monsters that fade away where they stand rather than dying (the
+	-- mine's monsters at the rescue call, M75)
+	NOTIFY_MONSTERS_FADED = "NotifyMonstersFaded",
 	NOTIFY_MONSTER_PROJECTILE = "NotifyMonsterProjectile",
 	NOTIFY_MONSTER_BLAST = "NotifyMonsterBlast",
 	-- a monster took a new target it announces (a lurker's alert cry, M62)

@@ -168,6 +168,15 @@ module = {
 	DYNAMITE_LAUNCH_VELOCITY = "DynamiteLaunchVelocity",
 	-- on every helicopter model (Tags.HELICOPTER): Enums.HelicopterPhase
 	HELICOPTER_PHASE = "HelicopterPhase",
+	-- on a helicopter that is APPROACHING or FLYING (M75): the server time
+	-- its flight began, the pad it lands on or left (a CFrame), and the
+	-- flat direction a departure heads (a Vector3); the clients sample
+	-- HelicopterFlightRules from these
+	HELICOPTER_FLIGHT_START_TIME = "HelicopterFlightStartTime",
+	HELICOPTER_PAD_CFRAME = "HelicopterPadCFrame",
+	HELICOPTER_HEADING = "HelicopterHeading",
+	-- GameMetadata: the flight config (GameData/Control/Helicopter) as JSON
+	HELICOPTER_FLIGHT_CONFIG = "HelicopterFlight",
 	-- on each helicopter pad model: PadIndex is Studio-authored, the rest is
 	-- runtime party state written only by PartyManager (GDD "Helicopter Pads")
 	PAD_INDEX = "PadIndex",
@@ -289,6 +298,14 @@ module = {
 	RESCUE_IS_LANDED = "RescueIsLanded",
 	RESCUE_ABOARD_COUNT = "RescueAboardCount",
 	RESCUE_CREW_COUNT = "RescueCrewCount",
+	-- GameMetadata (M75): how long before the landing the approach is in
+	-- the air (the countdown names it), and how long a rider's camera
+	-- follows the lift-off before the Results Menu
+	RESCUE_APPROACH_SEC = "RescueApproachSec",
+	RESCUE_RIDE_SEC = "RescueRideSec",
+	-- GameMetadata: when the breather's countdown begins, CALL_SEQUENCE_SEC
+	-- after the call so the dispatch and the INCOMING flash play first
+	RESCUE_COUNTDOWN_START_TIME = "RescueCountdownStartTime",
 	-- GameMetadata: why the run ended (Enums.RunEndReason), 0 while it is on
 	RUN_END_REASON = "RunEndReason",
 	-- GameMetadata: the Game Over screen's timing (GameData/Run/Revives):

@@ -149,8 +149,9 @@ end
 -- a track started silent and eased up to `volume` over fadeSec (the lobby
 -- music, 2026-10-14), or to its authored volume when none is given (the
 -- dusk song, 2026-10-21); a fade-out that follows puts the authored
--- volume back afterwards, as it does for any track
-function ClientSoundManager:fadeInMusic(name: string, volume: number?, fadeSec: number, isLooping: boolean?)
+-- volume back afterwards, as it does for any track. startSec starts the
+-- track partway in, past an intro
+function ClientSoundManager:fadeInMusic(name: string, volume: number?, fadeSec: number, isLooping: boolean?, startSec: number?)
 	local player = self:findPlayer(self:getMusicFolder(), name)
 	if not player then
 		self:warnOnce(name, `no AudioPlayer {Constants.MUSIC_FOLDER}.{name}`)
@@ -171,7 +172,7 @@ function ClientSoundManager:fadeInMusic(name: string, volume: number?, fadeSec: 
 	local targetVolume: number = volume or self.authoredVolumeByName[name]
 	player:Stop()
 	player.Looping = isLooping == true
-	player.TimePosition = 0
+	player.TimePosition = startSec or 0
 	player.Volume = 0
 	player:Play()
 	local tween = TweenService:Create(player, TweenInfo.new(math.max(fadeSec, 0.01), Enum.EasingStyle.Linear), { Volume = targetVolume })

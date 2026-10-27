@@ -47,6 +47,7 @@ local ClientOrePickupManager = require(script.Parent.ClientOrePickupManager)
 local ClientPlayerNameManager = require(script.Parent.ClientPlayerNameManager)
 local ClientPlacementDevTools = require(script.Parent.ClientPlacementDevTools)
 local ClientPlacementManager = require(script.Parent.ClientPlacementManager)
+local ClientRescueCameraManager = require(script.Parent.ClientRescueCameraManager)
 local ClientRescueManager = require(script.Parent.ClientRescueManager)
 local ClientReviveManager = require(script.Parent.ClientReviveManager)
 local ClientRunCycleManager = require(script.Parent.ClientRunCycleManager)
@@ -175,6 +176,9 @@ ClientRescueManager:init()
 -- starts, and which points the mine renderer at the watched player), and
 -- the tombstones
 ClientReviveManager:init()
+-- a rider's lift-off camera (M75); after the revive manager it hands the
+-- run's end to
+ClientRescueCameraManager:init()
 ClientDiamondTapManager:init()
 ClientGiveCurrencyManager:init()
 ClientTowerMenuManager:init()

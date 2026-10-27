@@ -145,6 +145,17 @@ local sfx = {
 	PLACEMENT_SELL = "PlacementSell",
 	-- 3D loop on every helicopter while its rotor turns (ClientHelicopterManager)
 	HELICOPTER = "Helicopter",
+	-- the rescue escape (M75): 3D at the helicopter as it settles on the
+	-- pad and as it lifts off (the lift-off in the lobby too); 2D for
+	-- everyone as a crewmate boards, the RESCUE HELICOPTER INCOMING sting
+	-- once the radio's dispatch message has played (the dispatch itself
+	-- is the designer's Rescue Sound on the radio model), and the sting as
+	-- the Results Menu opens on a won run
+	HELICOPTER_TOUCHDOWN = "Helicopter_Touchdown",
+	HELICOPTER_LIFTOFF = "Helicopter_Liftoff",
+	RESCUE_BOARD = "Rescue_Board",
+	RESCUE_INCOMING = "Rescue_Incoming",
+	RESCUE_WIN = "Rescue_Win",
 	-- the pulsing hum of exposed uranium rock and dropped uranium ore, one
 	-- shared loop with an emitter per block or pickup, heard within 15
 	-- studs (designer, 2026-10-07; ClientMineManager, ClientOrePickupManager)
@@ -329,6 +340,7 @@ local lobbySfxNames: { string } = {
 	sfx.COINS_ADDED,
 	sfx.SALE_SUCCESS,
 	sfx.HELICOPTER,
+	sfx.HELICOPTER_LIFTOFF,
 	sfx.BUTTON_CLICK,
 	sfx.REROLL,
 	sfx.REROLL_SPIN,

@@ -85,13 +85,21 @@ end
 -- stretch before a day's start, runs night end back to day start
 -- heldDayShareLeft: in the rescue wait (2026-10-07) the sky stands where
 -- the day was when the radio was used, or stays night if it was night
-function RunCycleRules.skyStage(runState: number, phaseStartTime: number, phaseEndTime: number, now: number, dawnTransitionSec: number, duskTransitionSec: number, spawnSec: number, heldDayShareLeft: number?): (number, number)
+-- a Rescue Wait called by day holds the sky where the day was until
+-- breatherStartTime, then eases it to the day's end by the phase end (the
+-- final wave), so dusk follows on from where the sky stands (designer,
+-- 2026-10-27; it stood still through the wait before)
+function RunCycleRules.skyStage(runState: number, phaseStartTime: number, phaseEndTime: number, now: number, dawnTransitionSec: number, duskTransitionSec: number, spawnSec: number, heldDayShareLeft: number?, breatherStartTime: number?): (number, number)
 	if runState == Enums.RunState.WAITING then
 		return Enums.SkyStage.DAY, 0
 	end
 	if runState == Enums.RunState.RESCUE_WAIT then
 		if heldDayShareLeft ~= nil and heldDayShareLeft >= 0 then
-			return Enums.SkyStage.DAY, 1 - math.clamp(heldDayShareLeft, 0, 1)
+			local held = math.clamp(heldDayShareLeft, 0, 1)
+			local easeStart = breatherStartTime or phaseStartTime
+			local easeSec = phaseEndTime - easeStart
+			local progress = if easeSec <= 0 then 1 else math.clamp((now - easeStart) / easeSec, 0, 1)
+			return Enums.SkyStage.DAY, 1 - held * (1 - progress)
 		end
 		return Enums.SkyStage.NIGHT, 1
 	end

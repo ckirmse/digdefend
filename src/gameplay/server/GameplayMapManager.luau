@@ -50,6 +50,9 @@ function GameplayMapManager:checkHelicopterPad(camp: Folder)
 	if helicopterSpawn and helicopterSpawn:IsA("BasePart") and not helicopterSpawn.Anchored then
 		self:report(`{helicopterSpawn:GetFullName()} must be anchored`)
 	end
+	-- the rescue's flight (M75): where it comes in from and which way it leaves
+	self:requireChild(pad, Constants.PAD_APPROACH_SPAWN_PART, "BasePart")
+	self:requireChild(pad, Constants.PAD_DEPARTURE_HEADING_PART, "BasePart")
 	local spawns = self:requireChild(pad, Constants.CAMP_SPAWNS_FOLDER, "Folder")
 	if not spawns then
 		return

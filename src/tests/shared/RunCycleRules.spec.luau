@@ -75,9 +75,18 @@ describe(
 		it(
 			"runs day start into day end over the day",
 			function()
-				local waitStage, waitShare = RunCycleRules.skyStage(Enums.RunState.RESCUE_WAIT, 100, 130, 110, 2, 2, 90, 0.25)
+				-- a wait called by day: held through the call sequence (the breather
+				-- not begun), then eased to the day's end by the phase end
+				local waitStage, waitShare = RunCycleRules.skyStage(Enums.RunState.RESCUE_WAIT, 100, 130, 110, 2, 2, 90, 0.25, 120)
 				expect(waitStage).toBe(Enums.SkyStage.DAY)
 				expect(waitShare).toBeCloseTo(0.75, 5)
+				waitStage, waitShare = RunCycleRules.skyStage(Enums.RunState.RESCUE_WAIT, 100, 130, 125, 2, 2, 90, 0.25, 120)
+				expect(waitShare).toBeCloseTo(0.875, 5)
+				waitStage, waitShare = RunCycleRules.skyStage(Enums.RunState.RESCUE_WAIT, 100, 130, 130, 2, 2, 90, 0.25, 120)
+				expect(waitShare).toBeCloseTo(1, 5)
+				-- no breather start given: it eases from the phase start
+				waitStage, waitShare = RunCycleRules.skyStage(Enums.RunState.RESCUE_WAIT, 100, 130, 115, 2, 2, 90, 0.25)
+				expect(waitShare).toBeCloseTo(0.875, 5)
 				waitStage, waitShare = RunCycleRules.skyStage(Enums.RunState.RESCUE_WAIT, 100, 130, 110, 2, 2, 90, -1)
 				expect(waitStage).toBe(Enums.SkyStage.NIGHT)
 				expect(waitShare).toBe(1)
