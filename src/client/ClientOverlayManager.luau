@@ -36,6 +36,7 @@ export type ClientOverlayManager = typeof(setmetatable(
 		deferredOverlays: { Overlay },
 		notifiers: { OverlayNotifier },
 		blur: BlurEffect?,
+		blurTween: Tween?,
 		backdropGui: ScreenGui?,
 		anchoredRootPart: BasePart?,
 	},
@@ -91,7 +92,10 @@ function ClientOverlayManager:setDeferOverlays(isDeferring: boolean)
 	end
 end
 
-function ClientOverlayManager:notifyBeginOverlay(overlay: Overlay)
+-- blurFadeInSec eases the blur up from nothing over that long (the
+-- Results Menu arriving at the end of the ride out, 2026-10-27); none
+-- sets it at once
+function ClientOverlayManager:notifyBeginOverlay(overlay: Overlay, blurFadeInSec: number?)
 	if self.isDeferring then
 		table.insert(self.deferredOverlays, overlay)
 		return
@@ -110,7 +114,20 @@ function ClientOverlayManager:notifyBeginOverlay(overlay: Overlay)
 	local doesWantBlur = if doesWantBlurMethod then doesWantBlurMethod(overlay) else true
 	local blur = self.blur
 	if blur then
+		local blurTween = self.blurTween
+		if blurTween then
+			blurTween:Cancel()
+			self.blurTween = nil
+		end
 		blur.Enabled = doesWantBlur
+		if doesWantBlur and blurFadeInSec and blurFadeInSec > 0 then
+			blur.Size = 0
+			local tween = TweenService:Create(blur, TweenInfo.new(blurFadeInSec, Enum.EasingStyle.Linear), { Size = BLUR_SIZE })
+			self.blurTween = tween
+			tween:Play()
+		else
+			blur.Size = BLUR_SIZE
+		end
 	end
 
 	local doAllowWorldActionsMethod = overlay.doAllowPlayerWorldActions
@@ -262,6 +279,7 @@ function ClientOverlayManager.new(): ClientOverlayManager
 	self.deferredOverlays = {}
 	self.notifiers = {}
 	self.blur = nil
+	self.blurTween = nil
 	self.backdropGui = nil
 	self.anchoredRootPart = nil
 	return self

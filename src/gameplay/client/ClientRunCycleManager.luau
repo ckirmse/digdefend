@@ -37,7 +37,6 @@ local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
-local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientHudSlide = require(script.Parent.Parent.Client.ClientHudSlide)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 
@@ -54,6 +53,11 @@ export type ClientRunCycleManager = typeof(setmetatable(
 		numberGui: ScreenGui?,
 		numberLabel: TextLabel?,
 		numberGeneration: number,
+		-- the local player's IsDead, for the night song
+		isLocalPlayerDead: boolean,
+		-- told when a card goes down (the rescue countdown waits on the
+		-- FINAL NIGHT card)
+		cardClosedCallbacks: { () -> () },
 		-- the disc holding one picture and one gradient per phase
 		phaseIcon: Frame?,
 		fill: Frame?,
@@ -70,6 +74,9 @@ export type ClientRunCycleManager = typeof(setmetatable(
 		-- rays, the moon, 2026-10-21); a later Heartbeat write would be
 		-- overwritten by the next RenderStepped before it was ever drawn
 		skyAppliedHandlers: { (stage: number, share: number) -> () },
+		-- the server time the sunset was frozen at, for the ride's final
+		-- camera drift (designer, 2026-10-27); nil while it runs
+		sunsetHeldAtTime: number?,
 		-- which preset the sky was last sent toward (Enums.RunState DAY or NIGHT)
 		warnedChildren: { [string]: boolean },
 	},
@@ -98,6 +105,8 @@ local SUNSET_FORMAT = "Sunset %d"
 -- two spaces: the font sets the word and the number too close otherwise
 local DAY_CARD_FORMAT = "Day  %d"
 local NIGHT_CARD_FORMAT = "Night  %d"
+-- the night the rescue is fought through (designer, 2026-10-27)
+local FINAL_NIGHT_CARD_TEXT = "Final Night"
 -- the card stays up this long; the clock fades over the HUD tween time
 local CARD_SHOW_SEC = 3
 -- day 1 gets no card: the crew has just landed and the run is plainly starting
@@ -112,9 +121,15 @@ local DEFAULT_DUSK_SONG_FADE_SEC = 10
 local DEFAULT_DUSK_SONG_FADE_LEAD_SEC = 5
 -- the dusk song eases in from silence to its authored volume (designer, 2026-10-21)
 local DUSK_SONG_FADE_IN_SEC = 5
+-- a dusk song still up when the rescue is called goes out this fast, so
+-- the radio's dispatch and the flash play over silence (designer, 2026-10-27)
+local DUSK_SONG_RESCUE_CALL_FADE_SEC = 3
 -- the night song loops from night start to night end (designer, 2026-10-21)
 local NIGHT_SONG_FADE_IN_SEC = 3
 local NIGHT_SONG_FADE_OUT_SEC = 1
+-- the night's loop goes out slower when the night is cut short for this
+-- player: their death, the run lost, or the run won (designer, 2026-10-27)
+local NIGHT_SONG_END_FADE_SEC = 3
 local DEFAULT_DAWN_TRANSITION_SEC = 1
 local DEFAULT_DUSK_TRANSITION_SEC = 1
 local DEFAULT_NIGHT_SPAWN_SEC = 90
@@ -207,11 +222,19 @@ function ClientRunCycleManager:showCard(text: string, sfxNames: { string })
 	task.delay(
 		CARD_SHOW_SEC,
 		function()
-			if self.numberGeneration == generation then
-				gui.Enabled = false
+			if self.numberGeneration ~= generation then
+				return
+			end
+			gui.Enabled = false
+			for _, callback in self.cardClosedCallbacks do
+				callback()
 			end
 		end
 	)
+end
+
+function ClientRunCycleManager:subscribeCardClosed(callback: () -> ())
+	table.insert(self.cardClosedCallbacks, callback)
 end
 
 -- a GUI child the designer removed or renamed is reported once, not per phase
@@ -265,7 +288,60 @@ end
 -- every frame: the whole look (Lighting and each named child) at the
 -- stage and share the phase times give, and the clock turned forward
 -- between the two looks' hours
+-- the full helicopter leaves into a sunset (designer, 2026-10-27): once
+-- the run is won with the turn back begun, the sky goes from the night's
+-- end look to the day's end over RescueSunsetToDayEndSec, then on back
+-- to the day's start over RescueSunsetToDayStartSec, the clock turning
+-- backward the whole way; true when it took the frame
+function ClientRunCycleManager:stepSunsetIfNeeded(runState: number, now: number): boolean
+	if runState ~= Enums.RunState.WON then
+		self.sunsetHeldAtTime = nil
+		return false
+	end
+	-- held: the sky and clock stay where they were at the hold
+	now = self.sunsetHeldAtTime or now
+	local sunsetStartTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_SUNSET_START_TIME), 0)
+	local toDayEndSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_SUNSET_TO_DAY_END_SEC), 0)
+	local toDayStartSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_SUNSET_TO_DAY_START_SEC), 0)
+	local stage, share = RunCycleRules.sunsetStage(sunsetStartTime, now, toDayEndSec, toDayStartSec)
+	if not stage then
+		return false
+	end
+	local presets = self:getMapPresets()
+	local from = if stage == RunCycleRules.SUNSET_STAGE_TO_DAY_END then presets.NIGHT_END else presets.DAY_END
+	local to = if stage == RunCycleRules.SUNSET_STAGE_TO_DAY_END then presets.DAY_END else presets.DAY_START
+	self:applyBlend(Lighting, from.LIGHTING, to.LIGHTING, share)
+	for childName, fromChild in from.CHILDREN do
+		local child = Lighting:FindFirstChild(childName)
+		local toChild = to.CHILDREN[childName]
+		if child and toChild then
+			self:applyBlend(child, fromChild, toChild, share)
+		end
+	end
+	Lighting.ClockTime = RunCycleRules.clockTimeBackward(from.LIGHTING.ClockTime, to.LIGHTING.ClockTime, share)
+	for _, handler in self.skyAppliedHandlers do
+		handler(Enums.SkyStage.DAY, if stage == RunCycleRules.SUNSET_STAGE_TO_DAY_END then 1 else 1 - share)
+	end
+	return true
+end
+
+-- the ride's camera stops the sunset as it starts its final drift, so the
+-- sky and the clock stand still under the title card and the menu
+-- (designer, 2026-10-27); released when the ride ends or a new run starts
+function ClientRunCycleManager:setSunsetHeld(isHeld: boolean)
+	if isHeld then
+		if not self.sunsetHeldAtTime then
+			self.sunsetHeldAtTime = workspace:GetServerTimeNow()
+		end
+	else
+		self.sunsetHeldAtTime = nil
+	end
+end
+
 function ClientRunCycleManager:stepSky(runState: number, startTime: number, endTime: number, now: number)
+	if self:stepSunsetIfNeeded(runState, now) then
+		return
+	end
 	local presets = self:getMapPresets()
 	local dawnTransitionSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_LIGHTING_DAWN_TRANSITION_SEC), DEFAULT_DAWN_TRANSITION_SEC)
 	local duskTransitionSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_LIGHTING_DUSK_TRANSITION_SEC), DEFAULT_DUSK_TRANSITION_SEC)
@@ -305,6 +381,11 @@ end
 -- is silent that long again into the night (2026-10-02)
 function ClientRunCycleManager:stepDuskSong(runState: number, endTime: number, now: number)
 	local songEndTime = self.duskSongEndTime
+	if songEndTime and not self.isDuskSongFading and runState == Enums.RunState.RESCUE_WAIT then
+		-- the rescue is called under the dusk song: out quickly
+		self.isDuskSongFading = true
+		ClientSoundManager:fadeOutMusic(SoundNames.Music.DUSK_SONG_1, DUSK_SONG_RESCUE_CALL_FADE_SEC)
+	end
 	if songEndTime and not self.isDuskSongFading then
 		local fadeLeadSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_DUSK_SONG_FADE_LEAD_SEC), DEFAULT_DUSK_SONG_FADE_LEAD_SEC)
 		-- a day cut short by the dev tool brings the fall, and the fade, forward
@@ -415,7 +496,10 @@ function ClientRunCycleManager:onNightStarted(payload: any)
 	task.delay(
 		duskTransitionSec,
 		function()
-			self:showCard(string.format(NIGHT_CARD_FORMAT, day), { SoundNames.Sfx.NIGHT_BELL })
+			-- the final wave's night is the rescue's (designer, 2026-10-27)
+			local runState = ClientDataManager:getGameMetadata(Attributes.RUN_STATE)
+			local text = if runState == Enums.RunState.RESCUE then FINAL_NIGHT_CARD_TEXT else string.format(NIGHT_CARD_FORMAT, day)
+			self:showCard(text, { SoundNames.Sfx.NIGHT_BELL })
 		end
 	)
 end
@@ -425,29 +509,55 @@ function ClientRunCycleManager:onRunEnded(payload: any)
 		warn("ClientRunCycleManager: malformed NotifyRunEnded")
 		return
 	end
-	-- a lost run is told by the Game Over screen and the Results Menu
-	-- (ClientReviveManager, M32); only a win still gets its line here
-	if payload.isWon then
-		ClientPlayerFeedbackManager:announceLocal(payload.message, payload.displaySec)
-	end
+	-- a run's end is told by the Game Over screen or the ride out and the
+	-- Results Menu (ClientReviveManager, M32); a win had its line here too
+	-- until 2026-10-27 (designer: the menu is the word), so the message
+	-- is not shown
 end
 
 -- the night's loop follows the server's IsNight flag (the rescue counts
 -- as night), eased to its authored volume as night falls and out again
--- from wherever it is at the night's end
-function ClientRunCycleManager:applyNightSong(isNight: boolean)
-	ClientSoundManager:fadeMusicTo(SoundNames.Music.NIGHT_SONG, if isNight then 1 else 0, if isNight then NIGHT_SONG_FADE_IN_SEC else NIGHT_SONG_FADE_OUT_SEC)
+-- from wherever it is at the night's end; it also goes out, slower, when
+-- the night is over for this player before its end: they are dead (the
+-- Game Over screen is up), the run is lost, or it is won (designer,
+-- 2026-10-27). A revive at night brings it back
+function ClientRunCycleManager:refreshNightSong()
+	local isNight = ClientDataManager:getGameMetadata(Attributes.IS_NIGHT) == true
+	local runState = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_STATE), Enums.RunState.DAY)
+	local isCutShort = self.isLocalPlayerDead or RunCycleRules.isRunOver(runState)
+	if isNight and not isCutShort then
+		ClientSoundManager:fadeMusicTo(SoundNames.Music.NIGHT_SONG, 1, NIGHT_SONG_FADE_IN_SEC)
+		return
+	end
+	ClientSoundManager:fadeMusicTo(SoundNames.Music.NIGHT_SONG, 0, if isCutShort then NIGHT_SONG_END_FADE_SEC else NIGHT_SONG_FADE_OUT_SEC)
 end
 
 function ClientRunCycleManager:init()
 	self:findGui()
-	self:applyNightSong(ClientDataManager:getGameMetadata(Attributes.IS_NIGHT) == true)
-	ClientDataManager:subscribeGameMetadataAttribute(
-		Attributes.IS_NIGHT,
-		function(value: any)
-			self:applyNightSong(value == true)
-		end
-	)
+	local localUserId = Players.LocalPlayer.UserId
+	ClientDataManager:subscribeAllPlayers({
+		onAdded = function(userId: number, data: ClientDataManager.PublicData)
+			if userId == localUserId then
+				self.isLocalPlayerDead = data.isDead
+				self:refreshNightSong()
+			end
+		end,
+		onChanged = function(userId: number, data: ClientDataManager.PublicData)
+			if userId == localUserId and data.isDead ~= self.isLocalPlayerDead then
+				self.isLocalPlayerDead = data.isDead
+				self:refreshNightSong()
+			end
+		end,
+	})
+	self:refreshNightSong()
+	for _, key in { Attributes.IS_NIGHT, Attributes.RUN_STATE } do
+		ClientDataManager:subscribeGameMetadataAttribute(
+			key,
+			function()
+				self:refreshNightSong()
+			end
+		)
+	end
 	ClientNetManager:registerHandler(
 		NetEventNames.NOTIFY_RUN_DAY_STARTED,
 		function(payload: any)
@@ -492,6 +602,8 @@ function ClientRunCycleManager.new(): ClientRunCycleManager
 	self.numberGui = nil
 	self.numberLabel = nil
 	self.numberGeneration = 0
+	self.cardClosedCallbacks = {}
+	self.isLocalPlayerDead = false
 	self.phaseIcon = nil
 	self.fill = nil
 	self.dayLabel = nil
@@ -500,6 +612,7 @@ function ClientRunCycleManager.new(): ClientRunCycleManager
 	self.duskSongEndTime = nil
 	self.isDuskSongFading = false
 	self.skyAppliedHandlers = {}
+	self.sunsetHeldAtTime = nil
 	self.warnedChildren = {}
 	return self
 end

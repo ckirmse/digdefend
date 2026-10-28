@@ -2,11 +2,13 @@
 
 -- Every helicopter's visuals, on every client, in both places: models tagged
 -- Tags.HELICOPTER carry a HelicopterPhase attribute set by the server
--- (HelicopterManager). SPINNING turns the rotor, IDLE winds it down,
--- APPROACHING flies the helicopter in onto its pad and FLYING flies it
--- away (M75): both are pure HelicopterFlightRules poses sampled against
--- the server time the flight began, the pad's CFrame, and the heading,
--- all attributes on the model, with the flight config from GameMetadata,
+-- (HelicopterManager). SPINNING turns the rotors (the main one about the
+-- model's up, the tail's BackBlades about the model's right), IDLE winds
+-- them down, APPROACHING flies the helicopter in onto its pad and FLYING
+-- flies it away (M75): both are pure HelicopterFlightRules poses sampled
+-- against the server time the flight began, the pad's CFrame, and the
+-- heading (the way out, which the approach also comes in along), all
+-- attributes on the model, with the flight config from GameMetadata,
 -- so every client draws the same flight and a late viewer joins it
 -- mid-air. The server never animates; a Heartbeat loop rather than tweens
 -- because the rotor ramps and the flights chain. The rotor loop (the
@@ -38,6 +40,8 @@ type Craft = {
 	-- the spin nor the flight drifts; an approach's rest is the pad it lands on
 	restPivot: CFrame,
 	rotorOffset: CFrame?,
+	tailRotor: BasePart?,
+	tailRotorOffset: CFrame?,
 	angle: number,
 	-- rotor radians per second, ramped toward the target
 	speed: number,
@@ -46,8 +50,6 @@ type Craft = {
 	isSoundPlaying: boolean,
 	-- the phase drawn last frame, so a change is seen once
 	lastPhase: number,
-	-- where an approach began: the model's pivot when first seen in the air
-	approachStart: Vector3,
 	-- the flight start a client assumes when the attribute has not arrived
 	assumedFlightStartTime: number?,
 	searchlight: Light?,
@@ -66,6 +68,8 @@ export type ClientHelicopterManager = typeof(setmetatable(
 local FULL_SPEED_RAD_PER_SEC = 50
 local SPIN_UP_SEC = 3
 local SPIN_DOWN_SEC = 4
+-- the tail rotor turns this many times faster than the main one
+local TAIL_ROTOR_SPEED_MULTIPLE = 2
 -- how far the touchdown and the lift-off carry
 local FLIGHT_SFX_FULL_VOLUME_STUDS = 60
 local FLIGHT_SFX_SILENT_STUDS = 450
@@ -78,6 +82,11 @@ local function findRotor(model: Model): BasePart?
 		return rotorChild
 	end
 	return nil
+end
+
+local function findTailRotor(model: Model): BasePart?
+	local part = model:FindFirstChild(Constants.HELICOPTER_TAIL_ROTOR_PART)
+	return if part and part:IsA("BasePart") then part else nil
 end
 
 -- the rotor is resolved lazily: a freshly cloned model can be seen before its
@@ -93,6 +102,17 @@ local function resolveRotorIfNeeded(craft: Craft)
 	rotor = findRotor(craft.model)
 	craft.rotor = rotor
 	craft.rotorOffset = if rotor then craft.model:GetPivot():ToObjectSpace(rotor.CFrame) else nil
+end
+
+-- the tail rotor the same way; a template without one is fine
+local function resolveTailRotorIfNeeded(craft: Craft)
+	local tailRotor = craft.tailRotor
+	if tailRotor and tailRotor.Parent ~= nil then
+		return
+	end
+	tailRotor = findTailRotor(craft.model)
+	craft.tailRotor = tailRotor
+	craft.tailRotorOffset = if tailRotor then craft.model:GetPivot():ToObjectSpace(tailRotor.CFrame) else nil
 end
 
 local function resolveSoundIfNeeded(craft: Craft)
@@ -133,13 +153,14 @@ local function makeCraft(model: Model): Craft
 		rotor = nil,
 		restPivot = pivot,
 		rotorOffset = nil,
+		tailRotor = nil,
+		tailRotorOffset = nil,
 		angle = 0,
 		-- one first seen in the air has its rotor at full speed already
 		speed = if isInAir then FULL_SPEED_RAD_PER_SEC else 0,
 		sound = nil,
 		isSoundPlaying = false,
 		lastPhase = if typeof(phase) == "number" then phase else Enums.HelicopterPhase.IDLE,
-		approachStart = pivot.Position,
 		assumedFlightStartTime = nil,
 		searchlight = nil,
 		isSearchlightOn = false,
@@ -223,6 +244,14 @@ function ClientHelicopterManager:render(craft: Craft, pivot: CFrame, isMoving: b
 		local rotorRest = pivot * rotorOffset
 		rotor.CFrame = CFrame.new(rotorRest.Position) * CFrame.fromAxisAngle(pivot.UpVector, craft.angle) * rotorRest.Rotation
 	end
+	resolveTailRotorIfNeeded(craft)
+	local tailRotor = craft.tailRotor
+	local tailRotorOffset = craft.tailRotorOffset
+	if tailRotor and tailRotorOffset and craft.speed > 0 then
+		-- the tail rotor spins about the model's X axis (designer, 2026-10-27)
+		local tailRest = pivot * tailRotorOffset
+		tailRotor.CFrame = CFrame.new(tailRest.Position) * CFrame.fromAxisAngle(pivot.RightVector, craft.angle * TAIL_ROTOR_SPEED_MULTIPLE) * tailRest.Rotation
+	end
 end
 
 -- the pad's Dust emitter, if the map has one, kicked on touchdown
@@ -258,7 +287,7 @@ end
 function ClientHelicopterManager:stepApproach(craft: Craft, deltaSec: number)
 	self:stepRotor(craft, true, deltaSec)
 	local elapsedSec = workspace:GetServerTimeNow() - self:getFlightStartTime(craft)
-	local pose = HelicopterFlightRules.approachPose(craft.approachStart, self:getPadCFrame(craft), self.config, elapsedSec)
+	local pose = HelicopterFlightRules.approachPose(self:getPadCFrame(craft), self:getHeading(craft), self.config, elapsedSec)
 	self:render(craft, pose, true)
 end
 
@@ -287,8 +316,17 @@ function ClientHelicopterManager:step(craft: Craft, deltaSec: number): boolean
 	end
 	if phase == Enums.HelicopterPhase.FLYING then
 		if self:stepDeparture(craft, deltaSec) then
-			-- the server destroys it after its lifetime; locally it is done now
-			craft.model:Destroy()
+			-- the server destroys it after its lifetime; locally it is done
+			-- now, but it stays in the world unseen rather than destroyed,
+			-- since a rider's seat going would end their ride early
+			-- (2026-10-27)
+			for _, descendant in craft.model:GetDescendants() do
+				if descendant:IsA("BasePart") then
+					descendant.Transparency = 1
+				elseif descendant:IsA("Light") or descendant:IsA("ParticleEmitter") then
+					descendant.Enabled = false
+				end
+			end
 			return true
 		end
 		return false

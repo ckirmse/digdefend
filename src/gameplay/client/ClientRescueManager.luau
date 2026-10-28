@@ -13,6 +13,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -26,6 +27,8 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
+local ClientGuiFade = require(script.Parent.Parent.Client.ClientGuiFade)
+local ClientRunCycleManager = require(script.Parent.ClientRunCycleManager)
 
 local ClientRescueManager = {}
 ClientRescueManager.__index = ClientRescueManager
@@ -48,6 +51,25 @@ export type ClientRescueManager = typeof(setmetatable(
 		countdownSlide: ClientHudSlide.ClientHudSlide?,
 		isCountdownShown: boolean,
 		shownCountdown: string,
+		-- the countdown's text fades: out as the breather ends, in once the
+		-- FINAL NIGHT card has gone (designer, 2026-10-27)
+		countdownFadeTarget: number,
+		countdownFade: Tween?,
+		isHelicopterCountdownReleased: boolean,
+		-- the label's authored spot (the clock's); the final night moves it
+		-- below the Refinery HP bar while it is invisible
+		countdownUpperPosition: UDim2?,
+		isCountdownLowered: boolean,
+		-- bumped by every billboard show or hide, so a fade's end that was
+		-- overtaken by a show leaves it on
+		billboardFadeGeneration: number,
+		-- the final night's song runs from the flash going down until it
+		-- fades across the night's fall
+		isFinalNightSongPlaying: boolean,
+		isFinalNightSongFading: boolean,
+		-- the landed line's red flashes rung so far
+		landedFlashCount: number,
+		wasCountdownRed: boolean,
 		-- how many were aboard last frame, so each new rider chimes once
 		shownAboardCount: number,
 		lastRunState: number,
@@ -85,10 +107,23 @@ local STATUS_LOST = "No rescue is coming"
 -- stretch names the approach, and once landed it counts the deadline
 -- down (M75)
 local COUNTDOWN_WAVE_FORMAT = "Final Night Begins In: %s"
+-- the whole flight, the approach included (an INBOUND line was tried and
+-- dropped, 2026-10-27)
 local COUNTDOWN_HELICOPTER_FORMAT = "Helicopter Arrives In: %s"
-local COUNTDOWN_INBOUND_FORMAT = "Helicopter Inbound: %s"
-local COUNTDOWN_LEAVING_FORMAT = "Leaving In: %s"
-local COUNTDOWN_BOARD_FORMAT = "Board Now. Leaving In: %s"
+-- once landed, flashing red (designer, 2026-10-27; the exclamation mark is
+-- the designer's call)
+local COUNTDOWN_BOARD_FORMAT = "Board Now! Leaving In: %s"
+-- a seated rider's line while crewmates are still out (designer, 2026-10-27)
+local COUNTDOWN_WAITING_FORMAT = "Waiting for Teammates. Leaving In: %s"
+local COUNTDOWN_FLASH_HZ = 2
+-- the landed alert rings with the first red flash only (three rings
+-- were tried and dropped, designer 2026-10-27)
+local LANDED_ALERT_FLASH_COUNT = 1
+-- the final night's song fades out like the dusk song: over
+-- FINAL_NIGHT_SONG_FADE_SEC, starting this far before the night falls
+local FINAL_NIGHT_SONG_FADE_SEC = 10
+local FINAL_NIGHT_SONG_FADE_LEAD_SEC = 5
+local FINAL_NIGHT_SONG_FADE_IN_SEC = 5
 -- the call sequence (designer, 2026-10-27): the green tint stays up
 -- INCOMING_TEXT_SWAP_SEC, at which moment the gui's line changes to the
 -- second one with the day card's sting, and the gui itself stays up
@@ -96,12 +131,26 @@ local COUNTDOWN_BOARD_FORMAT = "Board Now. Leaving In: %s"
 -- whose length is unknown
 local INCOMING_FLASH_SEC = 6
 local INCOMING_TEXT_SWAP_SEC = 3
-local INCOMING_SECOND_TEXT = "Survive the final night"
+-- on two lines (designer, 2026-10-27)
+local INCOMING_SECOND_TEXT = "Survive the\nfinal night"
 local DISPATCH_FALLBACK_SEC = 8
 local DISPATCH_END_GRACE_SEC = 0.5
 local INCOMING_TINT_NAME = "RescueIncomingTint"
 local INCOMING_TINT_COLOR = Color3.fromRGB(0, 255, 0)
 local COUNTDOWN_HIDDEN_POSITION_Y_SCALE = -0.3
+-- the radio's billboard fades out over this long when the call lands
+-- (designer, 2026-10-27), every element together
+local BILLBOARD_FADE_SEC = 1
+-- the countdown's second spot on stage: below the Refinery HP bar, which
+-- takes the clock's spot for the final night (the bar's authored box is
+-- 0.10625 of the height from 0.012, build_refinery_hp_gui.luau)
+local COUNTDOWN_LOWER_POSITION_Y_SCALE = 0.012 + 0.10625 + 0.01
+-- the breather's last second fades the countdown out, and the
+-- helicopter's fades in once the FINAL NIGHT card is down (designer,
+-- 2026-10-27); a viewer who saw no card gets it this long into the night
+local COUNTDOWN_FADE_SEC = 1
+local COUNTDOWN_FADE_OUT_LEAD_SEC = 1
+local HELICOPTER_COUNTDOWN_FALLBACK_SEC = 6
 -- the radio's screen once the quota is met (the designer's colour)
 local QUOTA_COMPLETE_TEXT = "QUOTA COMPLETE"
 local QUOTA_COMPLETE_COLOR = Color3.fromRGB(76, 229, 112)
@@ -215,6 +264,15 @@ local function formatClock(seconds: number): string
 	return string.format("%02d:%02d", whole // 60, whole % 60)
 end
 
+function ClientRescueManager:isLocalPlayerAboard(): boolean
+	return ClientDataManager:getCurrentPlayerAttribute(Attributes.RESCUE_IS_ABOARD) == true
+end
+
+function ClientRescueManager:isHelicopterLanded(): boolean
+	local runState = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_STATE), Enums.RunState.DAY)
+	return runState == Enums.RunState.RESCUE and ClientDataManager:getGameMetadata(Attributes.RESCUE_IS_LANDED) == true
+end
+
 -- what the countdown reads, or nil while it has nothing to say
 function ClientRescueManager:countdownText(now: number): string?
 	local runState = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_STATE), Enums.RunState.DAY)
@@ -234,13 +292,9 @@ function ClientRescueManager:countdownText(now: number): string?
 	end
 	if runState == Enums.RunState.RESCUE then
 		local clock = formatClock(endTime - now)
-		if ClientDataManager:getGameMetadata(Attributes.RESCUE_IS_LANDED) == true then
-			local aboard = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_ABOARD_COUNT), 0)
-			return UiStyle.formatTitle(string.format(if aboard > 0 then COUNTDOWN_LEAVING_FORMAT else COUNTDOWN_BOARD_FORMAT, clock))
-		end
-		local approachSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_APPROACH_SEC), 0)
-		if endTime - now <= approachSec then
-			return UiStyle.formatTitle(string.format(COUNTDOWN_INBOUND_FORMAT, clock))
+		if self:isHelicopterLanded() then
+			local format = if self:isLocalPlayerAboard() then COUNTDOWN_WAITING_FORMAT else COUNTDOWN_BOARD_FORMAT
+			return UiStyle.formatTitle(string.format(format, clock))
 		end
 		return UiStyle.formatTitle(string.format(COUNTDOWN_HELICOPTER_FORMAT, clock))
 	end
@@ -346,8 +400,32 @@ function ClientRescueManager:playCallSequence()
 				return
 			end
 			self:endIncomingFlash()
+			self:startFinalNightSong()
 		end
 	)
+end
+
+-- the final night's song takes over from the flash, up from silence to
+-- its authored volume over FINAL_NIGHT_SONG_FADE_IN_SEC (designer, 2026-10-27)
+function ClientRescueManager:startFinalNightSong()
+	self.isFinalNightSongPlaying = true
+	self.isFinalNightSongFading = false
+	ClientSoundManager:fadeInMusic(SoundNames.Music.FINAL_NIGHT_SONG, nil, FINAL_NIGHT_SONG_FADE_IN_SEC, true)
+end
+
+-- the song fades out across the final night's fall the dusk song's way
+-- (the fade lead before the breather ends), or at once when the breather
+-- is cut short (the Team Revive, the run's end)
+function ClientRescueManager:stepFinalNightSong(runState: number, endTime: number, now: number)
+	if not self.isFinalNightSongPlaying or self.isFinalNightSongFading then
+		return
+	end
+	local isBreather = runState == Enums.RunState.RESCUE_WAIT
+	if isBreather and (endTime <= 0 or now < endTime - FINAL_NIGHT_SONG_FADE_LEAD_SEC) then
+		return
+	end
+	self.isFinalNightSongFading = true
+	ClientSoundManager:fadeOutMusic(SoundNames.Music.FINAL_NIGHT_SONG, FINAL_NIGHT_SONG_FADE_SEC)
 end
 
 -- the sequence is over (or dropped): the countdown may show
@@ -382,11 +460,33 @@ function ClientRescueManager:onRunStateChanged()
 	end
 end
 
+-- the billboard goes with a fade (designer, 2026-10-27; ClientGuiFade)
+-- and is disabled after, the authored values back underneath so a day
+-- starting over shows it whole; a show puts it back at once
 function ClientRescueManager:setBillboardShown(isShown: boolean)
 	local billboard = self.billboard
-	if billboard then
-		billboard.Enabled = isShown
+	if not billboard then
+		return
 	end
+	self.billboardFadeGeneration += 1
+	local generation = self.billboardFadeGeneration
+	if isShown then
+		billboard.Enabled = true
+		return
+	end
+	if not billboard.Enabled then
+		return
+	end
+	ClientGuiFade.fadeOut(
+		billboard,
+		BILLBOARD_FADE_SEC,
+		function()
+			-- a show in the meantime wins
+			if self.billboardFadeGeneration == generation then
+				billboard.Enabled = false
+			end
+		end
+	)
 end
 
 function ClientRescueManager:findIncomingGui()
@@ -408,6 +508,98 @@ function ClientRescueManager:findIncomingGui()
 	end
 end
 
+-- the text's transparency eased to a target, at once for a fade of 0
+function ClientRescueManager:fadeCountdownTo(target: number, fadeSec: number)
+	local label = self.countdownLabel
+	if not label or self.countdownFadeTarget == target then
+		return
+	end
+	self.countdownFadeTarget = target
+	local fade = self.countdownFade
+	if fade then
+		fade:Cancel()
+		self.countdownFade = nil
+	end
+	if fadeSec <= 0 then
+		label.TextTransparency = target
+		return
+	end
+	local tween = TweenService:Create(label, TweenInfo.new(fadeSec, Enum.EasingStyle.Linear), { TextTransparency = target })
+	self.countdownFade = tween
+	tween:Play()
+end
+
+-- the label's spot on stage: the clock's, or below the Refinery HP bar
+-- for the final night (moved while it is invisible, designer 2026-10-27)
+function ClientRescueManager:setCountdownLowered(isLowered: boolean)
+	local slide = self.countdownSlide
+	local upper = self.countdownUpperPosition
+	if not slide or not upper or self.isCountdownLowered == isLowered then
+		return
+	end
+	self.isCountdownLowered = isLowered
+	slide:setShownPosition(if isLowered then UDim2.new(upper.X.Scale, upper.X.Offset, COUNTDOWN_LOWER_POSITION_Y_SCALE, 0) else upper)
+end
+
+-- the handover from the breather's countdown to the helicopter's
+-- (designer, 2026-10-27): the first fades out over its last second in the
+-- clock's spot, the second is held invisible under the FINAL NIGHT card,
+-- moved below the Refinery HP bar, and fades in there once the card is
+-- down (or, for a viewer who saw no card, a little into the night)
+function ClientRescueManager:renderCountdownFade(now: number)
+	local runState = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_STATE), Enums.RunState.DAY)
+	local endTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_PHASE_END_TIME), 0)
+	if runState == Enums.RunState.RESCUE_WAIT then
+		self:setCountdownLowered(false)
+		if endTime - now <= COUNTDOWN_FADE_OUT_LEAD_SEC then
+			self:fadeCountdownTo(1, COUNTDOWN_FADE_SEC)
+		else
+			self:fadeCountdownTo(0, 0)
+		end
+		return
+	end
+	if runState == Enums.RunState.RESCUE then
+		local startTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_PHASE_START_TIME), 0)
+		if not self.isHelicopterCountdownReleased and now - startTime >= HELICOPTER_COUNTDOWN_FALLBACK_SEC then
+			self.isHelicopterCountdownReleased = true
+		end
+		if self.isHelicopterCountdownReleased then
+			self:setCountdownLowered(true)
+			self:fadeCountdownTo(0, COUNTDOWN_FADE_SEC)
+		else
+			self:fadeCountdownTo(1, 0)
+			self:setCountdownLowered(true)
+		end
+		return
+	end
+	self.isHelicopterCountdownReleased = false
+	self:setCountdownLowered(false)
+	self:fadeCountdownTo(0, 0)
+end
+
+-- the landed line flashes red (designer, 2026-10-27)
+function ClientRescueManager:renderCountdownColor(now: number)
+	local label = self.countdownLabel
+	if not label then
+		return
+	end
+	-- the flash is for a player still on the ground
+	local isLanded = self:isHelicopterLanded() and not self:isLocalPlayerAboard()
+	local isRed = isLanded and math.floor(now * COUNTDOWN_FLASH_HZ) % 2 == 0
+	local color = if isRed then UiStyle.NEGATIVE_COLOR else UiStyle.TEXT_COLOR
+	if label.TextColor3 ~= color then
+		label.TextColor3 = color
+	end
+	if not isLanded then
+		self.landedFlashCount = 0
+	elseif isRed and not self.wasCountdownRed and self.landedFlashCount < LANDED_ALERT_FLASH_COUNT then
+		-- the first flash rings so nobody misses the landing
+		self.landedFlashCount += 1
+		ClientSoundManager:playSfx(SoundNames.Sfx.RESCUE_LANDED)
+	end
+	self.wasCountdownRed = isRed
+end
+
 function ClientRescueManager:renderCountdown(now: number)
 	local label = self.countdownLabel
 	local slide = self.countdownSlide
@@ -425,6 +617,10 @@ function ClientRescueManager:renderCountdown(now: number)
 		self.shownCountdown = text
 		label.Text = text
 	end
+	self:renderCountdownFade(now)
+	self:renderCountdownColor(now)
+	local runState = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_STATE), Enums.RunState.DAY)
+	self:stepFinalNightSong(runState, readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_PHASE_END_TIME), 0), now)
 end
 
 function ClientRescueManager:findCountdownGui()
@@ -443,7 +639,18 @@ function ClientRescueManager:findCountdownGui()
 	self.countdownLabel = label
 	self.countdownSlide = ClientHudSlide.new(label, UDim2.new(label.Position.X.Scale, label.Position.X.Offset, COUNTDOWN_HIDDEN_POSITION_Y_SCALE, 0))
 	self.countdownSlide:snap(false)
+	self.countdownFadeTarget = label.TextTransparency
+	self.countdownUpperPosition = label.Position
+	self.isCountdownLowered = false
 	gui.Enabled = true
+end
+
+-- the FINAL NIGHT card going down releases the helicopter's countdown
+function ClientRescueManager:onCardClosed()
+	local runState = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_STATE), Enums.RunState.DAY)
+	if runState == Enums.RunState.RESCUE then
+		self.isHelicopterCountdownReleased = true
+	end
 end
 
 function ClientRescueManager:render()
@@ -516,6 +723,11 @@ function ClientRescueManager:init()
 			self:findIncomingGui()
 		end
 	)
+	ClientRunCycleManager:subscribeCardClosed(
+		function()
+			self:onCardClosed()
+		end
+	)
 	RunService.Heartbeat:Connect(
 		function()
 			self:step()
@@ -540,6 +752,16 @@ function ClientRescueManager.new(): ClientRescueManager
 	self.countdownSlide = nil
 	self.isCountdownShown = false
 	self.shownCountdown = ""
+	self.countdownFadeTarget = 0
+	self.countdownFade = nil
+	self.isHelicopterCountdownReleased = false
+	self.countdownUpperPosition = nil
+	self.isCountdownLowered = false
+	self.billboardFadeGeneration = 0
+	self.isFinalNightSongPlaying = false
+	self.isFinalNightSongFading = false
+	self.landedFlashCount = 0
+	self.wasCountdownRed = false
 	self.shownAboardCount = 0
 	self.lastRunState = Enums.RunState.DAY
 	self.incomingGui = nil

@@ -99,15 +99,16 @@ function HelicopterManager:setPhase(helicopter: Model, phase: number)
 	helicopter:SetAttribute(Attributes.HELICOPTER_PHASE, phase)
 end
 
--- a fresh helicopter on a spawn part; nil (already reported by the map
--- validator) when the template or spawn is missing
-function HelicopterManager:spawnAt(spawnPart: BasePart, parent: Instance, phase: number): Model?
+-- a fresh helicopter at a CFrame (a spawn part's, or an approach's far
+-- end); nil (already reported by the map validator) when the template is
+-- missing
+function HelicopterManager:spawnAtCFrame(spawnCFrame: CFrame, parent: Instance, phase: number): Model?
 	local template = self:getTemplate()
 	if not template then
 		return nil
 	end
 	local helicopter = template:Clone()
-	helicopter:PivotTo(spawnPart.CFrame)
+	helicopter:PivotTo(spawnCFrame)
 	for _, seat in self:getSeats(helicopter) do
 		seat.Disabled = true
 	end
@@ -129,16 +130,31 @@ function HelicopterManager:spawnAt(spawnPart: BasePart, parent: Instance, phase:
 	return helicopter
 end
 
--- a helicopter in the air on its way to a pad (M75): spawned at the
--- approach part, it flies in from flightStartTime and is on the pad
--- APPROACH_SEC later; the caller lands it then (land). nil when the
--- template is missing
-function HelicopterManager:spawnApproaching(approachPart: BasePart, padPart: BasePart, parent: Instance, flightStartTime: number): Model?
-	local helicopter = self:spawnAt(approachPart, parent, Enums.HelicopterPhase.APPROACHING)
+function HelicopterManager:spawnAt(spawnPart: BasePart, parent: Instance, phase: number): Model?
+	return self:spawnAtCFrame(spawnPart.CFrame, parent, phase)
+end
+
+-- a flat unit heading from a vector, or the pad's facing for none
+function HelicopterManager:resolveHeading(padCFrame: CFrame, heading: Vector3?): Vector3
+	return HelicopterFlightRules.flatDirection(Vector3.zero, HelicopterFlightRules.flatten(heading or padCFrame.LookVector), padCFrame.LookVector)
+end
+
+-- a helicopter in the air on its way to a pad (M75): spawned at the far
+-- end of the departure path along the heading (the pad's own facing for
+-- none: the way the run-start helicopter left), it flies that path back
+-- in from flightStartTime and is on the pad APPROACH_SEC later; the
+-- caller lands it then (land). nil when the template is missing
+function HelicopterManager:spawnApproaching(padPart: BasePart, heading: Vector3?, parent: Instance, flightStartTime: number): Model?
+	local padCFrame = padPart.CFrame
+	local flatHeading = self:resolveHeading(padCFrame, heading)
+	local startPosition = HelicopterFlightRules.approachStart(padCFrame, flatHeading, HelicopterData :: any)
+	local startCFrame = HelicopterFlightRules.approachPose(padCFrame, flatHeading, HelicopterData :: any, 0)
+	local helicopter = self:spawnAtCFrame(CFrame.new(startPosition) * startCFrame.Rotation, parent, Enums.HelicopterPhase.APPROACHING)
 	if not helicopter then
 		return nil
 	end
-	helicopter:SetAttribute(Attributes.HELICOPTER_PAD_CFRAME, padPart.CFrame)
+	helicopter:SetAttribute(Attributes.HELICOPTER_PAD_CFRAME, padCFrame)
+	helicopter:SetAttribute(Attributes.HELICOPTER_HEADING, flatHeading)
 	helicopter:SetAttribute(Attributes.HELICOPTER_FLIGHT_START_TIME, flightStartTime)
 	return helicopter
 end
@@ -165,7 +181,7 @@ function HelicopterManager:retire(helicopter: Model, lifetimeSec: number, headin
 	helicopter.Name = Constants.DEPARTED_HELICOPTER_NAME
 	local pivot = helicopter:GetPivot()
 	helicopter:SetAttribute(Attributes.HELICOPTER_PAD_CFRAME, pivot)
-	helicopter:SetAttribute(Attributes.HELICOPTER_HEADING, HelicopterFlightRules.flatDirection(Vector3.zero, HelicopterFlightRules.flatten(heading or pivot.LookVector), pivot.LookVector))
+	helicopter:SetAttribute(Attributes.HELICOPTER_HEADING, self:resolveHeading(pivot, heading))
 	helicopter:SetAttribute(Attributes.HELICOPTER_FLIGHT_START_TIME, workspace:GetServerTimeNow())
 	self:setPhase(helicopter, Enums.HelicopterPhase.FLYING)
 	task.delay(
@@ -185,9 +201,10 @@ end
 function HelicopterManager:abortApproach(helicopter: Model, lifetimeSec: number)
 	local padCFrame = helicopter:GetAttribute(Attributes.HELICOPTER_PAD_CFRAME)
 	local startTime = helicopter:GetAttribute(Attributes.HELICOPTER_FLIGHT_START_TIME)
+	local inbound = helicopter:GetAttribute(Attributes.HELICOPTER_HEADING)
 	local heading: Vector3? = nil
 	if typeof(padCFrame) == "CFrame" and typeof(startTime) == "number" then
-		local pose = HelicopterFlightRules.approachPose(helicopter:GetPivot().Position, padCFrame, HelicopterData :: any, workspace:GetServerTimeNow() - startTime)
+		local pose = HelicopterFlightRules.approachPose(padCFrame, self:resolveHeading(padCFrame, if typeof(inbound) == "Vector3" then inbound else nil), HelicopterData :: any, workspace:GetServerTimeNow() - startTime)
 		helicopter:PivotTo(pose)
 		heading = pose.LookVector
 	end

@@ -306,6 +306,14 @@ module = {
 	-- GameMetadata: when the breather's countdown begins, CALL_SEQUENCE_SEC
 	-- after the call so the dispatch and the INCOMING flash play first
 	RESCUE_COUNTDOWN_START_TIME = "RescueCountdownStartTime",
+	-- CurrentPlayer: this player is seated in the rescue helicopter
+	RESCUE_IS_ABOARD = "RescueIsAboard",
+	-- GameMetadata: the sky's turn back as the full helicopter leaves (M75,
+	-- 2026-10-27): when it began (0 for none), how long night to the day's
+	-- end takes, then how long the day's end back to its start takes
+	RESCUE_SUNSET_START_TIME = "RescueSunsetStartTime",
+	RESCUE_SUNSET_TO_DAY_END_SEC = "RescueSunsetToDayEndSec",
+	RESCUE_SUNSET_TO_DAY_START_SEC = "RescueSunsetToDayStartSec",
 	-- GameMetadata: why the run ended (Enums.RunEndReason), 0 while it is on
 	RUN_END_REASON = "RunEndReason",
 	-- GameMetadata: the Game Over screen's timing (GameData/Run/Revives):

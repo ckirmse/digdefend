@@ -162,6 +162,46 @@ describe(
 )
 
 describe(
+	"RunCycleRules sunset",
+	function()
+		it(
+			"turns the clock backward from the night's hour to the sunset's",
+			function()
+				expect(RunCycleRules.clockTimeBackward(20, 17, 0)).toBeCloseTo(20, 5)
+				expect(RunCycleRules.clockTimeBackward(20, 17, 0.5)).toBeCloseTo(18.5, 5)
+				expect(RunCycleRules.clockTimeBackward(20, 17, 1)).toBeCloseTo(17, 5)
+				-- across midnight the short way back
+				expect(RunCycleRules.clockTimeBackward(1, 22, 1)).toBeCloseTo(22, 5)
+				expect(RunCycleRules.clockTimeBackward(1, 22, 0.5)).toBeCloseTo(23.5, 5)
+			end
+		)
+		it(
+			"stages the turn back: to the day's end, then to its start, none before it begins",
+			function()
+				local stage, share = RunCycleRules.sunsetStage(0, 100, 2, 300)
+				expect(stage).toBe(nil)
+				stage, share = RunCycleRules.sunsetStage(100, 101, 2, 300)
+				expect(stage).toBe(RunCycleRules.SUNSET_STAGE_TO_DAY_END)
+				expect(share).toBeCloseTo(0.5, 5)
+				stage, share = RunCycleRules.sunsetStage(100, 102, 2, 300)
+				expect(stage).toBe(RunCycleRules.SUNSET_STAGE_TO_DAY_START)
+				expect(share).toBeCloseTo(0, 5)
+				stage, share = RunCycleRules.sunsetStage(100, 252, 2, 300)
+				expect(stage).toBe(RunCycleRules.SUNSET_STAGE_TO_DAY_START)
+				expect(share).toBeCloseTo(0.5, 5)
+				stage, share = RunCycleRules.sunsetStage(100, 1000, 2, 300)
+				expect(share).toBe(1)
+				-- a stage with no time is skipped
+				stage, share = RunCycleRules.sunsetStage(100, 100, 0, 300)
+				expect(stage).toBe(RunCycleRules.SUNSET_STAGE_TO_DAY_START)
+				stage, share = RunCycleRules.sunsetStage(100, 105, 2, 0)
+				expect(share).toBe(1)
+			end
+		)
+	end
+)
+
+describe(
 	"RunCycleRules night",
 	function()
 		it(

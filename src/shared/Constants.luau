@@ -102,12 +102,17 @@ Constants.DEPARTED_HELICOPTER_NAME = "DepartedHelicopter"
 -- it has landed, and the SpotLight lit on the way in
 Constants.HELICOPTER_BOARD_PROMPT = "BoardPrompt"
 Constants.HELICOPTER_SEARCHLIGHT = "Searchlight"
--- on the camp's HelicopterPad (M75): where the rescue approach begins, the
--- part whose facing the departure heads along, and the part carrying the
--- touchdown dust emitter
-Constants.PAD_APPROACH_SPAWN_PART = "ApproachSpawn"
-Constants.PAD_DEPARTURE_HEADING_PART = "DepartureHeading"
+-- on the camp's HelicopterPad (M75): the part carrying the touchdown dust
+-- emitter (every flight runs along the pad's own facing since
+-- 2026-10-27, so no heading part)
 Constants.PAD_DUST_PART = "Dust"
+-- the rider's fixed shots (2026-10-27): where the camera sits once seated,
+-- and where it ends after rising with the lift-off
+Constants.PAD_RIDE_CAMERA_START_PART = "RideCameraStart"
+Constants.PAD_RIDE_CAMERA_END_PART = "RideCameraEnd"
+-- and where it drifts to over the rest of the ride, reached as the
+-- Results Menu comes (2026-10-27)
+Constants.PAD_RIDE_CAMERA_FINAL_PART = "RideCameraFinal"
 
 -- gameplay map layout (Studio-authored; GameplayMapManager checks it when a
 -- map loads). Every map is a Folder under ServerStorage/Maps named by its
@@ -553,6 +558,9 @@ Constants.RESCUE_COUNTDOWN_LABEL = "Label"
 Constants.RESCUE_INCOMING_GUI_NAME = "RescueIncoming"
 Constants.RESCUE_INCOMING_LABEL = "TextLabel"
 Constants.RADIO_DISPATCH_SOUND = "Rescue"
+-- the designer's title card (two TextLabels), held at the end of the ride
+-- out before the Results Menu fades in (designer, 2026-10-27)
+Constants.RESCUE_TITLE_GUI_NAME = "Title"
 Constants.REFINERY_HP_GUI_NAME = "RefineryHp"
 Constants.REFINERY_HP_ROOT_FRAME = "Root"
 Constants.REFINERY_HP_ICON = "Icon"
@@ -718,6 +726,8 @@ Constants.ORE_PICKUPS_FOLDER = "OrePickups"
 -- designer's spelling
 Constants.HELICOPTER_ROTOR_MODEL = "Rotar"
 Constants.HELICOPTER_ROTOR_PART = "Rotar"
+-- the tail rotor, a part of the model itself, spun about its own X axis
+Constants.HELICOPTER_TAIL_ROTOR_PART = "BackBlades"
 -- pad menus (built by scripts/studio/build_create_party_gui.luau and build_queue_gui.luau)
 -- the Character Select Menu (M37; scripts/studio/build_character_select_gui.luau):
 -- a header with Back and the Diamonds wallet, a row of cards cloned from

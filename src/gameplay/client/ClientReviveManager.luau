@@ -38,6 +38,7 @@ local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local utils = require("@game/ReplicatedStorage/Shared/utils")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
+local ClientGuiFade = require(script.Parent.Parent.Client.ClientGuiFade)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
@@ -113,6 +114,14 @@ export type ClientReviveManager = typeof(setmetatable(
 		-- a rider's lift-off camera (ClientRescueCameraManager, M75) holds
 		-- the run's end back until its ride is over
 		isRunEndDeferred: boolean,
+		-- a rider's run end waits for the ride out even before the ride's
+		-- camera has started (the seat can be seen after the win), and the
+		-- menu then fades in rather than cutting in
+		isRideDone: boolean,
+		pendingMenuFadeInSec: number?,
+		-- the dialog's authored place, for the endings that show the grave
+		dialogAuthoredPosition: UDim2?,
+		dialogAuthoredAnchorPoint: Vector2?,
 		stepAccumulatorSec: number,
 		graveTemplate: Model?,
 		graveFolder: Folder?,
@@ -342,12 +351,35 @@ function ClientReviveManager:setLayoutFilled(isFilled: boolean)
 	revive.Size = taller(layout.reviveSize, freed - statsGrowth)
 end
 
+-- the dialog sits to the left as authored, beside the grave the death
+-- and Refinery endings show; a won run has no grave, so it is centred
+-- (designer, 2026-10-27)
+function ClientReviveManager:placeDialog(isWon: boolean)
+	local menuGui = self.menuGui
+	local dialog = if menuGui then menuGui:FindFirstChild(Constants.RESULTS_MENU_DIALOG) else nil
+	if not dialog or not dialog:IsA("GuiObject") then
+		return
+	end
+	if not self.dialogAuthoredPosition then
+		self.dialogAuthoredPosition = dialog.Position
+		self.dialogAuthoredAnchorPoint = dialog.AnchorPoint
+	end
+	if isWon then
+		dialog.AnchorPoint = Vector2.new(0.5, 0.5)
+		dialog.Position = UDim2.fromScale(0.5, 0.5)
+	else
+		dialog.AnchorPoint = self.dialogAuthoredAnchorPoint or dialog.AnchorPoint
+		dialog.Position = self.dialogAuthoredPosition or dialog.Position
+	end
+end
+
 function ClientReviveManager:renderMenu()
+	local state = self:getRunState()
 	if self.titleLabel then
-		local state = self:getRunState()
 		local title = if state == Enums.RunState.WON then TITLE_WON elseif state == Enums.RunState.LOST then TITLE_LOST else TITLE_DEAD
 		self.titleLabel.Text = UiStyle.formatTitle(title)
 	end
+	self:placeDialog(state == Enums.RunState.WON)
 	self:renderStats()
 	self:renderRevive()
 end
@@ -358,7 +390,9 @@ end
 -- when the menu closes. Feedback text stays, since it is how a purchase
 -- or a revive answers. A HUD element that switches itself on meanwhile
 -- (the day card) is switched off again and left off: its moment has passed
-function ClientReviveManager:setHudHidden(isHidden: boolean)
+-- fadeSec fades each gui out first and disables it after (the crew all
+-- aboard, 2026-10-27); none hides them at once
+function ClientReviveManager:setHudHidden(isHidden: boolean, fadeSec: number?)
 	local playerGui = Players.LocalPlayer:FindFirstChild("PlayerGui")
 	if not playerGui then
 		return
@@ -387,7 +421,19 @@ function ClientReviveManager:setHudHidden(isHidden: boolean)
 		if not gui:IsA("ScreenGui") or not gui.Enabled or gui.DisplayOrder >= ClientOverlayManager.MENU_DISPLAY_ORDER or HUD_KEPT_GUI_NAMES[gui.Name] then
 			continue
 		end
-		gui.Enabled = false
+		if fadeSec and fadeSec > 0 then
+			ClientGuiFade.fadeOut(
+				gui,
+				fadeSec,
+				function()
+					if self.isHudHidden then
+						gui.Enabled = false
+					end
+				end
+			)
+		else
+			gui.Enabled = false
+		end
 		if isFirstPass then
 			table.insert(self.hiddenHudGuis, gui)
 		end
@@ -430,18 +476,38 @@ function ClientReviveManager:openMenu()
 	self.isMenuOpen = true
 	self:renderMenu()
 	menuGui.Enabled = true
-	ClientOverlayManager:notifyBeginOverlay(overlay)
-	self:setHudHidden(self.isDead)
+	local fadeInSec = self.pendingMenuFadeInSec
+	if fadeInSec then
+		self.pendingMenuFadeInSec = nil
+		ClientGuiFade.fadeIn(menuGui, fadeInSec)
+	end
+	ClientOverlayManager:notifyBeginOverlay(overlay, fadeInSec)
+	-- a rider's HUD faded out with the ride and stays out under the menu
+	self:setHudHidden(self.isDead or self.isRideDone)
 	-- a won run's sting, as its RUN WON opens (M75)
 	if ClientDataManager:getGameMetadata(Attributes.RUN_STATE) == Enums.RunState.WON then
 		ClientSoundManager:playSfx(SoundNames.Sfx.RESCUE_WIN)
 	end
 end
 
--- while a rider's camera is on the lift-off the run's end waits; once
--- the ride is over the deferred end shows at once
-function ClientReviveManager:setRunEndDeferred(isDeferred: boolean)
+-- this player is seated in the rescue helicopter: their run end waits
+-- for the ride out whether or not the ride's camera has begun
+function ClientReviveManager:isAboardRescue(): boolean
+	return ClientDataManager:getCurrentPlayerAttribute(Attributes.RESCUE_IS_ABOARD) == true
+end
+
+-- while a rider watches the lift-off the run's end waits; once the ride
+-- is over the deferred end shows, the menu fading in over menuFadeInSec
+-- when one is given (designer, 2026-10-27: no cut to black)
+function ClientReviveManager:setRunEndDeferred(isDeferred: boolean, menuFadeInSec: number?)
+	if not isDeferred then
+		self.isRideDone = true
+		self.pendingMenuFadeInSec = menuFadeInSec
+	end
 	if self.isRunEndDeferred == isDeferred then
+		if not isDeferred then
+			self:onRunStateChanged()
+		end
 		return
 	end
 	self.isRunEndDeferred = isDeferred
@@ -791,9 +857,16 @@ end
 function ClientReviveManager:onRunStateChanged()
 	if not self:isRunOver() then
 		self.hasShownRunEnd = false
+		self.isRideDone = false
+		self.pendingMenuFadeInSec = nil
 		return
 	end
 	if self.hasShownRunEnd or self.isRunEndDeferred then
+		return
+	end
+	-- a rider's win waits for the ride out (ClientRescueCameraManager
+	-- releases it), even when the seat is seen after the win
+	if self:getRunState() == Enums.RunState.WON and self:isAboardRescue() and not self.isRideDone then
 		return
 	end
 	self.hasShownRunEnd = true
@@ -1274,6 +1347,10 @@ function ClientReviveManager.new(): ClientReviveManager
 	self.isDead = false
 	self.hasShownRunEnd = false
 	self.isRunEndDeferred = false
+	self.isRideDone = false
+	self.pendingMenuFadeInSec = nil
+	self.dialogAuthoredPosition = nil
+	self.dialogAuthoredAnchorPoint = nil
 	self.stepAccumulatorSec = 0
 	self.graveTemplate = nil
 	self.graveFolder = nil

@@ -32,6 +32,19 @@ function ClientHudSlide:getIsShown(): boolean
 	return self.isShown
 end
 
+-- a new spot on stage (the rescue countdown has two, 2026-10-27): a
+-- frame already on stage and still moves there at once, one mid-slide
+-- or off stage arrives there with its next slide
+function ClientHudSlide:setShownPosition(position: UDim2)
+	if self.shownPosition == position then
+		return
+	end
+	self.shownPosition = position
+	if self.isShown and not self.tween then
+		self.frame.Position = position
+	end
+end
+
 -- puts the frame where it belongs at once, for the first draw
 function ClientHudSlide:snap(isShown: boolean)
 	self.isShown = isShown
@@ -70,7 +83,11 @@ function ClientHudSlide:setShown(isShown: boolean, delaySec: number)
 		self.tween = tween
 		tween.Completed:Connect(
 			function(state: Enum.PlaybackState)
-				if self.generation == generation and not isShown and state == Enum.PlaybackState.Completed then
+				if self.generation ~= generation then
+					return
+				end
+				self.tween = nil
+				if not isShown and state == Enum.PlaybackState.Completed then
 					self.frame.Visible = false
 				end
 			end

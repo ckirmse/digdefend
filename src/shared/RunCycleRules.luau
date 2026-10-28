@@ -129,6 +129,34 @@ function RunCycleRules.clockTimeBetween(fromClockTime: number, toClockTime: numb
 	return (fromClockTime + forward * math.clamp(share, 0, 1)) % 24
 end
 
+-- the hour between two hours turning backward (wrapping at 0), for the
+-- sunset the full helicopter leaves into (2026-10-27)
+function RunCycleRules.clockTimeBackward(fromClockTime: number, toClockTime: number, share: number): number
+	local backward = (fromClockTime - toClockTime) % 24
+	return (fromClockTime - backward * math.clamp(share, 0, 1)) % 24
+end
+
+RunCycleRules.SUNSET_STAGE_TO_DAY_END = 1
+RunCycleRules.SUNSET_STAGE_TO_DAY_START = 2
+
+-- where the sky's turn back stands: its stage (night's end to the day's
+-- end over toDayEndSec, then the day's end back to its start over
+-- toDayStartSec) and how far through it (0 to 1); nil before it begins.
+-- A stage with no time is skipped
+function RunCycleRules.sunsetStage(sunsetStartTime: number, now: number, toDayEndSec: number, toDayStartSec: number): (number?, number)
+	if sunsetStartTime <= 0 then
+		return nil, 0
+	end
+	local elapsed = now - sunsetStartTime
+	if elapsed < toDayEndSec then
+		return RunCycleRules.SUNSET_STAGE_TO_DAY_END, math.clamp(elapsed / math.max(toDayEndSec, 1e-6), 0, 1)
+	end
+	if toDayStartSec <= 0 then
+		return RunCycleRules.SUNSET_STAGE_TO_DAY_START, 1
+	end
+	return RunCycleRules.SUNSET_STAGE_TO_DAY_START, math.clamp((elapsed - toDayEndSec) / toDayStartSec, 0, 1)
+end
+
 function RunCycleRules.isRunOver(runState: number): boolean
 	return runState == Enums.RunState.WON or runState == Enums.RunState.LOST
 end

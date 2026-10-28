@@ -51,9 +51,15 @@ export type ClientRefineryManager = typeof(setmetatable(
 		grindPlayer: AudioPlayer?,
 		grindUntil: number?,
 		hasWarnedNoSpikes: boolean,
+		-- the uranium row's green pulse while the quota is met and the
+		-- rescue not yet called (designer, 2026-10-27)
+		uraniumPulse: Tween?,
 	},
 	ClientRefineryManager
 ))
+
+-- one beat of the pulse, there and back
+local URANIUM_PULSE_SEC = 0.6
 
 local ORE_ENTRY_SHAPE = {
 	resource = { type = "enum", name = "RawResource" },
@@ -154,8 +160,36 @@ function ClientRefineryManager:renderRow(resource: number)
 		local total = held or readNumber(ClientDataManager:getGameMetadata(Attributes.URANIUM_TOTAL))
 		local target = readNumber(ClientDataManager:getGameMetadata(Attributes.URANIUM_TARGET))
 		label.Text = string.format(URANIUM_FORMAT, total, target)
-		label.TextColor3 = if target > 0 and total >= target then UiStyle.POSITIVE_COLOR else UiStyle.TEXT_COLOR
+		local isMet = target > 0 and total >= target
+		local runState = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_STATE))
+		local isCalled = runState == Enums.RunState.RESCUE_WAIT or runState == Enums.RunState.RESCUE or runState == Enums.RunState.WON
+		self:setUraniumPulsing(label, isMet and not isCalled)
+		if not self.uraniumPulse then
+			label.TextColor3 = if isMet then UiStyle.POSITIVE_COLOR else UiStyle.TEXT_COLOR
+		end
 	end
+end
+
+-- the quota met pulses the row between white and green until the radio
+-- is used, so nobody misses it (designer, 2026-10-27); steady green after
+function ClientRefineryManager:setUraniumPulsing(label: TextLabel, isPulsing: boolean)
+	local pulse = self.uraniumPulse
+	if isPulsing == (pulse ~= nil) then
+		return
+	end
+	if pulse then
+		pulse:Cancel()
+		self.uraniumPulse = nil
+		return
+	end
+	label.TextColor3 = UiStyle.TEXT_COLOR
+	local tween = TweenService:Create(
+		label,
+		TweenInfo.new(URANIUM_PULSE_SEC, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+		{ TextColor3 = UiStyle.POSITIVE_COLOR }
+	)
+	self.uraniumPulse = tween
+	tween:Play()
 end
 
 function ClientRefineryManager:render(resource: number)
@@ -672,7 +706,7 @@ function ClientRefineryManager:init()
 			self:onValueChanged(Enums.RefinedResource.GOLD_BAR)
 		end
 	)
-	for _, key in { Attributes.URANIUM_TOTAL, Attributes.URANIUM_TARGET } do
+	for _, key in { Attributes.URANIUM_TOTAL, Attributes.URANIUM_TARGET, Attributes.RUN_STATE } do
 		ClientDataManager:subscribeGameMetadataAttribute(
 			key,
 			function()
@@ -707,6 +741,7 @@ function ClientRefineryManager.new(): ClientRefineryManager
 	self.grindPlayer = nil
 	self.grindUntil = nil
 	self.hasWarnedNoSpikes = false
+	self.uraniumPulse = nil
 	return self
 end
 

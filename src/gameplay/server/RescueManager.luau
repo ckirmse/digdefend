@@ -9,9 +9,12 @@
 -- (RunCycleManager: night look, gate shut, a countdown to landing) as
 -- MonsterWaveManager spawns the final wave while the helicopter flies in.
 -- APPROACH_SEC before the landing the company helicopter is spawned at
--- the pad's ApproachSpawn (HelicopterManager) and every client flies it
--- in (M75); at the landing time it is set down on the pad with the
--- template's Board prompt enabled, which seats a player. It leaves once
+-- the far end of the run-start departure, straight out along the pad's
+-- facing down the canyon (HelicopterManager), and every client flies it
+-- back in along it (M75; designer, 2026-10-27); at the landing time it is
+-- set down on the pad, and a standing player who touches it is seated
+-- (checked by the server from the model's bounds; a Board prompt before
+-- 2026-10-27). It leaves once
 -- everyone standing is aboard, BOARDING_TIMEOUT_SEC after landing with
 -- someone aboard, or EMPTY_DEPARTURE_SEC after landing with nobody
 -- aboard, which loses the run (pure RescueRules; M75). With riders the
@@ -126,6 +129,7 @@ end
 
 function RescueManager:replicate()
 	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_COUNTDOWN_START_TIME, self.countdownStartTime)
+	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_SUNSET_START_TIME, self.sunsetStartTime)
 	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_IS_LANDED, self.isLanded)
 	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_ABOARD_COUNT, self:getAboardCount())
 	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_CREW_COUNT, #self:getLivingPlayers())
@@ -198,7 +202,8 @@ function RescueManager:call(player: Player)
 	print(`[RescueManager] {player.Name} called the rescue helicopter; the final wave in {RescueData.CALL_SEQUENCE_SEC + RescueData.FINAL_WAVE_DELAY_SEC} s, landing {RescueData.RESCUE_FLIGHT_SEC} s after`)
 	RunCycleManager:startRescueWait(self.waveStartTime)
 	self:replicate()
-	self:announce(RescueData.CALLED_MESSAGE, true)
+	-- no announcement: the clients' RESCUE HELICOPTER INCOMING flash is
+	-- the word (designer, 2026-10-27)
 end
 
 -- the wait is up: night falls, the final wave spawns, the helicopter is
@@ -215,47 +220,49 @@ function RescueManager:getApproachSec(): number
 	return math.min(RescueData.APPROACH_SEC, RescueData.RESCUE_FLIGHT_SEC)
 end
 
--- the helicopter appears far out and flies in (M75): the clients draw
--- the whole approach from its start time, so it is only spawned here. A
--- map without the approach part gets the old arrival, the helicopter
--- set down at the landing time
+-- the helicopter appears far down the canyon and flies in (M75): the
+-- clients draw the whole approach from its start time, so it is only
+-- spawned here. It comes back the way the run's first helicopter left,
+-- along the pad's own facing (designer, 2026-10-27: that path runs
+-- straight down the canyon), which spawnApproaching takes for a nil
+-- heading; it leaves the same way (a DepartureHeading part gave the
+-- rescue its own way out until later that day)
 function RescueManager:launchApproach()
 	self.isApproaching = true
 	local pad = self:getPad()
 	local spawnPart = self:getPadPart(Constants.PAD_HELICOPTER_SPAWN_PART)
-	local approachPart = self:getPadPart(Constants.PAD_APPROACH_SPAWN_PART)
-	if not pad or not spawnPart or not approachPart then
-		warn(`RescueManager: the camp has no HelicopterPad.{Constants.PAD_APPROACH_SPAWN_PART}; the helicopter will appear on the pad instead`)
+	if not pad or not spawnPart then
 		return
 	end
-	self.helicopter = HelicopterManager:spawnApproaching(approachPart, spawnPart, pad, self.landingTime - self:getApproachSec())
+	self.helicopter = HelicopterManager:spawnApproaching(spawnPart, nil, pad, self.landingTime - self:getApproachSec())
 	print("[RescueManager] the rescue helicopter is coming in")
 end
 
--- the Board prompt: the template's authored one, or one made here on the
--- pad's spawn part (which the helicopter stands on) for a template
--- without it
-function RescueManager:enableBoardPrompt(helicopter: Model, spawnPart: BasePart)
-	local prompt = HelicopterManager:getBoardPrompt(helicopter)
-	if not prompt then
-		warn(`RescueManager: the helicopter template has no {Constants.HELICOPTER_BOARD_PROMPT}; a prompt is made on the pad instead`)
-		prompt = Instance.new("ProximityPrompt")
-		prompt.ActionText = RescueData.BOARD_PROMPT_ACTION_TEXT
-		prompt.ObjectText = RescueData.BOARD_PROMPT_OBJECT_TEXT
-		prompt.MaxActivationDistance = RescueData.BOARD_PROMPT_MAX_DISTANCE_STUDS
-		prompt.HoldDuration = 0
-		prompt.RequiresLineOfSight = false
-		prompt.Parent = spawnPart
+-- a standing player whose body is within the margin of the landed
+-- helicopter's box boards (designer, 2026-10-27: touch, not a prompt);
+-- the server judges it from the model's bounds each step, so no touch
+-- event from a client is trusted
+function RescueManager:boardTouchingPlayers()
+	local helicopter = self.helicopter
+	if not helicopter or not helicopter.Parent then
+		return
 	end
-	-- a clickable prompt frees the mouse when hovered, which sticks the cursor in first person (2026-09-29)
-	prompt.ClickablePrompt = false
-	prompt.Enabled = true
-	self.boardPrompt = prompt
-	self.boardConnection = prompt.Triggered:Connect(
-		function(player: Player)
+	local boxCFrame, boxSize = helicopter:GetBoundingBox()
+	local halfSize = boxSize / 2 + Vector3.one * RescueData.BOARD_TOUCH_MARGIN_STUDS
+	for _, player in Players:GetPlayers() do
+		if self.seatByPlayer[player] then
+			continue
+		end
+		local character = player.Character
+		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+		if not root or not root:IsA("BasePart") then
+			continue
+		end
+		local localPosition = boxCFrame:PointToObjectSpace(root.Position)
+		if math.abs(localPosition.X) <= halfSize.X and math.abs(localPosition.Y) <= halfSize.Y and math.abs(localPosition.Z) <= halfSize.Z then
 			self:board(player)
 		end
-	)
+	end
 end
 
 -- the deadline the countdown shows: the boarding window once someone is
@@ -282,12 +289,9 @@ function RescueManager:land()
 		self.helicopter = helicopter
 	end
 	RunCycleManager:setRescueEnd(self:getDepartureDeadline())
-	if helicopter then
-		self:enableBoardPrompt(helicopter, spawnPart)
-	end
 	print("[RescueManager] the rescue helicopter has landed")
+	-- no line: the countdown and its alert tell it (designer, 2026-10-27)
 	self:replicate()
-	self:announce(RescueData.LANDED_MESSAGE)
 end
 
 -- the lobby's seating: the seat is enabled only for this Sit, so the
@@ -324,12 +328,27 @@ function RescueManager:board(player: Player)
 	free.Disabled = false
 	free:Sit(humanoid)
 	self.seatByPlayer[player] = free
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.RESCUE_IS_ABOARD, true)
+	-- a rider's body flies 2000 studs off with the helicopter while their
+	-- camera stays at the pad, so streaming follows the pad, not the body,
+	-- or the camp would vanish behind the shot (designer, 2026-10-27)
+	player.ReplicationFocus = self:getPadPart(Constants.PAD_HELICOPTER_SPAWN_PART)
 	print(`[RescueManager] {player.Name} is aboard`)
-	-- the first rider starts the boarding window
+	-- the first rider starts the boarding window; no line for a boarder
+	-- (designer, 2026-10-27: the chime and the countdown tell it)
 	RunCycleManager:setRescueEnd(self:getDepartureDeadline())
 	self:replicate()
-	self:announce(string.format(RescueData.BOARDED_FORMAT, player.DisplayName, self:getAboardCount(), #self:getLivingPlayers()))
 	self:departIfNeeded(workspace:GetServerTimeNow())
+end
+
+-- every seated flag off, before the seats are forgotten
+function RescueManager:clearAboardFlags()
+	for player in self.seatByPlayer do
+		if player.Parent then
+			SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.RESCUE_IS_ABOARD, false)
+			player.ReplicationFocus = nil
+		end
+	end
 end
 
 function RescueManager:departIfNeeded(now: number)
@@ -393,9 +412,9 @@ function RescueManager:liftOff()
 	if not helicopter then
 		return
 	end
-	local headingPart = self:getPadPart(Constants.PAD_DEPARTURE_HEADING_PART)
-	local heading = if headingPart then headingPart.CFrame.LookVector else nil
-	HelicopterManager:retire(helicopter, RescueData.DEPARTED_HELICOPTER_LIFETIME_SEC, heading)
+	-- out the way it came and the way the run's first helicopter left: the
+	-- pad's own facing (designer, 2026-10-27)
+	HelicopterManager:retire(helicopter, RescueData.DEPARTED_HELICOPTER_LIFETIME_SEC)
 end
 
 -- everyone aboard wins and the run is over
@@ -407,6 +426,9 @@ function RescueManager:depart()
 		DiamondTapManager:payRescue(player)
 	end
 	table.sort(aboardNames)
+	-- the sky turns back to a sunset as it leaves (designer, 2026-10-27)
+	self.sunsetStartTime = workspace:GetServerTimeNow()
+	self:replicate()
 	self:liftOff()
 	local message = RescueRules.wonMessage(aboardNames, #self:getLivingPlayers(), RescueData.WON_ALL_MESSAGE, RescueData.WON_SOME_FORMAT)
 	RunCycleManager:endRun(true, message, Enums.RunEndReason.RESCUED)
@@ -472,6 +494,7 @@ function RescueManager:step()
 		end
 		return
 	end
+	self:boardTouchingPlayers()
 	self:departIfNeeded(now)
 end
 
@@ -536,7 +559,9 @@ function RescueManager:cancel()
 	self.isLanded = false
 	self.landingTime = 0
 	self.landedTime = 0
+	self:clearAboardFlags()
 	self.seatByPlayer = {}
+	self.sunsetStartTime = 0
 	print("[RescueManager] the rescue is called off; the day starts over")
 	self:refreshRadio()
 	self:replicate()
@@ -586,7 +611,9 @@ function RescueManager:onRunStarted()
 	self.isLanded = false
 	self.landingTime = 0
 	self.landedTime = 0
+	self:clearAboardFlags()
 	self.seatByPlayer = {}
+	self.sunsetStartTime = 0
 	self.hasDeparted = false
 	self:bindRadio()
 	self:replicate()
@@ -603,6 +630,8 @@ end
 function RescueManager:init()
 	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_APPROACH_SEC, self:getApproachSec())
 	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_RIDE_SEC, RescueData.RIDE_SEC)
+	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_SUNSET_TO_DAY_END_SEC, RescueData.SUNSET_TO_DAY_END_SEC)
+	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_SUNSET_TO_DAY_START_SEC, RescueData.SUNSET_TO_DAY_START_SEC)
 	RunPauseManager:subscribeResumed(
 		function(pausedSec: number)
 			self:onResumed(pausedSec)
@@ -651,6 +680,7 @@ end
 
 function RescueManager.new(): RescueManager
 	local self = setmetatable({}, RescueManager) :: RescueManager
+	self.sunsetStartTime = 0
 	self.radioPrompt = nil
 	self.radioConnection = nil
 	self.boardPrompt = nil

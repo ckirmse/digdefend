@@ -33,6 +33,8 @@ export type ClientSoundManager = typeof(setmetatable(
 
 -- long enough for any one-shot; the throwaway part goes with it
 local SPATIAL_ONE_SHOT_LIFETIME_SEC = 5
+-- a layered 2D one-shot's clone is kept this long past its own length
+local LAYERED_ONE_SHOT_GRACE_SEC = 1
 
 -- an emitter's default is the real inverse-square law, fine within a few
 -- studs but nearly gone by 60 (measured 2026-09-17), so every 3D sound
@@ -87,6 +89,29 @@ function ClientSoundManager:playSfx(name: string, playbackSpeed: number?)
 	player.TimePosition = 0
 	player.PlaybackSpeed = playbackSpeed or 1
 	player:Play()
+end
+
+-- a 2D one-shot that rings out in full however soon the next play comes
+-- (the landed alert on three flashes a second apart, 2026-10-27): each
+-- play is its own clone of the authored player, so none restarts another;
+-- the clone keeps the authored Wire to the device output and goes once it
+-- has played out
+function ClientSoundManager:playSfxLayered(name: string)
+	local template = self:findPlayer(self:getSfxFolder(), name)
+	if not template then
+		self:warnOnce(name, `no AudioPlayer {Constants.SFX_FOLDER}.{name}`)
+		return
+	end
+	if template.Asset == "" then
+		self:warnOnce(name, `{Constants.SFX_FOLDER}.{name} has no asset yet`)
+		return
+	end
+	local player = template:Clone()
+	player.TimePosition = 0
+	player.Looping = false
+	player.Parent = template.Parent
+	player:Play()
+	Debris:AddItem(player, math.max(player.TimeLength, 0) + LAYERED_ONE_SHOT_GRACE_SEC)
 end
 
 -- cuts a 2D sound that is still going (a charge let go before it was

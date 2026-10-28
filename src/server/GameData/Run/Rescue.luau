@@ -24,9 +24,10 @@ return {
 	-- 2026-10-27; 30 s and a still sky before)
 	FINAL_WAVE_DELAY_SEC = 90,
 	RESCUE_FLIGHT_SEC = 60,
-	-- the helicopter spawns at the pad's ApproachSpawn and flies in for
-	-- this long before the landing time; at most RESCUE_FLIGHT_SEC
-	APPROACH_SEC = 20,
+	-- the helicopter spawns at the far end of its way out and flies in
+	-- for this long before the landing time; at most RESCUE_FLIGHT_SEC,
+	-- and the same as GameData/Control/Helicopter's
+	APPROACH_SEC = 30,
 	BOARDING_TIMEOUT_SEC = 30,
 	-- with nobody aboard the helicopter leaves empty after this long on
 	-- the pad and the run is lost
@@ -36,22 +37,25 @@ return {
 	-- the flown-off helicopter is destroyed this long after takeoff; the
 	-- departure (GameData/Control/Helicopter) must finish inside it
 	DEPARTED_HELICOPTER_LIFETIME_SEC = 35,
-	-- a rider's camera follows the lift-off this long before the screen
-	-- fades to the Results Menu
-	RIDE_SEC = 10,
+	-- a rider's camera watches the lift-off this long before the title
+	-- card and the Results Menu (10 before the sunset, 30 before the
+	-- designer brought the card forward, 2026-10-27)
+	RIDE_SEC = 24,
+	-- the full helicopter leaving into a sunset (designer, 2026-10-27): the
+	-- sky turns back from night to the day's end over the first, then on
+	-- back to the day's start over the second (a single 30 s then 15 s
+	-- turn to an hour before the day's end came first)
+	SUNSET_TO_DAY_END_SEC = 2,
+	SUNSET_TO_DAY_START_SEC = 300,
 
-	-- the template's authored BoardPrompt is used; these dress a prompt
-	-- made in code when a template has none
-	BOARD_PROMPT_ACTION_TEXT = "Board",
-	BOARD_PROMPT_OBJECT_TEXT = "Rescue helicopter",
-	BOARD_PROMPT_MAX_DISTANCE_STUDS = 14,
+	-- a standing player boards by touching the landed helicopter (designer,
+	-- 2026-10-27; a Board prompt before): within this far of its body
+	BOARD_TOUCH_MARGIN_STUDS = 2,
 
-	-- green (good news) when the target is first reached and when the
-	-- rescue is called (2026-10-06); the rest stay blue announcements
+	-- green (good news) when the target is first reached (2026-10-06);
+	-- the rest stay blue announcements. The call itself has no line since
+	-- 2026-10-27 (the clients' INCOMING flash tells it)
 	READY_MESSAGE = "Uranium target reached! Call in the rescue helicopter on the radio",
-	CALLED_MESSAGE = "The rescue helicopter is on its way. Hold out",
-	LANDED_MESSAGE = "The helicopter has arrived. Board it now!",
-	BOARDED_FORMAT = "%s is aboard (%d / %d)",
 	WON_ALL_MESSAGE = "The whole crew made it out. The run is won",
 	WON_SOME_FORMAT = "%s made it out. The run is won",
 	LEFT_EMPTY_MESSAGE = "The helicopter left with nobody aboard. The run is lost",

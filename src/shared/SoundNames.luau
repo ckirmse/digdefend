@@ -156,6 +156,9 @@ local sfx = {
 	RESCUE_BOARD = "Rescue_Board",
 	RESCUE_INCOMING = "Rescue_Incoming",
 	RESCUE_WIN = "Rescue_Win",
+	-- the landed helicopter's countdown flashes red; this rings with its
+	-- first flash so nobody misses it (designer, 2026-10-27)
+	RESCUE_LANDED = "Rescue_Landed",
 	-- the pulsing hum of exposed uranium rock and dropped uranium ore, one
 	-- shared loop with an emitter per block or pickup, heard within 15
 	-- studs (designer, 2026-10-07; ClientMineManager, ClientOrePickupManager)
@@ -319,11 +322,20 @@ local music = {
 	-- plays from the top as dusk begins, the day's dusk before every night
 	-- (2026-09-25), and fades out across night fall (2026-10-02)
 	DUSK_SONG_1 = "DuskSong1",
+	-- the final night's song: from the RESCUE HELICOPTER INCOMING flash
+	-- going down, looping through the breather, out across the final
+	-- night's fall like the dusk song (designer, 2026-10-27)
+	FINAL_NIGHT_SONG = "FinalNightSong",
+	-- the ride out: from the last crew member boarding, in from 5 s in
+	-- over 5 s, looping, out as the Results Menu comes (designer,
+	-- 2026-10-27)
+	RESCUE_EXIT_SONG = "RescueExitSong",
 	-- the outdoors, looping while the player is out of the mine
 	-- (ClientAmbienceManager, 2026-10-21)
 	OUTDOOR_AMBIENCE = "OutdoorAmbience",
 	-- the night's loop, in over 3 s as night falls and out over 1 s at its
-	-- end (ClientRunCycleManager, designer, 2026-10-21)
+	-- end (ClientRunCycleManager, designer, 2026-10-21); out over 3 s for a
+	-- player who dies, or a run lost or won, mid-night (2026-10-27)
 	NIGHT_SONG = "NightSong",
 	-- the lobby's track, looping from the moment a player is Ready there
 	-- (designer, 2026-10-14)

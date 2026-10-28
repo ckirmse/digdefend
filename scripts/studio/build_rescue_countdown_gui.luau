@@ -1,8 +1,9 @@
 -- Builds the "RescueCountdown" ScreenGui under StarterGui (2026-10-07): one
 -- line of title text in the day clock's spot, top centre, that
 -- ClientRescueManager slides down once the radio is used and the clock
--- has slid away: "FINAL NIGHT BEGINS IN: 00:30", then "HELICOPTER
--- ARRIVES IN: 01:00", then the boarding deadline (M75).
+-- has slid away: "FINAL NIGHT BEGINS IN: 00:30"; for the final night it
+-- moves itself below the Refinery HP bar (the spot is the client's) and
+-- reads "HELICOPTER ARRIVES IN: 01:00", then the boarding deadline (M75).
 -- Run from the Studio command bar (or the MCP execute_luau tool) in the
 -- gameplay place; it replaces any existing copy. Names must match
 -- Constants.RESCUE_COUNTDOWN_*. Scale only, a max size, no pixel minimums

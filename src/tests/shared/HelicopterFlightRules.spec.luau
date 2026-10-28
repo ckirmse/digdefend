@@ -8,10 +8,9 @@ local expect = JestGlobals.expect
 local HelicopterFlightRules = require(game:GetService("ReplicatedStorage").Shared.HelicopterFlightRules)
 
 local CONFIG = HelicopterFlightRules.DEFAULT_CONFIG
--- a pad at the origin facing -Z (Roblox's forward), and a start far out
--- to the +X side and high up
+-- a pad at the origin facing -Z (Roblox's forward), and a way out to +X
 local PAD = CFrame.new(0, 10, 0)
-local START = Vector3.new(400, 150, 100)
+local HEADING = Vector3.new(1, 0, 0)
 
 local function expectVectorClose(actual: Vector3, expected: Vector3, digits: number?)
 	expect(actual.X).toBeCloseTo(expected.X, digits or 3)
@@ -52,11 +51,13 @@ describe(
 	"HelicopterFlightRules.approachPose",
 	function()
 		it(
-			"starts at the start and ends on the pad in its facing",
+			"starts at the far end of the departure and ends on the pad in its facing",
 			function()
-				local first = HelicopterFlightRules.approachPose(START, PAD, CONFIG, 0)
-				expectVectorClose(first.Position, START)
-				local last = HelicopterFlightRules.approachPose(START, PAD, CONFIG, CONFIG.APPROACH_SEC)
+				local start = HelicopterFlightRules.approachStart(PAD, HEADING, CONFIG)
+				expectVectorClose(start, HelicopterFlightRules.departurePose(PAD, HEADING, CONFIG, CONFIG.DEPARTURE_SEC).Position)
+				local first = HelicopterFlightRules.approachPose(PAD, HEADING, CONFIG, 0)
+				expectVectorClose(first.Position, start)
+				local last = HelicopterFlightRules.approachPose(PAD, HEADING, CONFIG, CONFIG.APPROACH_SEC)
 				expectVectorClose(last.Position, PAD.Position)
 				expectVectorClose(last.LookVector, PAD.LookVector)
 				expectVectorClose(last.UpVector, Vector3.new(0, 1, 0))
@@ -67,14 +68,14 @@ describe(
 		it(
 			"flies in nose down toward the pad and never below it",
 			function()
-				local early = HelicopterFlightRules.approachPose(START, PAD, CONFIG, 1)
+				local early = HelicopterFlightRules.approachPose(PAD, HEADING, CONFIG, 1)
 				local toPad = HelicopterFlightRules.flatten(PAD.Position - early.Position).Unit
 				local flatLook = HelicopterFlightRules.flatten(early.LookVector).Unit
 				expect(flatLook:Dot(toPad)).toBeGreaterThan(0.95)
 				-- nose down: the look dips below level
 				expect(early.LookVector.Y).toBeLessThan(0)
 				for step = 0, 40 do
-					local pose = HelicopterFlightRules.approachPose(START, PAD, CONFIG, CONFIG.APPROACH_SEC * step / 40)
+					local pose = HelicopterFlightRules.approachPose(PAD, HEADING, CONFIG, CONFIG.APPROACH_SEC * step / 40)
 					expect(pose.Position.Y).toBeGreaterThanOrEqual(PAD.Position.Y - 0.001)
 				end
 			end
@@ -84,7 +85,7 @@ describe(
 			function()
 				local lastDistance = math.huge
 				for step = 0, 40 do
-					local pose = HelicopterFlightRules.approachPose(START, PAD, CONFIG, CONFIG.APPROACH_SEC * step / 40)
+					local pose = HelicopterFlightRules.approachPose(PAD, HEADING, CONFIG, CONFIG.APPROACH_SEC * step / 40)
 					local distance = (pose.Position - PAD.Position).Magnitude
 					expect(distance).toBeLessThanOrEqual(lastDistance + 0.001)
 					lastDistance = distance
@@ -92,16 +93,62 @@ describe(
 			end
 		)
 		it(
-			"is over the pad at the hover height when the descent begins, and still well out at half time",
+			"is over the pad at the lift height still nose-first when the descent begins, turns to the pad's way on the way down, and flares",
 			function()
 				local runInSec = CONFIG.APPROACH_SEC * (1 - CONFIG.APPROACH_DESCENT_SHARE)
-				local hover = HelicopterFlightRules.approachPose(START, PAD, CONFIG, runInSec)
-				expectVectorClose(hover.Position, PAD.Position + Vector3.new(0, CONFIG.APPROACH_HOVER_HEIGHT_STUDS, 0), 2)
-				local halfway = HelicopterFlightRules.approachPose(START, PAD, CONFIG, CONFIG.APPROACH_SEC * 0.5)
-				expect((halfway.Position - PAD.Position).Magnitude).toBeGreaterThan(CONFIG.APPROACH_HOVER_HEIGHT_STUDS + 20)
-				-- the flare: nose up partway down
-				local settling = HelicopterFlightRules.approachPose(START, PAD, CONFIG, runInSec + (CONFIG.APPROACH_SEC - runInSec) * 0.5)
+				local top = HelicopterFlightRules.approachPose(PAD, HEADING, CONFIG, runInSec)
+				expectVectorClose(top.Position, PAD.Position + Vector3.new(0, CONFIG.DEPARTURE_LIFT_HEIGHT_STUDS, 0), 2)
+				expect(HelicopterFlightRules.flatten(top.LookVector).Unit:Dot(-HEADING)).toBeGreaterThan(0.99)
+				local descentSec = CONFIG.APPROACH_SEC - runInSec
+				local turned = HelicopterFlightRules.approachPose(PAD, HEADING, CONFIG, runInSec + descentSec * CONFIG.APPROACH_TURN_IN_SHARE)
+				expectVectorClose(HelicopterFlightRules.flatten(turned.LookVector).Unit, PAD.LookVector, 2)
+				local halfway = HelicopterFlightRules.approachPose(PAD, HEADING, CONFIG, CONFIG.APPROACH_SEC * 0.5)
+				expect((halfway.Position - PAD.Position).Magnitude).toBeGreaterThan(CONFIG.DEPARTURE_LIFT_HEIGHT_STUDS + 20)
+				-- the flare: nose up partway down, straight over the pad
+				local settling = HelicopterFlightRules.approachPose(PAD, HEADING, CONFIG, runInSec + (CONFIG.APPROACH_SEC - runInSec) * 0.5)
 				expect(settling.LookVector.Y).toBeGreaterThan(0)
+				expect(settling.Position.X).toBeCloseTo(PAD.Position.X, 3)
+				expect(settling.Position.Z).toBeCloseTo(PAD.Position.Z, 3)
+			end
+		)
+		it(
+			"comes back up its own facing nose-first and turns about over the pad to land",
+			function()
+				-- the rescue's way: the pad's own facing is the way out, so it
+				-- flies in facing the pad and ends facing the pad's way
+				local early = HelicopterFlightRules.approachPose(PAD, PAD.LookVector, CONFIG, 1)
+				local flatLook = HelicopterFlightRules.flatten(early.LookVector).Unit
+				expect(flatLook:Dot(PAD.LookVector)).toBeLessThan(-0.99)
+				expect(early.Position.X).toBeCloseTo(PAD.Position.X, 3)
+				local runInSec = CONFIG.APPROACH_SEC * (1 - CONFIG.APPROACH_DESCENT_SHARE)
+				local top = HelicopterFlightRules.approachPose(PAD, PAD.LookVector, CONFIG, runInSec)
+				expect(HelicopterFlightRules.flatten(top.LookVector).Unit:Dot(PAD.LookVector)).toBeLessThan(-0.99)
+				local descentSec = CONFIG.APPROACH_SEC - runInSec
+				local turned = HelicopterFlightRules.approachPose(PAD, PAD.LookVector, CONFIG, runInSec + descentSec * CONFIG.APPROACH_TURN_IN_SHARE)
+				expectVectorClose(HelicopterFlightRules.flatten(turned.LookVector).Unit, PAD.LookVector, 2)
+			end
+		)
+		it(
+			"flies the departure path backwards and banks into the turn to the pad's facing",
+			function()
+				-- every approach position lies on the departure's lean
+				local p0, p1, p2, p3 = HelicopterFlightRules.departurePoints(PAD, HEADING, CONFIG)
+				local runInSec = CONFIG.APPROACH_SEC * (1 - CONFIG.APPROACH_DESCENT_SHARE)
+				for step = 0, 20 do
+					local pose = HelicopterFlightRules.approachPose(PAD, HEADING, CONFIG, runInSec * step / 20)
+					local nearest = math.huge
+					-- the curve is some 2000 studs long, so the samples sit a stud apart
+					for sample = 0, 2000 do
+						nearest = math.min(nearest, (HelicopterFlightRules.cubicBezier(p0, p1, p2, p3, sample / 2000) - pose.Position).Magnitude)
+					end
+					expect(nearest).toBeLessThan(1)
+				end
+				-- level and nose-first the whole run-in: the turn waits for the descent
+				for step = 0, 100 do
+					local pose = HelicopterFlightRules.approachPose(PAD, HEADING, CONFIG, runInSec * step / 100)
+					expect(pose.RightVector.Y).toBeCloseTo(0, 5)
+					expect(HelicopterFlightRules.flatten(pose.LookVector).Unit:Dot(-HEADING)).toBeGreaterThan(0.95)
+				end
 			end
 		)
 	end
@@ -139,6 +186,31 @@ describe(
 				local leaning = HelicopterFlightRules.departurePose(PAD, heading, CONFIG, CONFIG.DEPARTURE_LIFT_SEC + 3)
 				expect(leaning.Position.X).toBeGreaterThan(PAD.Position.X + 1)
 				expect(leaning.Position.Y).toBeGreaterThan(top.Position.Y)
+				-- the lean is at full speed DEPARTURE_RAMP_SEC in and holds it:
+				-- its progress runs 0 to 1, rises through the ramp, then is a
+				-- straight line
+				local leanSec = CONFIG.DEPARTURE_SEC - CONFIG.DEPARTURE_LIFT_SEC
+				local rampShare = CONFIG.DEPARTURE_RAMP_SEC / leanSec
+				expect(HelicopterFlightRules.leanProgress(0, rampShare)).toBeCloseTo(0, 5)
+				expect(HelicopterFlightRules.leanProgress(1, rampShare)).toBeCloseTo(1, 5)
+				local function pace(share: number): number
+					return (HelicopterFlightRules.leanProgress(share + 0.001, rampShare) - HelicopterFlightRules.leanProgress(share, rampShare)) / 0.001
+				end
+				expect(pace(0)).toBeLessThan(pace(rampShare * 0.5))
+				expect(pace(rampShare * 0.5)).toBeLessThan(pace(rampShare))
+				expect(pace(rampShare + 0.01)).toBeCloseTo(pace(0.95), 3)
+				expect(pace(0.95)).toBeGreaterThan(1)
+				-- a ramp with no room is a straight line
+				expect(HelicopterFlightRules.leanProgress(0.5, 0)).toBeCloseTo(0.5, 3)
+				-- and in studs: after the ramp every half second covers the same ground
+				local function studsOver(fromSec: number): number
+					local a = HelicopterFlightRules.departurePose(PAD, heading, CONFIG, CONFIG.DEPARTURE_LIFT_SEC + fromSec).Position
+					local b = HelicopterFlightRules.departurePose(PAD, heading, CONFIG, CONFIG.DEPARTURE_LIFT_SEC + fromSec + 0.5).Position
+					return (b - a).Magnitude
+				end
+				local held = studsOver(CONFIG.DEPARTURE_RAMP_SEC + 0.5)
+				expect(studsOver(leanSec - 1)).toBeCloseTo(held, -1)
+				expect(studsOver(CONFIG.DEPARTURE_RAMP_SEC * 0.25)).toBeLessThan(held * 0.6)
 				-- off the ground within a few seconds, not sat there
 				local soon = HelicopterFlightRules.departurePose(PAD, heading, CONFIG, 4)
 				expect(soon.Position.Y - PAD.Position.Y).toBeGreaterThan(8)
@@ -161,6 +233,24 @@ describe(
 				expect(leftTurn.RightVector.Y).toBeGreaterThan(0.05)
 				local straight = HelicopterFlightRules.departurePose(PAD, PAD.LookVector, CONFIG, CONFIG.DEPARTURE_SEC * 0.5)
 				expect(straight.RightVector.Y).toBeCloseTo(0, 5)
+			end
+		)
+	end
+)
+
+describe(
+	"HelicopterFlightRules.parameterAtLengthShare",
+	function()
+		it(
+			"walks a straight curve evenly and a bent one by its length",
+			function()
+				local a, b = Vector3.zero, Vector3.new(100, 0, 0)
+				expect(HelicopterFlightRules.parameterAtLengthShare(a, a:Lerp(b, 1 / 3), a:Lerp(b, 2 / 3), b, 0.25)).toBeCloseTo(0.25, 2)
+				-- control points bunched at the start: half the length is well past t = 0.5
+				local bunched = HelicopterFlightRules.parameterAtLengthShare(a, a, a, b, 0.5)
+				expect(bunched).toBeGreaterThan(0.6)
+				expect(HelicopterFlightRules.parameterAtLengthShare(a, a, a, b, 0)).toBeCloseTo(0, 5)
+				expect(HelicopterFlightRules.parameterAtLengthShare(a, a, a, b, 1)).toBeCloseTo(1, 5)
 			end
 		)
 	end
