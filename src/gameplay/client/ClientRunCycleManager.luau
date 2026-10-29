@@ -59,8 +59,9 @@ export type ClientRunCycleManager = typeof(setmetatable(
 		-- FINAL NIGHT card)
 		cardClosedCallbacks: { () -> () },
 		-- the disc holding one picture and one gradient per phase
-		phaseIcon: Frame?,
-		fill: Frame?,
+		phaseIcon: GuiObject?,
+		fill: GuiObject?,
+		fillMask: UIGradient?,
 		dayLabel: TextLabel?,
 		shownPhase: number?,
 		-- the day whose dusk song has already started, so it plays once a day,
@@ -115,6 +116,9 @@ local NIGHT_CARD_FORMAT = "Night  %d"
 local FINAL_NIGHT_CARD_TEXT = "Final Night"
 -- the card stays up this long; the clock fades over the HUD tween time
 local CARD_SHOW_SEC = 3
+-- the width of the fill mask's edge as a share of the bar; a gradient blends
+-- between keypoints, so a hair apart reads as a hard edge
+local FILL_MASK_EDGE_SHARE = 0.002
 -- day 1 gets no card: the crew has just landed and the run is plainly starting
 local FIRST_DAY = 1
 -- from day 2 the rooster crows as the day starts and the card with its
@@ -176,10 +180,12 @@ function ClientRunCycleManager:findGui()
 	self.gui = gui
 	local root = gui:FindFirstChild(Constants.DAY_CLOCK_ROOT_FRAME)
 	local icon = if root then root:FindFirstChild(Constants.DAY_CLOCK_PHASE_ICON) else nil
-	self.phaseIcon = if icon and icon:IsA("Frame") then icon else nil
+	self.phaseIcon = if icon and icon:IsA("GuiObject") then icon else nil
 	local bar = if root then root:FindFirstChild(Constants.DAY_CLOCK_BAR) else nil
 	local fill = if bar then bar:FindFirstChild(Constants.DAY_CLOCK_FILL) else nil
-	self.fill = if fill and fill:IsA("Frame") then fill else nil
+	self.fill = if fill and fill:IsA("GuiObject") then fill else nil
+	local fillMask = if fill then fill:FindFirstChild(Constants.DAY_CLOCK_FILL_MASK) else nil
+	self.fillMask = if fillMask and fillMask:IsA("UIGradient") then fillMask else nil
 	local dayLabel = if root then root:FindFirstChild(Constants.DAY_CLOCK_DAY_LABEL) else nil
 	self.dayLabel = if dayLabel and dayLabel:IsA("TextLabel") then dayLabel else nil
 	if root and root:IsA("CanvasGroup") then
@@ -276,6 +282,28 @@ function ClientRunCycleManager:setPhase(phase: number)
 		else
 			self:warnMissingChildOnce(names.gradient)
 		end
+	end
+end
+
+-- a hard edge at the share: opaque to it, clear from a hair past it; a fill
+-- with no Mask gradient is left whole
+function ClientRunCycleManager:setFillShare(share: number)
+	local fillMask = self.fillMask
+	if not fillMask then
+		return
+	end
+	if share >= 1 - FILL_MASK_EDGE_SHARE then
+		fillMask.Transparency = NumberSequence.new(0)
+	elseif share <= 0 then
+		fillMask.Transparency = NumberSequence.new(1)
+	else
+		local edge = math.min(share + FILL_MASK_EDGE_SHARE, 1)
+		fillMask.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(share, 0),
+			NumberSequenceKeypoint.new(edge, 1),
+			NumberSequenceKeypoint.new(1, 1),
+		})
 	end
 end
 
@@ -462,7 +490,10 @@ function ClientRunCycleManager:step()
 	local shareLeft = if runState == Enums.RunState.DAY then RunCycleRules.dayShareLeft(startTime, endTime, now) elseif runState == Enums.RunState.WAITING then 1 else 0
 	local fill = self.fill
 	if fill then
-		fill.Size = UDim2.fromScale(shareLeft, 1)
+		-- the fill is the bar's own picture over it, so it never moves or resizes
+		-- (its width shrank before 2026-10-29); the spent part is hidden by its
+		-- Mask gradient; a fill authored without one stays whole
+		self:setFillShare(shareLeft)
 	end
 	self:setPhase(RunCycleRules.clockPhase(runState, shareLeft, duskShare))
 	self:setClockShown(runState == Enums.RunState.DAY or runState == Enums.RunState.WAITING)
@@ -632,6 +663,7 @@ function ClientRunCycleManager.new(): ClientRunCycleManager
 	self.isLocalPlayerDead = false
 	self.phaseIcon = nil
 	self.fill = nil
+	self.fillMask = nil
 	self.dayLabel = nil
 	self.shownPhase = nil
 	self.duskSongDay = nil

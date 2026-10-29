@@ -3,7 +3,8 @@
 -- draws the camp from above: one clone of StructureTemplate per wall,
 -- gate, and Refinery (coloured by health; black with a DestroyedMarkTemplate
 -- clone, a red X, over it once rubble), one PlayerDotTemplate per crewmate (the local player's UIStroke
--- ring switched on), and a pool of MonsterDotTemplate clones. Run from the
+-- ring switched on) over a PlayerConeTemplate turned to their facing, and a
+-- pool of MonsterDotTemplate clones. Run from the
 -- Studio command bar (or the MCP execute_luau tool) in the gameplay place;
 -- it replaces any existing copy. Names must match Constants.CAMP_MAP_*.
 -- Scale only, constraints for the max, no pixel minimums (GUI standard).
@@ -12,6 +13,7 @@ local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
 local UiStyle = require(game.ReplicatedStorage.Shared.UiStyle)
 local Enums = require(game.ReplicatedStorage.Shared.Enums)
+local Icons = require(game.ReplicatedStorage.Shared.Icons)
 
 -- the square's side as a share of the screen HEIGHT, so it is the same
 -- square at every aspect (designer, 2026-10-06, after a wide screen shrank
@@ -22,6 +24,10 @@ local ROOT_MAX_PX = 320
 -- monster dot is 5 px on a phone's 106 px map, not 3
 local PLAYER_DOT_SHARE = 0.09
 local MONSTER_DOT_SHARE = 0.05
+-- the facing cone's square, centred on the dot, so its apex sits at the
+-- dot's centre and it fans out six dots' worth (three before, doubled 2026-10-29)
+local PLAYER_CONE_SHARE = 0.54
+local PLAYER_CONE_TRANSPARENCY = 0.35
 
 ChangeHistoryService:SetWaypoint("Before CampMap gui")
 
@@ -172,6 +178,25 @@ ring.Color = UiStyle.CAMP_MAP_LOCAL_PLAYER_RING_COLOR
 ring.Enabled = false
 ring.Parent = playerDot
 playerDot.Parent = canvas
+
+-- the cone under a crewmate's dot, turned to where they look; the client
+-- clones one per player, tints it the dot's colour, and turns it each step
+-- (designer, 2026-10-29); under the dots (7, 8) and level with the monsters
+local playerCone = Instance.new("ImageLabel")
+playerCone.Name = "PlayerConeTemplate"
+playerCone.AnchorPoint = Vector2.new(0.5, 0.5)
+playerCone.Position = UDim2.fromScale(0.5, 0.5)
+playerCone.Size = UDim2.fromScale(PLAYER_CONE_SHARE, PLAYER_CONE_SHARE)
+playerCone.SizeConstraint = Enum.SizeConstraint.RelativeYY
+playerCone.BackgroundTransparency = 1
+playerCone.BorderSizePixel = 0
+playerCone.Image = Icons.UI.CAMP_MAP_FACING_CONE
+playerCone.ImageColor3 = UiStyle.COMPASS_PLAYER_COLORS[1]
+playerCone.ImageTransparency = PLAYER_CONE_TRANSPARENCY
+playerCone.ScaleType = Enum.ScaleType.Fit
+playerCone.ZIndex = 6
+playerCone.Visible = false
+playerCone.Parent = canvas
 
 local monsterDot = makeDot("MonsterDotTemplate", MONSTER_DOT_SHARE, UiStyle.CAMP_MAP_MONSTER_COLOR, 6)
 monsterDot.Parent = canvas

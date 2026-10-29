@@ -65,7 +65,7 @@ local icon = Instance.new("Frame")
 icon.Name = "Icon"
 icon.AnchorPoint = Vector2.new(0, 0.5)
 icon.Position = UDim2.fromScale(0, 0.36)
-icon.Size = UDim2.fromScale(0.17, 0.72)
+icon.Size = UDim2.fromScale(0.2, 0.8)
 icon.BackgroundColor3 = UiStyle.BACKGROUND_COLOR
 icon.BorderSizePixel = 0
 icon.ZIndex = 2
@@ -73,13 +73,8 @@ local iconAspect = Instance.new("UIAspectRatioConstraint")
 iconAspect.AspectRatio = 1
 iconAspect.DominantAxis = Enum.DominantAxis.Height
 iconAspect.Parent = icon
-local iconCorner = Instance.new("UICorner")
-iconCorner.CornerRadius = UDim.new(0.2, 0)
-iconCorner.Parent = icon
-local iconStroke = Instance.new("UIStroke")
-iconStroke.Thickness = UiStyle.STROKE_PX
-iconStroke.Color = UiStyle.ACCENT_STROKE_COLOR
-iconStroke.Parent = icon
+-- the designer's badge frame picture is the square's edge (2026-10-29;
+-- a corner and a stroke before), the day clock's, turned the same way
 local iconImage = Instance.new("ImageLabel")
 iconImage.Name = "Image"
 iconImage.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -92,42 +87,65 @@ iconImage.Image = Icons.UI.COMPASS_HOME
 iconImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
 iconImage.ScaleType = Enum.ScaleType.Fit
 iconImage.Parent = icon
+local iconFrame = Instance.new("ImageLabel")
+iconFrame.Name = "Frame"
+iconFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+iconFrame.Position = UDim2.fromScale(0.5, 0.5)
+iconFrame.Size = UDim2.fromScale(1, 1)
+iconFrame.BackgroundTransparency = 1
+iconFrame.BorderSizePixel = 0
+iconFrame.Image = Icons.UI.CLOCK_FRAME
+iconFrame.ScaleType = Enum.ScaleType.Stretch
+iconFrame.Rotation = 180
+iconFrame.Parent = icon
 icon.Parent = root
 
-local bar = Instance.new("Frame")
+-- the bar and its fill are the designer's pill picture twice (2026-10-29;
+-- rounded, stroked Frames before), sliced so the ends keep their shape:
+-- a dark translucent track, and the same picture in the HP colour over
+-- it at the same size. The fill never shrinks, which would slide its
+-- picture off the track's; the client hides its spent part through the
+-- Mask gradient, the day clock's way
+local BAR_SLICE_CENTER = Rect.new(75, 85, 180, 163)
+local bar = Instance.new("ImageLabel")
 bar.Name = "Bar"
 bar.AnchorPoint = Vector2.new(1, 0.5)
 bar.Position = UDim2.fromScale(1, 0.36)
 bar.Size = UDim2.fromScale(0.85, 0.4)
-bar.BackgroundColor3 = UiStyle.EMPTY_SLOT_COLOR
+bar.BackgroundTransparency = 1
 bar.BorderSizePixel = 0
-local barCorner = Instance.new("UICorner")
-barCorner.CornerRadius = UDim.new(0.4, 0)
-barCorner.Parent = bar
-local barStroke = Instance.new("UIStroke")
-barStroke.Thickness = UiStyle.STROKE_PX
-barStroke.Color = UiStyle.ACCENT_STROKE_COLOR
-barStroke.Parent = bar
+bar.Image = Icons.UI.HP_BAR
+bar.ImageColor3 = Color3.fromRGB(0, 0, 0)
+bar.ImageTransparency = 0.45
+bar.ScaleType = Enum.ScaleType.Slice
+bar.SliceCenter = BAR_SLICE_CENTER
+bar.Rotation = 180
 bar.Parent = root
 
--- anchored at the left so a shrinking width empties from the right
-local fill = Instance.new("Frame")
+local fill = Instance.new("ImageLabel")
 fill.Name = "Fill"
-fill.AnchorPoint = Vector2.new(0, 0.5)
-fill.Position = UDim2.fromScale(0, 0.5)
 fill.Size = UDim2.fromScale(1, 1)
-fill.BackgroundColor3 = UiStyle.HP_FULL_COLOR
+fill.BackgroundTransparency = 1
 fill.BorderSizePixel = 0
-local fillCorner = Instance.new("UICorner")
-fillCorner.CornerRadius = UDim.new(0.4, 0)
-fillCorner.Parent = fill
+fill.Image = Icons.UI.HP_BAR
+fill.ImageColor3 = UiStyle.HP_FULL_COLOR
+fill.ScaleType = Enum.ScaleType.Slice
+fill.SliceCenter = BAR_SLICE_CENTER
+fill.Rotation = 180
+-- a gradient's direction is on screen, not the label's turned axis (checked
+-- in Play, 2026-10-29), so no rotation: the client's keypoints run left to right
+local fillMask = Instance.new("UIGradient")
+fillMask.Name = "Mask"
+fillMask.Transparency = NumberSequence.new(0)
+fillMask.Parent = fill
 fill.Parent = bar
 
 local label = Instance.new("TextLabel")
 label.Name = "Label"
 label.AnchorPoint = Vector2.new(1, 1)
-label.Position = UDim2.fromScale(1, 1)
-label.Size = UDim2.fromScale(0.87, 0.35)
+-- hangs under the box (designer, 2026-10-29)
+label.Position = UDim2.fromScale(1, 1.1)
+label.Size = UDim2.fromScale(0.87, 0.5)
 label.BackgroundTransparency = 1
 label.FontFace = UiStyle.TITLE_SEMIBOLD_FONT
 label.TextColor3 = UiStyle.TEXT_COLOR
@@ -138,10 +156,7 @@ local labelTextSize = Instance.new("UITextSizeConstraint")
 labelTextSize.MinTextSize = UiStyle.BODY_TEXT_MIN_PX
 labelTextSize.MaxTextSize = UiStyle.BODY_TEXT_MAX_PX
 labelTextSize.Parent = label
-local labelStroke = Instance.new("UIStroke")
-labelStroke.Thickness = UiStyle.STROKE_PX
-labelStroke.Color = UiStyle.ACCENT_STROKE_COLOR
-labelStroke.Parent = label
+-- no stroke (designer, 2026-10-29)
 label.Parent = root
 
 gui.Parent = StarterGui

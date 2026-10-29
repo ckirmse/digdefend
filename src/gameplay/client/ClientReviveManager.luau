@@ -256,6 +256,9 @@ local REVEAL_TITLE_FADE_SEC = 0.4
 -- the Background panel grows from the designer's nothing-sized spot to
 -- the menu's size, in place, between the title and the first row
 local REVEAL_BACKGROUND_SEC = 0.5
+-- a banner's picture rides in with the slide or the grow at this
+-- transparency (designer, 2026-10-29); only the title fades after
+local REVEAL_HEADER_PICTURE_TRANSPARENCY = 0.2
 local REVEAL_BACKGROUND_SIZE_FAIL = UDim2.new(2, 0, 0.95, 0)
 local REVEAL_BACKGROUND_SIZE_WIN = UDim2.new(1.5, 0, 0.93, 0)
 -- the win menu's banner grows from nothing to its authored size
@@ -274,20 +277,27 @@ local REVIVE_SELF_TEXT = "Revive"
 local REVIVE_TEAM_TEXT = "Revive crew and restart the day"
 -- the Spectate bar's button is small, so the crew's revive is said shorter there
 local SPECTATE_REVIVE_TEAM_TEXT = "Revive crew"
-local SPECTATE_TIMER_FORMAT = "%d s"
+-- the spectate bar's countdown: minutes and seconds while a minute or
+-- more is left, seconds alone under that (designer, 2026-10-29)
+local SPECTATE_TIMER_FORMAT = "%s"
 local COUNTDOWN_SELF_FORMAT = "Revive available for %s"
 local COUNTDOWN_TEAM_FORMAT = "The whole crew is down. %s to revive"
 local COUNTDOWN_NONE_TEXT = "A crewmate can still revive you at your tombstone"
 
 -- the countdown reads in caps with the time in minutes and seconds, "4m
 -- 59s", its unit letters alone kept small (designer, 2026-10-28)
+-- "4m 30s" with a minute or more left, "59s" and down under that
+local function formatSecondsLeft(secondsLeft: number): string
+	local minutes = secondsLeft // 60
+	local seconds = secondsLeft % 60
+	return if minutes > 0 then string.format("%dm %ds", minutes, seconds) else string.format("%ds", seconds)
+end
+
 local function formatCountdown(format: string, secondsLeft: number?): string
 	if not secondsLeft then
 		return string.upper(format)
 	end
-	local minutes = secondsLeft // 60
-	local seconds = secondsLeft % 60
-	local timeText = if minutes > 0 then string.format("%dm %ds", minutes, seconds) else string.format("%ds", seconds)
+	local timeText = formatSecondsLeft(secondsLeft)
 	-- the upper-casing takes the %s placeholder with it
 	local upperFormat = string.gsub(string.upper(format), "%%S", "%%s")
 	return string.format(upperFormat, timeText)
@@ -701,6 +711,15 @@ function ClientReviveManager:playMenuReveal()
 		task.wait(sec)
 		return generation == self.menuRevealGeneration
 	end
+	-- the banner's picture shows at once and leaves the hide, so the title's
+	-- fade below leaves it alone
+	local function showHeaderPicture()
+		local picture: Instance? = if header then header:FindFirstChild(Constants.RESULTS_MENU_BACKGROUND) else nil
+		if picture and picture:IsA("ImageLabel") then
+			hidden[picture] = nil
+			picture.ImageTransparency = REVEAL_HEADER_PICTURE_TRANSPARENCY
+		end
+	end
 	local function revealTogether(instances: { Instance? }, fadeSec: number)
 		for _, instance in instances do
 			if instance then
@@ -717,6 +736,7 @@ function ClientReviveManager:playMenuReveal()
 			if header and binding and binding.isHeaderGrown and binding.headerAuthoredSize then
 				-- the banner grows from a line to its authored height, in place
 				ClientGuiFade.reveal(hidden, header, 0, true)
+				showHeaderPicture()
 				TweenService:Create(
 					header,
 					TweenInfo.new(REVEAL_HEADER_GROW_SEC, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
@@ -731,6 +751,7 @@ function ClientReviveManager:playMenuReveal()
 				-- the banner itself shows whole from the start; only its place
 				-- moves, from wholly off the screen's left edge to its own spot
 				ClientGuiFade.reveal(hidden, header, 0, true)
+				showHeaderPicture()
 				local offLeftPixels = header.AbsolutePosition.X + header.AbsoluteSize.X
 				header.Position = authoredPosition - UDim2.fromOffset(offLeftPixels, 0)
 				TweenService:Create(
@@ -1293,7 +1314,7 @@ end
 -- the seconds left on the revive on offer, for the Spectate bar's timer
 function ClientReviveManager:getSpectateReviveTimerText(): string
 	local endTime = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.REVIVE_OFFER_END_TIME), 0)
-	return string.format(SPECTATE_TIMER_FORMAT, math.max(0, math.ceil(endTime - workspace:GetServerTimeNow())))
+	return string.format(SPECTATE_TIMER_FORMAT, formatSecondsLeft(math.max(0, math.ceil(endTime - workspace:GetServerTimeNow()))))
 end
 
 -- the designer's grave, laid on a tombstone shadow: the name and the day

@@ -39,6 +39,8 @@ type AmountRow = {
 	balanceAttribute: string,
 	amount: number,
 	amountBox: TextBox?,
+	-- hidden while the amount is 0, since there is nothing to take off
+	minusButton: GuiButton?,
 	ownedLabel: TextLabel?,
 	confirmFrame: GuiObject?,
 	confirmValueLabel: TextLabel?,
@@ -135,6 +137,16 @@ function ClientGiveCurrencyManager:renderRows()
 		end
 		if row.confirmFrame then
 			row.confirmFrame.Visible = row.amount > 0
+		end
+		local minusButton = row.minusButton
+		if minusButton then
+			local isShown = row.amount > 0
+			-- a hidden button gets no MouseLeave, so a hold that ran the
+			-- amount down to 0 is ended here
+			if minusButton.Visible and not isShown then
+				self.holdGeneration += 1
+			end
+			minusButton.Visible = isShown
 		end
 	end
 end
@@ -251,6 +263,7 @@ function ClientGiveCurrencyManager:bindRow(sendPage: Instance, confirmPage: Inst
 		return
 	end
 	local amountBox = rowFrame:FindFirstChild(Constants.GIVE_CURRENCY_ROW_AMOUNT_BOX)
+	local minusButton = rowFrame:FindFirstChild(Constants.GIVE_CURRENCY_ROW_MINUS_BUTTON)
 	local ownedLabel = rowFrame:FindFirstChild(Constants.GIVE_CURRENCY_ROW_OWNED_LABEL)
 	local confirmFrame = if confirmPage then confirmPage:FindFirstChild(confirmName) else nil
 	local confirmValue = if confirmFrame then confirmFrame:FindFirstChild(Constants.GIVE_CURRENCY_AMOUNT_VALUE_LABEL) else nil
@@ -259,6 +272,7 @@ function ClientGiveCurrencyManager:bindRow(sendPage: Instance, confirmPage: Inst
 		balanceAttribute = balanceAttribute,
 		amount = 0,
 		amountBox = if amountBox and amountBox:IsA("TextBox") then amountBox else nil,
+		minusButton = if minusButton and minusButton:IsA("GuiButton") then minusButton else nil,
 		ownedLabel = if ownedLabel and ownedLabel:IsA("TextLabel") then ownedLabel else nil,
 		confirmFrame = if confirmFrame and confirmFrame:IsA("GuiObject") then confirmFrame else nil,
 		confirmValueLabel = if confirmValue and confirmValue:IsA("TextLabel") then confirmValue else nil,

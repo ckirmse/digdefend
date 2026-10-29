@@ -260,9 +260,14 @@ Constants.BUILD_SURFACE_BUTTON = "Surface"
 Constants.BUILD_BAR_GUI_NAME = "BuildBar"
 Constants.BUILD_BAR_ENTRIES_FRAME = "Entries"
 Constants.BUILD_BAR_ENTRY_TEMPLATE = "EntryTemplate"
+-- the same entry as the designer wants it while the Iron is short; the
+-- client copies its colours onto an entry the player cannot afford
+Constants.BUILD_BAR_ENTRY_TEMPLATE_UNAVAILABLE = "EntryTemplateUnavailable"
 -- the square slot, styled like a tool bar slot: the item's picture inside,
 -- the kind (Tower or Trap) as a small icon top-left, the number key top-right
 Constants.BUILD_BAR_ENTRY_SLOT = "Slot"
+-- the panel picture behind the slot, tinted for the selected entry
+Constants.BUILD_BAR_ENTRY_SLOT_BACKING = "ImageLabel"
 Constants.BUILD_BAR_ENTRY_ICON = "Icon"
 Constants.BUILD_BAR_ENTRY_TYPE_ICON = "TypeIcon"
 Constants.BUILD_BAR_ENTRY_NAME_LABEL = "NameLabel"
@@ -275,6 +280,11 @@ Constants.BUILD_BAR_EXIT_BUTTON = "ExitButton"
 -- floats under the ghost: Place with the Iron price, and Cancel to put the
 -- ghost away
 Constants.BUILD_BAR_PLACE_PANEL = "PlacePanel"
+-- the designer's key card floated instead on the mouse scheme (2026-10-29):
+-- the mouse to place, R to turn, Q to cancel; its Rotate row is hidden for
+-- a kind that cannot turn
+Constants.BUILD_BAR_PLACE_PANEL_PC = "PlacePanelPC"
+Constants.BUILD_BAR_PLACE_PANEL_PC_ROTATE_ROW = "Rotate"
 Constants.BUILD_BAR_PLACE_BUTTON = "PlaceButton"
 Constants.BUILD_BAR_CANCEL_BUTTON = "CancelButton"
 Constants.BUILD_BAR_ROTATE_BUTTON = "RotateButton"
@@ -291,7 +301,9 @@ Constants.BUILD_BAR_BUILD_PRICE_ROW = "PriceRow"
 Constants.BUILD_BAR_BUILD_PRICE_ICON = "ResourceIcon"
 Constants.BUILD_BAR_BUILD_PRICE_LABEL = "Price"
 Constants.BUILD_BAR_BUILD_TEXT_LABEL = "Text"
--- one line of guidance near the top: what a tap does right now
+-- one line of guidance near the top: what a tap does right now, on the
+-- designer's pill picture (the frame and the label inside it share the name)
+Constants.BUILD_BAR_HINT_FRAME = "Hint"
 Constants.BUILD_BAR_HINT_LABEL = "Hint"
 -- "2 / 5" beside a Tower icon: Towers standing against the per-player limit
 Constants.BUILD_BAR_TOWER_COUNT_FRAME = "TowerCount"
@@ -314,6 +326,8 @@ Constants.TOWER_MENU_STAT_VALUE_LABEL = "ValueLabel"
 Constants.TOWER_MENU_STAT_NEXT_LABEL = "NextLabel"
 Constants.TOWER_MENU_STAT_ARROW_LABEL = "ArrowLabel"
 Constants.TOWER_MENU_SELL_BUTTON = "SellButton"
+-- the designer's label inside the Sell button carries its words (2026-10-29)
+Constants.TOWER_MENU_SELL_TEXT_LABEL = "TextLabel"
 -- beside Sell: closes the menu and picks the Tower up to set down elsewhere
 Constants.TOWER_MENU_MOVE_BUTTON = "MoveButton"
 Constants.TOWER_MENU_UPGRADE_BUTTON = "UpgradeButton"
@@ -517,6 +531,8 @@ Constants.TOOL_SLOT_COUNT_LABEL = "CountLabel"
 Constants.TOOL_SLOT_TIMER_LABEL = "TimerLabel"
 -- the action word under each slot ("MINE", "SHOOT", ...), outside the square
 Constants.TOOL_SLOT_CAPTION_LABEL = "CaptionLabel"
+-- the slot's backing picture, tinted for the equipped tool (designer, 2026-10-29)
+Constants.TOOL_SLOT_BACKGROUND = "Background"
 Constants.MAX_TOOL_SLOTS = 9
 -- mining mode HUD (built by scripts/studio/build_mining_hud_gui.luau)
 Constants.MINING_HUD_GUI_NAME = "MiningHud"
@@ -540,6 +556,9 @@ Constants.DAY_CLOCK_PHASE_GRADIENT_DUSK = "UIGradientDusk"
 Constants.DAY_CLOCK_PHASE_GRADIENT_NIGHT = "UIGradientNight"
 Constants.DAY_CLOCK_BAR = "Bar"
 Constants.DAY_CLOCK_FILL = "Fill"
+-- the UIGradient under Fill whose transparency hides the spent part of the
+-- day, so the fill picture stays registered over the bar's (2026-10-29)
+Constants.DAY_CLOCK_FILL_MASK = "Mask"
 Constants.DAY_CLOCK_DAY_LABEL = "DayLabel"
 -- the Refinery HP bar (scripts/studio/build_refinery_hp_gui.luau, M33):
 -- the day clock's box top centre, taken over at night; the home icon, a
@@ -570,6 +589,9 @@ Constants.REFINERY_HP_ROOT_FRAME = "Root"
 Constants.REFINERY_HP_ICON = "Icon"
 Constants.REFINERY_HP_BAR = "Bar"
 Constants.REFINERY_HP_FILL = "Fill"
+-- the UIGradient on the Fill that hides its spent part (the day clock's
+-- way, designer 2026-10-29): the fill picture stays the bar's size
+Constants.REFINERY_HP_FILL_MASK = "Mask"
 Constants.REFINERY_HP_LABEL = "Label"
 -- the Camp Map (scripts/studio/build_camp_map_gui.luau, M33): a square top
 -- right that slides in from the right edge at night, drawing every structure shadow from a clone of
@@ -585,6 +607,8 @@ Constants.CAMP_MAP_DESTROYED_MARK_TEMPLATE = "DestroyedMarkTemplate"
 -- glance (designer, 2026-10-07)
 Constants.CAMP_MAP_REFINERY_LABEL = "RefineryLabel"
 Constants.CAMP_MAP_PLAYER_DOT_TEMPLATE = "PlayerDotTemplate"
+-- the cone under a crewmate's dot showing which way they face (2026-10-29)
+Constants.CAMP_MAP_PLAYER_CONE_TEMPLATE = "PlayerConeTemplate"
 Constants.CAMP_MAP_MONSTER_DOT_TEMPLATE = "MonsterDotTemplate"
 -- the compass (scripts/studio/build_compass_gui.luau): a locator bar hung
 -- directly under the day clock. Markers slide along the Markers frame: the
@@ -1076,6 +1100,9 @@ Constants.HURT_VIGNETTE_GUI_NAME = "HurtVignette"
 Constants.DRAG_VIGNETTE_GUI_NAME = "DragVignette"
 -- the tool bar's grey cooldown sheet over a slot (build_tool_bar_gui)
 Constants.TOOL_SLOT_COOLDOWN_OVERLAY = "CooldownOverlay"
+-- the UIGradient on the sheet that hides its spent part, top to bottom
+-- (the day clock's way, designer 2026-10-29)
+Constants.TOOL_SLOT_COOLDOWN_MASK = "Mask"
 -- the gadget block of the Post & Gadget Upgrades menu (M67): its heading
 -- in the List, authored by build_post_upgrade_menu_gui; the row is a
 -- RowTemplate clone named here

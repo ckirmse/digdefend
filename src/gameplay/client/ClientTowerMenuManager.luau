@@ -159,8 +159,16 @@ function ClientTowerMenuManager:renderMenu()
 		end
 	end
 	local sellButton = self.sellButton
-	if sellButton and sellButton:IsA("TextButton") then
-		sellButton.Text = UiStyle.formatTitle(string.format(SELL_FORMAT, PlacementRules.sellValueFor(catalog, Enums.PlacementKind.TOWER, typeKind, level)))
+	if sellButton then
+		local sellText = UiStyle.formatTitle(string.format(SELL_FORMAT, PlacementRules.sellValueFor(catalog, Enums.PlacementKind.TOWER, typeKind, level)))
+		-- the words live on the designer's label inside the button (2026-10-29);
+		-- a button without one still takes them itself
+		local sellLabel = sellButton:FindFirstChild(Constants.TOWER_MENU_SELL_TEXT_LABEL)
+		if sellLabel and sellLabel:IsA("TextLabel") then
+			sellLabel.Text = sellText
+		elseif sellButton:IsA("TextButton") then
+			sellButton.Text = sellText
+		end
 	end
 	for index, pip in self.pips do
 		pip.BackgroundColor3 = if index <= level - 1 then UiStyle.ACCENT_COLOR else UiStyle.EMPTY_SLOT_COLOR

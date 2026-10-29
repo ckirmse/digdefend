@@ -41,6 +41,7 @@ export type ClientSeamManager = typeof(setmetatable(
 		cells: { SeamRules.Cell },
 		-- one standing clone per cell, by SeamRules.cellKey
 		blocksByKey: { [string]: Model },
+		changedCallbacks: { () -> () },
 		-- cells whose wake sound waits for their block to stand
 		pendingWakeKeys: { [string]: boolean },
 		-- cells whose block is to be played out when the list drops it
@@ -137,6 +138,18 @@ end
 -- stands a block on every awake cell and takes down the ones that left;
 -- a cell that is still a Seam keeps its clone, so a drift moves one block
 -- and leaves the rest alone
+-- whether an awake Seam stands on this cell, as drawn: what the mining HUD
+-- asks so the block under the aim can read as a mystery (designer, 2026-10-29)
+function ClientSeamManager:isSeamCell(depth: number, height: number, width: number): boolean
+	return self.blocksByKey[SeamRules.cellKey(depth, height, width)] ~= nil
+end
+
+-- called after every redraw, so a HUD reading isSeamCell can refresh when a
+-- Seam wakes or breaks under the aim
+function ClientSeamManager:subscribeChanged(callback: () -> ())
+	table.insert(self.changedCallbacks, callback)
+end
+
 function ClientSeamManager:redraw()
 	self.isDirty = false
 	local space = ClientMineManager:getSpace()
@@ -169,6 +182,9 @@ function ClientSeamManager:redraw()
 			self.pendingWakeKeys[key] = nil
 			self:playWake(self.blocksByKey[key])
 		end
+	end
+	for _, callback in self.changedCallbacks do
+		callback()
 	end
 end
 
@@ -323,6 +339,7 @@ function ClientSeamManager.new(): ClientSeamManager
 	self.hasWarnedWakeSound = false
 	self.hasWarnedBreakEffects = false
 	self.isDirty = false
+	self.changedCallbacks = {}
 	return self
 end
 

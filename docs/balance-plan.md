@@ -56,7 +56,7 @@ All of these live in `GameData/Control/Balance` (targets) and are checked by the
 - **`GameData/Control/Balance`**: the targets above and the model's `ASSUMPTIONS` about how people play. The assumptions are the model's guesses, to be corrected from run reports, never from the data they check.
 - **`BalanceAudit`** (gameplay server): the only code that knows where the model's numbers come from. Runs every audited map and difficulty at crews of 1, 4, and 6 at gameplay startup and warns per missed target. The Monsters dev panel's "Balance sheet (Output)" prints the full table for the current run and every miss.
 - **`scripts/studio/balance_sheet.luau`**: prints the sheet in Edit mode without a Play session, through a substitute require.
-- **Camp tower cap** (`TowersData.MAX_ACTIVE_TOWERS_CAMP`, `PlacementRules.towerAllowance`): each player may hold `ceil(camp / crew)`, the crew being the count sampled at dawn, so a leaver's share opens the next morning. The build bar shows the allowance.
+- **Camp tower cap** (`TowersData.MAX_ACTIVE_TOWERS_CAMP`): one shared pool since 2026-10-29, any crewmate building while fewer than the cap stand, whoever built them; the build bar shows the camp's count against it. Until then each player held `ceil(camp / crew)` of the crew sampled at dawn.
 - **Uranium's own vein divisor** (`DifficultyData.URANIUM_VEIN_DIVISOR`, `GeneratorConfig.uraniumVeinDivisor`): a harder difficulty thins uranium too. The generator still refuses a mine whose thinned supply is under the worst-case target.
 
 ## What changed, and why

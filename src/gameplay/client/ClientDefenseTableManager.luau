@@ -105,6 +105,8 @@ type Pointer = {
 	isDragging: boolean,
 	-- a drag that began on the ghost moves the ghost; any other pans the view
 	isOnGhost: boolean,
+	-- the right button on the mouse scheme: a hold and drag pans, never a tap
+	isPanButton: boolean,
 }
 
 export type ClientDefenseTableManager = typeof(setmetatable(
@@ -113,7 +115,10 @@ export type ClientDefenseTableManager = typeof(setmetatable(
 		surfaceGui: ScreenGui?,
 		entriesFrame: GuiObject?,
 		entryTemplate: GuiButton?,
+		entryTemplateUnavailable: GuiButton?,
 		placePanel: GuiObject?,
+		placePanelPC: GuiObject?,
+		placePanelPCRotateRow: GuiObject?,
 		placeButton: GuiButton?,
 		placePriceLabel: TextLabel?,
 		rotateButton: GuiButton?,
@@ -169,13 +174,17 @@ local FEEDBACK_NOT_ENOUGH_IRON = "You don't have enough Iron Bars"
 local FEEDBACK_NO_SPACE = "Not enough space"
 local FEEDBACK_OUTSIDE_ZONE = "Defenses can only go in the Defensive Zone"
 local FEEDBACK_NOT_YOURS = "That belongs to another player"
-local HINT_IDLE = "Select a defense to place, or tap one of yours"
-local HINT_PLACING = "Tap the grid to move it"
-local HINT_MOVING = "Tap the grid to choose its new spot"
+local HINT_IDLE = "Select a defense to place"
+-- the mouse scheme's idle line (designer, 2026-10-29)
+local HINT_IDLE_MOUSE = "Select a defense below to place"
+local HINT_PLACING = "Tap the grid or drag the defense to move"
+-- the mouse scheme's line with a ghost out: the key card beside the ghost
+-- names the click, R, and Q, so the hint names the camera instead
+local HINT_PLACING_MOUSE = "Hold RMB to pan, mouse wheel to zoom"
+local HINT_MOVING = "Tap the grid or drag the defense to move"
 local PLACE_TEXT = "Place"
-local MOVE_TEXT = "Move"
-local HINT_CANNOT_PLACE = "Cannot place here"
-local HINT_LOADING = "Loading the Defensive Zone"
+local HINT_CANNOT_PLACE = "Can't place here"
+local HINT_LOADING = "Loading"
 local TOWER_COUNT_FORMAT = "%d / %d"
 local PREVIEW_TRANSPARENCY = 0.45
 local CANNOT_PLACE_COLOR = Color3.fromRGB(230, 70, 60)
@@ -197,7 +206,8 @@ local RANGE_RING_TRANSPARENCY = 0.25
 local STANDING_RING_TRANSPARENCY = 0.6
 local RANGE_FOLDER_NAME = "TowerRanges"
 local ROTATE_KEY = Enum.KeyCode.R
-local GREYED_TRANSPARENCY = 0.55
+-- puts the ghost away on the mouse scheme (designer, 2026-10-29)
+local CANCEL_KEY = Enum.KeyCode.Q
 -- a press that moves less than this is a tap
 local DRAG_THRESHOLD_PX = 8
 -- each wheel click closes or opens the view by this share
@@ -281,6 +291,33 @@ function ClientDefenseTableManager:canAffordEntry(placementKind: number, typeKin
 	return PlacementRules.canAfford(self:getIron(), self:getBuildPrice(placementKind, typeKind))
 end
 
+-- the designer's templates carry the look: every colour and transparency of
+-- the plain template while the entry can be afforded, of
+-- EntryTemplateUnavailable otherwise, copied by name onto the entry's
+-- matching parts (2026-10-29; the colours were set here before)
+local LOOK_PROPERTIES_BY_CLASS: { [string]: { string } } = {
+	GuiObject = { "BackgroundColor3", "BackgroundTransparency" },
+	ImageLabel = { "ImageColor3", "ImageTransparency" },
+	TextLabel = { "TextColor3", "TextTransparency", "TextStrokeTransparency" },
+	UIStroke = { "Color", "Transparency" },
+}
+
+local function copyLook(source: Instance, target: Instance)
+	for className, names in LOOK_PROPERTIES_BY_CLASS do
+		if source:IsA(className) and target:IsA(className) then
+			for _, name in names do
+				(target :: any)[name] = (source :: any)[name]
+			end
+		end
+	end
+	for _, child in source:GetChildren() do
+		local match = target:FindFirstChild(child.Name)
+		if match then
+			copyLook(child, match)
+		end
+	end
+end
+
 function ClientDefenseTableManager:renderEntry(entry: Entry, index: number)
 	local catalog = self.catalog
 	if not catalog then
@@ -291,28 +328,27 @@ function ClientDefenseTableManager:renderEntry(entry: Entry, index: number)
 	local selection = self.selection
 	local isSelected = selection ~= nil and selection.placementKind == entry.placementKind and selection.typeKind == entry.typeKind
 	local isTower = entry.placementKind == Enums.PlacementKind.TOWER
+	local lookTemplate = if isAffordable then self.entryTemplate else self.entryTemplateUnavailable or self.entryTemplate
+	if lookTemplate then
+		copyLook(lookTemplate, frame)
+	end
 	local slot = frame:FindFirstChild(Constants.BUILD_BAR_ENTRY_SLOT)
-	if slot and slot:IsA("GuiObject") then
-		-- the tool bar's equipped look: panel fill and accent stroke
-		slot.BackgroundColor3 = if isSelected then UiStyle.PANEL_COLOR else UiStyle.EMPTY_SLOT_COLOR
-		slot.BackgroundTransparency = if isAffordable then UiStyle.PANEL_TRANSPARENCY else GREYED_TRANSPARENCY
-		local stroke = slot:FindFirstChildOfClass("UIStroke")
-		if stroke then
-			stroke.Color = if isSelected then UiStyle.ACCENT_COLOR else UiStyle.PANEL_COLOR
-		end
+	-- the one cue the templates do not author: the selected entry's slot
+	-- backing in the accent colour
+	local backing = if slot then slot:FindFirstChild(Constants.BUILD_BAR_ENTRY_SLOT_BACKING) else nil
+	if isSelected and backing and backing:IsA("ImageLabel") then
+		backing.ImageColor3 = UiStyle.ACCENT_COLOR
 	end
 	local icon = if slot then slot:FindFirstChild(Constants.BUILD_BAR_ENTRY_ICON) else nil
 	if icon and icon:IsA("ImageLabel") then
 		local template = ClientPlacementManager:findTemplate(entry.placementKind, entry.typeKind)
 		local imageId = if template then template:GetAttribute(Attributes.ICON_IMAGE_ID) else nil
 		icon.Image = if typeof(imageId) == "string" then imageId else ""
-		icon.ImageTransparency = if isAffordable then 0 else GREYED_TRANSPARENCY
 	end
 	local typeIcon = if slot then slot:FindFirstChild(Constants.BUILD_BAR_ENTRY_TYPE_ICON) else nil
 	if typeIcon and typeIcon:IsA("ImageLabel") then
 		local imageId = if isTower then Icons.UI.TOWER else Icons.UI.TRAP
 		typeIcon.Image = if Icons.isPlaceholder(imageId) then "" else imageId
-		typeIcon.ImageTransparency = if isAffordable then 0 else GREYED_TRANSPARENCY
 	end
 	local keyLabel = if slot then slot:FindFirstChild(Constants.BUILD_BAR_ENTRY_KEY_LABEL) else nil
 	if keyLabel and keyLabel:IsA("TextLabel") then
@@ -322,7 +358,6 @@ function ClientDefenseTableManager:renderEntry(entry: Entry, index: number)
 	local nameLabel = frame:FindFirstChild(Constants.BUILD_BAR_ENTRY_NAME_LABEL)
 	if nameLabel and nameLabel:IsA("TextLabel") then
 		nameLabel.Text = UiStyle.formatTitle(PlacementRules.publicName(entry.placementKind, entry.typeKind))
-		nameLabel.TextColor3 = if isAffordable then UiStyle.TEXT_COLOR else UiStyle.DISABLED_COLOR
 	end
 	local priceRow = frame:FindFirstChild(Constants.BUILD_BAR_ENTRY_PRICE_ROW)
 	local priceIcon = if priceRow then priceRow:FindFirstChild(Constants.BUILD_BAR_ENTRY_PRICE_ICON) else nil
@@ -333,7 +368,6 @@ function ClientDefenseTableManager:renderEntry(entry: Entry, index: number)
 	end
 	if priceLabel and priceLabel:IsA("TextLabel") then
 		priceLabel.Text = tostring(self:getBuildPrice(entry.placementKind, entry.typeKind))
-		priceLabel.TextColor3 = if isAffordable then UiStyle.TEXT_COLOR else UiStyle.NEGATIVE_COLOR
 	end
 end
 
@@ -403,10 +437,9 @@ function ClientDefenseTableManager:renderTowerCount()
 	if not label or not catalog then
 		return
 	end
-	local count = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.ACTIVE_TOWER_COUNT), 0)
-	-- the camp's Towers shared among the crew sampled at dawn
-	local crewCount = readNumber(ClientDataManager:getGameMetadata(Attributes.RUN_SCALING_COUNT), 1)
-	local allowance = PlacementRules.towerAllowance(catalog.maxActiveTowersCamp, crewCount)
+	-- the camp's Towers are one shared pool, whoever built them (2026-10-29)
+	local count = readNumber(ClientDataManager:getGameMetadata(Attributes.ACTIVE_TOWER_COUNT), 0)
+	local allowance = catalog.maxActiveTowersCamp
 	label.Text = string.format(TOWER_COUNT_FORMAT, count, allowance)
 	label.TextColor3 = if count >= allowance then UiStyle.NEGATIVE_COLOR else UiStyle.TEXT_COLOR
 end
@@ -417,22 +450,43 @@ function ClientDefenseTableManager:renderPanel()
 	local catalog = self.catalog
 	local hintLabel = self.hintLabel
 	if hintLabel then
-		local hint = HINT_IDLE
+		local hint = if self:usesMouseScheme() then HINT_IDLE_MOUSE else HINT_IDLE
 		if not self.cameraZone then
 			hint = HINT_LOADING
 		elseif selection and not self.canPlaceHere then
 			hint = HINT_CANNOT_PLACE
+		elseif selection and self:usesMouseScheme() then
+			hint = HINT_PLACING_MOUSE
 		elseif selection then
 			hint = if self.moveShadow then HINT_MOVING else HINT_PLACING
 		end
 		hintLabel.Text = UiStyle.formatTitle(hint)
 	end
+	-- the mouse scheme floats the designer's key card (no buttons: the click,
+	-- R, and Q do the work) where touch and gamepad get the button panel
+	local isMouseScheme = self:usesMouseScheme()
 	local placePanel = self.placePanel
 	if placePanel then
-		placePanel.Visible = selection ~= nil
+		placePanel.Visible = selection ~= nil and (not isMouseScheme or self.placePanelPC == nil)
+	end
+	local placePanelPC = self.placePanelPC
+	if placePanelPC then
+		placePanelPC.Visible = selection ~= nil and isMouseScheme
 	end
 	if not selection or not catalog then
 		return
+	end
+	-- only a kind the data calls rotatable gets the Rotate button (the Wall
+	-- and the Goo Pit, 2026-10-29); the panel's list layout closes the gap
+	-- and Cancel moves over for the rest
+	local isRotatable = PlacementRules.isRotatable(catalog, selection.placementKind, selection.typeKind)
+	local rotateButton = self.rotateButton
+	if rotateButton then
+		rotateButton.Visible = isRotatable
+	end
+	local rotateRow = self.placePanelPCRotateRow
+	if rotateRow then
+		rotateRow.Visible = isRotatable
 	end
 	-- a move costs nothing, so its button carries the word alone. The button
 	-- is green while the ghost can go down and be paid for, red otherwise
@@ -444,7 +498,9 @@ function ClientDefenseTableManager:renderPanel()
 	end
 	local placeText = if placeButton then placeButton:FindFirstChild(Constants.BUILD_BAR_BUILD_TEXT_LABEL) else nil
 	if placeText and placeText:IsA("TextLabel") then
-		placeText.Text = UiStyle.formatTitle(if isMoving then MOVE_TEXT else PLACE_TEXT)
+		-- PLACE during a move too (designer, 2026-10-29; MOVE until then): the
+		-- green button puts the item down either way
+		placeText.Text = UiStyle.formatTitle(PLACE_TEXT)
 	end
 	local placePriceRow = if placeButton then placeButton:FindFirstChild(Constants.BUILD_BAR_BUILD_PRICE_ROW) else nil
 	if placePriceRow and placePriceRow:IsA("GuiObject") then
@@ -699,10 +755,12 @@ function ClientDefenseTableManager:refreshGhost()
 	local movedId = if moveShadow then moveShadow:GetAttribute(Attributes.PLACEMENT_ID) else nil
 	local occupancy = if view then self:occupancyFor(view) else {}
 	self.canPlaceHere = view ~= nil and cell ~= nil and PlacementRules.canPlace(view.grid, occupancy, cell, selection.footprint, if typeof(movedId) == "string" then movedId else nil)
-	-- the build just asked for has landed under the ghost: step aside
+	-- the build just asked for has landed under the ghost: step aside, joining
+	-- the line of the kind just built where one can (designer, 2026-10-29),
+	-- else the nearest free spot as before
 	if self.isAdvancePending and not self.canPlaceHere and view and cell then
 		self.isAdvancePending = false
-		local nextCell = PlacementRules.nextFreeAnchor(view.grid, occupancy, cell, selection.footprint)
+		local nextCell = self:snapBesideAnchor(selection, view, occupancy, cell) or PlacementRules.nextFreeAnchor(view.grid, occupancy, cell, selection.footprint)
 		if nextCell then
 			self.targetCell = nextCell
 			self:poseGhost(selection, view, nextCell)
@@ -713,6 +771,44 @@ function ClientDefenseTableManager:refreshGhost()
 	if wasPlaceable ~= self.canPlaceHere then
 		self:renderPanel()
 	end
+end
+
+-- the anchors of every standing placement in the zone of the ghost's kind
+-- lying the same way (the same turned footprint): the one under `cell` is
+-- the build that just landed and the reference, the rest say which way
+-- the line is growing; nil without a reference
+function ClientDefenseTableManager:snapBesideAnchor(selection: Selection, view: ZoneView, occupancy: PlacementRules.Occupancy, cell: PlacementRules.Cell): PlacementRules.Cell?
+	local catalog = self.catalog
+	if not catalog then
+		return nil
+	end
+	local reference: PlacementRules.Cell? = nil
+	local others: { PlacementRules.Cell } = {}
+	for _, shadow in ClientPlacementManager:getTrackedShadows() do
+		if readNumber(shadow:GetAttribute(Attributes.DEFENSIVE_ZONE_INDEX), 0) ~= view.index then
+			continue
+		end
+		if readNumber(shadow:GetAttribute(Attributes.PLACEMENT_KIND), 0) ~= selection.placementKind or readNumber(shadow:GetAttribute(Attributes.PLACEMENT_TYPE_KIND), 0) ~= selection.typeKind then
+			continue
+		end
+		local footprint = ClientPlacementManager:footprintOf(shadow, catalog)
+		if footprint[1] ~= selection.footprint[1] or footprint[2] ~= selection.footprint[2] then
+			continue
+		end
+		local anchor = {
+			column = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_COLUMN), 0),
+			row = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_ROW), 0),
+		}
+		if anchor.column == cell.column and anchor.row == cell.row then
+			reference = anchor
+		else
+			table.insert(others, anchor)
+		end
+	end
+	if not reference then
+		return nil
+	end
+	return PlacementRules.snapBesideAnchor(view.grid, occupancy, reference, selection.footprint, others)
 end
 
 -- the ghost's grid-aligned pose on its cells; the model inside is turned
@@ -752,7 +848,8 @@ end
 -- inside the grid
 function ClientDefenseTableManager:rotate()
 	local selection = self.selection
-	if not selection then
+	local catalog = self.catalog
+	if not selection or not catalog or not PlacementRules.isRotatable(catalog, selection.placementKind, selection.typeKind) then
 		return
 	end
 	local view = self.targetZone
@@ -793,7 +890,12 @@ function ClientDefenseTableManager:cancel()
 	self.targetZone = nil
 	self.targetCell = nil
 	self.canPlaceHere = false
-	self.moveShadow = nil
+	local moveShadow = self.moveShadow
+	if moveShadow then
+		ClientPlacementManager:setBodyHidden(moveShadow, false)
+		self.moveShadow = nil
+		self:drawTowerRanges()
+	end
 	self.isAdvancePending = false
 	self:renderAffordability()
 end
@@ -865,7 +967,7 @@ function ClientDefenseTableManager:drawTowerRanges()
 	folder.Name = RANGE_FOLDER_NAME
 	for _, shadow in ClientPlacementManager:getTrackedShadows() do
 		local tower = ClientPlacementManager:getTowerData(shadow)
-		if not tower then
+		if not tower or shadow == self.moveShadow then
 			continue
 		end
 		local level = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_LEVEL), PlacementRules.STARTING_LEVEL)
@@ -898,6 +1000,8 @@ function ClientDefenseTableManager:beginGhost(placementKind: number, typeKind: n
 	for _, descendant in preview:GetDescendants() do
 		if descendant:IsA("BasePart") then
 			descendant.CanCollide = false
+			-- a see-through ghost throwing a solid shadow reads as a second body
+			descendant.CastShadow = false
 			descendant.Transparency = math.max(descendant.Transparency, PREVIEW_TRANSPARENCY)
 			colorByPart[descendant] = descendant.Color
 		end
@@ -925,7 +1029,7 @@ function ClientDefenseTableManager:select(placementKind: number, typeKind: numbe
 end
 
 -- one of the player's own placements picked up: its ghost comes out where
--- it stands, turned as it stands, and Place becomes Move
+-- it stands, turned as it stands, and Place puts it down with no price
 function ClientDefenseTableManager:startMove(shadow: BasePart)
 	local placementKind = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_KIND), 0)
 	local typeKind = readNumber(shadow:GetAttribute(Attributes.PLACEMENT_TYPE_KIND), 0)
@@ -934,6 +1038,10 @@ function ClientDefenseTableManager:startMove(shadow: BasePart)
 		return
 	end
 	self.moveShadow = shadow
+	-- only the ghost shows while it is being moved: its body, billboard, and
+	-- range ring go until the move ends (designer, 2026-10-29)
+	ClientPlacementManager:setBodyHidden(shadow, true)
+	self:drawTowerRanges()
 	self:refreshGhost()
 	self:renderAffordability()
 end
@@ -996,7 +1104,9 @@ function ClientDefenseTableManager:place()
 		row = cell.row,
 		rotation = selection.rotation,
 	})
-	self.isAdvancePending = true
+	-- the touch ghost steps aside once the build lands; the mouse ghost stays
+	-- under the cursor, which is where the player will point next
+	self.isAdvancePending = not self:usesMouseScheme()
 end
 
 function ClientDefenseTableManager:closeSellPanel()
@@ -1073,7 +1183,10 @@ function ClientDefenseTableManager:tap(screenPosition: Vector2)
 		return
 	end
 	if self.selection then
-		if self:findZone(position) then
+		if self:usesMouseScheme() then
+			-- the ghost is already under the cursor: the click puts it down
+			self:place()
+		elseif self:findZone(position) then
 			self:moveGhost(position)
 		else
 			ClientPlayerFeedbackManager:giveLocal(FEEDBACK_OUTSIDE_ZONE)
@@ -1081,6 +1194,43 @@ function ClientDefenseTableManager:tap(screenPosition: Vector2)
 		return
 	end
 	self:tapPlacement(position)
+end
+
+-- keyboard and mouse get their own scheme (designer, 2026-10-29): the ghost
+-- rides the cursor, the left button places, the right button held pans,
+-- the wheel zooms, R turns, Q cancels; touch and gamepad keep the tap and
+-- drag scheme. Judged by the last input used, so a touch laptop follows
+-- whichever the player picks up
+function ClientDefenseTableManager:usesMouseScheme(): boolean
+	local lastInputType = UserInputService:GetLastInputType()
+	if lastInputType == Enum.UserInputType.Touch or string.find(lastInputType.Name, "^Gamepad") then
+		return false
+	end
+	return UserInputService.MouseEnabled and UserInputService.KeyboardEnabled
+end
+
+-- on the mouse scheme the ghost rides the cursor while it is over the world
+-- (not the bar or a panel), snapped to the cells as a drag would be; a
+-- right-button pan in progress leaves it where it is
+function ClientDefenseTableManager:followCursorIfNeeded()
+	local pointer = self.pointer
+	if not self.selection or not self:usesMouseScheme() or (pointer and pointer.isPanButton) or ClientOverlayManager:isOverlayActive() then
+		return
+	end
+	local screenPosition = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
+	local gui = self.gui
+	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	if gui and playerGui then
+		for _, guiObject in playerGui:GetGuiObjectsAtPosition(screenPosition.X, screenPosition.Y) do
+			if guiObject:IsDescendantOf(gui) then
+				return
+			end
+		end
+	end
+	local point = self:worldPoint(screenPosition)
+	if point then
+		self:moveGhost(point)
+	end
 end
 
 -- how many studs of ground one pixel covers, across and up the screen; the
@@ -1118,6 +1268,11 @@ function ClientDefenseTableManager:onPointerMoved(position: Vector2)
 		end
 		return
 	end
+	-- on the mouse scheme the left button never pans while a ghost is out:
+	-- the ghost rides the cursor and the right button is the pan
+	if not pointer.isPanButton and self.selection and self:usesMouseScheme() then
+		return
+	end
 	-- the ground follows the finger, so the view moves the other way
 	local across, up = self:getStudsPerPixel()
 	self.focus = BuildCameraRules.panFocus(self.focus, self.forwardX, self.forwardZ, -delta.X * across, delta.Y * up)
@@ -1127,7 +1282,8 @@ function ClientDefenseTableManager:onSurfaceInputBegan(input: InputObject)
 	if not self.isBuildMode or ClientOverlayManager:isOverlayActive() then
 		return
 	end
-	local isMouse = input.UserInputType == Enum.UserInputType.MouseButton1
+	local isPanButton = input.UserInputType == Enum.UserInputType.MouseButton2 and self:usesMouseScheme()
+	local isMouse = input.UserInputType == Enum.UserInputType.MouseButton1 or isPanButton
 	if not isMouse and input.UserInputType ~= Enum.UserInputType.Touch then
 		return
 	end
@@ -1144,7 +1300,9 @@ function ClientDefenseTableManager:onSurfaceInputBegan(input: InputObject)
 		startPosition = position,
 		lastPosition = position,
 		isDragging = false,
-		isOnGhost = point ~= nil and self:isOnGhost(point),
+		-- on the mouse scheme the ghost rides the cursor, so no drag starts on it
+		isOnGhost = not isPanButton and not self:usesMouseScheme() and point ~= nil and self:isOnGhost(point),
+		isPanButton = isPanButton,
 	}
 end
 
@@ -1165,12 +1323,13 @@ function ClientDefenseTableManager:onInputEnded(input: InputObject)
 	if not pointer then
 		return
 	end
-	local isPointerEnd = if pointer.isMouse then input.UserInputType == Enum.UserInputType.MouseButton1 else input == pointer.input
+	local pointerButton = if pointer.isPanButton then Enum.UserInputType.MouseButton2 else Enum.UserInputType.MouseButton1
+	local isPointerEnd = if pointer.isMouse then input.UserInputType == pointerButton else input == pointer.input
 	if not isPointerEnd then
 		return
 	end
 	self.pointer = nil
-	if not pointer.isDragging and self.isBuildMode and not ClientOverlayManager:isOverlayActive() then
+	if not pointer.isDragging and not pointer.isPanButton and self.isBuildMode and not ClientOverlayManager:isOverlayActive() then
 		self:tap(pointer.startPosition)
 	end
 end
@@ -1200,6 +1359,12 @@ function ClientDefenseTableManager:onInputBegan(input: InputObject, isGameProces
 	if input.UserInputType == Enum.UserInputType.Keyboard then
 		if input.KeyCode == ROTATE_KEY then
 			self:rotate()
+			return
+		end
+		if input.KeyCode == CANCEL_KEY then
+			if self.selection then
+				self:cancel()
+			end
 			return
 		end
 		local index = table.find(NUMBER_KEYS, input.KeyCode)
@@ -1303,13 +1468,15 @@ function ClientDefenseTableManager:step(deltaSec: number)
 	end
 	camera.CFrame = overhead
 	camera.Focus = CFrame.new(self.focus)
+	self:followCursorIfNeeded()
 
 	local selection = self.selection
 	local targetZone = self.targetZone
 	local targetCell = self.targetCell
-	if selection and self.placePanel and targetZone and targetCell then
+	local placePanel = if self:usesMouseScheme() and self.placePanelPC then self.placePanelPC else self.placePanel
+	if selection and placePanel and targetZone and targetCell then
 		local cellSize = targetZone.grid.cellSizeStuds
-		self:floatPanel(self.placePanel, self:ghostCFrame(selection, targetZone, targetCell), selection.footprint[1] * cellSize / 2, selection.footprint[2] * cellSize / 2)
+		self:floatPanel(placePanel, self:ghostCFrame(selection, targetZone, targetCell), selection.footprint[1] * cellSize / 2, selection.footprint[2] * cellSize / 2)
 	end
 	local sellShadow = self.sellShadow
 	if sellShadow and self.sellPanel then
@@ -1519,6 +1686,13 @@ function ClientDefenseTableManager:findGui()
 	self.entriesFrame = entriesFrame
 	self.entryTemplate = template
 	template.Visible = false
+	local unavailableTemplate = entriesFrame:FindFirstChild(Constants.BUILD_BAR_ENTRY_TEMPLATE_UNAVAILABLE)
+	if unavailableTemplate and unavailableTemplate:IsA("GuiButton") then
+		self.entryTemplateUnavailable = unavailableTemplate
+		unavailableTemplate.Visible = false
+	else
+		warn("ClientDefenseTableManager: BuildBar is missing Entries.EntryTemplateUnavailable; an entry the player cannot afford keeps the plain look")
+	end
 
 	surface.InputBegan:Connect(
 		function(input: InputObject)
@@ -1536,7 +1710,8 @@ function ClientDefenseTableManager:findGui()
 		)
 	end
 
-	local hintLabel = gui:FindFirstChild(Constants.BUILD_BAR_HINT_LABEL)
+	local hintFrame = gui:FindFirstChild(Constants.BUILD_BAR_HINT_FRAME)
+	local hintLabel = if hintFrame then hintFrame:FindFirstChild(Constants.BUILD_BAR_HINT_LABEL) else nil
 	self.hintLabel = if hintLabel and hintLabel:IsA("TextLabel") then hintLabel else nil
 	local towerCount = gui:FindFirstChild(Constants.BUILD_BAR_TOWER_COUNT_FRAME)
 	local towerCountLabel = if towerCount then towerCount:FindFirstChild(Constants.BUILD_BAR_TOWER_COUNT_LABEL) else nil
@@ -1584,6 +1759,10 @@ function ClientDefenseTableManager:findGui()
 			self:rotate()
 		end
 	)
+	local placePanelPC = gui:FindFirstChild(Constants.BUILD_BAR_PLACE_PANEL_PC)
+	self.placePanelPC = if placePanelPC and placePanelPC:IsA("GuiObject") then placePanelPC else nil
+	local rotateRow = if placePanelPC then placePanelPC:FindFirstChild(Constants.BUILD_BAR_PLACE_PANEL_PC_ROTATE_ROW) else nil
+	self.placePanelPCRotateRow = if rotateRow and rotateRow:IsA("GuiObject") then rotateRow else nil
 	local sellPanel = gui:FindFirstChild(Constants.BUILD_BAR_SELL_PANEL)
 	self.sellPanel = if sellPanel and sellPanel:IsA("GuiObject") then sellPanel else nil
 	self.sellPriceLabel = self:bindActionButton(
@@ -1623,6 +1802,15 @@ function ClientDefenseTableManager:init()
 		end
 	)
 	self:findGui()
+	-- picking up the mouse or the touch screen mid-ghost swaps the floating
+	-- panel at once, since the scheme follows the last input used
+	UserInputService.LastInputTypeChanged:Connect(
+		function()
+			if self.selection then
+				self:renderPanel()
+			end
+		end
+	)
 	local gridFolder = Instance.new("Folder")
 	gridFolder.Name = Constants.PLACEMENT_GRID_FOLDER
 	gridFolder.Parent = workspace
@@ -1662,14 +1850,8 @@ function ClientDefenseTableManager:init()
 			self:renderAffordability()
 		end
 	)
-	ClientDataManager:subscribeCurrentPlayerAttribute(
-		Attributes.ACTIVE_TOWER_COUNT,
-		function()
-			self:renderTowerCount()
-		end
-	)
 	ClientDataManager:subscribeGameMetadataAttribute(
-		Attributes.RUN_SCALING_COUNT,
+		Attributes.ACTIVE_TOWER_COUNT,
 		function()
 			self:renderTowerCount()
 		end
@@ -1724,7 +1906,10 @@ function ClientDefenseTableManager.new(): ClientDefenseTableManager
 	self.surfaceGui = nil
 	self.entriesFrame = nil
 	self.entryTemplate = nil
+	self.entryTemplateUnavailable = nil
 	self.placePanel = nil
+	self.placePanelPC = nil
+	self.placePanelPCRotateRow = nil
 	self.placeButton = nil
 	self.placePriceLabel = nil
 	self.rotateButton = nil

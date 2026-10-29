@@ -214,14 +214,24 @@ slot.Size = UDim2.fromScale(1, 0.6)
 addAspect(slot, 1)
 addTouchTarget(slot, Vector2.new(144, 144))
 slot.BackgroundColor3 = UiStyle.EMPTY_SLOT_COLOR
-slot.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
+-- the designer's panel picture is the backing (2026-10-29; a filled,
+-- rounded, stroked Frame before); the client tints it for the selected entry
+slot.BackgroundTransparency = 1
 slot.BorderSizePixel = 0
-addCorner(slot)
-local slotStroke = Instance.new("UIStroke")
-slotStroke.Thickness = UiStyle.STROKE_PX
-slotStroke.Color = UiStyle.PANEL_COLOR
-slotStroke.Parent = slot
+slot.ZIndex = 2
 slot.Parent = template
+
+local slotBacking = Instance.new("ImageLabel")
+slotBacking.Name = "ImageLabel"
+slotBacking.Size = UDim2.fromScale(1, 1)
+slotBacking.BackgroundTransparency = 1
+slotBacking.BorderSizePixel = 0
+slotBacking.Image = Icons.UI.PANEL_BACKING
+slotBacking.ImageColor3 = Color3.fromRGB(0, 0, 0)
+slotBacking.ScaleType = Enum.ScaleType.Stretch
+-- under the picture and the badges, whatever order the children come in
+slotBacking.ZIndex = 0
+slotBacking.Parent = slot
 
 local icon = Instance.new("ImageLabel")
 icon.Name = "Icon"
@@ -243,7 +253,7 @@ typeIcon.ZIndex = 2
 typeIcon.Parent = slot
 
 -- the number key, top-right; hidden without a keyboard
-local keyLabel = makeLabel("KeyLabel", "1", UiStyle.BODY_BOLD_FONT, UiStyle.TEXT_MUTED_COLOR, UiStyle.LABEL_TEXT_MAX_PX)
+local keyLabel = makeLabel("KeyLabel", "1", UiStyle.BODY_BOLD_FONT, UiStyle.TEXT_COLOR, UiStyle.LABEL_TEXT_MAX_PX)
 keyLabel.AnchorPoint = Vector2.new(1, 0)
 keyLabel.Position = UDim2.fromScale(0.94, 0.04)
 keyLabel.Size = UDim2.fromScale(0.3, 0.26)
@@ -256,6 +266,17 @@ priceRow.AnchorPoint = Vector2.new(0.5, 1)
 priceRow.Position = UDim2.fromScale(0.5, 1)
 priceRow.Size = UDim2.fromScale(1.25, 0.18)
 priceRow.Parent = template
+
+-- the same entry as it looks while the Iron is short (designer, 2026-10-29):
+-- grey name, dark backing, faded picture, red price; the client copies these colours onto
+-- an entry the player cannot afford and the plain template's back when they can
+local unavailable = template:Clone()
+unavailable.Name = "EntryTemplateUnavailable"
+unavailable.NameLabel.TextColor3 = Color3.fromRGB(124, 124, 124)
+unavailable.Slot.ImageLabel.ImageColor3 = Color3.fromRGB(68, 68, 68)
+unavailable.Slot.Icon.ImageTransparency = 0.3
+unavailable.PriceRow.Price.TextColor3 = Color3.fromRGB(255, 89, 89)
+unavailable.Parent = entries
 
 -- always up in Build Mode, bottom right
 local exitButton = Instance.new("TextButton")
@@ -423,6 +444,108 @@ rotateIcon.ScaleType = Enum.ScaleType.Fit
 rotateIcon.Parent = rotateButton
 rotateButton.Parent = placePanel
 
+-- the mouse scheme's key card (designer, 2026-10-29), floated beside the
+-- ghost instead of PlacePanel on keyboard and mouse: no buttons, three
+-- rows naming the input that does the work (the left mouse button places,
+-- R turns, Q cancels). The client hides the Rotate row for a kind that
+-- cannot turn, and the list layout closes the gap
+local KEY_CARD_ROW_COLOR = Color3.fromRGB(68, 68, 68)
+local function makeKeyCardRow(name, layoutOrder, actionText, actionLabelName)
+	local row = Instance.new("Frame")
+	row.Name = name
+	row.LayoutOrder = layoutOrder
+	row.AnchorPoint = Vector2.new(0.5, 0)
+	row.Size = UDim2.fromScale(0.9, 0.25)
+	row.BackgroundColor3 = KEY_CARD_ROW_COLOR
+	row.BorderSizePixel = 0
+	addCorner(row, UDim.new(0.1, 0))
+	local action = Instance.new("TextLabel")
+	action.Name = actionLabelName
+	action.AnchorPoint = Vector2.new(0, 0.5)
+	action.Position = UDim2.fromScale(0.35, 0.5)
+	action.Size = UDim2.fromScale(0.63, 0.75)
+	action.BackgroundTransparency = 1
+	action.BorderSizePixel = 0
+	action.Text = UiStyle.formatTitle(actionText)
+	action.TextColor3 = UiStyle.TEXT_COLOR
+	action.TextScaled = true
+	action.TextWrapped = true
+	action.TextXAlignment = Enum.TextXAlignment.Left
+	action.FontFace = UiStyle.TITLE_FONT
+	action.Parent = row
+	return row
+end
+
+local function makeKeyCardKey(row, keyText)
+	local key = Instance.new("Frame")
+	key.Name = "Frame"
+	key.AnchorPoint = Vector2.new(0, 0.5)
+	key.Position = UDim2.fromScale(0.05, 0.5)
+	key.Size = UDim2.fromScale(0.3, 0.8)
+	key.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	key.BorderSizePixel = 0
+	addAspect(key, 1)
+	addCorner(key, UDim.new(0.2, 0))
+	local label = Instance.new("TextLabel")
+	label.Name = "TextLabel"
+	label.AnchorPoint = Vector2.new(0.5, 0.5)
+	label.Position = UDim2.fromScale(0.5, 0.5)
+	label.Size = UDim2.fromScale(0.95, 0.95)
+	label.BackgroundTransparency = 1
+	label.BorderSizePixel = 0
+	label.Text = keyText
+	label.TextColor3 = UiStyle.TEXT_COLOR
+	label.TextScaled = true
+	label.TextWrapped = true
+	label.FontFace = UiStyle.TITLE_FONT
+	label.Parent = key
+	key.Parent = row
+end
+
+local keyCard = Instance.new("Frame")
+keyCard.Name = "PlacePanelPC"
+keyCard.AnchorPoint = Vector2.new(0, 0.5)
+keyCard.Position = UDim2.fromScale(0.5, 0.5)
+keyCard.Size = UDim2.fromScale(0.3, 0.3)
+keyCard.BackgroundColor3 = UiStyle.PANEL_COLOR
+keyCard.BackgroundTransparency = 0.15
+keyCard.BorderSizePixel = 1
+keyCard.ZIndex = 3
+keyCard.Visible = false
+addMaxSize(keyCard, Vector2.new(420, 420))
+addAspect(keyCard, 1)
+addCorner(keyCard, UDim.new(0.1, 0))
+local keyCardLayout = Instance.new("UIListLayout")
+keyCardLayout.FillDirection = Enum.FillDirection.Vertical
+keyCardLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+keyCardLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+keyCardLayout.Padding = UDim.new(0.06, 0)
+keyCardLayout.SortOrder = Enum.SortOrder.LayoutOrder
+keyCardLayout.Parent = keyCard
+-- the designer's "Acttion" label name is kept so the live card and the
+-- script match; the client reads none of these labels
+local placeRow = makeKeyCardRow("Place", 1, "Place", "Acttion")
+local mouseIcon = Instance.new("ImageLabel")
+mouseIcon.Name = "ImageLabel"
+mouseIcon.AnchorPoint = Vector2.new(0, 0.5)
+mouseIcon.Position = UDim2.fromScale(0.05, 0.5)
+mouseIcon.Size = UDim2.fromScale(0.3, 0.8)
+mouseIcon.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
+mouseIcon.BackgroundTransparency = 1
+mouseIcon.BorderSizePixel = 0
+mouseIcon.Image = Icons.UI.MOUSE_LEFT_BUTTON
+addAspect(mouseIcon, 1)
+addCorner(mouseIcon, UDim.new(0.2, 0))
+mouseIcon.Parent = placeRow
+placeRow.Parent = keyCard
+local rotateRow = makeKeyCardRow("Rotate", 2, "Rotate", "Action")
+makeKeyCardKey(rotateRow, "R")
+rotateRow.Parent = keyCard
+local cancelRow = makeKeyCardRow("Cancel", 3, "Cancel", "Action")
+makeKeyCardKey(cancelRow, "Q")
+cancelRow.Parent = keyCard
+keyCard.Parent = gui
+
 local sellPanel = makeActionPanel("SellPanel", "SellButton", "Sell", UiStyle.NEGATIVE_COLOR, UiStyle.TEXT_COLOR, "CloseButton")
 
 -- the Sell panel also offers Move, first in the row: the panel is wider
@@ -452,14 +575,32 @@ movePadding.PaddingBottom = UDim.new(0.2, 0)
 movePadding.Parent = moveButton
 moveButton.Parent = sellPanel
 
--- the hint, under the day clock and the compass
+-- the hint, under the day clock and the compass: the designer's pill
+-- picture (the day clock's), sliced so its ends keep their shape, turned
+-- 180 so the flat end faces the way the designer wanted, with the label
+-- turned back inside it (designer, 2026-10-29; a bare stroked label before)
+local hintFrame = Instance.new("ImageLabel")
+hintFrame.Name = "Hint"
+hintFrame.AnchorPoint = Vector2.new(0.5, 0)
+hintFrame.Position = UDim2.fromScale(0.5, 0.14)
+hintFrame.Size = UDim2.fromScale(0.3, 0.045)
+hintFrame.BackgroundTransparency = 1
+hintFrame.BorderSizePixel = 0
+hintFrame.Image = Icons.UI.CLOCK_BAR
+hintFrame.ImageColor3 = Color3.fromRGB(0, 0, 0)
+hintFrame.ImageTransparency = 0.45
+hintFrame.ScaleType = Enum.ScaleType.Slice
+hintFrame.SliceCenter = Rect.new(196, 25, 272, 48)
+hintFrame.Rotation = 180
 local hint = makeLabel("Hint", UiStyle.formatTitle("Select a defense to place"), UiStyle.TITLE_FONT, UiStyle.TEXT_COLOR, 32)
-hint.AnchorPoint = Vector2.new(0.5, 0)
-hint.Position = UDim2.fromScale(0.5, 0.14)
-hint.Size = UDim2.fromScale(0.6, 0.045)
-local hintStroke = hint:FindFirstChildOfClass("UIStroke")
-hintStroke.Thickness = UiStyle.STROKE_PX
-hint.Parent = gui
+hint.AnchorPoint = Vector2.new(0.5, 0.5)
+hint.Position = UDim2.fromScale(0.5, 0.5)
+hint.Size = UDim2.fromScale(1, 0.9)
+hint.Rotation = 180
+-- the picture is the backing now, so no stroke
+hint:FindFirstChildOfClass("UIStroke"):Destroy()
+hint.Parent = hintFrame
+hintFrame.Parent = gui
 
 gui.Parent = StarterGui
 ChangeHistoryService:SetWaypoint("After BuildBar gui")

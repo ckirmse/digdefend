@@ -8,6 +8,7 @@ local StarterGui = game:GetService("StarterGui")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
 local UiStyle = require(game.ReplicatedStorage.Shared.UiStyle)
+local Icons = require(game.ReplicatedStorage.Shared.Icons)
 local Attributes = require(game.ReplicatedStorage.Shared.Attributes)
 
 ChangeHistoryService:SetWaypoint("Before ToolBar gui")
@@ -72,8 +73,10 @@ local templateSize = Instance.new("UISizeConstraint")
 templateSize.MinSize = Vector2.new(UiStyle.TOUCH_TARGET_MIN_PX, UiStyle.TOUCH_TARGET_MIN_PX)
 templateSize.MaxSize = Vector2.new(96, 96)
 templateSize.Parent = template
-template.BackgroundColor3 = UiStyle.EMPTY_SLOT_COLOR
-template.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
+-- the designer's panel picture is the backing (2026-10-29; the button's own
+-- colour before), tinted by the client for the equipped tool
+template.BackgroundColor3 = Color3.fromRGB(68, 68, 68)
+template.BackgroundTransparency = 1
 template.BorderSizePixel = 0
 template.Text = ""
 template.AutoButtonColor = true
@@ -84,6 +87,18 @@ local stroke = Instance.new("UIStroke")
 stroke.Thickness = UiStyle.STROKE_PX
 stroke.Color = UiStyle.PANEL_COLOR
 stroke.Parent = template
+
+local background = Instance.new("ImageLabel")
+background.Name = "Background"
+background.Size = UDim2.fromScale(1, 1)
+background.BackgroundTransparency = 1
+background.BorderSizePixel = 0
+background.Image = Icons.UI.PANEL_BACKING
+background.ImageColor3 = UiStyle.TOOL_SLOT_SELECTED_COLOR
+background.ScaleType = Enum.ScaleType.Stretch
+-- under the picture and the labels, whatever order the children come in
+background.ZIndex = 0
+background.Parent = template
 
 -- icon fills the slot once tool icons exist; until then the label carries the name
 local icon = Instance.new("ImageLabel")
@@ -179,20 +194,26 @@ captionStroke.Color = UiStyle.PANEL_COLOR
 captionStroke.Parent = captionLabel
 captionLabel.Parent = template
 
--- the cooldown sheet (M66): a grey pane over the square, anchored to its
--- bottom, that ClientToolBarManager sizes to the share of the Auto
--- Turret's cooldown still to run and hides at zero
-local cooldownOverlay = Instance.new("Frame")
+-- the cooldown sheet (M66): the panel picture in grey over the square,
+-- the square's size; ClientToolBarManager hides its spent part through
+-- the Mask gradient, top to bottom, so the cut moves up as the cooldown
+-- runs out (designer, 2026-10-29; a resized Frame before) and hides it at zero
+local cooldownOverlay = Instance.new("ImageLabel")
 cooldownOverlay.Name = "CooldownOverlay"
-cooldownOverlay.AnchorPoint = Vector2.new(0, 1)
-cooldownOverlay.Position = UDim2.fromScale(0, 1)
 cooldownOverlay.Size = UDim2.fromScale(1, 1)
 cooldownOverlay.BackgroundColor3 = UiStyle.DISABLED_COLOR
-cooldownOverlay.BackgroundTransparency = 0.35
+cooldownOverlay.BackgroundTransparency = 1
 cooldownOverlay.BorderSizePixel = 0
-cooldownOverlay.ZIndex = 5
+cooldownOverlay.Image = Icons.UI.PANEL_BACKING
+-- solid black (designer, 2026-10-29; the disabled grey before)
+cooldownOverlay.ImageColor3 = Color3.fromRGB(0, 0, 0)
+cooldownOverlay.ScaleType = Enum.ScaleType.Stretch
 cooldownOverlay.Visible = false
-addCorner(cooldownOverlay)
+local cooldownMask = Instance.new("UIGradient")
+cooldownMask.Name = "Mask"
+cooldownMask.Rotation = 90
+cooldownMask.Transparency = NumberSequence.new(0)
+cooldownMask.Parent = cooldownOverlay
 cooldownOverlay.Parent = template
 
 gui.Parent = StarterGui

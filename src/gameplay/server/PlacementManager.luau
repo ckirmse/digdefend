@@ -149,9 +149,9 @@ local SHADOW_HEIGHT_STUDS = 1
 local DEFAULT_TARGET_PRIORITY = Enums.TargetPriority.CLOSEST
 
 local FEEDBACK_NOT_ENOUGH_IRON = "You don't have enough Iron Bars"
-local FEEDBACK_TOWER_LIMIT_FORMAT = "You can only have %d Towers at once"
+local FEEDBACK_TOWER_LIMIT_FORMAT = "The camp can only have %d Towers at once"
 local FEEDBACK_SPOT_TAKEN = "That spot is taken"
-local FEEDBACK_NOT_IN_LOADOUT = "That Tower is not in your loadout"
+local FEEDBACK_NOT_IN_LOADOUT = "Nobody in the crew brought that Tower"
 
 function PlacementManager:getCatalog(): PlacementRules.Catalog
 	return self.catalog
@@ -181,31 +181,51 @@ function PlacementManager:getPlayerState(player: Player): PlayerState
 	return state
 end
 
--- dev tools: stands in for the character's Tower rows
+-- dev tools: stands in for the character's Tower rows; the crew's bar
+-- follows, since every crewmate builds from the one list
 function PlacementManager:setLoadoutOverride(player: Player, kinds: { number }?)
 	self:getPlayerState(player).loadoutOverride = kinds
-	self:replicatePlayer(player)
+	self:replicateLoadouts()
 end
 
-function PlacementManager:resolveTowerLoadout(player: Player): { number }
+-- the kinds one player brings: the dev override, else the class's towers
+-- (GDD "Classes", M64), each once; empty with no class data
+function PlacementManager:resolvePlayerTowerKinds(player: Player): { number }
 	local state = self:getPlayerState(player)
 	local override = state.loadoutOverride
 	if override and #override > 0 then
 		return override
 	end
-	-- the class's towers (GDD "Classes", M64): one or two kinds, each once;
-	-- a player with no class data builds the default tower
-	local kinds = CharacterManager:getClassTowerKinds(player)
+	return CharacterManager:getClassTowerKinds(player)
+end
+
+-- every Ready crewmate's kinds, each once, in join order (designer,
+-- 2026-10-29: anyone builds any Tower the crew brought, one bar entry per
+-- kind however many brought it); the default tower when nobody brought one
+function PlacementManager:resolveTowerLoadout(): { number }
+	local kinds = {}
+	for _, player in Players:GetPlayers() do
+		if not GameController:isPlayerReady(player) then
+			continue
+		end
+		for _, kind in self:resolvePlayerTowerKinds(player) do
+			if not table.find(kinds, kind) then
+				table.insert(kinds, kind)
+			end
+		end
+	end
 	if #kinds == 0 then
 		table.insert(kinds, TowersData.DEFAULT_TOWER)
 	end
 	return kinds
 end
 
-function PlacementManager:countActiveTowers(player: Player): number
+-- every Tower standing, whoever built it: the camp's limit is one shared
+-- pool (designer, 2026-10-29; a per-player share before)
+function PlacementManager:countActiveTowers(): number
 	local count = 0
 	for _, placement in self.placementsById do
-		if placement.placementKind == Enums.PlacementKind.TOWER and placement.owner == player then
+		if placement.placementKind == Enums.PlacementKind.TOWER then
 			count += 1
 		end
 	end
@@ -213,8 +233,19 @@ function PlacementManager:countActiveTowers(player: Player): number
 end
 
 function PlacementManager:replicatePlayer(player: Player)
-	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.TOWER_LOADOUT, PlacementRules.encodeTowerLoadout(self:resolveTowerLoadout(player)))
-	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.ACTIVE_TOWER_COUNT, self:countActiveTowers(player))
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.TOWER_LOADOUT, PlacementRules.encodeTowerLoadout(self:resolveTowerLoadout()))
+end
+
+-- the one crew list goes to every Ready player: on a join, a leave, a
+-- class change, or a dev override
+function PlacementManager:replicateLoadouts()
+	for _, player in GameController:getReadyPlayers() do
+		self:replicatePlayer(player)
+	end
+end
+
+function PlacementManager:replicateTowerCount()
+	SplendidReplicationManager:setGameMetadata(Attributes.ACTIVE_TOWER_COUNT, self:countActiveTowers())
 end
 
 function PlacementManager:replicatePlacement(placement: Placement)
@@ -351,10 +382,7 @@ function PlacementManager:remove(placement: Placement)
 	self.placementsById[placement.id] = nil
 	self:setOccupied(placement, false)
 	placement.shadow:Destroy()
-	local owner = placement.owner
-	if owner and owner.Parent == Players then
-		self:replicatePlayer(owner)
-	end
+	self:replicateTowerCount()
 	self:firePlacementsChanged()
 end
 
@@ -379,17 +407,21 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 	if not footprint or not zone then
 		return
 	end
+	-- a kind the data does not call rotatable stands as authored
+	if not PlacementRules.isRotatable(self.catalog, placementKind, typeKind) then
+		rotation = 0
+	end
 	if not PlacementRules.canPlace(zone.grid, zone.occupancy, cell, PlacementRules.rotatedFootprint(footprint, rotation)) then
 		PlayerFeedbackManager:give(player, FEEDBACK_SPOT_TAKEN)
 		return
 	end
 	if placementKind == Enums.PlacementKind.TOWER then
-		if not table.find(self:resolveTowerLoadout(player), typeKind) then
+		if not table.find(self:resolveTowerLoadout(), typeKind) then
 			PlayerFeedbackManager:give(player, FEEDBACK_NOT_IN_LOADOUT)
 			return
 		end
-		local allowance = PlacementRules.towerAllowance(self.catalog.maxActiveTowersCamp, RunCycleManager:getScalingCount())
-		if self:countActiveTowers(player) >= allowance then
+		local allowance = self.catalog.maxActiveTowersCamp
+		if self:countActiveTowers() >= allowance then
 			PlayerFeedbackManager:give(player, string.format(FEEDBACK_TOWER_LIMIT_FORMAT, allowance))
 			return
 		end
@@ -415,7 +447,7 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 		return
 	end
 	self:firePlacementSpent(player, Enums.PlacementAction.BUILT, placementKind, typeKind, price)
-	self:replicatePlayer(player)
+	self:replicateTowerCount()
 	-- the price rides along so the client can mark a purchase (a move
 	-- sends 0 and gets only the build sound, 2026-10-09)
 	NetManager:notifyClient(player, NetEventNames.NOTIFY_PLACEMENT_BUILT, {
@@ -438,6 +470,9 @@ function PlacementManager:move(player: Player, id: string, zoneIndex: number, ce
 	local baseFootprint = PlacementRules.footprintFor(self.catalog, placement.placementKind, placement.typeKind)
 	if not zone or not baseFootprint then
 		return
+	end
+	if not PlacementRules.isRotatable(self.catalog, placement.placementKind, placement.typeKind) then
+		rotation = 0
 	end
 	if placement.zoneIndex == zoneIndex and placement.cell.column == cell.column and placement.cell.row == cell.row and placement.rotation == rotation then
 		return
@@ -695,16 +730,23 @@ function PlacementManager:bindZones()
 end
 
 -- a run (or a dev-tool restart) starts with an empty grid on the fresh map
-function PlacementManager:onRunStarted()
+-- the run's map decides which Traps the bar sells (TrapsData
+-- .EXCLUDED_KINDS_BY_MAP), so the catalogue is published again here; the
+-- clients watch the attribute and redraw their bars
+function PlacementManager:onRunStarted(map: number)
+	self.catalog.traps = PlacementRules.excludeTraps(TrapsData.BY_KIND, TrapsData.EXCLUDED_KINDS_BY_MAP[map])
+	SplendidReplicationManager:setGameMetadata(Attributes.DEFENSE_CATALOG, PlacementRules.encodeCatalog(self.catalog))
 	self:clearPlacements()
 	self.shadowFolder = nil
 	self:bindZones()
+	self:replicateTowerCount()
 end
 
 -- ready-sequence entry; not replayed on a dev-tool reset, so run state survives
 function PlacementManager:onPlayerReady(player: Player)
 	self:getPlayerState(player)
-	self:replicatePlayer(player)
+	-- a joiner's towers join everyone's bar
+	self:replicateLoadouts()
 end
 
 function PlacementManager:init()
@@ -729,7 +771,14 @@ function PlacementManager:init()
 			warn(`PlacementManager: Trap {Enums.getName(Enums.TrapKind, kind)} has a footprint of {trap.FOOTPRINT_CELLS[1]} x {trap.FOOTPRINT_CELLS[2]} cells; both must be multiples of {PlacementRules.FOOTPRINT_UNIT_CELLS}`)
 		end
 	end
+	self:replicateTowerCount()
 	GameController:registerPlaceManager(self)
+	-- the dev dropdown's class change swaps that player's towers on every bar
+	CharacterManager:subscribeClassChanged(
+		function(_player: Player, _classKind: number)
+			self:replicateLoadouts()
+		end
+	)
 	Players.PlayerRemoving:Connect(
 		function(player: Player)
 			-- a leaver's placements keep standing; nobody can sell or upgrade them
@@ -740,6 +789,8 @@ function PlacementManager:init()
 			end
 			self.stateByPlayer[player] = nil
 			self.lastSwingTimeByPlayer[player] = nil
+			-- the leaver's towers come off everyone's bar
+			self:replicateLoadouts()
 		end
 	)
 end

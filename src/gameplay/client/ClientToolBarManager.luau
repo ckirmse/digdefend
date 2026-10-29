@@ -29,12 +29,31 @@ local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayMa
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 
+-- a hair of fade at the sheet's cut so it reads clean at any size
+local COOLDOWN_MASK_EDGE_SHARE = 0.002
+-- a slot on cooldown fades its picture and its name to this, under a
+-- solid sheet, and both come back whole when the cooldown ends
+-- (designer, 2026-10-29; the backing stays solid)
+local COOLDOWN_DIM_TRANSPARENCY = 0.5
+-- the backing on cooldown: dark and half seen (designer, 2026-10-29)
+local COOLDOWN_BACKGROUND_COLOR = Color3.fromRGB(26, 25, 24)
+local COOLDOWN_BACKGROUND_TRANSPARENCY = 0.5
+-- the sheet itself: solid black (designer, 2026-10-29)
+local COOLDOWN_OVERLAY_COLOR = Color3.fromRGB(0, 0, 0)
+-- the picture and the name ease back over this once the cooldown ends,
+-- and the sheet goes after
+local COOLDOWN_END_TWEEN_SEC = 0.3
+
 local ClientToolBarManager = {}
 ClientToolBarManager.__index = ClientToolBarManager
 
 type SlotView = {
 	tool: number,
 	frame: GuiButton,
+	-- the cooldown's end plays once, on the step the slot stops being lost
+	wasLost: boolean,
+	-- outdates an end sequence a new cooldown cuts short
+	cooldownEndGeneration: number,
 }
 
 export type ClientToolBarManager = typeof(setmetatable(
@@ -326,7 +345,7 @@ function ClientToolBarManager:renderSlots()
 			end
 		)
 		frame.Parent = slotsFrame
-		table.insert(self.slotViews, { tool = tool, frame = frame })
+		table.insert(self.slotViews, { tool = tool, frame = frame, wasLost = false, cooldownEndGeneration = 0 })
 	end
 	self:renderCounts()
 	self:renderEquipped()
@@ -347,15 +366,99 @@ function ClientToolBarManager:getLostShare(tool: number): number
 	return 1
 end
 
+-- the sheet's Mask shows its bottom `share` and hides the rest, so the
+-- sheet stays the slot's size and fills upward from nothing as the
+-- cooldown runs (designer, 2026-10-29; the sheet was resized before, and
+-- drained from the top until the same day). The gradient runs top to
+-- bottom, so the hidden part comes first
+local function setMaskFill(mask: UIGradient, share: number)
+	if share >= 1 - COOLDOWN_MASK_EDGE_SHARE then
+		mask.Transparency = NumberSequence.new(0)
+	elseif share <= 0 then
+		mask.Transparency = NumberSequence.new(1)
+	else
+		local cut = 1 - share
+		local edge = math.max(cut - COOLDOWN_MASK_EDGE_SHARE, 0)
+		mask.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(edge, 1),
+			NumberSequenceKeypoint.new(cut, 0),
+			NumberSequenceKeypoint.new(1, 0),
+		})
+	end
+end
+
 -- the grey sheet covers the gadget slot while its gadget is lost or cooling
 function ClientToolBarManager:renderLost()
 	for _, view in self.slotViews do
 		local overlay = view.frame:FindFirstChild(Constants.TOOL_SLOT_COOLDOWN_OVERLAY)
-		if not overlay or not overlay:IsA("Frame") then
+		if not overlay or not overlay:IsA("GuiObject") then
 			continue
 		end
-		overlay.Visible = self:isGadgetLost(view.tool)
-		overlay.Size = UDim2.fromScale(1, self:getLostShare(view.tool))
+		local isLost = self:isGadgetLost(view.tool)
+		local background = view.frame:FindFirstChild(Constants.TOOL_SLOT_BACKGROUND)
+		local icon = view.frame:FindFirstChild(Constants.TOOL_SLOT_ICON)
+		local labels: { TextLabel } = {}
+		for _, labelName in { Constants.TOOL_SLOT_LABEL, Constants.TOOL_SLOT_CAPTION_LABEL } do
+			local label = view.frame:FindFirstChild(labelName)
+			if label and label:IsA("TextLabel") then
+				table.insert(labels, label)
+			end
+		end
+		-- a used Stim Shot fades its picture further on its own; the deeper fade wins
+		local isStimUsed = view.tool == Enums.ToolKind.GADGET and self.gadgetKind == Enums.GadgetKind.STIM_SHOT and self.isStimShotUsed
+		local restIconTransparency = if isStimUsed then USED_STIM_ICON_TRANSPARENCY else 0
+		if isLost then
+			view.cooldownEndGeneration += 1
+			overlay.Visible = true
+			if overlay:IsA("ImageLabel") then
+				overlay.ImageColor3 = COOLDOWN_OVERLAY_COLOR
+				overlay.ImageTransparency = 0
+			end
+			if background and background:IsA("ImageLabel") then
+				background.ImageTransparency = COOLDOWN_BACKGROUND_TRANSPARENCY
+				background.ImageColor3 = self:slotBackgroundColor(view, true)
+			end
+			if icon and icon:IsA("ImageLabel") then
+				icon.ImageTransparency = math.max(COOLDOWN_DIM_TRANSPARENCY, restIconTransparency)
+			end
+			for _, label in labels do
+				label.TextTransparency = COOLDOWN_DIM_TRANSPARENCY
+			end
+			local mask = overlay:FindFirstChild(Constants.TOOL_SLOT_COOLDOWN_MASK)
+			if mask and mask:IsA("UIGradient") then
+				setMaskFill(mask, 1 - self:getLostShare(view.tool))
+			end
+			view.wasLost = true
+		elseif view.wasLost then
+			-- the cooldown has just ended: the backing is whole at once, the
+			-- picture and the name ease back, and the full sheet goes once
+			-- they have (designer, 2026-10-29)
+			view.wasLost = false
+			view.cooldownEndGeneration += 1
+			local generation = view.cooldownEndGeneration
+			if background and background:IsA("ImageLabel") then
+				background.ImageTransparency = 0
+				background.ImageColor3 = self:slotBackgroundColor(view, false)
+			end
+			local tweenInfo = TweenInfo.new(COOLDOWN_END_TWEEN_SEC)
+			if icon and icon:IsA("ImageLabel") then
+				TweenService:Create(icon, tweenInfo, { ImageTransparency = restIconTransparency }):Play()
+			end
+			for _, label in labels do
+				TweenService:Create(label, tweenInfo, { TextTransparency = 0 }):Play()
+			end
+			task.delay(
+				COOLDOWN_END_TWEEN_SEC,
+				function()
+					if generation == view.cooldownEndGeneration then
+						overlay.Visible = false
+					end
+				end
+			)
+		else
+			overlay.Visible = false
+		end
 	end
 end
 
@@ -375,6 +478,14 @@ function ClientToolBarManager:renderCounts()
 	end
 end
 
+-- the backing's colour: dark on cooldown, grey for the equipped tool, black at rest
+function ClientToolBarManager:slotBackgroundColor(view: SlotView, isLost: boolean): Color3
+	if isLost then
+		return COOLDOWN_BACKGROUND_COLOR
+	end
+	return if view.tool == self.equipped then UiStyle.TOOL_SLOT_SELECTED_COLOR else UiStyle.TOOL_SLOT_COLOR
+end
+
 function ClientToolBarManager:renderEquipped()
 	for _, view in self.slotViews do
 		local isEquipped = view.tool == self.equipped
@@ -382,7 +493,12 @@ function ClientToolBarManager:renderEquipped()
 		if stroke then
 			stroke.Color = if isEquipped then UiStyle.ACCENT_COLOR else UiStyle.PANEL_COLOR
 		end
-		view.frame.BackgroundColor3 = if isEquipped then UiStyle.PANEL_COLOR else UiStyle.EMPTY_SLOT_COLOR
+		-- the backing picture carries the state (designer, 2026-10-29; the
+		-- button's own colour before)
+		local background = view.frame:FindFirstChild(Constants.TOOL_SLOT_BACKGROUND)
+		if background and background:IsA("ImageLabel") then
+			background.ImageColor3 = self:slotBackgroundColor(view, self:isGadgetLost(view.tool))
+		end
 	end
 end
 
