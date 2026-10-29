@@ -234,7 +234,7 @@ type Bedrock = {
 -- a field with a tier places that one rock of the resource's tier list
 -- (uranium, authored per tier); a field without one is split across the
 -- resource's tiers by the zone's tierBias
-local RESOURCE_FIELDS = {
+local RESOURCE_FIELDS: { { field: string, resource: number, tier: number? } } = {
 	{ field = "iron", resource = Enums.RawResource.IRON_ORE },
 	{ field = "gold", resource = Enums.RawResource.GOLD_ORE },
 	{ field = "uranium", resource = Enums.RawResource.URANIUM_ORE, tier = 1 },
@@ -887,7 +887,7 @@ end
 
 -- Step 8: per zone, per resource, split the count across tiers and drop
 -- each cluster at a random rock position outside the entrance clearance
--- (gold) or the wider gold-only band (every other ore), higher tiers deeper
+-- (gold and uranium) or the wider gold-only band (iron), higher tiers deeper
 -- in the zone and never shallower than their floor.
 local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: GeneratorConfig, zoneRandoms: { Random }, goldExclude: Box, otherExclude: Box, warnings: { string })
 	local rocks = config.rockTable.ROCKS
@@ -899,7 +899,10 @@ local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: Gener
 			if count == 0 then
 				continue
 			end
-			local exclude = if entry.resource == Enums.RawResource.GOLD_ORE then goldExclude else otherExclude
+			-- the gold-only band keeps a tower's Iron away from a new player;
+			-- uranium is never spent, so it keeps only the clearance (2026-10-27:
+			-- the band squeezed zone 1's uranium onto its last row)
+			local exclude = if entry.resource == Enums.RawResource.IRON_ORE then otherExclude else goldExclude
 			if not hasRockOutside(grid, bounds, exclude, bounds.depthStart, bounds.depthEnd, bounds.heightEnd) then
 				table.insert(warnings, zoneLabel(zone.index) .. ": the entrance band and pockets leave no rock for " .. entry.field .. " veins; none placed")
 				continue
@@ -924,7 +927,12 @@ local function stampVeins(grid: MineGrid, zones: { ResolvedZone }, config: Gener
 					continue
 				end
 				local definitionOfRock = rocks[rock]
-				local minDepth, maxDepth = tierDepthRange(tier, zone, bounds, if isSplitByBias then config.tierMinDepthBlocks else nil)
+				-- a per-tier field spans its whole zone (2026-10-27: tierDepthRange
+				-- held every uranium tier below the bias to the front half)
+				local minDepth, maxDepth = bounds.depthStart, bounds.depthEnd
+				if entry.tier == nil then
+					minDepth, maxDepth = tierDepthRange(tier, zone, bounds, if isSplitByBias then config.tierMinDepthBlocks else nil)
+				end
 				if not hasRockOutside(grid, bounds, exclude, minDepth, maxDepth, maxCenterHeight) then
 					minDepth, maxDepth = bounds.depthStart, bounds.depthEnd
 				end

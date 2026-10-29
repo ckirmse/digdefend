@@ -522,15 +522,17 @@ describe(
 		)
 
 		it(
-			"places only gold inside the gold-only entrance band",
+			"keeps iron out of the gold-only entrance band, but not gold or uranium",
 			function()
 				local mine = makeMine()
 				mine.goldOnlyEntranceRadius = 10
 				mine.zones[1].handPlaced = {}
 				mine.zones[1].pockets = 0
+				mine.zones[1].uranium = 30
 				local result = generateOrFail(mine)
 				local rocks = makeRockTable().ROCKS
 				local goldInBand = 0
+				local uraniumInBand = 0
 				-- the tunnel runs depth 1 to 3 and width 11 to 13; the band reaches 10 further
 				for depth = 1, 3 + 10 do
 					for height = 0, result.grid.height - 1 do
@@ -539,12 +541,18 @@ describe(
 							if cell == AIR or rocks[cell].kind ~= RockKind.RESOURCE then
 								continue
 							end
-							expect(rocks[cell].resource).toBe(RawResource.GOLD_ORE)
-							goldInBand += 1
+							expect(rocks[cell].resource).never.toBe(RawResource.IRON_ORE)
+							if rocks[cell].resource == RawResource.GOLD_ORE then
+								goldInBand += 1
+							else
+								uraniumInBand += 1
+							end
 						end
 					end
 				end
 				expect(goldInBand).toBeGreaterThan(0)
+				-- uranium is never spent, so the band only holds back iron (2026-10-27)
+				expect(uraniumInBand).toBeGreaterThan(0)
 				-- iron still lands in zone 1, past the band
 				local zone = boxOf(result.zones[1])
 				local ironInZone = 0
@@ -700,6 +708,55 @@ describe(
 				expect(found).toBe(result.report.zones[4].uraniumSoFar)
 				-- no longer held within pick reach of the floor (2026-09-29)
 				expect(highest - 1).toBeGreaterThanOrEqual(3)
+			end
+		)
+
+		it(
+			"spreads each uranium tier over both halves of its zone",
+			function()
+				-- Uranium 3 sits below zone 4's tierBias of 4, which held it to
+				-- the front half until 2026-10-27
+				local mine = makeMine()
+				mine.zones[4].uranium = 0
+				mine.zones[4].uranium3 = 40
+				local result = generateOrFail(mine)
+				local zone = boxOf(result.zones[4])
+				local middle = math.floor((zone.depthStart + zone.depthEnd) / 2)
+				local frontHalf = table.clone(zone)
+				frontHalf.depthEnd = middle
+				local backHalf = table.clone(zone)
+				backHalf.depthStart = middle + 1
+				local front = countRock(result.grid, frontHalf, RockName.URANIUM_3)
+				local back = countRock(result.grid, backHalf, RockName.URANIUM_3)
+				expect(front + back).toBe(40)
+				expect(front).toBeGreaterThanOrEqual(10)
+				expect(back).toBeGreaterThanOrEqual(10)
+			end
+		)
+
+		it(
+			"places each zone's authored count of each uranium tier, an explicit zero included",
+			function()
+				local mine = makeMine()
+				mine.zones[3].uranium = 3
+				mine.zones[3].uranium2 = 5
+				-- zone 4 would inherit zone 3's 3 Uranium 1 without the explicit zero
+				mine.zones[4].uranium = 0
+				mine.zones[4].uranium2 = 6
+				mine.zones[4].uranium3 = 4
+				local result = generateOrFail(mine)
+				local expected = {
+					{ 2, 0, 0 },
+					{ 4, 0, 0 },
+					{ 3, 5, 0 },
+					{ 0, 6, 4 },
+				}
+				for index, counts in expected do
+					local zone = boxOf(result.zones[index])
+					expect(countRock(result.grid, zone, RockName.URANIUM_1)).toBe(counts[1])
+					expect(countRock(result.grid, zone, RockName.URANIUM_2)).toBe(counts[2])
+					expect(countRock(result.grid, zone, RockName.URANIUM_3)).toBe(counts[3])
+				end
 			end
 		)
 	end
@@ -1031,6 +1088,84 @@ describe(
 				mine.zones[2].floorDrop = -1
 				local _, errors = MineGenerator.generate(mine, makeConfig(), SEED)
 				expect(table.concat(errors, "\n")).toContain("floorDrop")
+			end
+		)
+	end
+)
+
+-- GameData requires through the @game alias, which jest-runtime cannot
+-- resolve, so a shipped data module is loaded from its source with the alias
+-- mapped onto the instance tree (shared modules through the normal require)
+local function loadGameData(module: ModuleScript): any
+	local chunk = assert(loadstring(module.Source, module:GetFullName()))
+	local environment = getfenv()
+	setfenv(
+		chunk,
+		setmetatable({
+			require = function(path: string)
+				local instance: Instance = game
+				for _, name in string.split((string.gsub(path, "^@game/", "")), "/") do
+					instance = instance:FindFirstChild(name) :: Instance
+				end
+				if instance:IsDescendantOf(game:GetService("ReplicatedStorage")) then
+					return environment.require(instance)
+				end
+				return loadGameData(instance :: ModuleScript)
+			end,
+		}, {
+			__index = environment,
+		})
+	)
+	return chunk()
+end
+
+describe(
+	"MineGenerator on the shipped mines",
+	function()
+		it(
+			"holds the largest party's uranium on every difficulty, every rock placed",
+			function()
+				local gameData = game:GetService("ServerScriptService").GameData
+				local rockTable = loadGameData(gameData.Rocks.RockDefinitions)
+				local weights = loadGameData(gameData.Rocks.Weights)
+				local difficulty = loadGameData(gameData.Control.Difficulty)
+				local partyScaling = loadGameData(gameData.Control.PartyScaling)
+				local generation = loadGameData(gameData.Mines.Generation)
+				-- the worst case MineManager checks: 1.7 Nightmare x 5.0 six players
+				local largestDifficulty = 1
+				for _, multiplier in difficulty.URANIUM_TARGET_MULTIPLIER do
+					largestDifficulty = math.max(largestDifficulty, multiplier)
+				end
+				local largestParty = 1
+				for _, multiplier in partyScaling.URANIUM_TARGET_MULTIPLIER_BY_PLAYER_COUNT do
+					largestParty = math.max(largestParty, multiplier)
+				end
+				for _, mineName in { "DeadmansCanyon", "FrostbitePass" } do
+					local mine = loadGameData(gameData.Mines[mineName])
+					for _, difficultyValue in Enums.getAllValues(Enums.Difficulty) do
+						local config = {
+							rockTable = rockTable,
+							spread = weights.SPREAD,
+							minCenter = weights.MIN_CENTER,
+							maxCenter = weights.MAX_CENTER,
+							hardnessShift = difficulty.HARDNESS_SHIFT,
+							difficultyValue = difficulty.DIFFICULTY_VALUE[difficultyValue],
+							veinDivisor = difficulty.VEIN_DIVISOR[difficultyValue],
+							uraniumVeinDivisor = difficulty.URANIUM_VEIN_DIVISOR[difficultyValue],
+							tierMinDepthBlocks = weights.TIER_MIN_DEPTH_BLOCKS,
+							pickaxeReachBlocks = generation.PICKAXE_REACH_BLOCKS,
+							isClimbingEnabled = generation.IS_CLIMBING_ENABLED,
+							maxPartyUraniumTargetMultiplier = largestDifficulty * largestParty,
+						}
+						local result = generateOrFail(mine, config)
+						for _, zone in result.zones do
+							local box = boxOf(zone)
+							expect(countRock(result.grid, box, RockName.URANIUM_1)).toBe(zone.veins.uranium)
+							expect(countRock(result.grid, box, RockName.URANIUM_2)).toBe(zone.veins.uranium2)
+							expect(countRock(result.grid, box, RockName.URANIUM_3)).toBe(zone.veins.uranium3)
+						end
+					end
+				end
 			end
 		)
 	end

@@ -35,6 +35,8 @@ return {
 	-- put the first iron 24 blocks in, too far, and 12 had iron crowding out
 	-- the gold): a new player's first Gold goes to mining upgrades before
 	-- Iron tempts a tower
+	-- iron only since 2026-10-27: uranium keeps just the clearance, since
+	-- the band put all of zone 1's uranium on its last row
 	goldOnlyEntranceRadius = 16,
 	-- a pocket is a room with a floor 4 by 4 blocks (radius 2) since
 	-- 2026-10-08 (designer: the radius 1 rooms were so small a spider woke
@@ -54,6 +56,12 @@ return {
 	-- crew's supply, plentiful enough that its rate of finding it is set
 	-- by its rock, not by running out
 	-- 35 (designer, 2026-10-23; 40 before): a solo run ends a little sooner
+	-- uranium rocks on a power curve since 2026-10-27 (designer): 2.5 / 7.5 /
+	-- 15 / 30 / 45% of 120 rocks in zones 1 to 5, Uranium 1 in zones 1 to 3,
+	-- Uranium 2 in zones 3 to 5, Uranium 3 in zone 5. 120 is the least the
+	-- Nightmare supply check allows. A solo run on Normal or Hard now reaches
+	-- its target by the end of zone 3 (48 ore on Normal), which the designer
+	-- accepted over the 2026-09-29 rule that solo had to reach zone 4
 	uraniumTarget = 35,
 
 	defaultZoneHeight = 5,
@@ -71,7 +79,7 @@ return {
 			-- density, so whichever way a new player tunnels the first pack is
 			-- paid and the pick axe is bought on day 1 on any seed. Its gold
 			-- came out of the old zone 1 (230 over the first 20 blocks is
-			-- unchanged); iron and uranium wait beyond the gold-only band
+			-- unchanged); iron waits beyond the gold-only band, uranium for zone 1
 			depth = 8,
 			-- 2 since 2026-10-08 (was 5): a zone is its height plus its drop, so
 			-- the band was 10 rows and half its gold sat below the floor where
@@ -125,7 +133,11 @@ return {
 			-- 140 later that day, with zone 0's cut, for the 50-Gold day 1
 			gold = 140,
 			-- thinner since the third playtest: it hums, so it is found fast
-			uranium = 7,
+			-- 3 since 2026-10-27 (7 before): the power curve's 2.5%. Every
+			-- uranium field is set in every zone, since an omitted one inherits
+			uranium = 3,
+			uranium2 = 0,
+			uranium3 = 0,
 			-- pockets doubled on 2026-09-28 (third playtest: more open
 			-- spaces to discover)
 			-- tripled again on 2026-10-06 (first M34 run: finding one felt good,
@@ -154,7 +166,10 @@ return {
 			-- asked for a slight raise (360 / 221 / 249 / 249 before)
 			iron = 400,
 			gold = 255,
-			uranium = 8,
+			-- 9 since 2026-10-27 (8 before): 7.5%
+			uranium = 9,
+			uranium2 = 0,
+			uranium3 = 0,
 			-- 5 since 2026-10-08 (was 18 radius 1 holes): 5% of 6912 cells
 			pockets = 5,
 		},
@@ -169,14 +184,16 @@ return {
 			-- not 2.25x; the deeper zones keep their 2.25x for the late drought
 			iron = 250,
 			gold = 234,
+			-- 15% since 2026-10-27 (9 Uranium 1 before), half Uranium 2
 			uranium = 9,
+			uranium2 = 9,
+			uranium3 = 0,
 			-- 9 since 2026-10-08 (was 24 radius 2 spheres of 32 cells): 5% of
 			-- 10368 cells
 			pockets = 9,
 		},
 		{
-			-- 4: cathedral, deep and rich; a modest uranium reserve so a solo
-			-- run keeps counting through days 11 to 14 without finishing
+			-- 4: cathedral, deep and rich
 			depth = 28,
 			height = 12,
 			floorDrop = 12,
@@ -186,8 +203,10 @@ return {
 			gold = 180,
 			-- Uranium 2 here (2026-10-26): 8 rocks of 3 for 24 ore (14 rocks
 			-- of 1 before), so a find counts for a day's progress
+			-- 36 since 2026-10-27 (8 before): 30%
 			uranium = 0,
-			uranium2 = 8,
+			uranium2 = 36,
+			uranium3 = 0,
 			-- radius 2 at most in every zone (designer, 2026-10-07: rooms 12 to 20 studs across, never touching; a radius 3 room was 28 studs)
 			-- 13 since 2026-10-08 (was 30 spheres): 5% of 16128 cells
 			pockets = 13,
@@ -197,10 +216,12 @@ return {
 			-- hardest stone, the best ore, and the big crew's uranium supply.
 			-- The mine must hold the worst-case target or the generator
 			-- refuses it: 35 x 1.7 Nightmare x 5 six players = 300, against
-			-- the Nightmare-thinned 6 + 7 + 8 + 7 x 3 + 52 x 6 = 354 ore.
-			-- Uranium 3 only (2026-10-26): 60 rocks of 6 for 360 ore, where
-			-- 362 rocks of 1 sat one in every 70 cells and kept the Geiger
-			-- Counter lit everywhere; now one in about 400 cells
+			-- the Nightmare-thinned 3 + 8 + 8 + 8 x 3 + 31 x 3 + 23 x 3 +
+			-- 23 x 6 = 343 ore (Frostbite Pass needs 340 of the same 343).
+			-- Uranium 3 only from 2026-10-26 (60 rocks of 6, where 362 rocks
+			-- of 1 had kept the Geiger Counter lit everywhere); 45% since
+			-- 2026-10-27, half Uranium 2 and half Uranium 3, one rock in
+			-- about 450 diggable blocks
 			-- Uranium may sit at any height since 2026-09-29 (it was held to
 			-- the floor rows before, and 1,500 in 28 rows of that band hung
 			-- the generator). A big crew lives here from about day 10 and
@@ -214,8 +235,8 @@ return {
 			iron = 280,
 			gold = 180,
 			uranium = 0,
-			uranium2 = 0,
-			uranium3 = 60,
+			uranium2 = 27,
+			uranium3 = 27,
 			-- 15 since 2026-10-08 (was 30 spheres): 3.5% of 24960 cells
 			pockets = 15,
 		},

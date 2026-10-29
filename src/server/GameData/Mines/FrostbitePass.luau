@@ -21,13 +21,16 @@ return {
 	-- only gold within 16 blocks of the entrance (designer, 2026-10-07; 20
 	-- put the first iron 24 blocks in, too far, and 12 had iron crowding out
 	-- the gold): a new player's first Gold goes to mining upgrades before
-	-- Iron tempts a tower
+	-- Iron tempts a tower; iron only since 2026-10-27 (see DeadmansCanyon)
 	goldOnlyEntranceRadius = 16,
 	-- rooms with 4 by 4 floors since 2026-10-08, counts cut to match (see
 	-- DeadmansCanyon)
 	pocketRadiusMin = 2,
 	pocketRadiusMax = 2,
-	-- mirrors Deadman's Canyon (6 / 9 / 9 / 111 against 30) until this map is designed
+	-- mirrors Deadman's Canyon's uranium counts until this map is designed.
+	-- 40 x 1.7 Nightmare x 5 six players = 340 against the 343 Nightmare-
+	-- thinned ore of the 2026-10-27 curve: 3 ore to spare, so any cut below
+	-- fails every seed
 	uraniumTarget = 40,
 
 	defaultZoneHeight = 5,
@@ -45,7 +48,7 @@ return {
 			-- density, so whichever way a new player tunnels the first pack is
 			-- paid and the pick axe is bought on day 1 on any seed. Its gold
 			-- came out of the old zone 1 (230 over the first 20 blocks is
-			-- unchanged); iron and uranium wait beyond the gold-only band
+			-- unchanged); iron waits beyond the gold-only band, uranium for zone 1
 			depth = 8,
 			floorDrop = 5,
 			hardness = 1.0,
@@ -67,7 +70,11 @@ return {
 			-- starts one row later, so the first iron is still about 17 blocks in
 			iron = 0,
 			gold = 255,
-			uranium = 7,
+			-- every uranium field in every zone from 2026-10-27, since an
+			-- omitted one inherits (see DeadmansCanyon)
+			uranium = 3,
+			uranium2 = 0,
+			uranium3 = 0,
 			-- doubled with Deadman's Canyon's (2026-10-07): small rooms expose less ore
 			-- 2 since 2026-10-08 (was 10): 4 by 4 rooms, see DeadmansCanyon
 			pockets = 2,
@@ -85,7 +92,9 @@ return {
 			-- zone's density (one in nineteen) and the old first-44-block supply
 			iron = 360,
 			gold = 255,
-			uranium = 8,
+			uranium = 9,
+			uranium2 = 0,
+			uranium3 = 0,
 			-- 4 since 2026-10-08 (was 9): 4 by 4 rooms, see DeadmansCanyon
 			pockets = 4,
 		},
@@ -100,6 +109,8 @@ return {
 			iron = 221,
 			gold = 234,
 			uranium = 9,
+			uranium2 = 9,
+			uranium3 = 0,
 			-- 6 since 2026-10-08 (was 12): 4 by 4 rooms, see DeadmansCanyon
 			pockets = 6,
 		},
@@ -113,7 +124,8 @@ return {
 			gold = 180,
 			-- uranium tiers as Deadman's Canyon (2026-10-26)
 			uranium = 0,
-			uranium2 = 8,
+			uranium2 = 36,
+			uranium3 = 0,
 			-- 9 since 2026-10-08 (was 15): 4 by 4 rooms, see DeadmansCanyon
 			pockets = 9,
 			-- radius 2 at most in every zone (designer, 2026-10-07: rooms 12 to 20 studs across, never touching; a radius 3 room was 28 studs)
@@ -129,8 +141,8 @@ return {
 			iron = 249,
 			gold = 180,
 			uranium = 0,
-			uranium2 = 0,
-			uranium3 = 60,
+			uranium2 = 27,
+			uranium3 = 27,
 			-- 10 since 2026-10-08 (was 15): 4 by 4 rooms, see DeadmansCanyon
 			pockets = 10,
 		},

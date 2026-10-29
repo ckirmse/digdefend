@@ -87,29 +87,29 @@ A mine is one open volume in a bedrock shell, entered by a short tunnel. It is s
 
 - `hardness` (1 to 5): the centre of a triangular kernel over the five Stone tiers; it decides the filler rock.
 - `tierBias` (1 to 5): the same kernel over the five ore tiers; it splits the zone's vein count across tiers.
-- `iron`, `gold`, `uranium`: vein counts. Every vein is one block, so a count is a rock count.
+- `iron`, `gold`, `uranium`, `uranium2`, `uranium3`: vein counts. Every vein is one block, so a count is a rock count. The three uranium fields are Uranium 1 / 2 / 3 (1 / 3 / 6 ore), placed directly with no tierBias split; each is inherited on its own, so every zone writes all three.
 - `pockets`: pre-carved 4x4 rooms, three rows tall (36 cells), never touching each other or the entrance.
 
-Kernel: `weight[i] = max(0, 1 - |i - center| / SPREAD)`, normalised; at `SPREAD` 1.2 a whole-number centre gives 75% own tier and 12.5% to each neighbour. Vein counts split by largest remainder. Placement rules: gold is kept `veinEntranceClearance` blocks from the tunnel; iron and uranium are kept out of the `goldOnlyEntranceRadius` band; each ore tier has a global depth floor `TIER_MIN_DEPTH_BLOCKS = { 0, 14, 44, 68, 97 }` (`Rocks/Weights.luau`); within a zone, tiers above `round(tierBias)` may only centre in the back half and tiers below it in the front half; uranium may sit at any height. The generator refuses a mine whose thinned uranium total is under the worst-case target (six players on Nightmare).
+Kernel: `weight[i] = max(0, 1 - |i - center| / SPREAD)`, normalised; at `SPREAD` 1.2 a whole-number centre gives 75% own tier and 12.5% to each neighbour. Vein counts split by largest remainder. Placement rules: gold and uranium are kept `veinEntranceClearance` blocks from the tunnel; iron is kept out of the `goldOnlyEntranceRadius` band (uranium was too until 2026-10-27, which put all of zone 1's on block 20); each iron and gold tier has a global depth floor `TIER_MIN_DEPTH_BLOCKS = { 0, 14, 44, 68, 97 }` (`Rocks/Weights.luau`); within a zone, iron and gold tiers above `round(tierBias)` may only centre in the back half and tiers below it in the front half; uranium spreads over its whole zone (the half-zone split held it to the front half of zones 2 to 5 until 2026-10-27) and may sit at any height. The generator refuses a mine whose thinned uranium total is under the worst-case target (six players on Nightmare).
 
 ### Deadman's Canyon: `Mines/DeadmansCanyon.luau`
 
 Solo `uraniumTarget` **35** (40 before 2026-10-23). `goldOnlyEntranceRadius` 16, `veinEntranceClearance` 1, width 24, pocket radius 2.
 
-| Zone | depth (blocks) | rows | hardness | tierBias | iron | gold | uranium | pockets | starts at block |
+| Zone | depth (blocks) | rows | hardness | tierBias | iron | gold | uranium (U1 / U2 / U3) | pockets | starts at block |
 |---|---|---|---|---|---|---|---|---|---|
-| 0 (starter band) | 8 | 7 | 1.0 | 1.0 | 0 | 78 | 0 | 1 | 1 |
-| 1 | 12 | 10 | 1.0 | 1.0 | 60 | 140 | 7 | 3 | 9 |
-| 2 | 24 | 12 | 2.0 | 2.0 | 400 | 255 | 8 | 5 | 21 |
-| 3 | 24 | 18 | 3.0 | 3.0 | 250 | 234 | 9 | 9 | 45 |
-| 4 | 28 | 24 | 4.0 | 4.0 | 280 | 180 | 14 | 13 | 69 |
-| 5 (abyss) | 40 | 26 | 5.0 | 5.0 | 280 | 180 | 362 | 15 | 97 |
+| 0 (starter band) | 8 | 7 | 1.0 | 1.0 | 0 | 78 | 0 / 0 / 0 | 1 | 1 |
+| 1 | 12 | 10 | 1.0 | 1.0 | 60 | 140 | 3 / 0 / 0 | 3 | 9 |
+| 2 | 24 | 12 | 2.0 | 2.0 | 400 | 255 | 9 / 0 / 0 | 5 | 21 |
+| 3 | 24 | 18 | 3.0 | 3.0 | 250 | 234 | 9 / 9 / 0 | 9 | 45 |
+| 4 | 28 | 24 | 4.0 | 4.0 | 280 | 180 | 0 / 36 / 0 | 13 | 69 |
+| 5 (abyss) | 40 | 26 | 5.0 | 5.0 | 280 | 180 | 0 / 27 / 27 | 15 | 97 |
 
-Totals: 136 blocks deep; 1,270 iron rocks, 1,067 gold rocks, 400 uranium rocks. Worst case: 35 x 1.7 x 5.0 = 297.5, rounded to 300, against 400 / 1.15 = 348 thinned on Nightmare.
+Totals: 136 blocks deep; 1,270 iron rocks, 1,067 gold rocks, 120 uranium rocks for 399 ore. The uranium rocks follow a power curve (2026-10-27): 2.5 / 7.5 / 15 / 30 / 45% of the rocks in zones 1 to 5, about 1 / 2 / 9 / 27 / 61% of the ore. Ore by the end of each zone on Normal / Hard / Nightmare: 3 / 12 / 48 / 156 / 399, 3 / 11 / 43 / 142 / 367, 3 / 11 / 43 / 136 / 343, so a solo crew reaches its target (35 / 40 / 60) in zone 3 on Normal and Hard and zone 4 on Nightmare (the designer accepted zone 3 over the 2026-09-29 rule of zone 4). Worst case: 35 x 1.7 x 5.0 = 297.5, rounded to 300, against 343 thinned on Nightmare. `BalanceAudit` previews with a party multiplier of 1, so only the generator (and `MineGenerator.spec`'s shipped-mines test) checks this floor.
 
-Frostbite Pass (`Mines/FrostbitePass.luau`) is a placeholder copy with `uraniumTarget` 40, zone 1 iron 0, and slightly lower iron counts; it is excluded from the audit.
+Frostbite Pass (`Mines/FrostbitePass.luau`) is a placeholder copy with `uraniumTarget` 40, zone 1 iron 0, slightly lower iron counts, and the same uranium; it is excluded from the audit. Its worst case is 340 against the same 343, 3 ore to spare.
 
-Decision history in the file: 2026-09-28 single-block veins and tier depth floors (a Gold II vein near the mouth bought three upgrades on day 1); 2026-09-29 zone 5 for the 15-night run, uranium at any height, about three uranium a day solo; 2026-10-07 the 16-block gold-only band and the starter zone; 2026-10-08 pockets as rooms, zone 0 and 1 gold cut for a 50-Gold day 1; 2026-10-11 iron up about 12% in zones 2 to 5 when rungs moved to Iron; 2026-10-23 target 35, zone 0 gold +30%, zone 1 iron 60.
+Decision history in the file: 2026-09-28 single-block veins and tier depth floors (a Gold II vein near the mouth bought three upgrades on day 1); 2026-09-29 zone 5 for the 15-night run, uranium at any height, about three uranium a day solo; 2026-10-07 the 16-block gold-only band and the starter zone; 2026-10-08 pockets as rooms, zone 0 and 1 gold cut for a 50-Gold day 1; 2026-10-11 iron up about 12% in zones 2 to 5 when rungs moved to Iron; 2026-10-23 target 35, zone 0 gold +30%, zone 1 iron 60; 2026-10-26 three uranium tiers; 2026-10-27 the uranium power curve at 120 rocks, uranium over whole zones and out of the gold-only band.
 
 ### Rocks: `Rocks/RockDefinitions.luau`
 
@@ -552,7 +552,6 @@ Found while writing this; the values are current, the comments are stale. Fix th
 - `Mining/JetPack.luau` header: "42 studs at level 5" was computed with 0.5 s per level; it is 66 studs at the current 1.0.
 - `Store/MiningSupplies.luau` header: "3 / 10 / 30 / 87 ore per rock" is the old ladder.
 - `Control/Difficulty.luau` header: hardness clamps to 1 to 4; the filler order has 5 tiers.
-- `Mines/FrostbitePass.luau` zone 5 comment quotes old uranium counts.
 - `shared/GadgetRules.luau` header names the Grounding Net and Storm Rod as upgradable; only the Auto Turret and Remote Charge have ladders.
 - `docs/balance-plan.md` "Assumptions to calibrate" lists `MINING_SHARE_OF_DAY`, which the trip model replaced with `DAY_OVERHEAD_SEC`.
 - `Waves/*` comments say Nightmare is tuned to 21 nights; `Control/Balance.TARGET_NIGHTS` holds 20 (21 was unholdable).
