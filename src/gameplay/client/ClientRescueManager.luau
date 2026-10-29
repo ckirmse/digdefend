@@ -343,6 +343,19 @@ function ClientRescueManager:endIncomingTint()
 	end
 end
 
+-- the green tint on the camera for the call's flash
+function ClientRescueManager:beginIncomingTint()
+	local camera = workspace.CurrentCamera
+	if not camera or self.colorCorrection then
+		return
+	end
+	local colorCorrection = Instance.new("ColorCorrectionEffect")
+	colorCorrection.Name = INCOMING_TINT_NAME
+	colorCorrection.TintColor = INCOMING_TINT_COLOR
+	colorCorrection.Parent = camera
+	self.colorCorrection = colorCorrection
+end
+
 -- the call sequence (designer, 2026-10-27): the radio's dispatch message
 -- plays out from the table, then the RESCUE HELICOPTER INCOMING gui and
 -- a green tint come up with the incoming sting; INCOMING_TEXT_SWAP_SEC in
@@ -376,14 +389,7 @@ function ClientRescueManager:playCallSequence()
 			if gui then
 				gui.Enabled = true
 			end
-			local camera = workspace.CurrentCamera
-			if camera and not self.colorCorrection then
-				local colorCorrection = Instance.new("ColorCorrectionEffect")
-				colorCorrection.Name = INCOMING_TINT_NAME
-				colorCorrection.TintColor = INCOMING_TINT_COLOR
-				colorCorrection.Parent = camera
-				self.colorCorrection = colorCorrection
-			end
+			self:beginIncomingTint()
 			ClientSoundManager:playSfx(SoundNames.Sfx.RESCUE_INCOMING)
 			task.wait(INCOMING_TEXT_SWAP_SEC)
 			if generation ~= self.callGeneration then
@@ -530,15 +536,16 @@ function ClientRescueManager:fadeCountdownTo(target: number, fadeSec: number)
 end
 
 -- the label's spot on stage: the clock's, or below the Refinery HP bar
--- for the final night (moved while it is invisible, designer 2026-10-27)
-function ClientRescueManager:setCountdownLowered(isLowered: boolean)
+-- for the final night (moved while it is invisible, designer 2026-10-27);
+-- with a slideSec it slides there in view (the landing, 2026-10-28)
+function ClientRescueManager:setCountdownLowered(isLowered: boolean, slideSec: number?)
 	local slide = self.countdownSlide
 	local upper = self.countdownUpperPosition
 	if not slide or not upper or self.isCountdownLowered == isLowered then
 		return
 	end
 	self.isCountdownLowered = isLowered
-	slide:setShownPosition(if isLowered then UDim2.new(upper.X.Scale, upper.X.Offset, COUNTDOWN_LOWER_POSITION_Y_SCALE, 0) else upper)
+	slide:setShownPosition(if isLowered then UDim2.new(upper.X.Scale, upper.X.Offset, COUNTDOWN_LOWER_POSITION_Y_SCALE, 0) else upper, slideSec)
 end
 
 -- the handover from the breather's countdown to the helicopter's
@@ -563,7 +570,12 @@ function ClientRescueManager:renderCountdownFade(now: number)
 		if not self.isHelicopterCountdownReleased and now - startTime >= HELICOPTER_COUNTDOWN_FALLBACK_SEC then
 			self.isHelicopterCountdownReleased = true
 		end
-		if self.isHelicopterCountdownReleased then
+		if self:isHelicopterLanded() then
+			-- the Refinery HP bar leaves with the landing and the countdown
+			-- climbs back to the clock's spot beside it (designer, 2026-10-28)
+			self:setCountdownLowered(false, UiStyle.HUD_SLIDE_SEC)
+			self:fadeCountdownTo(0, COUNTDOWN_FADE_SEC)
+		elseif self.isHelicopterCountdownReleased then
 			self:setCountdownLowered(true)
 			self:fadeCountdownTo(0, COUNTDOWN_FADE_SEC)
 		else
@@ -637,10 +649,13 @@ function ClientRescueManager:findCountdownGui()
 	end
 	self.countdownGui = gui
 	self.countdownLabel = label
+	-- the authored spot is read before the snap moves the label off stage
+	-- (it was read after, so the climb back after the landing went to the
+	-- hidden spot, 2026-10-28)
+	self.countdownUpperPosition = label.Position
 	self.countdownSlide = ClientHudSlide.new(label, UDim2.new(label.Position.X.Scale, label.Position.X.Offset, COUNTDOWN_HIDDEN_POSITION_Y_SCALE, 0))
 	self.countdownSlide:snap(false)
 	self.countdownFadeTarget = label.TextTransparency
-	self.countdownUpperPosition = label.Position
 	self.isCountdownLowered = false
 	gui.Enabled = true
 end

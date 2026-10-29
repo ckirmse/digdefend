@@ -74,11 +74,17 @@ export type ClientRunCycleManager = typeof(setmetatable(
 		-- rays, the moon, 2026-10-21); a later Heartbeat write would be
 		-- overwritten by the next RenderStepped before it was ever drawn
 		skyAppliedHandlers: { (stage: number, share: number) -> () },
-		-- the server time the sunset was frozen at, for the ride's final
-		-- camera drift (designer, 2026-10-27); nil while it runs
-		sunsetHeldAtTime: number?,
+		-- the server time the ride camera's final drift began, from which
+		-- the sunset slows to RescueSunsetFinalToDayStartSec (designer,
+		-- 2026-10-28; it stood still from then before); nil until then
+		sunsetFinalDriftStartTime: number?,
 		-- which preset the sky was last sent toward (Enums.RunState DAY or NIGHT)
 		warnedChildren: { [string]: boolean },
+		-- the sky's stage and share at the moment the run ended, held for
+		-- as long as it stays over (designer, 2026-10-28: a run lost by day
+		-- went to night before); nil while the run is on
+		heldSkyStage: number?,
+		heldSkyShare: number?,
 	},
 	ClientRunCycleManager
 ))
@@ -295,15 +301,25 @@ end
 -- backward the whole way; true when it took the frame
 function ClientRunCycleManager:stepSunsetIfNeeded(runState: number, now: number): boolean
 	if runState ~= Enums.RunState.WON then
-		self.sunsetHeldAtTime = nil
+		self.sunsetFinalDriftStartTime = nil
 		return false
 	end
-	-- held: the sky and clock stay where they were at the hold
-	now = self.sunsetHeldAtTime or now
 	local sunsetStartTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_SUNSET_START_TIME), 0)
 	local toDayEndSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_SUNSET_TO_DAY_END_SEC), 0)
 	local toDayStartSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_SUNSET_TO_DAY_START_SEC), 0)
 	local stage, share = RunCycleRules.sunsetStage(sunsetStartTime, now, toDayEndSec, toDayStartSec)
+	-- from the final drift on, the rest of the way to the day's start is
+	-- taken slowly: the share it had reached then eases on to 1 over the
+	-- long tail
+	local driftStartTime = self.sunsetFinalDriftStartTime
+	if driftStartTime then
+		local stageAtDrift, shareAtDrift = RunCycleRules.sunsetStage(sunsetStartTime, driftStartTime, toDayEndSec, toDayStartSec)
+		if stageAtDrift == RunCycleRules.SUNSET_STAGE_TO_DAY_START then
+			local finalSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_SUNSET_FINAL_TO_DAY_START_SEC), 0)
+			stage = stageAtDrift
+			share = RunCycleRules.slowedShare(shareAtDrift, now - driftStartTime, finalSec)
+		end
+	end
 	if not stage then
 		return false
 	end
@@ -325,16 +341,17 @@ function ClientRunCycleManager:stepSunsetIfNeeded(runState: number, now: number)
 	return true
 end
 
--- the ride's camera stops the sunset as it starts its final drift, so the
--- sky and the clock stand still under the title card and the menu
--- (designer, 2026-10-27); released when the ride ends or a new run starts
-function ClientRunCycleManager:setSunsetHeld(isHeld: boolean)
-	if isHeld then
-		if not self.sunsetHeldAtTime then
-			self.sunsetHeldAtTime = workspace:GetServerTimeNow()
+-- the ride's camera slows the sunset as it starts its final drift, so the
+-- sky and the clock creep on toward the day's start under the title card
+-- and the menu (designer, 2026-10-28; they stood still before); released
+-- when the ride ends or a new run starts
+function ClientRunCycleManager:setSunsetFinalDrift(isOn: boolean)
+	if isOn then
+		if not self.sunsetFinalDriftStartTime then
+			self.sunsetFinalDriftStartTime = workspace:GetServerTimeNow()
 		end
 	else
-		self.sunsetHeldAtTime = nil
+		self.sunsetFinalDriftStartTime = nil
 	end
 end
 
@@ -351,6 +368,15 @@ function ClientRunCycleManager:stepSky(runState: number, startTime: number, endT
 	-- the day's end over the breather (M75)
 	local breatherStartTime = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_COUNTDOWN_START_TIME), startTime)
 	local stage, share = RunCycleRules.skyStage(runState, startTime, endTime, now, dawnTransitionSec, duskTransitionSec, spawnSec, heldDayShare, breatherStartTime)
+	-- a run that is over keeps the sky of its last live frame (a viewer who
+	-- joined after the end takes the rule's own answer)
+	if RunCycleRules.isRunOver(runState) then
+		if self.heldSkyStage and self.heldSkyShare then
+			stage, share = self.heldSkyStage, self.heldSkyShare
+		end
+	else
+		self.heldSkyStage, self.heldSkyShare = stage, share
+	end
 	local from, to = LightingPresets.stageEnds(presets, stage)
 	self:applyBlend(Lighting, from.LIGHTING, to.LIGHTING, share)
 	for childName, fromChild in from.CHILDREN do
@@ -612,8 +638,10 @@ function ClientRunCycleManager.new(): ClientRunCycleManager
 	self.duskSongEndTime = nil
 	self.isDuskSongFading = false
 	self.skyAppliedHandlers = {}
-	self.sunsetHeldAtTime = nil
+	self.sunsetFinalDriftStartTime = nil
 	self.warnedChildren = {}
+	self.heldSkyStage = nil
+	self.heldSkyShare = nil
 	return self
 end
 

@@ -33,9 +33,11 @@ return {
 
 	-- how long a dead player's own Revive stays on offer; after it the
 	-- button is gone for that death (a Friend Revive never runs out)
-	SELF_REVIVE_WINDOW_SEC = 60,
-	-- how long the run holds still once every player is dead
-	WIPE_WINDOW_SEC = 60,
+	-- (5 min since 2026-10-28, 60 s before)
+	SELF_REVIVE_WINDOW_SEC = 300,
+	-- how long the run holds still once every player is dead (the same
+	-- 5 min, so a solo player's own window is never cut short by it)
+	WIPE_WINDOW_SEC = 300,
 	-- a revived player cannot be hurt for this long
 	REVIVE_INVULNERABLE_SEC = 5,
 	-- a revived player appears on their own grave, lifted this far clear of it

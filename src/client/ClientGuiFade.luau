@@ -10,6 +10,10 @@ local TweenService = game:GetService("TweenService")
 
 local ClientGuiFade = {}
 
+-- what hide() took away: each element's authored transparencies, to be
+-- given back by reveal() a branch at a time or restore() all at once
+export type Hidden = { [Instance]: { [string]: number } }
+
 -- the transparency properties an element fades by
 local TRANSPARENCY_PROPERTIES_BY_CLASS: { [string]: { string } } = {
 	TextLabel = { "BackgroundTransparency", "TextTransparency", "TextStrokeTransparency" },
@@ -82,6 +86,62 @@ function ClientGuiFade.fadeIn(root: Instance, fadeSec: number)
 		end
 		if next(goal) ~= nil then
 			TweenService:Create(descendant, TweenInfo.new(fadeSec, Enum.EasingStyle.Linear), goal):Play()
+		end
+	end
+end
+
+-- the staged reveal (the death menu, 2026-10-28): hide() makes root and
+-- everything under it fully transparent and remembers what it was, so the
+-- caller can reveal() one branch after another in its own order
+function ClientGuiFade.hide(root: Instance): Hidden
+	local hidden: Hidden = {}
+	local instances = root:GetDescendants()
+	table.insert(instances, root)
+	for _, instance in instances do
+		local properties = TRANSPARENCY_PROPERTIES_BY_CLASS[instance.ClassName]
+		if not properties then
+			continue
+		end
+		local authored = {}
+		for _, property in properties do
+			local value = (instance :: any)[property]
+			if typeof(value) == "number" and value < 1 then
+				authored[property] = value;
+				(instance :: any)[property] = 1
+			end
+		end
+		if next(authored) ~= nil then
+			hidden[instance] = authored
+		end
+	end
+	return hidden
+end
+
+-- eases root and everything under it back to the authored values hide()
+-- remembered, over fadeSec (at once when 0), and forgets them; isRootOnly
+-- brings back root alone, leaving its children hidden for a later stage
+function ClientGuiFade.reveal(hidden: Hidden, root: Instance, fadeSec: number, isRootOnly: boolean?)
+	for instance, authored in hidden do
+		if instance ~= root and (isRootOnly or not instance:IsDescendantOf(root)) then
+			continue
+		end
+		hidden[instance] = nil
+		if fadeSec <= 0 then
+			for property, value in authored do
+				(instance :: any)[property] = value
+			end
+			continue
+		end
+		TweenService:Create(instance, TweenInfo.new(fadeSec, Enum.EasingStyle.Linear), authored):Play()
+	end
+end
+
+-- everything still hidden goes back at once (the menu closing mid-reveal)
+function ClientGuiFade.restore(hidden: Hidden)
+	for instance, authored in hidden do
+		hidden[instance] = nil
+		for property, value in authored do
+			(instance :: any)[property] = value
 		end
 	end
 end

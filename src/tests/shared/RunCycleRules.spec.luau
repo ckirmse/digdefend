@@ -202,6 +202,28 @@ describe(
 )
 
 describe(
+	"RunCycleRules sunset slow tail",
+	function()
+		it(
+			"eases from the share it had on to 1 over the tail and holds there",
+			function()
+				expect(RunCycleRules.slowedShare(0.02, 0, 900)).toBeCloseTo(0.02, 5)
+				expect(RunCycleRules.slowedShare(0.02, 450, 900)).toBeCloseTo(0.51, 5)
+				expect(RunCycleRules.slowedShare(0.02, 900, 900)).toBeCloseTo(1, 5)
+				expect(RunCycleRules.slowedShare(0.02, 2000, 900)).toBeCloseTo(1, 5)
+			end
+		)
+
+		it(
+			"arrives at once with no time to take",
+			function()
+				expect(RunCycleRules.slowedShare(0.3, 0, 0)).toBe(1)
+			end
+		)
+	end
+)
+
+describe(
 	"RunCycleRules night",
 	function()
 		it(

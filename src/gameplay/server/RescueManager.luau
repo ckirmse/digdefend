@@ -250,10 +250,19 @@ function RescueManager:boardTouchingPlayers()
 	local boxCFrame, boxSize = helicopter:GetBoundingBox()
 	local halfSize = boxSize / 2 + Vector3.one * RescueData.BOARD_TOUCH_MARGIN_STUDS
 	for _, player in Players:GetPlayers() do
-		if self.seatByPlayer[player] then
+		local seat = self.seatByPlayer[player]
+		local character = player.Character
+		if seat then
+			-- a seat that did not take (a rider holding Jump for the jet
+			-- pack as they boarded) is tried again for as long as the
+			-- helicopter stands; the client stops the rider jumping once
+			-- seated, so the second try holds
+			local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+			if humanoid and seat.Occupant == nil and humanoid.Health > 0 and seat.Parent then
+				seat:Sit(humanoid)
+			end
 			continue
 		end
-		local character = player.Character
 		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
 		if not root or not root:IsA("BasePart") then
 			continue
@@ -441,9 +450,16 @@ function RescueManager:departEmpty()
 	RunCycleManager:endRun(false, RescueData.LEFT_EMPTY_MESSAGE, Enums.RunEndReason.HELICOPTER_LEFT)
 end
 
--- the run was lost under it (the Refinery fell, the crew died): a landed
--- helicopter lifts off empty, one still in the air turns away from
--- where it is, and one not yet in the air never comes
+-- once the helicopter is on the pad the Refinery no longer matters
+-- (designer, 2026-10-28): main.server asks this before a fallen Refinery
+-- is allowed to lose the run
+function RescueManager:isHelicopterLanded(): boolean
+	return self.isLanded and not self.hasDeparted
+end
+
+-- the run was lost under it (the Refinery fell before the landing, the
+-- crew died): a landed helicopter lifts off empty, one still in the air
+-- turns away from where it is, and one not yet in the air never comes
 function RescueManager:leaveOnLoss()
 	if not self.isCalled or self.hasDeparted then
 		return
@@ -632,6 +648,7 @@ function RescueManager:init()
 	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_RIDE_SEC, RescueData.RIDE_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_SUNSET_TO_DAY_END_SEC, RescueData.SUNSET_TO_DAY_END_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_SUNSET_TO_DAY_START_SEC, RescueData.SUNSET_TO_DAY_START_SEC)
+	SplendidReplicationManager:setGameMetadata(Attributes.RESCUE_SUNSET_FINAL_TO_DAY_START_SEC, RescueData.SUNSET_FINAL_TO_DAY_START_SEC)
 	RunPauseManager:subscribeResumed(
 		function(pausedSec: number)
 			self:onResumed(pausedSec)

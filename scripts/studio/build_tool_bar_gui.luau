@@ -8,6 +8,7 @@ local StarterGui = game:GetService("StarterGui")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
 local UiStyle = require(game.ReplicatedStorage.Shared.UiStyle)
+local Attributes = require(game.ReplicatedStorage.Shared.Attributes)
 
 ChangeHistoryService:SetWaypoint("Before ToolBar gui")
 
@@ -61,6 +62,8 @@ layout.Parent = slots
 
 local template = Instance.new("TextButton")
 template.Name = "SlotTemplate"
+-- silent: a tool slot plays no button click (designer, 2026-10-28)
+template:SetAttribute(Attributes.BUTTON_SOUND, "")
 template.Size = UDim2.fromScale(0.1, 1)
 local aspect = Instance.new("UIAspectRatioConstraint")
 aspect.AspectRatio = 1

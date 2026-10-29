@@ -244,6 +244,21 @@ function ClientSoundManager:fadeOutMusic(name: string, fadeSec: number)
 	tween:Play()
 end
 
+-- every music player still playing fades out together (the flight home,
+-- 2026-10-28), each through fadeOutMusic so a fade already running on one
+-- of them is replaced the same way
+function ClientSoundManager:fadeOutAllMusic(fadeSec: number)
+	local folder = self:getMusicFolder()
+	if not folder then
+		return
+	end
+	for _, player in folder:GetChildren() do
+		if player:IsA("AudioPlayer") and player.IsPlaying then
+			self:fadeOutMusic(player.Name, fadeSec)
+		end
+	end
+end
+
 -- a music loop eased from wherever its volume is to `share` of its
 -- authored volume, at the rate a full swing takes fullFadeSec (the
 -- outdoor ambience in and out of the mine, 2026-10-21): started if it is

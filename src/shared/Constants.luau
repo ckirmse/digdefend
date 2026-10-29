@@ -561,6 +561,10 @@ Constants.RADIO_DISPATCH_SOUND = "Rescue"
 -- the designer's title card (two TextLabels), held at the end of the ride
 -- out before the Results Menu fades in (designer, 2026-10-27)
 Constants.RESCUE_TITLE_GUI_NAME = "Title"
+-- the card's title is a picture, so a player whose Roblox language is not
+-- English gets this auto-localised label shown under it
+Constants.RESCUE_TITLE_TRANSLATION_LABEL = "Translation"
+Constants.TITLE_ART_LANGUAGE = "en"
 Constants.REFINERY_HP_GUI_NAME = "RefineryHp"
 Constants.REFINERY_HP_ROOT_FRAME = "Root"
 Constants.REFINERY_HP_ICON = "Icon"
@@ -932,10 +936,18 @@ Constants.WEAPON_HUD_SECONDARY_FILL = "Fill"
 Constants.SCOPE_HUD_GUI_NAME = "ScopeHud"
 Constants.SCOPE_HUD_RETICLE = "Reticle"
 
--- the Results Menu (M32; scripts/studio/build_results_menu_gui.luau): the
--- run's stats, shown at death with the Revive and Spectate buttons and at
--- the end of a run with Close (Return to Base is M33)
-Constants.RESULTS_MENU_GUI_NAME = "ResultsMenu"
+-- the Results Menu (M32): the run's stats, shown at death with the Revive
+-- and Spectate buttons and at the end of a run with Return to Lobby. Two
+-- designer-authored guis since 2026-10-28 (the built ResultsMenu and its
+-- build script are gone), the same children in each, the title the
+-- TextLabel inside a Header banner, revealed in stages when it opens
+Constants.RESULTS_MENU_WIN_GUI_NAME = "ResultsMenuWin"
+Constants.RESULTS_MENU_FAIL_GUI_NAME = "ResultsMenuFail"
+Constants.RESULTS_MENU_HEADER = "Header"
+Constants.RESULTS_MENU_HEADER_LABEL = "TextLabel"
+-- the designer's panel behind the stats, grown from nothing after the
+-- banner (2026-10-28)
+Constants.RESULTS_MENU_BACKGROUND = "Background"
 Constants.RESULTS_MENU_DIALOG = "Dialog"
 Constants.RESULTS_MENU_TITLE_LABEL = "Title"
 Constants.RESULTS_MENU_STATS = "Stats"

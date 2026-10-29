@@ -47,6 +47,10 @@ return {
 	-- turn to an hour before the day's end came first)
 	SUNSET_TO_DAY_END_SEC = 2,
 	SUNSET_TO_DAY_START_SEC = 300,
+	-- once the ride's camera starts its final drift the turn back slows:
+	-- from wherever the sky is then to the day's start over this long
+	-- (designer, 2026-10-28; it stood still from that moment before)
+	SUNSET_FINAL_TO_DAY_START_SEC = 900,
 
 	-- a standing player boards by touching the landed helicopter (designer,
 	-- 2026-10-27; a Board prompt before): within this far of its body

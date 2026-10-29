@@ -310,6 +310,12 @@ RunCycleManager:subscribeNightChanged(
 )
 StructureManager:subscribeRefineryDestroyed(
 	function()
+		-- with the rescue helicopter on the pad the crew's way out no
+		-- longer runs through the Refinery (designer, 2026-10-28)
+		if RescueManager:isHelicopterLanded() then
+			print("[RescueManager] the Refinery fell after the landing; the run goes on")
+			return
+		end
 		RunCycleManager:loseRefinery()
 	end
 )

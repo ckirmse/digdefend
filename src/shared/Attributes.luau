@@ -314,6 +314,9 @@ module = {
 	RESCUE_SUNSET_START_TIME = "RescueSunsetStartTime",
 	RESCUE_SUNSET_TO_DAY_END_SEC = "RescueSunsetToDayEndSec",
 	RESCUE_SUNSET_TO_DAY_START_SEC = "RescueSunsetToDayStartSec",
+	-- GameMetadata: how long the sky takes from the ride camera's final
+	-- drift to the day's start (the slow tail, 2026-10-28)
+	RESCUE_SUNSET_FINAL_TO_DAY_START_SEC = "RescueSunsetFinalToDayStartSec",
 	-- GameMetadata: why the run ended (Enums.RunEndReason), 0 while it is on
 	RUN_END_REASON = "RunEndReason",
 	-- GameMetadata: the Game Over screen's timing (GameData/Run/Revives):

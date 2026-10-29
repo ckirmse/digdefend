@@ -136,6 +136,17 @@ function RunCycleRules.clockTimeBackward(fromClockTime: number, toClockTime: num
 	return (fromClockTime - backward * math.clamp(share, 0, 1)) % 24
 end
 
+-- the sunset's slow tail (2026-10-28): the share it had reached when the
+-- ride camera's final drift began eases on to 1 over slowSec; a slowSec
+-- of 0 arrives at once
+function RunCycleRules.slowedShare(shareAtStart: number, elapsedSec: number, slowSec: number): number
+	if slowSec <= 0 then
+		return 1
+	end
+	local progress = math.clamp(elapsedSec / slowSec, 0, 1)
+	return shareAtStart + (1 - shareAtStart) * progress
+end
+
 RunCycleRules.SUNSET_STAGE_TO_DAY_END = 1
 RunCycleRules.SUNSET_STAGE_TO_DAY_START = 2
 

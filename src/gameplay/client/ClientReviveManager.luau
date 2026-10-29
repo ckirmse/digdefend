@@ -2,8 +2,11 @@
 
 -- Death and revives on this client (GDD "Health and Revives", "Results
 -- Menu"), M32. The server owns who is dead; this draws it. When this
--- player's public IsDead turns true the Results Menu opens (StarterGui
--- .ResultsMenu, scripts/studio/build_results_menu_gui.luau): the run's
+-- player's public IsDead turns true the Results Menu opens (the
+-- designer's hand-authored StarterGui.ResultsMenuFail for a death and a
+-- fallen Refinery, ResultsMenuWin for a won run, both revealing
+-- themselves in stages since 2026-10-28; either stands in for a missing
+-- other): the run's
 -- stats from CurrentPlayer, a countdown, the Revive button for whatever
 -- the server is offering (the player's own Revive or the crew's Team
 -- Revive, with its live Robux price from GameMetadata, or "FREE" when a
@@ -39,6 +42,7 @@ local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local utils = require("@game/ReplicatedStorage/Shared/utils")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientGuiFade = require(script.Parent.Parent.Client.ClientGuiFade)
+local ClientLoadingScreenManager = require(script.Parent.Parent.Client.ClientLoadingScreenManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
@@ -69,10 +73,62 @@ type AuthoredLayout = {
 	reviveSize: UDim2,
 }
 
+-- one Results Menu gui and the pieces of it the manager drives; the open
+-- menu's binding is copied onto the manager's own fields by applyMenu
+type MenuBinding = {
+	gui: ScreenGui,
+	dialog: GuiObject,
+	-- the banner the death menu slides in from the left, holding its title
+	header: GuiObject?,
+	-- the panel behind the stats, grown into place after the banner, and
+	-- where the designer left it (sized to nothing) for the next open
+	background: GuiObject?,
+	backgroundAuthoredSize: UDim2?,
+	-- how the banner arrives: sliding in from the left (the fail menu) or
+	-- growing from nothing to its authored size (the win menu)
+	isHeaderGrown: boolean,
+	headerAuthoredSize: UDim2?,
+	-- the size the Background panel grows to
+	backgroundSize: UDim2,
+	titleLabel: TextLabel?,
+	countdownLabel: TextLabel?,
+	reviveButton: GuiButton?,
+	reviveLabel: TextLabel?,
+	revivePriceLabel: TextLabel?,
+	spectateButton: GuiButton?,
+	closeButton: GuiButton?,
+	rankHeaderLabel: TextLabel?,
+	statsFrame: GuiObject?,
+	authoredLayout: AuthoredLayout?,
+	statRows: { StatRow },
+	-- true for the designer's hand-authored menu: it reveals itself in
+	-- stages when it opens, shows no resource icons, and keeps its spacing
+	-- as authored (a solo player's rank column is hidden, never closed up)
+	isStaged: boolean,
+}
+
 export type ClientReviveManager = typeof(setmetatable(
 	{} :: {
 		menuGui: ScreenGui?,
 		menuDialog: GuiObject?,
+		menuHeader: GuiObject?,
+		menuHeaderAuthoredPosition: UDim2?,
+		-- the menu for a death or a fallen Refinery, and the one for a won
+		-- run; the bound one is whichever is open
+		lostMenu: MenuBinding?,
+		wonMenu: MenuBinding?,
+		menu: MenuBinding?,
+		-- the staged reveal in flight: what it has still to show, and a
+		-- counter that drops a reveal the close overtook
+		menuHidden: ClientGuiFade.Hidden?,
+		menuRevealGeneration: number,
+		-- the menu elements mid-fade (setMenuElementShown), left alone
+		-- until their fade is done
+		fadingElements: { [GuiObject]: boolean },
+		-- how long the next reveal holds everything hidden before its first
+		-- stage: the Game Over screen's fade up from black, so the banner's
+		-- slide is not lost under it (designer, 2026-10-28)
+		pendingRevealDelaySec: number?,
 		titleLabel: TextLabel?,
 		countdownLabel: TextLabel?,
 		reviveButton: GuiButton?,
@@ -118,6 +174,10 @@ export type ClientReviveManager = typeof(setmetatable(
 		-- camera has started (the seat can be seen after the win), and the
 		-- menu then fades in rather than cutting in
 		isRideDone: boolean,
+		-- a won run's end is judged a frame late, once, so an aboard flag
+		-- that replicated in the same frame as the win is seen (2026-10-28:
+		-- the last rider in saw the menu at once and no ride)
+		hasWonCheckDeferred: boolean,
 		pendingMenuFadeInSec: number?,
 		-- the dialog's authored place, for the endings that show the grave
 		dialogAuthoredPosition: UDim2?,
@@ -181,16 +241,57 @@ local DEFAULT_GAME_OVER_FADE_IN_SEC = 2
 local DEFAULT_GAME_OVER_BLACK_HOLD_SEC = 3
 local DEFAULT_GAME_OVER_FADE_OUT_SEC = 3
 local TITLE_DEAD = "You died"
-local TITLE_WON = "Run won"
+-- the hand-authored menu's banner, for a death and a fallen Refinery
+-- alike (designer, 2026-10-28; GAME OVER for an hour)
+local TITLE_JOB_FAILED = "Job failed"
+-- on that menu the run's end swaps the buttons by a fade: the Revive and
+-- its countdown fade out, then Return to Lobby fades in (designer,
+-- 2026-10-28; the menu was redrawn at once before)
+local BUTTON_SWAP_FADE_SEC = 0.4
+-- the death menu's staged reveal (designer, 2026-10-28): the header slides
+-- in from off the left edge, its title fades in, then each stat row from
+-- the top, then the countdown with the Revive button, then Spectate
+local REVEAL_HEADER_SLIDE_SEC = 0.6
+local REVEAL_TITLE_FADE_SEC = 0.4
+-- the Background panel grows from the designer's nothing-sized spot to
+-- the menu's size, in place, between the title and the first row
+local REVEAL_BACKGROUND_SEC = 0.5
+local REVEAL_BACKGROUND_SIZE_FAIL = UDim2.new(2, 0, 0.95, 0)
+local REVEAL_BACKGROUND_SIZE_WIN = UDim2.new(1.5, 0, 0.93, 0)
+-- the win menu's banner grows from nothing to its authored size
+local REVEAL_HEADER_GROW_SEC = 0.5
+local REVEAL_ROW_FADE_SEC = 0.3
+local REVEAL_ROW_GAP_SEC = 0.15
+local REVEAL_BUTTON_FADE_SEC = 0.35
+local TITLE_WON = "Job complete"
+-- the loading screen's line as the player leaves for the lobby (designer,
+-- 2026-10-28); the lobby's own departure line is "Flying to <map>..."
+local RETURN_TO_LOBBY_CAPTION = "Flying back to Apocalyptic Mining Co"
+-- every song still playing fades out under that screen
+local RETURN_TO_LOBBY_MUSIC_FADE_SEC = 3
 local TITLE_LOST = "Run lost"
 local REVIVE_SELF_TEXT = "Revive"
 local REVIVE_TEAM_TEXT = "Revive crew and restart the day"
 -- the Spectate bar's button is small, so the crew's revive is said shorter there
 local SPECTATE_REVIVE_TEAM_TEXT = "Revive crew"
 local SPECTATE_TIMER_FORMAT = "%d s"
-local COUNTDOWN_SELF_FORMAT = "Revive available for %d s"
-local COUNTDOWN_TEAM_FORMAT = "The whole crew is down. %d s to revive"
+local COUNTDOWN_SELF_FORMAT = "Revive available for %s"
+local COUNTDOWN_TEAM_FORMAT = "The whole crew is down. %s to revive"
 local COUNTDOWN_NONE_TEXT = "A crewmate can still revive you at your tombstone"
+
+-- the countdown reads in caps with the time in minutes and seconds, "4m
+-- 59s", its unit letters alone kept small (designer, 2026-10-28)
+local function formatCountdown(format: string, secondsLeft: number?): string
+	if not secondsLeft then
+		return string.upper(format)
+	end
+	local minutes = secondsLeft // 60
+	local seconds = secondsLeft % 60
+	local timeText = if minutes > 0 then string.format("%dm %ds", minutes, seconds) else string.format("%ds", seconds)
+	-- the upper-casing takes the %s placeholder with it
+	local upperFormat = string.gsub(string.upper(format), "%%S", "%%s")
+	return string.format(upperFormat, timeText)
+end
 local PRICE_FREE_TEXT = "FREE"
 -- the Robux mark, a glyph in Roblox's own fonts
 local PRICE_FORMAT = "\u{E002} %d"
@@ -251,12 +352,14 @@ function ClientReviveManager:renderStats()
 	-- the Group Rank column is for a crew; a solo player's numbers take
 	-- its place at the right edge
 	local isGroup = ClientDataManager:getGameMetadata(Attributes.RUN_IS_GROUP) == true
+	-- the hand-authored menu keeps its spacing whatever the crew's size
+	local isSpacingKept = self.menu ~= nil and self.menu.isStaged
 	if self.rankHeaderLabel then
 		self.rankHeaderLabel.Visible = isGroup
 	end
 	for _, row in self.statRows do
 		row.valueLabel.Text = utils.abbreviateNumber(readStat(row.attribute))
-		row.valueLabel.Position = if isGroup then row.authoredValuePosition else UDim2.new(1, 0, row.authoredValuePosition.Y.Scale, row.authoredValuePosition.Y.Offset)
+		row.valueLabel.Position = if isGroup or isSpacingKept then row.authoredValuePosition else UDim2.new(1, 0, row.authoredValuePosition.Y.Scale, row.authoredValuePosition.Y.Offset)
 		local rankLabel = row.rankLabel
 		if rankLabel then
 			rankLabel.Visible = isGroup
@@ -274,13 +377,60 @@ function ClientReviveManager:renderStats()
 	end
 end
 
+-- an element of the menu shown or hidden: at once on the built menu, by
+-- a fade on the hand-authored one while it is up (an element leaving
+-- fades out and is then hidden; one arriving is shown after delaySec and
+-- fades in). An element mid-fade is left to finish, so the quarter-second
+-- render never restarts it
+function ClientReviveManager:setMenuElementShown(element: GuiObject, isShown: boolean, delaySec: number?)
+	if element.Visible == isShown or self.fadingElements[element] then
+		return
+	end
+	local isStaged = self.menu ~= nil and self.menu.isStaged
+	if not isStaged or not self.isMenuOpen or self.menuHidden then
+		element.Visible = isShown
+		return
+	end
+	self.fadingElements[element] = true
+	if not isShown then
+		ClientGuiFade.fadeOut(
+			element,
+			BUTTON_SWAP_FADE_SEC,
+			function()
+				element.Visible = false
+				self.fadingElements[element] = nil
+			end
+		)
+		return
+	end
+	task.delay(
+		delaySec or 0,
+		function()
+			if not self.isMenuOpen then
+				self.fadingElements[element] = nil
+				element.Visible = isShown
+				return
+			end
+			local hidden = ClientGuiFade.hide(element)
+			element.Visible = true
+			ClientGuiFade.reveal(hidden, element, BUTTON_SWAP_FADE_SEC)
+			task.delay(
+				BUTTON_SWAP_FADE_SEC,
+				function()
+					self.fadingElements[element] = nil
+				end
+			)
+		end
+	)
+end
+
 function ClientReviveManager:renderRevive()
 	local isRunOver = self:isRunOver()
 	local offer = if isRunOver or not self.isDead then Enums.ReviveOffer.NONE else self:getOffer()
 	local reviveKind = REVIVE_KIND_BY_OFFER[offer]
 	local reviveButton = self.reviveButton
 	if reviveButton then
-		reviveButton.Visible = reviveKind ~= nil
+		self:setMenuElementShown(reviveButton, reviveKind ~= nil)
 	end
 	if reviveKind then
 		if self.reviveLabel then
@@ -292,26 +442,28 @@ function ClientReviveManager:renderRevive()
 	end
 	local countdownLabel = self.countdownLabel
 	if countdownLabel then
-		countdownLabel.Visible = self.isDead and not isRunOver
+		self:setMenuElementShown(countdownLabel, self.isDead and not isRunOver)
 		local endTime = readNumber(ClientDataManager:getCurrentPlayerAttribute(Attributes.REVIVE_OFFER_END_TIME), 0)
 		local secondsLeft = math.max(0, math.ceil(endTime - workspace:GetServerTimeNow()))
 		if offer == Enums.ReviveOffer.TEAM then
-			countdownLabel.Text = string.format(COUNTDOWN_TEAM_FORMAT, secondsLeft)
+			countdownLabel.Text = formatCountdown(COUNTDOWN_TEAM_FORMAT, secondsLeft)
 		elseif offer == Enums.ReviveOffer.SELF then
-			countdownLabel.Text = string.format(COUNTDOWN_SELF_FORMAT, secondsLeft)
+			countdownLabel.Text = formatCountdown(COUNTDOWN_SELF_FORMAT, secondsLeft)
 		else
-			countdownLabel.Text = COUNTDOWN_NONE_TEXT
+			countdownLabel.Text = formatCountdown(COUNTDOWN_NONE_TEXT)
 		end
 	end
 	-- Spectate while dead and someone is alive to watch; Close otherwise
 	local canSpectate = self.isDead and not isRunOver and ClientSpectateManager:hasTargets()
 	if self.spectateButton then
-		self.spectateButton.Visible = canSpectate
+		self:setMenuElementShown(self.spectateButton, canSpectate)
 	end
 	if self.closeButton then
-		self.closeButton.Visible = isRunOver
+		-- Return to Lobby comes in after what is leaving has gone
+		self:setMenuElementShown(self.closeButton, isRunOver, BUTTON_SWAP_FADE_SEC)
 	end
-	self:setLayoutFilled(not canSpectate and not isRunOver)
+	-- the hand-authored menu's layout is the designer's, never filled
+	self:setLayoutFilled(not canSpectate and not isRunOver and not (self.menu ~= nil and self.menu.isStaged))
 end
 
 -- with neither Spectate nor Close showing, the slot at the bottom of the
@@ -376,7 +528,8 @@ end
 function ClientReviveManager:renderMenu()
 	local state = self:getRunState()
 	if self.titleLabel then
-		local title = if state == Enums.RunState.WON then TITLE_WON elseif state == Enums.RunState.LOST then TITLE_LOST else TITLE_DEAD
+		local isStaged = self.menu ~= nil and self.menu.isStaged
+		local title = if state == Enums.RunState.WON then TITLE_WON elseif isStaged then TITLE_JOB_FAILED elseif state == Enums.RunState.LOST then TITLE_LOST else TITLE_DEAD
 		self.titleLabel.Text = UiStyle.formatTitle(title)
 	end
 	self:placeDialog(state == Enums.RunState.WON)
@@ -452,6 +605,7 @@ function ClientReviveManager:closeMenu()
 		return
 	end
 	self.isMenuOpen = false
+	self:stopMenuReveal()
 	-- the HUD stays away for as long as the player is dead: it is no use
 	-- to them and sits over the Spectate bar
 	if not self.isDead then
@@ -466,22 +620,220 @@ function ClientReviveManager:closeMenu()
 	end
 end
 
-function ClientReviveManager:openMenu()
-	local menuGui = self.menuGui
-	local overlay = self.overlay
-	if not menuGui or not overlay or self.isMenuOpen then
+-- the open menu's pieces become the manager's own fields, so every
+-- render and button handler reads whichever gui is up; the layout the
+-- other gui was filled to is put back first, since the filled flag is
+-- one for both
+function ClientReviveManager:applyMenu(binding: MenuBinding)
+	if self.menu == binding then
 		return
 	end
+	self:setLayoutFilled(false)
+	self.menu = binding
+	self.menuGui = binding.gui
+	self.menuDialog = binding.dialog
+	self.menuHeader = binding.header
+	self.titleLabel = binding.titleLabel
+	self.countdownLabel = binding.countdownLabel
+	self.reviveButton = binding.reviveButton
+	self.reviveLabel = binding.reviveLabel
+	self.revivePriceLabel = binding.revivePriceLabel
+	self.spectateButton = binding.spectateButton
+	self.closeButton = binding.closeButton
+	self.rankHeaderLabel = binding.rankHeaderLabel
+	self.statsFrame = binding.statsFrame
+	self.authoredLayout = binding.authoredLayout
+	self.statRows = binding.statRows
+	self.dialogAuthoredPosition = nil
+	self.dialogAuthoredAnchorPoint = nil
+end
+
+-- a reveal still running stops where it is and everything it had yet to
+-- show goes back to its authored look, so the next open starts clean
+function ClientReviveManager:stopMenuReveal()
+	self.menuRevealGeneration += 1
+	local hidden = self.menuHidden
+	if hidden then
+		self.menuHidden = nil
+		ClientGuiFade.restore(hidden)
+	end
+	local header = self.menuHeader
+	local headerPosition = self.menuHeaderAuthoredPosition
+	if header and headerPosition then
+		header.Position = headerPosition
+	end
+	local menu = self.menu
+	if menu and menu.background and menu.backgroundAuthoredSize then
+		menu.background.Size = menu.backgroundAuthoredSize
+	end
+	if menu and header and menu.isHeaderGrown and menu.headerAuthoredSize then
+		header.Size = menu.headerAuthoredSize
+	end
+end
+
+-- the death menu's staged reveal (designer, 2026-10-28): the gui comes up
+-- with nothing showing, the header banner slides in from off the left
+-- edge at its own height, its title fades in, each stat row fades in
+-- from the top down, then the countdown and the Revive button together,
+-- then Spectate (or Return to Lobby, which stands in its slot once the
+-- run is over). Each wait checks the generation, so a close mid-way
+-- drops the rest
+function ClientReviveManager:playMenuReveal()
+	local dialog = self.menuDialog
+	if not dialog then
+		return
+	end
+	self:stopMenuReveal()
+	local generation = self.menuRevealGeneration
+	local hidden = ClientGuiFade.hide(dialog)
+	self.menuHidden = hidden
+	local binding = self.menu
+	local header = self.menuHeader
+	-- the win menu's banner starts at its full width with no height,
+	-- under the hide, so the gui comes up with it already gone
+	if binding and binding.isHeaderGrown and header and binding.headerAuthoredSize then
+		local authoredSize = binding.headerAuthoredSize
+		header.Size = UDim2.new(authoredSize.X.Scale, authoredSize.X.Offset, 0, 0)
+	end
+	local delaySec = self.pendingRevealDelaySec or 0
+	self.pendingRevealDelaySec = nil
+	local function waitLive(sec: number): boolean
+		task.wait(sec)
+		return generation == self.menuRevealGeneration
+	end
+	local function revealTogether(instances: { Instance? }, fadeSec: number)
+		for _, instance in instances do
+			if instance then
+				ClientGuiFade.reveal(hidden, instance, fadeSec)
+			end
+		end
+	end
+	task.spawn(
+		function()
+			-- hidden under the black until it has lifted
+			if delaySec > 0 and not waitLive(delaySec) then
+				return
+			end
+			if header and binding and binding.isHeaderGrown and binding.headerAuthoredSize then
+				-- the banner grows from a line to its authored height, in place
+				ClientGuiFade.reveal(hidden, header, 0, true)
+				TweenService:Create(
+					header,
+					TweenInfo.new(REVEAL_HEADER_GROW_SEC, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+					{ Size = binding.headerAuthoredSize }
+				):Play()
+				if not waitLive(REVEAL_HEADER_GROW_SEC) then
+					return
+				end
+			elseif header then
+				local authoredPosition = header.Position
+				self.menuHeaderAuthoredPosition = authoredPosition
+				-- the banner itself shows whole from the start; only its place
+				-- moves, from wholly off the screen's left edge to its own spot
+				ClientGuiFade.reveal(hidden, header, 0, true)
+				local offLeftPixels = header.AbsolutePosition.X + header.AbsoluteSize.X
+				header.Position = authoredPosition - UDim2.fromOffset(offLeftPixels, 0)
+				TweenService:Create(
+					header,
+					TweenInfo.new(REVEAL_HEADER_SLIDE_SEC, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+					{ Position = authoredPosition }
+				):Play()
+				if not waitLive(REVEAL_HEADER_SLIDE_SEC) then
+					return
+				end
+			end
+			if header then
+				ClientGuiFade.reveal(hidden, header, REVEAL_TITLE_FADE_SEC)
+				if not waitLive(REVEAL_TITLE_FADE_SEC) then
+					return
+				end
+			end
+			local background = if binding then binding.background else nil
+			if background and binding then
+				-- the panel is sized to nothing as authored, so it shows whole
+				-- and grows into place
+				ClientGuiFade.reveal(hidden, background, 0)
+				TweenService:Create(
+					background,
+					TweenInfo.new(REVEAL_BACKGROUND_SEC, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+					{ Size = binding.backgroundSize }
+				):Play()
+				if not waitLive(REVEAL_BACKGROUND_SEC) then
+					return
+				end
+			end
+			local rows: { GuiObject } = {}
+			local statsFrame = self.statsFrame
+			if statsFrame then
+				for _, child in statsFrame:GetChildren() do
+					if child:IsA("GuiObject") and child.Visible then
+						table.insert(rows, child)
+					end
+				end
+				-- the order they stand in on the screen (the list layout's
+				-- own order, whatever the LayoutOrder values say)
+				table.sort(
+					rows,
+					function(a: GuiObject, b: GuiObject)
+						return a.AbsolutePosition.Y < b.AbsolutePosition.Y
+					end
+				)
+			end
+			-- the crew column's heading comes with the first row
+			ClientGuiFade.reveal(hidden, statsFrame or dialog, 0, true)
+			revealTogether({ self.rankHeaderLabel }, REVEAL_ROW_FADE_SEC)
+			for _, row in rows do
+				ClientGuiFade.reveal(hidden, row, REVEAL_ROW_FADE_SEC)
+				if not waitLive(REVEAL_ROW_GAP_SEC) then
+					return
+				end
+			end
+			if not waitLive(math.max(0, REVEAL_ROW_FADE_SEC - REVEAL_ROW_GAP_SEC)) then
+				return
+			end
+			revealTogether({ self.countdownLabel, self.reviveButton }, REVEAL_BUTTON_FADE_SEC)
+			if not waitLive(REVEAL_BUTTON_FADE_SEC) then
+				return
+			end
+			revealTogether({ self.spectateButton, self.closeButton }, REVEAL_BUTTON_FADE_SEC)
+			if not waitLive(REVEAL_BUTTON_FADE_SEC) then
+				return
+			end
+			-- anything the stages did not name (the dialog's own frame)
+			ClientGuiFade.reveal(hidden, dialog, 0)
+			if self.menuHidden == hidden then
+				self.menuHidden = nil
+			end
+		end
+	)
+end
+
+function ClientReviveManager:openMenu()
+	local overlay = self.overlay
+	if not overlay or self.isMenuOpen then
+		return
+	end
+	local isWon = self:getRunState() == Enums.RunState.WON
+	local binding = if isWon then (self.wonMenu or self.lostMenu) else (self.lostMenu or self.wonMenu)
+	if not binding then
+		return
+	end
+	self:applyMenu(binding)
+	local menuGui = binding.gui
 	ClientSpectateManager:stop()
 	self.isMenuOpen = true
 	self:renderMenu()
 	menuGui.Enabled = true
+	-- a staged menu's own reveal is its arrival; the ride's whole-gui fade
+	-- is for a menu with no stages
 	local fadeInSec = self.pendingMenuFadeInSec
-	if fadeInSec then
-		self.pendingMenuFadeInSec = nil
+	self.pendingMenuFadeInSec = nil
+	if binding.isStaged then
+		self:playMenuReveal()
+	elseif fadeInSec then
 		ClientGuiFade.fadeIn(menuGui, fadeInSec)
 	end
-	ClientOverlayManager:notifyBeginOverlay(overlay, fadeInSec)
+	ClientOverlayManager:notifyBeginOverlay(overlay, if binding.isStaged then nil else fadeInSec)
 	-- a rider's HUD faded out with the ride and stays out under the menu
 	self:setHudHidden(self.isDead or self.isRideDone)
 	-- a won run's sting, as its RUN WON opens (M75)
@@ -765,6 +1117,7 @@ function ClientReviveManager:playGameOver(isRefineryLost: boolean)
 			end
 			self.isGameOverPlaying = false
 			self:holdGraveCameraIfNeeded()
+			self.pendingRevealDelaySec = fadeOutSec
 			self:openMenu()
 			self:fade(1, fadeOutSec)
 		end
@@ -796,8 +1149,12 @@ end
 
 -- the Return to Lobby button, on the Results Menu at the end of a run and
 -- on the Spectate bar: the song fades and the server is asked for the trip
+-- the loading screen slides down over everything, the menu left open
+-- under it so the HUD never comes back, and the teleport is asked for
+-- (designer, 2026-10-28)
 function ClientReviveManager:requestReturnToLobby()
-	self:fadeOutGameOverMusic()
+	ClientSoundManager:fadeOutAllMusic(RETURN_TO_LOBBY_MUSIC_FADE_SEC)
+	ClientLoadingScreenManager:showDeparture(RETURN_TO_LOBBY_CAPTION)
 	ClientNetManager:fireServer(NetEventNames.TRY_RETURN_TO_LOBBY, {})
 end
 
@@ -858,10 +1215,20 @@ function ClientReviveManager:onRunStateChanged()
 	if not self:isRunOver() then
 		self.hasShownRunEnd = false
 		self.isRideDone = false
+		self.hasWonCheckDeferred = false
 		self.pendingMenuFadeInSec = nil
 		return
 	end
 	if self.hasShownRunEnd or self.isRunEndDeferred then
+		return
+	end
+	if self:getRunState() == Enums.RunState.WON and not self.hasWonCheckDeferred then
+		self.hasWonCheckDeferred = true
+		task.defer(
+			function()
+				self:onRunStateChanged()
+			end
+		)
 		return
 	end
 	-- a rider's win waits for the ride out (ClientRescueCameraManager
@@ -1046,40 +1413,16 @@ function ClientReviveManager:releaseCamera()
 	end
 end
 
-function ClientReviveManager:findMenu()
-	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-	local menuGui = playerGui:WaitForChild(Constants.RESULTS_MENU_GUI_NAME, 10)
-	if not menuGui or not menuGui:IsA("ScreenGui") then
-		warn("ClientReviveManager: no ResultsMenu ScreenGui; run scripts/studio/build_results_menu_gui.luau")
-		return
-	end
+-- one Results Menu gui read into a binding: its dialog, labels, buttons,
+-- rows, and the layout as authored; the buttons are wired here once, to
+-- handlers that act on whichever menu is open
+function ClientReviveManager:bindMenu(menuGui: ScreenGui, isStaged: boolean, isHeaderGrown: boolean, backgroundSize: UDim2): MenuBinding?
 	menuGui.Enabled = false
-	self.menuGui = menuGui
-	local gameOverGui = playerGui:WaitForChild(Constants.GAME_OVER_GUI_NAME, 10)
-	if gameOverGui and gameOverGui:IsA("ScreenGui") then
-		gameOverGui.Enabled = false
-		self.gameOverGui = gameOverGui
-		local label = gameOverGui:FindFirstChild(Constants.GAME_OVER_LABEL)
-		self.gameOverLabel = if label and label:IsA("TextLabel") then label else nil
-	else
-		warn("ClientReviveManager: no GameOver ScreenGui in StarterGui")
-	end
-	local fadeGui = playerGui:WaitForChild(Constants.SCREEN_FADE_GUI_NAME, 10)
-	local fadeFrame = if fadeGui then fadeGui:FindFirstChild(Constants.SCREEN_FADE_FRAME) else nil
-	if fadeGui and fadeGui:IsA("ScreenGui") and fadeFrame and fadeFrame:IsA("GuiObject") then
-		fadeGui.Enabled = false
-		fadeFrame.BackgroundTransparency = 1
-		self.fadeGui = fadeGui
-		self.fadeFrame = fadeFrame
-	else
-		warn("ClientReviveManager: no ScreenFade ScreenGui; run scripts/studio/build_screen_fade_gui.luau")
-	end
 	local dialog = menuGui:FindFirstChild(Constants.RESULTS_MENU_DIALOG)
 	if not dialog or not dialog:IsA("GuiObject") then
-		warn("ClientReviveManager: the ResultsMenu has no Dialog")
-		return
+		warn(`ClientReviveManager: {menuGui.Name} has no Dialog`)
+		return nil
 	end
-	self.menuDialog = dialog
 	local function findLabel(parent: Instance, name: string): TextLabel?
 		local label = parent:FindFirstChild(name)
 		return if label and label:IsA("TextLabel") then label else nil
@@ -1088,34 +1431,43 @@ function ClientReviveManager:findMenu()
 		local button = dialog:FindFirstChild(name)
 		return if button and button:IsA("GuiButton") then button else nil
 	end
-	self.titleLabel = findLabel(dialog, Constants.RESULTS_MENU_TITLE_LABEL)
-	self.countdownLabel = findLabel(dialog, Constants.RESULTS_MENU_COUNTDOWN_LABEL)
-	self.reviveButton = findButton(Constants.RESULTS_MENU_REVIVE_BUTTON)
-	self.spectateButton = findButton(Constants.RESULTS_MENU_SPECTATE_BUTTON)
-	self.closeButton = findButton(Constants.RESULTS_MENU_CLOSE_BUTTON)
-	local reviveButton = self.reviveButton
+	-- the death menu's title sits inside its Header banner
+	local header = dialog:FindFirstChild(Constants.RESULTS_MENU_HEADER)
+	local headerFrame = if header and header:IsA("GuiObject") then header else nil
+	local background = dialog:FindFirstChild(Constants.RESULTS_MENU_BACKGROUND)
+	local backgroundFrame = if background and background:IsA("GuiObject") then background else nil
+	local titleLabel = findLabel(dialog, Constants.RESULTS_MENU_TITLE_LABEL)
+	if not titleLabel and headerFrame then
+		titleLabel = findLabel(headerFrame, Constants.RESULTS_MENU_HEADER_LABEL)
+	end
+	local countdownLabel = findLabel(dialog, Constants.RESULTS_MENU_COUNTDOWN_LABEL)
+	local reviveButton = findButton(Constants.RESULTS_MENU_REVIVE_BUTTON)
+	local spectateButton = findButton(Constants.RESULTS_MENU_SPECTATE_BUTTON)
+	local closeButton = findButton(Constants.RESULTS_MENU_CLOSE_BUTTON)
+	local reviveLabel: TextLabel? = nil
+	local revivePriceLabel: TextLabel? = nil
 	if reviveButton then
-		self.reviveLabel = findLabel(reviveButton, Constants.RESULTS_MENU_REVIVE_LABEL)
-		self.revivePriceLabel = findLabel(reviveButton, Constants.RESULTS_MENU_REVIVE_PRICE_LABEL)
+		reviveLabel = findLabel(reviveButton, Constants.RESULTS_MENU_REVIVE_LABEL)
+		revivePriceLabel = findLabel(reviveButton, Constants.RESULTS_MENU_REVIVE_PRICE_LABEL)
 		reviveButton.Activated:Connect(
 			function()
 				self:requestRevive()
 			end
 		)
 	end
-	if self.spectateButton then
-		self.spectateButton.Activated:Connect(
+	if spectateButton then
+		spectateButton.Activated:Connect(
 			function()
 				self:startSpectating()
 			end
 		)
 	end
-	if self.closeButton then
-		-- the end of the run: Return to Lobby
-		self.closeButton.Activated:Connect(
+	if closeButton then
+		-- the end of the run: Return to Lobby; the menu stays up under the
+		-- loading screen (closing it would bring the HUD back)
+		closeButton.Activated:Connect(
 			function()
 				self:requestReturnToLobby()
-				self:closeMenu()
 			end
 		)
 	end
@@ -1157,31 +1509,34 @@ function ClientReviveManager:findMenu()
 			rankAttribute = Attributes.RUN_STAT_RANK_DAMAGE_GIVEN,
 		},
 	}
-	self.rankHeaderLabel = findLabel(dialog, Constants.RESULTS_MENU_RANK_HEADER_LABEL)
+	local rankHeaderLabel = findLabel(dialog, Constants.RESULTS_MENU_RANK_HEADER_LABEL)
 	local stats = dialog:FindFirstChild(Constants.RESULTS_MENU_STATS)
-	self.statsFrame = if stats and stats:IsA("GuiObject") then stats else nil
-	if self.statsFrame and self.countdownLabel and reviveButton then
-		self.authoredLayout = {
-			statsSize = self.statsFrame.Size,
-			countdownPosition = self.countdownLabel.Position,
+	local statsFrame = if stats and stats:IsA("GuiObject") then stats else nil
+	local authoredLayout: AuthoredLayout? = nil
+	if statsFrame and countdownLabel and reviveButton then
+		authoredLayout = {
+			statsSize = statsFrame.Size,
+			countdownPosition = countdownLabel.Position,
 			revivePosition = reviveButton.Position,
 			reviveSize = reviveButton.Size,
 		}
 	end
+	local statRows: { StatRow } = {}
 	for _, definition in rowDefinitions do
 		local row = if stats then stats:FindFirstChild(definition.name) else nil
 		local valueLabel = if row then findLabel(row, Constants.RESULTS_MENU_ROW_VALUE_LABEL) else nil
 		if not row or not valueLabel then
-			warn(`ClientReviveManager: the ResultsMenu has no Stats.{definition.name}.Value`)
+			warn(`ClientReviveManager: {menuGui.Name} has no Stats.{definition.name}.Value`)
 			continue
 		end
 		local icon = row:FindFirstChild(Constants.RESULTS_MENU_ROW_ICON)
 		if icon and icon:IsA("ImageLabel") then
 			local isPlaceholder = Icons.isPlaceholder(definition.icon)
 			icon.Image = if isPlaceholder or not definition.icon then "" else definition.icon
-			icon.Visible = not isPlaceholder
+			-- the hand-authored menu shows no resource icons (designer, 2026-10-28)
+			icon.Visible = not isPlaceholder and not isStaged
 		end
-		table.insert(self.statRows, {
+		table.insert(statRows, {
 			valueLabel = valueLabel,
 			attribute = definition.attribute,
 			rankAttribute = definition.rankAttribute,
@@ -1191,7 +1546,68 @@ function ClientReviveManager:findMenu()
 			icon = if icon and icon:IsA("ImageLabel") then icon else nil,
 		})
 	end
+	return {
+		gui = menuGui,
+		dialog = dialog,
+		header = headerFrame,
+		background = backgroundFrame,
+		backgroundAuthoredSize = if backgroundFrame then backgroundFrame.Size else nil,
+		isHeaderGrown = isHeaderGrown,
+		headerAuthoredSize = if headerFrame then headerFrame.Size else nil,
+		backgroundSize = backgroundSize,
+		titleLabel = titleLabel,
+		countdownLabel = countdownLabel,
+		reviveButton = reviveButton,
+		reviveLabel = reviveLabel,
+		revivePriceLabel = revivePriceLabel,
+		spectateButton = spectateButton,
+		closeButton = closeButton,
+		rankHeaderLabel = rankHeaderLabel,
+		statsFrame = statsFrame,
+		authoredLayout = authoredLayout,
+		statRows = statRows,
+		isStaged = isStaged,
+	}
+end
 
+function ClientReviveManager:findMenu()
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local wonGui = playerGui:WaitForChild(Constants.RESULTS_MENU_WIN_GUI_NAME, 10)
+	if wonGui and wonGui:IsA("ScreenGui") then
+		self.wonMenu = self:bindMenu(wonGui, true, true, REVEAL_BACKGROUND_SIZE_WIN)
+	else
+		warn("ClientReviveManager: no ResultsMenuWin ScreenGui in StarterGui")
+	end
+	local lostGui = playerGui:WaitForChild(Constants.RESULTS_MENU_FAIL_GUI_NAME, 10)
+	if lostGui and lostGui:IsA("ScreenGui") then
+		self.lostMenu = self:bindMenu(lostGui, true, false, REVEAL_BACKGROUND_SIZE_FAIL)
+	else
+		warn("ClientReviveManager: no ResultsMenuFail ScreenGui in StarterGui")
+	end
+	local firstMenu = self.lostMenu or self.wonMenu
+	if not firstMenu then
+		return
+	end
+	self:applyMenu(firstMenu)
+	local gameOverGui = playerGui:WaitForChild(Constants.GAME_OVER_GUI_NAME, 10)
+	if gameOverGui and gameOverGui:IsA("ScreenGui") then
+		gameOverGui.Enabled = false
+		self.gameOverGui = gameOverGui
+		local label = gameOverGui:FindFirstChild(Constants.GAME_OVER_LABEL)
+		self.gameOverLabel = if label and label:IsA("TextLabel") then label else nil
+	else
+		warn("ClientReviveManager: no GameOver ScreenGui in StarterGui")
+	end
+	local fadeGui = playerGui:WaitForChild(Constants.SCREEN_FADE_GUI_NAME, 10)
+	local fadeFrame = if fadeGui then fadeGui:FindFirstChild(Constants.SCREEN_FADE_FRAME) else nil
+	if fadeGui and fadeGui:IsA("ScreenGui") and fadeFrame and fadeFrame:IsA("GuiObject") then
+		fadeGui.Enabled = false
+		fadeFrame.BackgroundTransparency = 1
+		self.fadeGui = fadeGui
+		self.fadeFrame = fadeFrame
+	else
+		warn("ClientReviveManager: no ScreenFade ScreenGui; run scripts/studio/build_screen_fade_gui.luau")
+	end
 	local overlay: ClientOverlayManager.Overlay
 	overlay = {
 		getGuiRoot = function(_overlay)
@@ -1200,19 +1616,20 @@ function ClientReviveManager:findMenu()
 		notifyForceEnd = function(_overlay)
 			self:closeMenu()
 		end,
-		-- a dead player leaves the menu by a button, never by a stray click
+		-- the menu is left by a button alone, never by a stray click: with
+		-- the run over there is nothing behind it to go back to (designer,
+		-- 2026-10-28; a click outside closed the run-over menu before)
 		notifyClickOutside = function(_overlay)
-			if self:isRunOver() then
-				self:closeMenu()
-			end
 		end,
 		-- a dead player is looking at their grave beside the menu, so the
-		-- world stays sharp and the camera stays where the grave put it
+		-- world stays sharp and the camera stays where the grave put it; a
+		-- rescued one is looking at the ride's last picture (designer,
+		-- 2026-10-28: no blur, no zoom)
 		doesWantBlur = function(_overlay)
-			return not self.isDead
+			return not self.isDead and not self.isRideDone
 		end,
 		doZoomCamera = function(_overlay)
-			return not self.isDead
+			return not self.isDead and not self.isRideDone
 		end,
 	}
 	self.overlay = overlay
@@ -1316,6 +1733,15 @@ function ClientReviveManager.new(): ClientReviveManager
 	local self = setmetatable({}, ClientReviveManager) :: ClientReviveManager
 	self.menuGui = nil
 	self.menuDialog = nil
+	self.menuHeader = nil
+	self.menuHeaderAuthoredPosition = nil
+	self.lostMenu = nil
+	self.wonMenu = nil
+	self.menu = nil
+	self.menuHidden = nil
+	self.menuRevealGeneration = 0
+	self.fadingElements = {}
+	self.pendingRevealDelaySec = nil
 	self.titleLabel = nil
 	self.countdownLabel = nil
 	self.reviveButton = nil
@@ -1348,6 +1774,7 @@ function ClientReviveManager.new(): ClientReviveManager
 	self.hasShownRunEnd = false
 	self.isRunEndDeferred = false
 	self.isRideDone = false
+	self.hasWonCheckDeferred = false
 	self.pendingMenuFadeInSec = nil
 	self.dialogAuthoredPosition = nil
 	self.dialogAuthoredAnchorPoint = nil

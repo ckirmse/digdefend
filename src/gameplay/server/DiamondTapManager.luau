@@ -37,7 +37,9 @@ local NIGHT_MILESTONE_DIAMONDS: { [number]: number } = DiamondTapsData.NIGHT_MIL
 local RESCUE_DIAMONDS_BY_DIFFICULTY: { [number]: number } = DiamondTapsData.RESCUE_DIAMONDS_BY_DIFFICULTY
 
 -- the one payout path: the save, the HUD, the run's stats, and the toast
-function DiamondTapManager:pay(player: Player, amount: number, reason: string)
+-- (skipped when isQuiet: the rescue reward shows on the Results Menu
+-- alone, designer 2026-10-28)
+function DiamondTapManager:pay(player: Player, amount: number, reason: string, isQuiet: boolean?)
 	local playerData = GameController:getPlayerData(player)
 	if not playerData or amount <= 0 then
 		return
@@ -47,6 +49,9 @@ function DiamondTapManager:pay(player: Player, amount: number, reason: string)
 	RunStatsManager:addDiamondsEarned(player, amount)
 	playerData:saveNow()
 	print(`[DiamondTapManager] {player.Name} earned {amount} Diamonds ({reason})`)
+	if isQuiet then
+		return
+	end
 	NetManager:notifyClient(player, NetEventNames.NOTIFY_DIAMONDS_EARNED, {
 		amount = amount,
 		reason = reason,
@@ -73,7 +78,7 @@ function DiamondTapManager:payRescue(player: Player)
 	local difficulty = RunManager:getDifficulty()
 	local amount = if difficulty then RESCUE_DIAMONDS_BY_DIFFICULTY[difficulty] else nil
 	if amount then
-		self:pay(player, amount, DiamondTapsData.RESCUE_REASON)
+		self:pay(player, amount, DiamondTapsData.RESCUE_REASON, true)
 	end
 end
 

@@ -82,8 +82,10 @@ local function buildPad(pad: Instance)
 	if not dust:FindFirstChildWhichIsA("ParticleEmitter") then
 		local emitter = Instance.new("ParticleEmitter")
 		emitter.Name = "DustEmitter"
+		-- off in play (the touchdown fires one Emit burst); the Rate is only
+		-- so ticking Enabled in Studio previews the look (designer, 2026-10-28)
 		emitter.Enabled = false
-		emitter.Rate = 0
+		emitter.Rate = 40
 		emitter.Lifetime = NumberRange.new(1.5, 2.5)
 		emitter.Speed = NumberRange.new(20, 35)
 		emitter.SpreadAngle = Vector2.new(70, 70)

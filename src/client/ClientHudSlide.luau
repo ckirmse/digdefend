@@ -33,16 +33,38 @@ function ClientHudSlide:getIsShown(): boolean
 end
 
 -- a new spot on stage (the rescue countdown has two, 2026-10-27): a
--- frame already on stage and still moves there at once, one mid-slide
+-- frame already on stage and still moves there at once, or slides there
+-- over slideSec when one is given (the countdown climbing back to the
+-- clock's spot as the Refinery HP bar leaves, 2026-10-28); one mid-slide
 -- or off stage arrives there with its next slide
-function ClientHudSlide:setShownPosition(position: UDim2)
+function ClientHudSlide:setShownPosition(position: UDim2, slideSec: number?)
 	if self.shownPosition == position then
 		return
 	end
 	self.shownPosition = position
-	if self.isShown and not self.tween then
-		self.frame.Position = position
+	if not self.isShown or self.tween then
+		return
 	end
+	if not slideSec or slideSec <= 0 then
+		self.frame.Position = position
+		return
+	end
+	self.generation += 1
+	local generation = self.generation
+	local tween = TweenService:Create(
+		self.frame,
+		TweenInfo.new(slideSec, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+		{ Position = position }
+	)
+	self.tween = tween
+	tween.Completed:Connect(
+		function()
+			if self.generation == generation then
+				self.tween = nil
+			end
+		end
+	)
+	tween:Play()
 end
 
 -- puts the frame where it belongs at once, for the first draw

@@ -18,6 +18,7 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local LocalizationService = game:GetService("LocalizationService")
 local UserGameSettings = UserSettings():GetService("UserGameSettings")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
@@ -78,7 +79,7 @@ local MENU_FADE_IN_SEC = 3
 -- (designer, 2026-10-27)
 local TITLE_HOLD_SEC = 5
 -- the card comes this long after the camera reaches its final shot
-local TITLE_DELAY_SEC = 0.5
+local TITLE_DELAY_SEC = 0.8
 local TITLE_TO_MENU_SEC = 2
 local DEFAULT_RIDE_SEC = 10
 -- the HUD, the Refinery HP bar, and the countdown fade out together once
@@ -135,8 +136,8 @@ function ClientRescueCameraManager:stepAuthoredShot(camera: Camera, pivot: CFram
 		if not driftStartTime then
 			driftStartTime = now
 			self.driftStartTime = now
-			-- the sky stands still from here (designer, 2026-10-27)
-			ClientRunCycleManager:setSunsetHeld(true)
+			-- the sky slows to its long tail from here (designer, 2026-10-28)
+			ClientRunCycleManager:setSunsetFinalDrift(true)
 		end
 		local liftOffTime = readNumber(helicopter:GetAttribute(Attributes.HELICOPTER_FLIGHT_START_TIME), driftStartTime)
 		local rideSec = readNumber(ClientDataManager:getGameMetadata(Attributes.RESCUE_RIDE_SEC), DEFAULT_RIDE_SEC)
@@ -188,8 +189,26 @@ function ClientRescueCameraManager:stepCamera(deltaSec: number)
 	camera.CFrame = CFrame.lookAt(position, pivot.Position + Vector3.new(0, LOOK_AT_LIFT_STUDS, 0))
 end
 
+-- the language the player's Roblox is set to (the account's language
+-- setting, which the Translator carries; not the device's locale), as
+-- its bare language tag: "en" for en-us and en-gb alike
+local function playerLanguage(): string
+	local localeId = LocalizationService.RobloxLocaleId
+	local isSuccess, translator = pcall(
+		function()
+			return LocalizationService:GetTranslatorForPlayerAsync(Players.LocalPlayer)
+		end
+	)
+	if isSuccess and translator then
+		localeId = translator.LocaleId
+	end
+	return string.lower(string.split(localeId, "-")[1])
+end
+
 -- the Title card is on the screen for the hold, over the ride's last
--- picture; the card is the designer's authored gui, only enabled here
+-- picture; the card is the designer's authored gui, only enabled here.
+-- Its title is a picture in English, so another language shows the
+-- designer's auto-localised Translation label under it (2026-10-28)
 function ClientRescueCameraManager:showTitleCard()
 	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
 	local titleGui = if playerGui then playerGui:FindFirstChild(Constants.RESCUE_TITLE_GUI_NAME) else nil
@@ -197,6 +216,10 @@ function ClientRescueCameraManager:showTitleCard()
 		warn(`ClientRescueCameraManager: no {Constants.RESCUE_TITLE_GUI_NAME} ScreenGui in StarterGui; the title card is skipped`)
 		task.wait(TITLE_HOLD_SEC)
 		return
+	end
+	local translation = titleGui:FindFirstChild(Constants.RESCUE_TITLE_TRANSLATION_LABEL)
+	if translation and translation:IsA("GuiObject") then
+		translation.Visible = playerLanguage() ~= Constants.TITLE_ART_LANGUAGE
 	end
 	titleGui.Enabled = true
 	task.wait(TITLE_HOLD_SEC)
@@ -344,13 +367,32 @@ function ClientRescueCameraManager:stopRide()
 	end
 	self.isHudFaded = false
 	self.isHandingOff = false
-	ClientRunCycleManager:setSunsetHeld(false)
+	self:setJumpingEnabled(true)
+	ClientRunCycleManager:setSunsetFinalDrift(false)
 	ClientReviveManager:setRunEndDeferred(false)
+end
+
+-- a seated rider cannot jump: the jet pack is flown by holding Jump,
+-- and a held Jump throws a humanoid out of a seat the moment it sits
+-- (2026-10-28: the rider who flew in saw the menu at once and no ride)
+function ClientRescueCameraManager:setJumpingEnabled(isEnabled: boolean)
+	local character = Players.LocalPlayer.Character
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	if not humanoid then
+		return
+	end
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, isEnabled)
+	if not isEnabled then
+		humanoid.Jump = false
+	end
 end
 
 function ClientRescueCameraManager:onSeated(isSeated: boolean, seat: Instance?)
 	if not isSeated then
-		if self.isRiding and not self.isHandingOff then
+		-- the server is the word on who is aboard: a rider thrown from
+		-- the seat is put back by it, so the ride goes on
+		local isAboard = ClientDataManager:getCurrentPlayerAttribute(Attributes.RESCUE_IS_ABOARD) == true
+		if self.isRiding and not self.isHandingOff and not isAboard then
 			self:stopRide()
 		end
 		return
@@ -363,6 +405,7 @@ function ClientRescueCameraManager:onSeated(isSeated: boolean, seat: Instance?)
 	if state ~= Enums.RunState.RESCUE and state ~= Enums.RunState.WON then
 		return
 	end
+	self:setJumpingEnabled(false)
 	self:startRide(helicopter)
 end
 
@@ -407,6 +450,13 @@ function ClientRescueCameraManager:init()
 			else
 				self:startRideIfAboard()
 			end
+		end
+	)
+	-- the aboard flag can land a frame after the win it came with
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.RESCUE_IS_ABOARD,
+		function()
+			self:startRideIfAboard()
 		end
 	)
 end

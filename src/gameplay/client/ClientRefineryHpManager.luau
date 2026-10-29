@@ -149,6 +149,7 @@ function ClientRefineryHpManager:refreshAlarm()
 		return
 	end
 	local isUnderAttack = ClientDataManager:getGameMetadata(Attributes.REFINERY_UNDER_ATTACK) == true
+		and not self:isRescueLanded()
 	self.alarmGeneration += 1
 	local generation = self.alarmGeneration
 	if self.alarmTween then
@@ -175,18 +176,27 @@ function ClientRefineryHpManager:refreshAlarm()
 	)
 end
 
+-- once the rescue helicopter is on the pad the Refinery no longer
+-- matters (the server lets it fall without losing the run), so the bar
+-- and its alarm go (designer, 2026-10-28)
+function ClientRefineryHpManager:isRescueLanded(): boolean
+	return ClientDataManager:getGameMetadata(Attributes.RESCUE_IS_LANDED) == true
+end
+
 -- night brings the bar down once the day clock has gone up; dawn takes
--- it up at once, and the clock follows it down
+-- it up at once, and the clock follows it down; the landing takes it up
+-- at once too, the countdown climbing beside it
 function ClientRefineryHpManager:refreshShown(isInstant: boolean)
 	local slide = self.slide
 	if not slide then
 		return
 	end
 	local isNight = ClientDataManager:getGameMetadata(Attributes.IS_NIGHT) == true
+	local isShown = isNight and not self:isRescueLanded()
 	if isInstant then
-		slide:snap(isNight)
+		slide:snap(isShown)
 	else
-		slide:setShown(isNight, if isNight then UiStyle.HUD_SLIDE_SEC else 0)
+		slide:setShown(isShown, if isShown then UiStyle.HUD_SLIDE_SEC else 0)
 	end
 end
 
@@ -221,6 +231,13 @@ function ClientRefineryHpManager:init()
 	ClientDataManager:subscribeGameMetadataAttribute(
 		Attributes.REFINERY_UNDER_ATTACK,
 		function()
+			self:refreshAlarm()
+		end
+	)
+	ClientDataManager:subscribeGameMetadataAttribute(
+		Attributes.RESCUE_IS_LANDED,
+		function()
+			self:refreshShown(false)
 			self:refreshAlarm()
 		end
 	)

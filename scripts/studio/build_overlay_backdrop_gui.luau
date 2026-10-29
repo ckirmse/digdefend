@@ -9,6 +9,8 @@
 local StarterGui = game:GetService("StarterGui")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
+local Attributes = require(game.ReplicatedStorage.Shared.Attributes)
+
 ChangeHistoryService:SetWaypoint("Before OverlayBackdrop gui")
 
 local existing = StarterGui:FindFirstChild("OverlayBackdrop")
@@ -29,6 +31,9 @@ gui.Enabled = false
 
 local backdrop = Instance.new("TextButton")
 backdrop.Name = "Backdrop"
+-- silent: the shared button click is for a real button, never the
+-- backdrop a click outside a menu lands on (designer, 2026-10-28)
+backdrop:SetAttribute(Attributes.BUTTON_SOUND, "")
 backdrop.Size = UDim2.fromScale(1, 1)
 backdrop.BackgroundColor3 = Color3.new(0, 0, 0)
 backdrop.BackgroundTransparency = 1
