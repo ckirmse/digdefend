@@ -408,8 +408,8 @@ module = {
 		CAVE_SPIDER = 19,
 		-- the mine monsters of M68 (2026-10-26): the face on a block you
 		-- must not hit, and the unkillable chase that dies outside the mine
-		SEAM = 20,
-		DRAG = 21,
+		BLOCKFACE = 20,
+		CHASE = 21,
 
 		PublicNames = {
 			ZOMBIE_1 = "Zombie",
@@ -431,8 +431,8 @@ module = {
 			TITAN_1 = "Titan",
 			TITAN_2 = "Titan II",
 			CAVE_SPIDER = "Cave Spider",
-			SEAM = "Seam",
-			DRAG = "Drag",
+			BLOCKFACE = "Blockface",
+			CHASE = "Chase",
 		},
 	},
 	-- what a monster can attack (GDD "Monster Creation & Behavior"); every
@@ -454,7 +454,7 @@ module = {
 		-- walks any surface of the mine, cell to cell, with no gravity (M62)
 		CRAWL = 3,
 		-- floats through any open air cell of the mine, cell to cell, with
-		-- no gravity (M68, the Drag)
+		-- no gravity (M68, the Chase)
 		FLOAT = 4,
 	},
 	-- what a monster is doing, in its snapshot for the client's animation:

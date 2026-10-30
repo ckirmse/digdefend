@@ -26,8 +26,8 @@ export type ClientMonsterDevTools = typeof(setmetatable(
 		stressCountInput: any,
 		isPathVisible: boolean,
 		isLurkerSpawnsVisible: boolean,
-		isSeamLocationsVisible: boolean,
-		isDragPocketsVisible: boolean,
+		isBlockfaceLocationsVisible: boolean,
+		isChasePocketsVisible: boolean,
 		previewNightInput: any,
 	},
 	ClientMonsterDevTools
@@ -43,12 +43,12 @@ local PREVIEW_CURVE_COMMAND = "previewWaveCurve"
 local BALANCE_REPORT_COMMAND = "balanceReport"
 local SPAWN_LURKER_COMMAND = "spawnLurker"
 local SET_LURKER_SPAWNS_VISIBLE_COMMAND = "setLurkerSpawnsVisible"
-local SPAWN_SEAM_COMMAND = "spawnSeam"
-local WAKE_SEAMS_COMMAND = "wakeSeams"
-local SET_SEAM_LOCATIONS_VISIBLE_COMMAND = "setSeamLocationsVisible"
-local BREAK_SEAM_COMMAND = "breakSeam"
-local SPAWN_DRAG_COMMAND = "spawnDrag"
-local SET_DRAG_POCKETS_VISIBLE_COMMAND = "setDragPocketsVisible"
+local SPAWN_BLOCKFACE_COMMAND = "spawnBlockface"
+local WAKE_BLOCKFACES_COMMAND = "wakeBlockfaces"
+local SET_BLOCKFACE_LOCATIONS_VISIBLE_COMMAND = "setBlockfaceLocationsVisible"
+local BREAK_BLOCKFACE_COMMAND = "breakBlockface"
+local SPAWN_CHASE_COMMAND = "spawnChase"
+local SET_CHASE_POCKETS_VISIBLE_COMMAND = "setChasePocketsVisible"
 
 function ClientMonsterDevTools:send(command: string, args: { [string]: any })
 	ClientNetManager:fireServer(
@@ -84,28 +84,28 @@ function ClientMonsterDevTools:renderSection()
 			isVisible = self.isLurkerSpawnsVisible,
 		})
 	end
-	if Iris.Button({ "Spawn Seam on the nearest stone (in the mine)" }).clicked() then
-		self:send(SPAWN_SEAM_COMMAND, {} :: { [string]: any })
+	if Iris.Button({ "Spawn Blockface on the nearest stone (in the mine)" }).clicked() then
+		self:send(SPAWN_BLOCKFACE_COMMAND, {} :: { [string]: any })
 	end
-	if Iris.Button({ "Wake every sleeping Seam" }).clicked() then
-		self:send(WAKE_SEAMS_COMMAND, {} :: { [string]: any })
+	if Iris.Button({ "Wake every sleeping Blockface" }).clicked() then
+		self:send(WAKE_BLOCKFACES_COMMAND, {} :: { [string]: any })
 	end
-	if Iris.Button({ "Break the nearest Seam (as dynamite would)" }).clicked() then
-		self:send(BREAK_SEAM_COMMAND, {} :: { [string]: any })
+	if Iris.Button({ "Break the nearest Blockface (as dynamite would)" }).clicked() then
+		self:send(BREAK_BLOCKFACE_COMMAND, {} :: { [string]: any })
 	end
-	if Iris.Button({ "Spawn Drag ahead, hunting me (in the mine)" }).clicked() then
-		self:send(SPAWN_DRAG_COMMAND, {} :: { [string]: any })
+	if Iris.Button({ "Spawn Chase ahead, hunting me (in the mine)" }).clicked() then
+		self:send(SPAWN_CHASE_COMMAND, {} :: { [string]: any })
 	end
-	if Iris.Button({ if self.isDragPocketsVisible then "Hide Drag pockets" else "Show Drag pockets" }).clicked() then
-		self.isDragPocketsVisible = not self.isDragPocketsVisible
-		self:send(SET_DRAG_POCKETS_VISIBLE_COMMAND, {
-			isVisible = self.isDragPocketsVisible,
+	if Iris.Button({ if self.isChasePocketsVisible then "Hide Chase pockets" else "Show Chase pockets" }).clicked() then
+		self.isChasePocketsVisible = not self.isChasePocketsVisible
+		self:send(SET_CHASE_POCKETS_VISIBLE_COMMAND, {
+			isVisible = self.isChasePocketsVisible,
 		})
 	end
-	if Iris.Button({ if self.isSeamLocationsVisible then "Hide Seam locations" else "Show Seam locations" }).clicked() then
-		self.isSeamLocationsVisible = not self.isSeamLocationsVisible
-		self:send(SET_SEAM_LOCATIONS_VISIBLE_COMMAND, {
-			isVisible = self.isSeamLocationsVisible,
+	if Iris.Button({ if self.isBlockfaceLocationsVisible then "Hide Blockface locations" else "Show Blockface locations" }).clicked() then
+		self.isBlockfaceLocationsVisible = not self.isBlockfaceLocationsVisible
+		self:send(SET_BLOCKFACE_LOCATIONS_VISIBLE_COMMAND, {
+			isVisible = self.isBlockfaceLocationsVisible,
 		})
 	end
 	Iris.InputNum({ "Stress count", 50, 1, 500 }, { number = self.stressCountInput })
@@ -166,8 +166,8 @@ function ClientMonsterDevTools.new(): ClientMonsterDevTools
 	self.stressCountInput = nil
 	self.isPathVisible = false
 	self.isLurkerSpawnsVisible = false
-	self.isSeamLocationsVisible = false
-	self.isDragPocketsVisible = false
+	self.isBlockfaceLocationsVisible = false
+	self.isChasePocketsVisible = false
 	self.previewNightInput = Iris.State(1)
 	return self
 end

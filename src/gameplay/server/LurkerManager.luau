@@ -65,7 +65,7 @@ export type LurkerManager = typeof(setmetatable(
 	{} :: {
 		lurkerPockets: { LurkerPocket },
 		-- the indices into MineManager:getPockets() the spiders hold, so
-		-- another sleeper (the Drag, M68) picks elsewhere
+		-- another sleeper (the Chase, M68) picks elsewhere
 		heldPocketIndices: { [number]: boolean },
 		lurkerById: { [number]: Lurker },
 		random: Random,

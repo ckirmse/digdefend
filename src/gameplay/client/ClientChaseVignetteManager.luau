@@ -1,9 +1,9 @@
 --!strict
 
--- The dread of the Drag (M68, designer 2026-10-26): black edges that close
--- in on this player's screen as the nearest Drag nears them. Every frame
--- the DragVignette ScreenGui (StarterGui, four gradient edges built by
--- scripts/studio/build_drag_vignette_gui.luau) is set from the distance
+-- The dread of the Chase (M68, designer 2026-10-26): black edges that close
+-- in on this player's screen as the nearest Chase nears them. Every frame
+-- the ChaseVignette ScreenGui (StarterGui, four gradient edges built by
+-- scripts/studio/build_chase_vignette_gui.luau) is set from the distance
 -- ClientMonsterManager reports to the nearest drawn floater: nothing past
 -- FAR_STUDS, and at NEAR_STUDS the edges at their widest and their
 -- authored solidity. Nothing travels for this; the monster snapshots the
@@ -14,8 +14,8 @@ local RunService = game:GetService("RunService")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local ClientMonsterManager = require(script.Parent.ClientMonsterManager)
 
-local ClientDragVignetteManager = {}
-ClientDragVignetteManager.__index = ClientDragVignetteManager
+local ClientChaseVignetteManager = {}
+ClientChaseVignetteManager.__index = ClientChaseVignetteManager
 
 type Edge = {
 	frame: GuiObject,
@@ -26,12 +26,12 @@ type Edge = {
 	isVertical: boolean,
 }
 
-export type ClientDragVignetteManager = typeof(setmetatable(
+export type ClientChaseVignetteManager = typeof(setmetatable(
 	{} :: {
 		vignette: ScreenGui?,
 		edges: { Edge },
 	},
-	ClientDragVignetteManager
+	ClientChaseVignetteManager
 ))
 
 -- the distance the dread begins at, and the one it is complete at
@@ -44,11 +44,11 @@ local FAR_REACH_SHARE = 0.35
 -- still too much; the first values stand)
 local CLOSENESS_POWER = 1.6
 
-function ClientDragVignetteManager:findVignette()
+function ClientChaseVignetteManager:findVignette()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-	local gui = playerGui:WaitForChild(Constants.DRAG_VIGNETTE_GUI_NAME, Constants.GUI_WAIT_SEC)
+	local gui = playerGui:WaitForChild(Constants.CHASE_VIGNETTE_GUI_NAME, Constants.GUI_WAIT_SEC)
 	if not gui or not gui:IsA("ScreenGui") then
-		warn("ClientDragVignetteManager: no DragVignette ScreenGui; run scripts/studio/build_drag_vignette_gui.luau")
+		warn("ClientChaseVignetteManager: no ChaseVignette ScreenGui; run scripts/studio/build_chase_vignette_gui.luau")
 		return
 	end
 	gui.Enabled = false
@@ -66,7 +66,7 @@ function ClientDragVignetteManager:findVignette()
 end
 
 -- 0 past FAR_STUDS, 1 at NEAR_STUDS, curved so the last steps are the worst
-function ClientDragVignetteManager:closenessFor(distance: number): number
+function ClientChaseVignetteManager:closenessFor(distance: number): number
 	if distance >= FAR_STUDS then
 		return 0
 	end
@@ -74,7 +74,7 @@ function ClientDragVignetteManager:closenessFor(distance: number): number
 	return share ^ CLOSENESS_POWER
 end
 
-function ClientDragVignetteManager:apply(closeness: number)
+function ClientChaseVignetteManager:apply(closeness: number)
 	local vignette = self.vignette
 	if not vignette then
 		return
@@ -95,7 +95,7 @@ function ClientDragVignetteManager:apply(closeness: number)
 	end
 end
 
-function ClientDragVignetteManager:step()
+function ClientChaseVignetteManager:step()
 	local character = Players.LocalPlayer.Character
 	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
 	if not root or not root:IsA("BasePart") then
@@ -106,7 +106,7 @@ function ClientDragVignetteManager:step()
 	self:apply(if distance then self:closenessFor(distance) else 0)
 end
 
-function ClientDragVignetteManager:init()
+function ClientChaseVignetteManager:init()
 	self:findVignette()
 	RunService.Heartbeat:Connect(
 		function()
@@ -115,11 +115,11 @@ function ClientDragVignetteManager:init()
 	)
 end
 
-function ClientDragVignetteManager.new(): ClientDragVignetteManager
-	local self = setmetatable({}, ClientDragVignetteManager)
+function ClientChaseVignetteManager.new(): ClientChaseVignetteManager
+	local self = setmetatable({}, ClientChaseVignetteManager)
 	self.vignette = nil
 	self.edges = {}
 	return self
 end
 
-return ClientDragVignetteManager.new()
+return ClientChaseVignetteManager.new()

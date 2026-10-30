@@ -1,6 +1,6 @@
 --!strict
 
--- The Drag (M68, designed 2026-10-26, GDD "Monster Types": Drag; the name
+-- The Chase (M68, designed 2026-10-26, GDD "Monster Types": Chase; the name
 -- is a placeholder): the chase. COUNT of them sleep sealed in the deep
 -- pockets of zone MIN_ZONE_INDEX and deeper, one per pocket, drawn from
 -- the mine's seed. Opening the pocket wakes it; it hunts its waker through
@@ -13,7 +13,7 @@
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 
 return {
-	KIND = Enums.MonsterKind.DRAG,
+	KIND = Enums.MonsterKind.CHASE,
 	-- sleepers in every zone from MIN_ZONE_INDEX down (designer, 2026-10-26:
 	-- one in each of zones 3, 4, and 5, after three drawn from wherever)
 	COUNT_PER_ZONE = 1,
@@ -29,7 +29,7 @@ return {
 	-- the victim's recent cells kept as the trail, oldest dropped first
 	TRAIL_MAX_CELLS = 64,
 	TRAIL_SAMPLE_SEC = 0.25,
-	-- how long a woken Drag hangs in its room before the chase starts: the
+	-- how long a woken Chase hangs in its room before the chase starts: the
 	-- shriek, and the digger's one moment to turn and run (2026-10-26: with
 	-- no delay a wake killed the digger before their next step)
 	WAKE_DELAY_SEC = 1.5,
@@ -42,9 +42,9 @@ return {
 	SPEED_UNDER_VICTIM_STUDS_PER_SEC = 5,
 	-- a cell is reached within this of its centre
 	ARRIVE_STUDS = 0.5,
-	-- after a touch (the roster's DAMAGE) the Drag itself slows to this
+	-- after a touch (the roster's DAMAGE) the Chase itself slows to this
 	-- share of its speed for this long, the same length as the roster's
-	-- attack interval, so the victim has a window to run and the Drag is
+	-- attack interval, so the victim has a window to run and the Chase is
 	-- back to speed as its next touch is possible (designer, 2026-10-26:
 	-- the window is the point; slowing the player was the wrong way round)
 	RECOIL_SLOW_SHARE = 0.5,

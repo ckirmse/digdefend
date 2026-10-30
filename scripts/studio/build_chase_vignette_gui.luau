@@ -1,19 +1,19 @@
--- Rebuilds the "DragVignette" ScreenGui under StarterGui (M68, 2026-10-26):
--- the black edges that close in on the screen as the Drag nears, the
+-- Rebuilds the "ChaseVignette" ScreenGui under StarterGui (M68, 2026-10-26):
+-- the black edges that close in on the screen as the Chase nears, the
 -- StimVignette's shape in black and reaching further. Four frames, one per
 -- screen edge, each faded by a UIGradient from solid at the edge to clear
--- inward; ClientDragVignetteManager scales every frame's reach and
+-- inward; ClientChaseVignetteManager scales every frame's reach and
 -- transparency between nothing and these authored values by how close the
--- nearest Drag is, every frame. Covers the notch and home-bar areas like the
+-- nearest Chase is, every frame. Covers the notch and home-bar areas like the
 -- other full-screen effects, and sits under the hurt vignette. Run from the
 -- Studio command bar (or the MCP execute_luau tool) in the gameplay place;
--- it replaces any existing copy. Names must match Constants.DRAG_VIGNETTE_*.
+-- it replaces any existing copy. Names must match Constants.CHASE_VIGNETTE_*.
 local StarterGui = game:GetService("StarterGui")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
-ChangeHistoryService:SetWaypoint("Before DragVignette gui")
+ChangeHistoryService:SetWaypoint("Before ChaseVignette gui")
 
-local existing = StarterGui:FindFirstChild("DragVignette")
+local existing = StarterGui:FindFirstChild("ChaseVignette")
 if existing then
 	existing:Destroy()
 end
@@ -28,7 +28,7 @@ local EDGE_TRANSPARENCY = 0.05
 local EDGE_COLOR = Color3.new(0, 0, 0)
 
 local gui = Instance.new("ScreenGui")
-gui.Name = "DragVignette"
+gui.Name = "ChaseVignette"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.ScreenInsets = Enum.ScreenInsets.None
@@ -64,5 +64,5 @@ makeEdge("Left", Vector2.new(0, 0.5), UDim2.fromScale(0, 0.5), UDim2.fromScale(E
 makeEdge("Right", Vector2.new(1, 0.5), UDim2.fromScale(1, 0.5), UDim2.fromScale(EDGE_SHARE, 1), 180)
 
 gui.Parent = StarterGui
-ChangeHistoryService:SetWaypoint("After DragVignette gui")
-print("build_drag_vignette_gui: built StarterGui.DragVignette")
+ChangeHistoryService:SetWaypoint("After ChaseVignette gui")
+print("build_chase_vignette_gui: built StarterGui.ChaseVignette")

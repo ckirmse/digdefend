@@ -39,8 +39,8 @@ local MiningManager = require(script.Parent.MiningManager)
 local MiningStoreManager = require(script.Parent.MiningStoreManager)
 local OrePickupManager = require(script.Parent.OrePickupManager)
 local PlacementDevTools = require(script.Parent.PlacementDevTools)
-local DragManager = require(script.Parent.DragManager)
-local SeamManager = require(script.Parent.SeamManager)
+local ChaseManager = require(script.Parent.ChaseManager)
+local BlockfaceManager = require(script.Parent.BlockfaceManager)
 local PlacementManager = require(script.Parent.PlacementManager)
 local PostDevTools = require(script.Parent.PostDevTools)
 local PostManager = require(script.Parent.PostManager)
@@ -281,21 +281,21 @@ RunManager:subscribeRunStarted(
 		LurkerManager:onRunStarted()
 	end
 )
--- the Seams (M68): after the mine, whose grid they are seated in, and the
+-- the Blockfaces (M68): after the mine, whose grid they are seated in, and the
 -- mining manager, whose swings they intercept
-SeamManager:init()
+BlockfaceManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
-		SeamManager:onRunStarted()
+		BlockfaceManager:onRunStarted()
 	end
 )
--- the Drags (M68): after the lurkers, whose pockets they leave alone, the
+-- the Chases (M68): after the lurkers, whose pockets they leave alone, the
 -- monsters, whose stepper they take for their kind, and the dynamite,
 -- whose blasts stagger them
-DragManager:init()
+ChaseManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
-		DragManager:onRunStarted()
+		ChaseManager:onRunStarted()
 	end
 )
 -- the day and night loop: last, so every manager that reacts to a dawn or

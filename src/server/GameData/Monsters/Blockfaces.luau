@@ -1,6 +1,6 @@
 --!strict
 
--- The Seam (M68, designed 2026-10-26, GDD "Monster Types": Seam): the face
+-- The Blockface (M68, designed 2026-10-26, GDD "Monster Types": Blockface): the face
 -- in the rock that bursts. It never attacks; any swing breaks its block in
 -- one hit whatever the pick, and the break is the danger: the block bursts
 -- into smoke that does BURST_DAMAGE to every player within
@@ -18,7 +18,7 @@
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 
 return {
-	KIND = Enums.MonsterKind.SEAM,
+	KIND = Enums.MonsterKind.BLOCKFACE,
 	-- faces per mine (designer, 2026-10-26: 20 from zone 3 for the first
 	-- play, then 50 from zone 2 the same day)
 	COUNT = 50,

@@ -162,7 +162,7 @@ function DynamiteManager:explode(stick: BasePart, position: Vector3, thrower: Pl
 	for _, hitId in PostRules.findSplashHits(position, DynamiteData.MONSTER_BLAST_RADIUS_STUDS, DamageableManager:getHitBoxes()) do
 		DamageableManager:damage(hitId, DynamiteData.MONSTER_DAMAGE, thrower)
 	end
-	-- whoever else cares where a stick went off (the Drag's stagger, M68)
+	-- whoever else cares where a stick went off (the Chase's stagger, M68)
 	for _, handler in self.blastHandlers do
 		handler(position, DynamiteData.MONSTER_BLAST_RADIUS_STUDS)
 	end

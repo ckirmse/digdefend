@@ -6,7 +6,7 @@
 -- scripts/studio/build_hurt_vignette_gui.luau) in over FADE_IN_SEC and out
 -- over FADE_OUT_SEC. Health is read from the Humanoid the server lowers
 -- (ReviveManager is the one thing that changes it), so every source of
--- damage, a monster's bite or a Seam's burst, shows the same way with no
+-- damage, a monster's bite or a Blockface's burst, shows the same way with no
 -- message of its own; a rise in health (a revive, the Stim Shot) shows
 -- nothing. A second hit inside the fade starts it over.
 local Players = game:GetService("Players")

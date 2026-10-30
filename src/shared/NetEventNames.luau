@@ -49,21 +49,21 @@ module = {
 	-- every client: a block took damage (crack state) or broke (clear the cell)
 	NOTIFY_ROCK_DAMAGED = "NotifyRockDamaged",
 	NOTIFY_ROCK_BROKEN = "NotifyRockBroken",
-	-- the Seams (M68): every awake Seam's cells as one flat list, sent to
+	-- the Blockfaces (M68): every awake Blockface's cells as one flat list, sent to
 	-- everyone whenever a face wakes, steps, spreads, or dies, and to one
-	-- client that asks (once its mine has arrived; sleeping Seams never
+	-- client that asks (once its mine has arrived; sleeping Blockfaces never
 	-- travel, so no client learns where the rock bites)
-	NOTIFY_SEAMS = "NotifySeams",
-	-- a Seam just woke at this cell (after the list that holds it), so the
+	NOTIFY_BLOCKFACES = "NotifyBlockfaces",
+	-- a Blockface just woke at this cell (after the list that holds it), so the
 	-- clients play its wake sound from the block; a drift or spread is
 	-- only ever a list change
-	NOTIFY_SEAM_WOKEN = "NotifySeamWoken",
-	-- a Seam's block was broken (a swing, or dynamite) and burst, sent
+	NOTIFY_BLOCKFACE_WOKEN = "NotifyBlockfaceWoken",
+	-- a Blockface's block was broken (a swing, or dynamite) and burst, sent
 	-- before the list that no longer holds it, so the clients play the
 	-- block out (its laugh and smoke) instead of simply dropping it, and a
 	-- client whose player stands in the burst shoves them back
-	NOTIFY_SEAM_BROKEN = "NotifySeamBroken",
-	TRY_REQUEST_SEAMS = "TryRequestSeams",
+	NOTIFY_BLOCKFACE_BROKEN = "NotifyBlockfaceBroken",
+	TRY_REQUEST_BLOCKFACES = "TryRequestBlockfaces",
 	-- to one client: ore reached their backpack (from a break or a pickup)
 	-- with the world position it came from, so its icon flies into the HUD
 	-- backpack; the counts themselves arrive as attributes

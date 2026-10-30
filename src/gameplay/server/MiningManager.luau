@@ -51,7 +51,7 @@ function MiningManager:subscribeHit(handler: (player: Player, depth: number, hei
 	table.insert(self.hitHandlers, handler)
 end
 
--- the one hook before a swing lands (M68, the Seam): a validated swing at
+-- the one hook before a swing lands (M68, the Blockface): a validated swing at
 -- a cell is offered to the interceptor first, and a true answer means it
 -- was taken and the pick's own damage is never applied
 function MiningManager:setHitInterceptor(interceptor: ((player: Player, depth: number, height: number, width: number) -> boolean)?)
@@ -97,7 +97,7 @@ function MiningManager:handleHit(player: Player, depth: number, height: number, 
 	end
 	self.lastHitTimeByPlayer[player] = now
 
-	-- a swing at a Seam's block is the Seam's to answer (M68): the
+	-- a swing at a Blockface's block is the Blockface's to answer (M68): the
 	-- interceptor breaks the block itself and announces it, whatever the
 	-- pick's damage
 	local interceptor = self.hitInterceptor

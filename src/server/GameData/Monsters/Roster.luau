@@ -52,7 +52,7 @@ local DEATH_ANIMATION_ID = "rbxassetid://180436148"
 -- flyers hold the arms-up fall pose while they cruise (decided 2026-09-23)
 local FLYER_WALK_ANIMATION_ID = DEATH_ANIMATION_ID
 -- the clips above are R6 (the wave rigs are R6-jointed: "Right Shoulder");
--- the Drag is the designer's R15 rig (LeftHip, Waist, Neck), which those
+-- the Chase is the designer's R15 rig (LeftHip, Waist, Neck), which those
 -- clips cannot move (2026-10-26: the track played at full weight and no
 -- joint turned), so it takes Roblox's R15 walk, idle, and tool slash
 local R15_WALK_ANIMATION_ID = "rbxassetid://507777826"
@@ -473,15 +473,15 @@ return {
 				DEATH = { NAME = SoundNames.Sfx.CAVE_SPIDER_DIE, FULL_VOLUME_STUDS = 10, SILENT_STUDS = 40 },
 			},
 		},
-		-- the Seam (M68, 2026-10-26): the face in the rock that bursts.
-		-- Never a body and never in a wave: SeamManager holds it as grid
+		-- the Blockface (M68, 2026-10-26): the face in the rock that bursts.
+		-- Never a body and never in a wave: BlockfaceManager holds it as grid
 		-- cells, so no weapon reaches it; any swing breaks a block of it in
 		-- one hit and the break bursts on whoever stands close. The row
 		-- exists so the run report and the damage path can name the
 		-- attacker; DAMAGE is the burst (half of the base health; the manager
-		-- reads GameData/Monsters/Seams BURST_DAMAGE, which must match), and
+		-- reads GameData/Monsters/Blockfaces BURST_DAMAGE, which must match), and
 		-- nothing here moves or animates
-		[Enums.MonsterKind.SEAM] = {
+		[Enums.MonsterKind.BLOCKFACE] = {
 			DIFFICULTY_VALUE = 0,
 			MAX_HP = 1,
 			DAMAGE = 50,
@@ -500,18 +500,18 @@ return {
 			ATTACK_ANIMATION_ID = DEATH_ANIMATION_ID,
 			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
 		},
-		-- the Drag (M68, 2026-10-26; placeholder name): the chase. Three
+		-- the Chase (M68, 2026-10-26; the Drag until 2026-10-30): the hunt. Three
 		-- sleep sealed in deep pockets; woken, one hunts its waker through
 		-- the mine's open air at just under a fresh player's run (15 against
 		-- 16), cannot be hurt inside the mine, and dies on crossing the
-		-- mine's mouth (GameData/Monsters/Drags). A touch takes 30 of a
+		-- mine's mouth (GameData/Monsters/Chases). A touch takes 30 of a
 		-- player's base 100 health (designer, 2026-10-26: a kill on touch
-		-- was too brutal, then half) and the Drag itself slows for the
+		-- was too brutal, then half) and the Chase itself slows for the
 		-- interval, so the victim has that long to get clear before the
 		-- next touch is possible. Drawn as the designer's R15 rig with
 		-- Roblox's R15 walk, idle, and tool-slash clips (the Zombie's R6
 		-- clips were asked for and cannot move an R15 rig, 2026-10-26)
-		[Enums.MonsterKind.DRAG] = {
+		[Enums.MonsterKind.CHASE] = {
 			DIFFICULTY_VALUE = 0,
 			MAX_HP = 1,
 			DAMAGE = 30,
@@ -534,7 +534,7 @@ return {
 			-- its looping theme is a Sound on the template's root, played
 			-- and faded by the client with the body
 			SOUNDS = {
-				ALERT = { NAME = SoundNames.Sfx.DRAG_RELEASE, FULL_VOLUME_STUDS = 20, SILENT_STUDS = 160 },
+				ALERT = { NAME = SoundNames.Sfx.CHASE_RELEASE, FULL_VOLUME_STUDS = 20, SILENT_STUDS = 160 },
 			},
 		},
 	},

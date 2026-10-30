@@ -164,7 +164,7 @@ export type MonsterManager = typeof(setmetatable(
 		separationUsedKeys: { number },
 		-- steps every crawler each tick (LurkerManager, M62)
 		crawlStepper: ((monster: Monster, now: number, deltaSec: number) -> ())?,
-		-- a crawler kind with a stepper of its own (the Drag, M68) is stepped
+		-- a crawler kind with a stepper of its own (the Chase, M68) is stepped
 		-- by that instead
 		crawlSteppersByKind: { [number]: (monster: Monster, now: number, deltaSec: number) -> () },
 	},
@@ -478,7 +478,7 @@ function MonsterManager:killWave()
 	self:clearRefineryAttack()
 end
 
--- the mine's monsters (the crawlers: lurkers, Drags) go without a death
+-- the mine's monsters (the crawlers: lurkers, Chases) go without a death
 -- as the rescue call's INCOMING flash goes up (M75, designer): no death
 -- cry or fall, the clients fade them where they stand. Sent at once,
 -- since a day's tick has no other notifies to ride with
@@ -945,7 +945,7 @@ end
 
 function MonsterManager:stepMonster(monster: Monster, now: number, deltaSec: number)
 	if monster.isCrawler then
-		-- a kind with its own stepper (the Drag, M68) first, else the lurkers'
+		-- a kind with its own stepper (the Chase, M68) first, else the lurkers'
 		local stepper = self.crawlSteppersByKind[monster.kind] or self.crawlStepper
 		if stepper then
 			stepper(monster, now, deltaSec)

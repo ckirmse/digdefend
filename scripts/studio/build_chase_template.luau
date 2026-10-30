@@ -1,6 +1,6 @@
--- Builds the "DRAG" template under ReplicatedStorage/GameAssets/Monsters
+-- Builds the "CHASE" template under ReplicatedStorage/GameAssets/Monsters
 -- (M68, 2026-10-26) from the designer's rig: a Workspace model named
--- "Rig" (or ServerStorage.Sources.DragRig), an R15 character wearing the
+-- "Rig" (or ServerStorage.Sources.ChaseRig), an R15 character wearing the
 -- company Hard Hat with the red Eyes union welded to its Head and the
 -- Smoke emitter on its root, its face texture cleared. The template is a
 -- copy with no Humanoid or scripts (its Sounds stay; ClientMonsterManager animates
@@ -18,7 +18,7 @@ local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
 local Constants = require(ReplicatedStorage.Shared.Constants)
 
-local TEMPLATE_NAME = "DRAG"
+local TEMPLATE_NAME = "CHASE"
 
 local function findSource(): Model
 	local fromWorkspace = workspace:FindFirstChild("Rig")
@@ -26,12 +26,12 @@ local function findSource(): Model
 		return fromWorkspace
 	end
 	local sources = ServerStorage:FindFirstChild("Sources")
-	local fromSources = sources and sources:FindFirstChild("DragRig")
-	assert(fromSources and fromSources:IsA("Model"), "build_drag_template: no Workspace.Rig or ServerStorage.Sources.DragRig")
+	local fromSources = sources and sources:FindFirstChild("ChaseRig")
+	assert(fromSources and fromSources:IsA("Model"), "build_chase_template: no Workspace.Rig or ServerStorage.Sources.ChaseRig")
 	return fromSources
 end
 
-ChangeHistoryService:SetWaypoint("Before DRAG template")
+ChangeHistoryService:SetWaypoint("Before CHASE template")
 
 local source = findSource()
 local monsters = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER):FindFirstChild(Constants.MONSTER_TEMPLATES_FOLDER)
@@ -43,13 +43,13 @@ end
 local template = source:Clone()
 template.Name = TEMPLATE_NAME
 for _, descendant in template:GetDescendants() do
-	-- Sounds stay: the designer's MinerTheme loop on the root is the Drag's
+	-- Sounds stay: the designer's MinerTheme loop on the root is the Chase's
 	if descendant:IsA("Script") or descendant:IsA("LocalScript") or descendant:IsA("Humanoid") then
 		descendant:Destroy()
 	end
 end
 local root = template:FindFirstChild("HumanoidRootPart")
-assert(root and root:IsA("BasePart"), "build_drag_template: the rig has no HumanoidRootPart")
+assert(root and root:IsA("BasePart"), "build_chase_template: the rig has no HumanoidRootPart")
 template.PrimaryPart = root
 for _, descendant in template:GetDescendants() do
 	if descendant:IsA("BasePart") then
@@ -128,5 +128,5 @@ proxy.Massless = true
 proxy.Parent = template
 template.Parent = monsters
 
-ChangeHistoryService:SetWaypoint("After DRAG template")
-print("build_drag_template: built GameAssets." .. Constants.MONSTER_TEMPLATES_FOLDER .. "." .. TEMPLATE_NAME .. " from " .. source:GetFullName())
+ChangeHistoryService:SetWaypoint("After CHASE template")
+print("build_chase_template: built GameAssets." .. Constants.MONSTER_TEMPLATES_FOLDER .. "." .. TEMPLATE_NAME .. " from " .. source:GetFullName())

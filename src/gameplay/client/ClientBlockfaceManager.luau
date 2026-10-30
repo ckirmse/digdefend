@@ -1,24 +1,24 @@
 --!strict
 
--- The Seams as this client draws them (M68, GDD "Monster Types": Seam).
--- The server sends every awake Seam's cells (NotifySeams, the whole list,
+-- The Blockfaces as this client draws them (M68, GDD "Monster Types": Blockface).
+-- The server sends every awake Blockface's cells (NotifyBlockfaces, the whole list,
 -- a few dozen numbers) whenever one wakes, steps, spreads, or dies; this
 -- manager stands one clone of the designer's block model
--- (GameAssets/Monsters/SEAM: a 4x4x4 Rock with a face on every side) on
--- every such cell, pivoted to the cell's centre, so the Seam is the block.
+-- (GameAssets/Monsters/BLOCKFACE: a 4x4x4 Rock with a face on every side) on
+-- every such cell, pivoted to the cell's centre, so the Blockface is the block.
 -- The clone is scaled a hair past the block so it covers the rendered rock
 -- underneath, and none of its parts collide or answer a query, so a swing
 -- still lands on the rock part under it, which is the cell the server
--- judges. A Seam that just woke (NotifySeamWoken, sent after the list that holds
+-- judges. A Blockface that just woke (NotifyBlockfaceWoken, sent after the list that holds
 -- it) plays the Guh sound the designer authored under the model's Rock, from
 -- the standing clone, so the wake is heard where the face appeared.
--- A Seam block that was broken (NotifySeamBroken, sent before the list
+-- A Blockface block that was broken (NotifyBlockfaceBroken, sent before the list
 -- that no longer holds it) bursts rather than drops: its parts vanish with
 -- the rock, the Rock's Laugh plays and its Smoke emits for SMOKE_SEC, then
 -- the clone goes; and if this client's own player stands within the
 -- burst's radius they are shoved back down the tunnel (the client owns
 -- its character's physics, so a server-set velocity would be lost; the
--- server did the damage). Sleeping Seams never reach this client.
+-- server did the damage). Sleeping Blockfaces never reach this client.
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -28,18 +28,18 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
-local SeamRules = require("@game/ReplicatedStorage/Shared/SeamRules")
+local BlockfaceRules = require("@game/ReplicatedStorage/Shared/BlockfaceRules")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientMineManager = require(script.Parent.ClientMineManager)
 
-local ClientSeamManager = {}
-ClientSeamManager.__index = ClientSeamManager
+local ClientBlockfaceManager = {}
+ClientBlockfaceManager.__index = ClientBlockfaceManager
 
-export type ClientSeamManager = typeof(setmetatable(
+export type ClientBlockfaceManager = typeof(setmetatable(
 	{} :: {
-		cells: { SeamRules.Cell },
-		-- one standing clone per cell, by SeamRules.cellKey
+		cells: { BlockfaceRules.Cell },
+		-- one standing clone per cell, by BlockfaceRules.cellKey
 		blocksByKey: { [string]: Model },
 		changedCallbacks: { () -> () },
 		-- cells whose wake sound waits for their block to stand
@@ -53,18 +53,18 @@ export type ClientSeamManager = typeof(setmetatable(
 		hasWarnedBreakEffects: boolean,
 		isDirty: boolean,
 	},
-	ClientSeamManager
+	ClientBlockfaceManager
 ))
 
-local NOTIFY_SEAMS_SHAPE = {
+local NOTIFY_BLOCKFACES_SHAPE = {
 	cells = { type = "array", elementType = "nonnegativeInteger" },
 }
-local NOTIFY_SEAM_WOKEN_SHAPE = {
+local NOTIFY_BLOCKFACE_WOKEN_SHAPE = {
 	depth = "nonnegativeInteger",
 	height = "nonnegativeInteger",
 	width = "nonnegativeInteger",
 }
-local NOTIFY_SEAM_BROKEN_SHAPE = {
+local NOTIFY_BLOCKFACE_BROKEN_SHAPE = {
 	depth = "nonnegativeInteger",
 	height = "nonnegativeInteger",
 	width = "nonnegativeInteger",
@@ -72,7 +72,7 @@ local NOTIFY_SEAM_BROKEN_SHAPE = {
 	knockbackStuds = "positiveNumber",
 }
 
-local FOLDER_NAME = "Seams"
+local FOLDER_NAME = "Blockfaces"
 -- the designer's wake sound under the model's Rock part
 local WAKE_SOUND_NAME = "Guh"
 -- the designer's laugh and smoke under the Rock, for a cleared block
@@ -90,21 +90,21 @@ local COVER_SCALE = 1.015
 local KNOCKBACK_SPEED_PER_STUD = 2.5
 local KNOCKBACK_LIFT_STUDS_PER_SEC = 18
 
-function ClientSeamManager:findTemplate(): Model?
+function ClientBlockfaceManager:findTemplate(): Model?
 	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
 	local monsters = if gameAssets then gameAssets:FindFirstChild(Constants.MONSTER_TEMPLATES_FOLDER) else nil
-	local template = if monsters then monsters:FindFirstChild(Enums.getName(Enums.MonsterKind, Enums.MonsterKind.SEAM)) else nil
+	local template = if monsters then monsters:FindFirstChild(Enums.getName(Enums.MonsterKind, Enums.MonsterKind.BLOCKFACE)) else nil
 	if template and template:IsA("Model") and template.PrimaryPart then
 		return template
 	end
 	if not self.hasWarnedTemplate then
 		self.hasWarnedTemplate = true
-		warn(`ClientSeamManager: no SEAM model with a PrimaryPart under GameAssets.{Constants.MONSTER_TEMPLATES_FOLDER}`)
+		warn(`ClientBlockfaceManager: no BLOCKFACE model with a PrimaryPart under GameAssets.{Constants.MONSTER_TEMPLATES_FOLDER}`)
 	end
 	return nil
 end
 
-function ClientSeamManager:getFolder(): Folder
+function ClientBlockfaceManager:getFolder(): Folder
 	local folder = self.folder
 	if folder and folder.Parent then
 		return folder
@@ -116,7 +116,7 @@ function ClientSeamManager:getFolder(): Folder
 	return folder
 end
 
-function ClientSeamManager:makeBlock(template: Model, space: MineSpace.MineSpace, cell: SeamRules.Cell): Model
+function ClientBlockfaceManager:makeBlock(template: Model, space: MineSpace.MineSpace, cell: BlockfaceRules.Cell): Model
 	local block = template:Clone()
 	for _, descendant in block:GetDescendants() do
 		if descendant:IsA("BasePart") then
@@ -136,30 +136,30 @@ function ClientSeamManager:makeBlock(template: Model, space: MineSpace.MineSpace
 end
 
 -- stands a block on every awake cell and takes down the ones that left;
--- a cell that is still a Seam keeps its clone, so a drift moves one block
+-- a cell that is still a Blockface keeps its clone, so a drift moves one block
 -- and leaves the rest alone
--- whether an awake Seam stands on this cell, as drawn: what the mining HUD
+-- whether an awake Blockface stands on this cell, as drawn: what the mining HUD
 -- asks so the block under the aim can read as a mystery (designer, 2026-10-29)
-function ClientSeamManager:isSeamCell(depth: number, height: number, width: number): boolean
-	return self.blocksByKey[SeamRules.cellKey(depth, height, width)] ~= nil
+function ClientBlockfaceManager:isBlockfaceCell(depth: number, height: number, width: number): boolean
+	return self.blocksByKey[BlockfaceRules.cellKey(depth, height, width)] ~= nil
 end
 
--- called after every redraw, so a HUD reading isSeamCell can refresh when a
--- Seam wakes or breaks under the aim
-function ClientSeamManager:subscribeChanged(callback: () -> ())
+-- called after every redraw, so a HUD reading isBlockfaceCell can refresh when a
+-- Blockface wakes or breaks under the aim
+function ClientBlockfaceManager:subscribeChanged(callback: () -> ())
 	table.insert(self.changedCallbacks, callback)
 end
 
-function ClientSeamManager:redraw()
+function ClientBlockfaceManager:redraw()
 	self.isDirty = false
 	local space = ClientMineManager:getSpace()
 	local template = self:findTemplate()
 	if not space or not template then
 		return
 	end
-	local wanted: { [string]: SeamRules.Cell } = {}
+	local wanted: { [string]: BlockfaceRules.Cell } = {}
 	for _, cell in self.cells do
-		wanted[SeamRules.cellKey(cell.depth, cell.height, cell.width)] = cell
+		wanted[BlockfaceRules.cellKey(cell.depth, cell.height, cell.width)] = cell
 	end
 	for key, block in self.blocksByKey do
 		if not wanted[key] then
@@ -191,7 +191,7 @@ end
 -- the rock is gone, so the face goes with it: every part turns invisible,
 -- the laugh plays and the smoke runs its SMOKE_SEC, and the clone leaves
 -- once the laugh has had its time
-function ClientSeamManager:playBreak(block: Model)
+function ClientBlockfaceManager:playBreak(block: Model)
 	local rock = block.PrimaryPart
 	for _, descendant in block:GetDescendants() do
 		if descendant:IsA("BasePart") then
@@ -219,22 +219,22 @@ function ClientSeamManager:playBreak(block: Model)
 	end
 	if not sound and not smoke and not self.hasWarnedBreakEffects then
 		self.hasWarnedBreakEffects = true
-		warn(`ClientSeamManager: the SEAM model's Rock has neither a {BREAK_SOUND_NAME} Sound nor a {BREAK_SMOKE_NAME} emitter`)
+		warn(`ClientBlockfaceManager: the BLOCKFACE model's Rock has neither a {BREAK_SOUND_NAME} Sound nor a {BREAK_SMOKE_NAME} emitter`)
 	end
 	Debris:AddItem(block, BREAK_LIFETIME_SEC)
 end
 
-function ClientSeamManager:onSeamBroken(payload: any)
-	local isValid, errorMessage = Validate.isTableShape(payload, NOTIFY_SEAM_BROKEN_SHAPE)
+function ClientBlockfaceManager:onBlockfaceBroken(payload: any)
+	local isValid, errorMessage = Validate.isTableShape(payload, NOTIFY_BLOCKFACE_BROKEN_SHAPE)
 	if not isValid then
-		warn("ClientSeamManager: bad NotifySeamBroken payload:", errorMessage)
+		warn("ClientBlockfaceManager: bad NotifyBlockfaceBroken payload:", errorMessage)
 		return
 	end
-	self.pendingBrokenKeys[SeamRules.cellKey(payload.depth, payload.height, payload.width)] = true
+	self.pendingBrokenKeys[BlockfaceRules.cellKey(payload.depth, payload.height, payload.width)] = true
 	self:shoveLocalPlayer(payload.depth, payload.height, payload.width, payload.radiusStuds, payload.knockbackStuds)
 end
 
-function ClientSeamManager:playWake(block: Model)
+function ClientBlockfaceManager:playWake(block: Model)
 	local rock = block.PrimaryPart
 	local sound = if rock then rock:FindFirstChild(WAKE_SOUND_NAME) else nil
 	if sound and sound:IsA("Sound") then
@@ -242,34 +242,34 @@ function ClientSeamManager:playWake(block: Model)
 		sound:Play()
 	elseif not self.hasWarnedWakeSound then
 		self.hasWarnedWakeSound = true
-		warn(`ClientSeamManager: the SEAM model's Rock has no Sound named {WAKE_SOUND_NAME}`)
+		warn(`ClientBlockfaceManager: the BLOCKFACE model's Rock has no Sound named {WAKE_SOUND_NAME}`)
 	end
 end
 
 -- the list that holds the woken cell arrives first, so its block usually
 -- stands by the next heartbeat; the sound waits for it either way
-function ClientSeamManager:onSeamWoken(payload: any)
-	local isValid, errorMessage = Validate.isTableShape(payload, NOTIFY_SEAM_WOKEN_SHAPE)
+function ClientBlockfaceManager:onBlockfaceWoken(payload: any)
+	local isValid, errorMessage = Validate.isTableShape(payload, NOTIFY_BLOCKFACE_WOKEN_SHAPE)
 	if not isValid then
-		warn("ClientSeamManager: bad NotifySeamWoken payload:", errorMessage)
+		warn("ClientBlockfaceManager: bad NotifyBlockfaceWoken payload:", errorMessage)
 		return
 	end
-	self.pendingWakeKeys[SeamRules.cellKey(payload.depth, payload.height, payload.width)] = true
+	self.pendingWakeKeys[BlockfaceRules.cellKey(payload.depth, payload.height, payload.width)] = true
 	self.isDirty = true
 end
 
-function ClientSeamManager:onSeams(payload: any)
-	local isValid, errorMessage = Validate.isTableShape(payload, NOTIFY_SEAMS_SHAPE)
+function ClientBlockfaceManager:onBlockfaces(payload: any)
+	local isValid, errorMessage = Validate.isTableShape(payload, NOTIFY_BLOCKFACES_SHAPE)
 	if not isValid then
-		warn("ClientSeamManager: bad NotifySeams payload:", errorMessage)
+		warn("ClientBlockfaceManager: bad NotifyBlockfaces payload:", errorMessage)
 		return
 	end
-	self.cells = SeamRules.decodeCells(payload.cells)
+	self.cells = BlockfaceRules.decodeCells(payload.cells)
 	self.isDirty = true
 end
 
 -- the shove, for this client's player when they stand in the burst
-function ClientSeamManager:shoveLocalPlayer(depth: number, height: number, width: number, radiusStuds: number, knockbackStuds: number)
+function ClientBlockfaceManager:shoveLocalPlayer(depth: number, height: number, width: number, radiusStuds: number, knockbackStuds: number)
 	local space = ClientMineManager:getSpace()
 	local character = Players.LocalPlayer.Character
 	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
@@ -288,36 +288,36 @@ end
 
 -- the list can arrive before the mine has; the blocks stand once both are
 -- here, and the client asks for the list once it can place them
-function ClientSeamManager:step()
+function ClientBlockfaceManager:step()
 	if not ClientMineManager:getGrid() then
 		return
 	end
 	if not self.hasRequested then
 		self.hasRequested = true
-		ClientNetManager:fireServer(NetEventNames.TRY_REQUEST_SEAMS, {})
+		ClientNetManager:fireServer(NetEventNames.TRY_REQUEST_BLOCKFACES, {})
 	end
 	if self.isDirty then
 		self:redraw()
 	end
 end
 
-function ClientSeamManager:init()
+function ClientBlockfaceManager:init()
 	ClientNetManager:registerHandler(
-		NetEventNames.NOTIFY_SEAMS,
+		NetEventNames.NOTIFY_BLOCKFACES,
 		function(payload: any)
-			self:onSeams(payload)
+			self:onBlockfaces(payload)
 		end
 	)
 	ClientNetManager:registerHandler(
-		NetEventNames.NOTIFY_SEAM_WOKEN,
+		NetEventNames.NOTIFY_BLOCKFACE_WOKEN,
 		function(payload: any)
-			self:onSeamWoken(payload)
+			self:onBlockfaceWoken(payload)
 		end
 	)
 	ClientNetManager:registerHandler(
-		NetEventNames.NOTIFY_SEAM_BROKEN,
+		NetEventNames.NOTIFY_BLOCKFACE_BROKEN,
 		function(payload: any)
-			self:onSeamBroken(payload)
+			self:onBlockfaceBroken(payload)
 		end
 	)
 	RunService.Heartbeat:Connect(
@@ -327,8 +327,8 @@ function ClientSeamManager:init()
 	)
 end
 
-function ClientSeamManager.new(): ClientSeamManager
-	local self = setmetatable({}, ClientSeamManager)
+function ClientBlockfaceManager.new(): ClientBlockfaceManager
+	local self = setmetatable({}, ClientBlockfaceManager)
 	self.cells = {}
 	self.blocksByKey = {}
 	self.pendingWakeKeys = {}
@@ -343,4 +343,4 @@ function ClientSeamManager.new(): ClientSeamManager
 	return self
 end
 
-return ClientSeamManager.new()
+return ClientBlockfaceManager.new()

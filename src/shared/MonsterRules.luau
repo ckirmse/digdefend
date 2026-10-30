@@ -92,7 +92,7 @@ export type Visual = {
 	isAir: boolean,
 	-- clings to the mine's surfaces; the client orients it to its face
 	isCrawler: boolean,
-	-- floats through the mine's air (the Drag, M68): drawn facing the camera
+	-- floats through the mine's air (the Chase, M68): drawn facing the camera
 	isFloater: boolean,
 	walkAnimationId: string,
 	idleAnimationId: string?,

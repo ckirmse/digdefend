@@ -729,9 +729,9 @@ Constants.HEADSHOT_FOLDER = "HeadshotBonuses"
 -- the markers live in while they are shown
 Constants.SPIDER_SPAWN_BILLBOARD = "SpiderSpawn"
 Constants.SPIDER_SPAWN_MARKERS_FOLDER = "SpiderSpawnMarkers"
--- the Seams' dev markers (M68) reuse the spider billboard with its own text
-Constants.SEAM_MARKERS_FOLDER = "SeamMarkers"
-Constants.DRAG_MARKERS_FOLDER = "DragMarkers"
+-- the Blockfaces' dev markers (M68) reuse the spider billboard with its own text
+Constants.BLOCKFACE_MARKERS_FOLDER = "BlockfaceMarkers"
+Constants.CHASE_MARKERS_FOLDER = "ChaseMarkers"
 Constants.FLIGHT_ICON_IMAGE = "Icon"
 Constants.FLIGHT_ICON_FOLDER = "FlightIcons"
 -- the ore icon on each face of a ground pickup's plate (GameAssets/Gui/
@@ -1096,8 +1096,8 @@ Constants.TAG_FOLDER = "TagCallouts"
 Constants.STIM_VIGNETTE_GUI_NAME = "StimVignette"
 -- the red edge glow on a hit (2026-10-26), the Stim vignette's shape in red
 Constants.HURT_VIGNETTE_GUI_NAME = "HurtVignette"
--- the black edges that close in as the Drag nears (M68, 2026-10-26)
-Constants.DRAG_VIGNETTE_GUI_NAME = "DragVignette"
+-- the black edges that close in as the Chase nears (M68, 2026-10-26)
+Constants.CHASE_VIGNETTE_GUI_NAME = "ChaseVignette"
 -- the tool bar's grey cooldown sheet over a slot (build_tool_bar_gui)
 Constants.TOOL_SLOT_COOLDOWN_OVERLAY = "CooldownOverlay"
 -- the UIGradient on the sheet that hides its spent part, top to bottom

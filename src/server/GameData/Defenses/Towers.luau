@@ -199,7 +199,7 @@ return {
 		},
 		-- the Prospector's Drill Rig (GDD "Classes", 2026-10-22): no gun and
 		-- no BEHAVIOR, so TowerBehaviorManager never steps it; it drills the
-		-- seam under the camp into a stock, YIELD_PER_MINUTE of ore a minute
+		-- blockface under the camp into a stock, YIELD_PER_MINUTE of ore a minute
 		-- split by DRILL.RESOURCE_SHARES, up to STOCK_CAP, and stops until
 		-- someone collects it (anyone, within COLLECT_DISTANCE_STUDS, into
 		-- their backpack; what does not fit stays). It has HP, is attacked,

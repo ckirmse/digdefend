@@ -280,7 +280,7 @@ local LOOP_SPEED_MIN_CHANGE = 0.1
 local DEATH_HOLD_SEC = 1
 local DEATH_SINK_SEC = 0.6
 local DEATH_SINK_STUDS = 3
--- a floater (the Drag, M68) does not fall and sink: its body and its theme
+-- a floater (the Chase, M68) does not fall and sink: its body and its theme
 -- fade out over this long once it dies (at the mine's mouth, or with its
 -- victim), then the clone goes rather than back to its pool
 local FLOATER_FADE_SEC = 2
@@ -1201,7 +1201,7 @@ end
 
 -- the ground location of every monster drawn so far, for the Camp Map
 -- (M33); a monster whose first sample has not arrived is skipped
--- how far the nearest drawn floater (the Drag, M68) is from a position,
+-- how far the nearest drawn floater (the Chase, M68) is from a position,
 -- or nil with none drawn: the dread vignette's input
 function ClientMonsterManager:nearestFloaterDistance(position: Vector3): number?
 	local best: number? = nil

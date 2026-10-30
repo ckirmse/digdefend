@@ -35,7 +35,7 @@ local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManage
 local ClientCameraView = require(script.Parent.ClientCameraView)
 local ClientHeldToolManager = require(script.Parent.ClientHeldToolManager)
 local ClientMineManager = require(script.Parent.ClientMineManager)
-local ClientSeamManager = require(script.Parent.ClientSeamManager)
+local ClientBlockfaceManager = require(script.Parent.ClientBlockfaceManager)
 
 local ClientMiningManager = {}
 ClientMiningManager.__index = ClientMiningManager
@@ -105,8 +105,8 @@ local NOTIFY_ROCK_BROKEN_SHAPE = {
 	breakerUserId = "integer",
 }
 
--- the target label over a block an awake Seam covers (designer, 2026-10-29)
-local SEAM_TARGET_TEXT = "??????"
+-- the target label over a block an awake Blockface covers (designer, 2026-10-29)
+local BLOCKFACE_TARGET_TEXT = "??????"
 local DEFAULT_HIT_INTERVAL_SEC = 0.45
 local DEFAULT_REACH_STUDS = 12
 -- a touch must rest this long, moving less than this, before it is a hold
@@ -157,9 +157,9 @@ function ClientMiningManager:renderTargetLabel()
 	end
 	local cellIndex = (target.depth * grid.height + target.height) * grid.width + target.width + 1
 	local rock = grid.cells[cellIndex]
-	-- a block an awake Seam covers is a mystery to the label (designer,
+	-- a block an awake Blockface covers is a mystery to the label (designer,
 	-- 2026-10-29); every name reads in caps like a title
-	local name = if ClientSeamManager:isSeamCell(target.depth, target.height, target.width) then SEAM_TARGET_TEXT else (Enums.getPublicName(Enums.RockName, rock) or "Rock")
+	local name = if ClientBlockfaceManager:isBlockfaceCell(target.depth, target.height, target.width) then BLOCKFACE_TARGET_TEXT else (Enums.getPublicName(Enums.RockName, rock) or "Rock")
 	label.Text = UiStyle.formatTitle(name)
 	label.Visible = true
 	-- bedrock has no hp and so no bar; the fill turns red once the block is crumbling
@@ -498,7 +498,7 @@ function ClientMiningManager:readTuning()
 end
 
 function ClientMiningManager:init()
-	ClientSeamManager:subscribeChanged(
+	ClientBlockfaceManager:subscribeChanged(
 		function()
 			self:renderTargetLabel()
 		end

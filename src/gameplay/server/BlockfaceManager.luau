@@ -1,33 +1,33 @@
 --!strict
 
--- The Seams (GDD "Monster Types": Seam, M68): faces in the rock that
--- burst. A Seam is a small set of rock cells held here in Lua, never a
+-- The Blockfaces (GDD "Monster Types": Blockface, M68): faces in the rock that
+-- burst. A Blockface is a small set of rock cells held here in Lua, never a
 -- body: it is not registered in DamageableManager, so no weapon can touch
 -- it, and it is not a MonsterManager monster, so it never counts toward a
--- night and the Camp Map does not draw it. SeamsData.COUNT of them are
--- seated at run start from the mine's seed (pure SeamRules), each asleep
+-- night and the Camp Map does not draw it. BlockfacesData.COUNT of them are
+-- seated at run start from the mine's seed (pure BlockfaceRules), each asleep
 -- inside one stone cell. A cleared neighbour wakes one: from then on its
--- cells are published to every client (NOTIFY_SEAMS, the whole awake list,
+-- cells are published to every client (NOTIFY_BLOCKFACES, the whole awake list,
 -- small); it never moves or grows (the drift and the spread of the first
 -- design were cut on 2026-10-26). A swing at any of its cells is taken
 -- by MiningManager's interceptor and breaks the block outright, whatever
 -- the pick (designer, 2026-10-26: one hit, and the damage is the break,
--- not the swing). Every broken cell of an awake Seam, by a swing or by
+-- not the swing). Every broken cell of an awake Blockface, by a swing or by
 -- dynamite, bursts: MineManager's cell-cleared hook takes the cell off
--- the Seam, every player within BURST_RADIUS_STUDS is hurt through
--- ReviveManager with the Seam as the attacker (so the run report names
+-- the Blockface, every player within BURST_RADIUS_STUDS is hurt through
+-- ReviveManager with the Blockface as the attacker (so the run report names
 -- it), and the clients are told so they play the laugh and smoke and
--- shove whoever stood in it. A Seam with no cells is gone. Sleeping Seams
+-- shove whoever stood in it. A Blockface with no cells is gone. Sleeping Blockfaces
 -- never travel to a client.
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
-local SeamRules = require("@game/ReplicatedStorage/Shared/SeamRules")
+local BlockfaceRules = require("@game/ReplicatedStorage/Shared/BlockfaceRules")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local RockDefinitionsData = require("@game/ServerScriptService/GameData/Rocks/RockDefinitions")
-local SeamsData = require("@game/ServerScriptService/GameData/Monsters/Seams")
+local BlockfacesData = require("@game/ServerScriptService/GameData/Monsters/Blockfaces")
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local SpatialSoundManager = require(script.Parent.Parent.Server.SpatialSoundManager)
@@ -40,28 +40,28 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local SeamManager = {}
-SeamManager.__index = SeamManager
+local BlockfaceManager = {}
+BlockfaceManager.__index = BlockfaceManager
 
-type Cell = SeamRules.Cell
+type Cell = BlockfaceRules.Cell
 
-type Seam = {
+type Blockface = {
 	id: number,
 	cells: { Cell },
 	isAwake: boolean,
 	nextHumTime: number,
-	-- the dev tool's marker over a sleeping Seam while the locations are shown
+	-- the dev tool's marker over a sleeping Blockface while the locations are shown
 	marker: BasePart?,
 }
 
-export type SeamManager = typeof(setmetatable(
+export type BlockfaceManager = typeof(setmetatable(
 	{} :: {
-		seams: { Seam },
-		-- every held cell, awake or asleep, by SeamRules.cellKey
+		blockfaces: { Blockface },
+		-- every held cell, awake or asleep, by BlockfaceRules.cellKey
 		occupied: { [string]: boolean },
-		-- cells whose Seam woke since the last publish, announced after it
+		-- cells whose Blockface woke since the last publish, announced after it
 		wokenCells: { Cell },
-		-- cells of an awake Seam cleared since the last publish, announced
+		-- cells of an awake Blockface cleared since the last publish, announced
 		-- before it
 		brokenCells: { Cell },
 		random: Random,
@@ -69,47 +69,47 @@ export type SeamManager = typeof(setmetatable(
 		isLocationsVisible: boolean,
 		markersFolder: Folder?,
 	},
-	SeamManager
+	BlockfaceManager
 ))
 
-local MARKER_TEXT = "Seam"
+local MARKER_TEXT = "Blockface"
 local MARKER_COLOR = Color3.fromRGB(200, 90, 255)
 
-local TRY_REQUEST_SEAMS_SHAPE = {}
+local TRY_REQUEST_BLOCKFACES_SHAPE = {}
 
 local function isStone(rock: number): boolean
 	local definition = RockDefinitionsData.ROCKS[rock]
 	return definition ~= nil and definition.kind == Enums.RockKind.FILLER
 end
 
-function SeamManager:getAwakeCount(): number
+function BlockfaceManager:getAwakeCount(): number
 	local count = 0
-	for _, seam in self.seams do
-		if seam.isAwake then
+	for _, blockface in self.blockfaces do
+		if blockface.isAwake then
 			count += 1
 		end
 	end
 	return count
 end
 
-function SeamManager:getSeamCount(): number
-	return #self.seams
+function BlockfaceManager:getBlockfaceCount(): number
+	return #self.blockfaces
 end
 
-function SeamManager:findSeamAt(depth: number, height: number, width: number): (Seam?, number?)
-	if not self.occupied[SeamRules.cellKey(depth, height, width)] then
+function BlockfaceManager:findBlockfaceAt(depth: number, height: number, width: number): (Blockface?, number?)
+	if not self.occupied[BlockfaceRules.cellKey(depth, height, width)] then
 		return nil, nil
 	end
-	for _, seam in self.seams do
-		local index = SeamRules.indexOfCell(seam.cells, depth, height, width)
+	for _, blockface in self.blockfaces do
+		local index = BlockfaceRules.indexOfCell(blockface.cells, depth, height, width)
 		if index then
-			return seam, index
+			return blockface, index
 		end
 	end
 	return nil, nil
 end
 
-function SeamManager:cellCentre(cell: Cell): Vector3?
+function BlockfaceManager:cellCentre(cell: Cell): Vector3?
 	local space = MineManager:getSpace()
 	if not space then
 		return nil
@@ -117,36 +117,36 @@ function SeamManager:cellCentre(cell: Cell): Vector3?
 	return MineSpace.cellToWorld(space, cell.depth, cell.height, cell.width)
 end
 
--- every awake Seam's cells, flat, for the clients
-function SeamManager:encodeAwake(): { number }
+-- every awake Blockface's cells, flat, for the clients
+function BlockfaceManager:encodeAwake(): { number }
 	local cells: { Cell } = {}
-	for _, seam in self.seams do
-		if not seam.isAwake then
+	for _, blockface in self.blockfaces do
+		if not blockface.isAwake then
 			continue
 		end
-		for _, cell in seam.cells do
+		for _, cell in blockface.cells do
 			table.insert(cells, cell)
 		end
 	end
-	return SeamRules.encodeCells(cells)
+	return BlockfaceRules.encodeCells(cells)
 end
 
 -- the awake list, then the cells that woke since the last publish, so a
 -- client has the block before it is asked to play its wake sound
-function SeamManager:publish()
+function BlockfaceManager:publish()
 	for _, cell in self.brokenCells do
-		NetManager:notifyAllClients(NetEventNames.NOTIFY_SEAM_BROKEN, {
+		NetManager:notifyAllClients(NetEventNames.NOTIFY_BLOCKFACE_BROKEN, {
 			depth = cell.depth,
 			height = cell.height,
 			width = cell.width,
-			radiusStuds = SeamsData.BURST_RADIUS_STUDS,
-			knockbackStuds = SeamsData.BURST_KNOCKBACK_STUDS,
+			radiusStuds = BlockfacesData.BURST_RADIUS_STUDS,
+			knockbackStuds = BlockfacesData.BURST_KNOCKBACK_STUDS,
 		})
 	end
 	self.brokenCells = {}
-	NetManager:notifyAllClients(NetEventNames.NOTIFY_SEAMS, { cells = self:encodeAwake() })
+	NetManager:notifyAllClients(NetEventNames.NOTIFY_BLOCKFACES, { cells = self:encodeAwake() })
 	for _, cell in self.wokenCells do
-		NetManager:notifyAllClients(NetEventNames.NOTIFY_SEAM_WOKEN, {
+		NetManager:notifyAllClients(NetEventNames.NOTIFY_BLOCKFACE_WOKEN, {
 			depth = cell.depth,
 			height = cell.height,
 			width = cell.width,
@@ -155,42 +155,42 @@ function SeamManager:publish()
 	self.wokenCells = {}
 end
 
-function SeamManager:sendTo(player: Player)
-	NetManager:notifyClient(player, NetEventNames.NOTIFY_SEAMS, { cells = self:encodeAwake() })
+function BlockfaceManager:sendTo(player: Player)
+	NetManager:notifyClient(player, NetEventNames.NOTIFY_BLOCKFACES, { cells = self:encodeAwake() })
 end
 
 -- the dev tool's markers (M68, the spiders' pattern): an anchored
--- invisible part over every sleeping Seam's block carrying the spider
+-- invisible part over every sleeping Blockface's block carrying the spider
 -- billboard with its own text, so a tester can dig straight to one. A
--- marker goes when its Seam wakes. Server parts replicate to every
+-- marker goes when its Blockface wakes. Server parts replicate to every
 -- client, which is fine for a dev tool
-function SeamManager:getMarkersFolder(): Folder
+function BlockfaceManager:getMarkersFolder(): Folder
 	local folder = self.markersFolder
 	if folder and folder.Parent then
 		return folder
 	end
 	folder = Instance.new("Folder")
-	folder.Name = Constants.SEAM_MARKERS_FOLDER
+	folder.Name = Constants.BLOCKFACE_MARKERS_FOLDER
 	folder.Parent = workspace
 	self.markersFolder = folder
 	return folder
 end
 
-function SeamManager:findMarkerTemplate(): BillboardGui?
+function BlockfaceManager:findMarkerTemplate(): BillboardGui?
 	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
 	local guiFolder = if gameAssets then gameAssets:FindFirstChild(Constants.GUI_TEMPLATES_FOLDER) else nil
 	local template = if guiFolder then guiFolder:FindFirstChild(Constants.SPIDER_SPAWN_BILLBOARD) else nil
 	if not template or not template:IsA("BillboardGui") then
-		warn(`SeamManager: no {Constants.SPIDER_SPAWN_BILLBOARD} billboard under GameAssets/{Constants.GUI_TEMPLATES_FOLDER}; run build_spider_spawn_billboard.luau`)
+		warn(`BlockfaceManager: no {Constants.SPIDER_SPAWN_BILLBOARD} billboard under GameAssets/{Constants.GUI_TEMPLATES_FOLDER}; run build_spider_spawn_billboard.luau`)
 		return nil
 	end
 	return template
 end
 
-function SeamManager:placeMarker(seam: Seam)
-	local cell = seam.cells[1]
+function BlockfaceManager:placeMarker(blockface: Blockface)
+	local cell = blockface.cells[1]
 	local position = if cell then self:cellCentre(cell) else nil
-	if seam.marker or seam.isAwake or not position then
+	if blockface.marker or blockface.isAwake or not position then
 		return
 	end
 	local template = self:findMarkerTemplate()
@@ -215,27 +215,27 @@ function SeamManager:placeMarker(seam: Seam)
 	billboard.Adornee = marker
 	billboard.Parent = marker
 	marker.Parent = self:getMarkersFolder()
-	seam.marker = marker
+	blockface.marker = marker
 end
 
-function SeamManager:removeMarker(seam: Seam)
-	local marker = seam.marker
+function BlockfaceManager:removeMarker(blockface: Blockface)
+	local marker = blockface.marker
 	if marker then
 		marker:Destroy()
-		seam.marker = nil
+		blockface.marker = nil
 	end
 end
 
-function SeamManager:setLocationsVisible(isVisible: boolean)
+function BlockfaceManager:setLocationsVisible(isVisible: boolean)
 	self.isLocationsVisible = isVisible
 	if isVisible then
-		for _, seam in self.seams do
-			self:placeMarker(seam)
+		for _, blockface in self.blockfaces do
+			self:placeMarker(blockface)
 		end
 		return
 	end
-	for _, seam in self.seams do
-		self:removeMarker(seam)
+	for _, blockface in self.blockfaces do
+		self:removeMarker(blockface)
 	end
 	local folder = self.markersFolder
 	if folder then
@@ -244,37 +244,37 @@ function SeamManager:setLocationsVisible(isVisible: boolean)
 	end
 end
 
-function SeamManager:wake(seam: Seam, now: number)
-	self:removeMarker(seam)
-	seam.isAwake = true
-	seam.nextHumTime = now
-	local cell = seam.cells[1]
+function BlockfaceManager:wake(blockface: Blockface, now: number)
+	self:removeMarker(blockface)
+	blockface.isAwake = true
+	blockface.nextHumTime = now
+	local cell = blockface.cells[1]
 	if cell then
 		table.insert(self.wokenCells, cell)
 	end
 end
 
-function SeamManager:removeCell(seam: Seam, index: number)
-	local cell = table.remove(seam.cells, index)
+function BlockfaceManager:removeCell(blockface: Blockface, index: number)
+	local cell = table.remove(blockface.cells, index)
 	if cell then
-		self.occupied[SeamRules.cellKey(cell.depth, cell.height, cell.width)] = nil
+		self.occupied[BlockfaceRules.cellKey(cell.depth, cell.height, cell.width)] = nil
 	end
 end
 
-function SeamManager:removeSeam(seam: Seam)
-	self:removeMarker(seam)
-	for index = #seam.cells, 1, -1 do
-		self:removeCell(seam, index)
+function BlockfaceManager:removeBlockface(blockface: Blockface)
+	self:removeMarker(blockface)
+	for index = #blockface.cells, 1, -1 do
+		self:removeCell(blockface, index)
 	end
-	local position = table.find(self.seams, seam)
+	local position = table.find(self.blockfaces, blockface)
 	if position then
-		table.remove(self.seams, position)
+		table.remove(self.blockfaces, position)
 	end
 end
 
 -- the burst of a broken awake cell: every player standing in the smoke's
--- reach takes the damage, the Seam named as the attacker
-function SeamManager:burst(cell: Cell)
+-- reach takes the damage, the Blockface named as the attacker
+function BlockfaceManager:burst(cell: Cell)
 	local centre = self:cellCentre(cell)
 	if not centre then
 		return
@@ -282,31 +282,31 @@ function SeamManager:burst(cell: Cell)
 	for _, player in Players:GetPlayers() do
 		local character = player.Character
 		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
-		if root and root:IsA("BasePart") and (root.Position - centre).Magnitude <= SeamsData.BURST_RADIUS_STUDS then
-			ReviveManager:damagePlayer(player, SeamsData.BURST_DAMAGE, SeamsData.KIND)
+		if root and root:IsA("BasePart") and (root.Position - centre).Magnitude <= BlockfacesData.BURST_RADIUS_STUDS then
+			ReviveManager:damagePlayer(player, BlockfacesData.BURST_DAMAGE, BlockfacesData.KIND)
 		end
 	end
 	table.insert(self.brokenCells, cell)
 end
 
--- a cleared cell: a Seam's own cell bursts and goes (a swing or dynamite),
--- and any sleeping Seam whose face it uncovered wakes
-function SeamManager:onCellCleared(depth: number, height: number, width: number)
+-- a cleared cell: a Blockface's own cell bursts and goes (a swing or dynamite),
+-- and any sleeping Blockface whose face it uncovered wakes
+function BlockfaceManager:onCellCleared(depth: number, height: number, width: number)
 	local now = workspace:GetServerTimeNow()
 	local isChanged = false
-	local seam, index = self:findSeamAt(depth, height, width)
-	if seam and index then
-		if seam.isAwake then
+	local blockface, index = self:findBlockfaceAt(depth, height, width)
+	if blockface and index then
+		if blockface.isAwake then
 			self:burst({ depth = depth, height = height, width = width })
 		end
-		self:removeCell(seam, index)
-		if #seam.cells == 0 then
-			self:removeSeam(seam)
+		self:removeCell(blockface, index)
+		if #blockface.cells == 0 then
+			self:removeBlockface(blockface)
 		end
-		isChanged = isChanged or seam.isAwake
+		isChanged = isChanged or blockface.isAwake
 	end
-	for _, candidate in self.seams do
-		if not candidate.isAwake and SeamRules.isWokenBy(candidate.cells, depth, height, width) then
+	for _, candidate in self.blockfaces do
+		if not candidate.isAwake and BlockfaceRules.isWokenBy(candidate.cells, depth, height, width) then
 			self:wake(candidate, now)
 			isChanged = true
 		end
@@ -316,19 +316,19 @@ function SeamManager:onCellCleared(depth: number, height: number, width: number)
 	end
 end
 
--- a swing at an awake Seam's cell breaks the block in one hit, whatever
+-- a swing at an awake Blockface's cell breaks the block in one hit, whatever
 -- the pick: the clear runs the burst through the cell-cleared hook, and
 -- the clients are told the rock broke as for any break
-function SeamManager:onSwing(player: Player, depth: number, height: number, width: number): boolean
-	local seam = self:findSeamAt(depth, height, width)
-	if not seam or not seam.isAwake then
+function BlockfaceManager:onSwing(player: Player, depth: number, height: number, width: number): boolean
+	local blockface = self:findBlockfaceAt(depth, height, width)
+	if not blockface or not blockface.isAwake then
 		return false
 	end
 	self:breakCell(player, { depth = depth, height = height, width = width })
 	return true
 end
 
-function SeamManager:breakCell(breaker: Player, cell: Cell): boolean
+function BlockfaceManager:breakCell(breaker: Player, cell: Cell): boolean
 	local rock = MineManager:getRockAt(cell.depth, cell.height, cell.width)
 	if not rock or not MineManager:clearCell(cell.depth, cell.height, cell.width) then
 		return false
@@ -343,15 +343,15 @@ function SeamManager:breakCell(breaker: Player, cell: Cell): boolean
 	return true
 end
 
-function SeamManager:hum(seam: Seam)
-	local cell = seam.cells[1]
+function BlockfaceManager:hum(blockface: Blockface)
+	local cell = blockface.cells[1]
 	local centre = if cell then self:cellCentre(cell) else nil
 	if centre then
-		SpatialSoundManager:playAt(centre, SoundNames.Sfx.SEAM_HUM, SeamsData.HUM_FULL_VOLUME_STUDS, SeamsData.HUM_SILENT_STUDS)
+		SpatialSoundManager:playAt(centre, SoundNames.Sfx.BLOCKFACE_HUM, BlockfacesData.HUM_FULL_VOLUME_STUDS, BlockfacesData.HUM_SILENT_STUDS)
 	end
 end
 
-function SeamManager:step()
+function BlockfaceManager:step()
 	if not RunCycleManager:isRunOn() then
 		return
 	end
@@ -360,20 +360,20 @@ function SeamManager:step()
 		return
 	end
 	local now = workspace:GetServerTimeNow()
-	for _, seam in self.seams do
-		if not seam.isAwake then
+	for _, blockface in self.blockfaces do
+		if not blockface.isAwake then
 			continue
 		end
-		if now >= seam.nextHumTime then
-			seam.nextHumTime = now + SeamsData.HUM_INTERVAL_SEC
-			self:hum(seam)
+		if now >= blockface.nextHumTime then
+			blockface.nextHumTime = now + BlockfacesData.HUM_INTERVAL_SEC
+			self:hum(blockface)
 		end
 	end
 end
 
--- an awake Seam on the exposed stone cell nearest a position, for the dev
+-- an awake Blockface on the exposed stone cell nearest a position, for the dev
 -- panel; nil when none is within reach
-function SeamManager:spawnNear(position: Vector3, maxStuds: number): boolean
+function BlockfaceManager:spawnNear(position: Vector3, maxStuds: number): boolean
 	local grid = MineManager:getGrid()
 	local space = MineManager:getSpace()
 	if not grid or not space then
@@ -386,7 +386,7 @@ function SeamManager:spawnNear(position: Vector3, maxStuds: number): boolean
 	for depth = centreDepth - radius, centreDepth + radius do
 		for height = centreHeight - radius, centreHeight + radius do
 			for width = centreWidth - radius, centreWidth + radius do
-				if not SeamRules.isHoldable(grid, depth, height, width, isStone, self.occupied) or not SeamRules.isExposedRock(grid, depth, height, width) then
+				if not BlockfaceRules.isHoldable(grid, depth, height, width, isStone, self.occupied) or not BlockfaceRules.isExposedRock(grid, depth, height, width) then
 					continue
 				end
 				local distance = (MineSpace.cellToWorld(space, depth, height, width) - position).Magnitude
@@ -400,27 +400,27 @@ function SeamManager:spawnNear(position: Vector3, maxStuds: number): boolean
 	if not best then
 		return false
 	end
-	local seam = self:addSeam({ best })
-	self:wake(seam, workspace:GetServerTimeNow())
+	local blockface = self:addBlockface({ best })
+	self:wake(blockface, workspace:GetServerTimeNow())
 	self:publish()
 	return true
 end
 
--- clears the nearest awake Seam block within reach of a position, the
+-- clears the nearest awake Blockface block within reach of a position, the
 -- way a dynamite blast would, for the dev panel: the cell-cleared hook
--- then takes it off the Seam and the clients are told the rock broke
-function SeamManager:breakNearest(player: Player, position: Vector3, maxStuds: number): boolean
+-- then takes it off the Blockface and the clients are told the rock broke
+function BlockfaceManager:breakNearest(player: Player, position: Vector3, maxStuds: number): boolean
 	local space = MineManager:getSpace()
 	if not space then
 		return false
 	end
 	local best: Cell? = nil
 	local bestDistance = math.huge
-	for _, seam in self.seams do
-		if not seam.isAwake then
+	for _, blockface in self.blockfaces do
+		if not blockface.isAwake then
 			continue
 		end
-		for _, cell in seam.cells do
+		for _, cell in blockface.cells do
 			local distance = (MineSpace.cellToWorld(space, cell.depth, cell.height, cell.width) - position).Magnitude
 			if distance < bestDistance and distance <= maxStuds then
 				bestDistance = distance
@@ -434,13 +434,13 @@ function SeamManager:breakNearest(player: Player, position: Vector3, maxStuds: n
 	return self:breakCell(player, best)
 end
 
--- wakes every sleeping Seam, for the dev panel
-function SeamManager:wakeAll(): number
+-- wakes every sleeping Blockface, for the dev panel
+function BlockfaceManager:wakeAll(): number
 	local now = workspace:GetServerTimeNow()
 	local count = 0
-	for _, seam in self.seams do
-		if not seam.isAwake then
-			self:wake(seam, now)
+	for _, blockface in self.blockfaces do
+		if not blockface.isAwake then
+			self:wake(blockface, now)
 			count += 1
 		end
 	end
@@ -450,8 +450,8 @@ function SeamManager:wakeAll(): number
 	return count
 end
 
-function SeamManager:addSeam(cells: { Cell }): Seam
-	local seam: Seam = {
+function BlockfaceManager:addBlockface(cells: { Cell }): Blockface
+	local blockface: Blockface = {
 		id = self.nextId,
 		cells = cells,
 		isAwake = false,
@@ -460,14 +460,14 @@ function SeamManager:addSeam(cells: { Cell }): Seam
 	}
 	self.nextId += 1
 	for _, cell in cells do
-		self.occupied[SeamRules.cellKey(cell.depth, cell.height, cell.width)] = true
+		self.occupied[BlockfaceRules.cellKey(cell.depth, cell.height, cell.width)] = true
 	end
-	table.insert(self.seams, seam)
-	return seam
+	table.insert(self.blockfaces, blockface)
+	return blockface
 end
 
--- the first depth row of the first zone a Seam may lie in
-function SeamManager:minDepthForZone(zoneIndex: number): number?
+-- the first depth row of the first zone a Blockface may lie in
+function BlockfaceManager:minDepthForZone(zoneIndex: number): number?
 	local grid = MineManager:getGrid()
 	if not grid then
 		return nil
@@ -481,24 +481,24 @@ function SeamManager:minDepthForZone(zoneIndex: number): number?
 	return nil
 end
 
-function SeamManager:onRunStarted()
-	self.seams = {}
+function BlockfaceManager:onRunStarted()
+	self.blockfaces = {}
 	self.occupied = {}
 	self.wokenCells = {}
 	self.brokenCells = {}
 	self.nextId = 1
 	local grid = MineManager:getGrid()
 	local seed = MineManager:getSeed() or 0
-	local minDepth = self:minDepthForZone(SeamsData.MIN_ZONE_INDEX)
-	self.random = Random.new(seed + SeamsData.SEED_OFFSET + 1)
+	local minDepth = self:minDepthForZone(BlockfacesData.MIN_ZONE_INDEX)
+	self.random = Random.new(seed + BlockfacesData.SEED_OFFSET + 1)
 	if not grid or not minDepth then
-		warn("[SeamManager] no mine or no eligible zone: no Seams this run")
+		warn("[BlockfaceManager] no mine or no eligible zone: no Blockfaces this run")
 		self:publish()
 		return
 	end
-	local cells = SeamRules.pickSeamCells(grid, SeamsData.COUNT, Random.new(seed + SeamsData.SEED_OFFSET), minDepth, isStone, MineManager:getPockets())
+	local cells = BlockfaceRules.pickBlockfaceCells(grid, BlockfacesData.COUNT, Random.new(seed + BlockfacesData.SEED_OFFSET), minDepth, isStone, MineManager:getPockets())
 	for _, cell in cells do
-		self:addSeam({ cell })
+		self:addBlockface({ cell })
 	end
 	local folder = self.markersFolder
 	if folder then
@@ -509,13 +509,13 @@ function SeamManager:onRunStarted()
 		self:setLocationsVisible(true)
 	end
 	self:publish()
-	print(`[SeamManager] {#cells} Seams seated from block {minDepth} down ({SeamsData.COUNT} asked)`)
+	print(`[BlockfaceManager] {#cells} Blockfaces seated from block {minDepth} down ({BlockfacesData.COUNT} asked)`)
 end
 
-function SeamManager:getNetHandlers()
+function BlockfaceManager:getNetHandlers()
 	return {
-		[NetEventNames.TRY_REQUEST_SEAMS] = {
-			shape = TRY_REQUEST_SEAMS_SHAPE,
+		[NetEventNames.TRY_REQUEST_BLOCKFACES] = {
+			shape = TRY_REQUEST_BLOCKFACES_SHAPE,
 			handler = function(player: Player, _payload: { [string]: any })
 				self:sendTo(player)
 			end,
@@ -523,7 +523,7 @@ function SeamManager:getNetHandlers()
 	}
 end
 
-function SeamManager:init()
+function BlockfaceManager:init()
 	GameController:registerPlaceManager(self)
 	MiningManager:setHitInterceptor(
 		function(player: Player, depth: number, height: number, width: number)
@@ -542,9 +542,9 @@ function SeamManager:init()
 	)
 end
 
-function SeamManager.new(): SeamManager
-	local self = setmetatable({}, SeamManager)
-	self.seams = {}
+function BlockfaceManager.new(): BlockfaceManager
+	local self = setmetatable({}, BlockfaceManager)
+	self.blockfaces = {}
 	self.occupied = {}
 	self.wokenCells = {}
 	self.brokenCells = {}
@@ -555,4 +555,4 @@ function SeamManager.new(): SeamManager
 	return self
 end
 
-return SeamManager.new()
+return BlockfaceManager.new()
