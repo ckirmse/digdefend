@@ -54,6 +54,13 @@ All rules were agreed with the designer on 2026-10-28. Zones are counted 0–5 f
 - Ore that did not fit in the backpack is picked up on return within its 120 s lifetime.
 - Iron is never spent.
 
+**Boots** (added 2026-10-29)
+- Once the pick axe and the backpack are both at least 2 levels above the boots, the next boots level is bought before anything else.
+- If the player can't afford it yet, they save for it and buy nothing else until they have it.
+- Boots set the walk speed: 16 / 20 / 24 / 28 / 32 studs a second.
+- The backpack tops out at level 5, so the rule reaches boots level 4 at most.
+- `IS_BOOTS_RULE_ENABLED = false` turns the rule off. Before the rule, the player never bought boots.
+
 **After an upgrade**
 - The deepest line whose blocking stone is now under 7 hits is dug next.
 
@@ -83,42 +90,56 @@ All rules were agreed with the designer on 2026-10-28. Zones are counted 0–5 f
 | Input | Value | Source |
 |---|---|---|
 | Mine mouth to the refine ring | 48 studs | Studio pathfinder on the Deadman's Canyon map, 2026-10-28 |
-| Ring to the stands (pick / backpack / Geiger) | 34 / 73 / 61 studs | pathfinder |
-| Between stands (pick–backpack / pick–Geiger / backpack–Geiger) | 39 / 44 / 27 studs | pathfinder |
-| Stand back to the mouth (pick / backpack / Geiger) | 83 / 105 / 110 studs | pathfinder |
+| Ring to the stands (pick / backpack / boots / Geiger) | 34 / 73 / 64 / 61 studs | pathfinder (boots measured 2026-10-29) |
+| Between stands (pick–backpack / pick–boots / pick–Geiger / backpack–boots / backpack–Geiger / boots–Geiger) | 39 / 47 / 44 / 13 / 27 / 23 studs | pathfinder |
+| Stand back to the mouth (pick / backpack / boots / Geiger) | 83 / 105 / 113 / 110 studs | pathfinder |
 | Walking inside the mine | along the dug tunnels, 4 studs a block | the sim's own geometry |
 | Pocket stairs | 2 blocks of the zone's commonest stone per step | approximation |
 
 ## Latest results
 
-Run of 2026-10-28: spacing 3, 200 seeds, `main` at ec47bad. Figures are means, with p10–p90 in brackets.
+Run of 2026-10-29: spacing 3, 200 seeds, all rules on including boots. Figures are means, with p10–p90 in brackets.
 
-| Day | Gold | Iron | Uranium | Total gold | Total uranium | Pick / backpack / Geiger (median) |
+| Day | Gold | Iron | Uranium | Total gold | Total uranium | Pick / backpack / boots / Geiger (median) |
 |---|---|---|---|---|---|---|
-| 1 | 68 (48–96) | 66 | 0 | 68 | 0 | 2 / 2 / – |
-| 3 | 181 | 197 | 1 | 374 | 2 | 3 / 3 / – |
-| 5 | 270 | 367 | 3 | 905 | 7 | 4 / 4 / – |
-| 7 | 225 | 350 | 7 | 1396 | 19 (9–30) | 4 / 4 / 3 |
-| 9 | 287 | 387 | 8 | 1954 | 35 (20–49) | 4 / 5 / 3 |
-| 11 | 366 | 570 | 11 | 2671 | 56 (36–77) | 5 / 5 / 3 |
-| 13 | 435 | 641 | 12 | 3514 | 80 (59–101) | 5 / 5 / 4 |
-| 15 | 481 | 666 | 13 | 4484 (3458–5479) | 106 (82–130) | 5 / 5 / 4 |
+| 1 | 68 (48–96) | 66 | 0 | 68 | 0 | 2 / 2 / 1 / – |
+| 3 | 190 | 206 | 1 | 382 | 2 | 3 / 3 / 2 / – |
+| 5 | 312 | 411 | 3 | 976 | 7 | 4 / 4 / 3 / – |
+| 7 | 267 | 417 | 9 | 1538 | 23 (10–34) | 4 / 4 / 3 / 3 |
+| 9 | 341 | 454 | 10 | 2179 | 41 (26–55) | 4 / 5 / 3 / 3 |
+| 11 | 415 | 650 | 12 | 2987 | 64 (45–82) | 5 / 5 / 3 / 3 |
+| 13 | 496 | 797 | 14 | 3968 | 92 (68–112) | 5 / 5 / 4 / 4 |
+| 15 | 559 | 826 | 14 | 5074 (3946–6272) | 119 (98–143) | 5 / 5 / 4 / 4 |
 
 **The win**
-- Every seed refines the uranium target (35), on day 9.5 on average (p10 day 8, median day 9, p90 day 11).
-- The rescue call is day-only, so the rescue is won on night 10.3 on average (p10 9, median 10, p90 12).
+- Every seed refines the uranium target (35), on day 9.0 on average (p10 day 8, median day 9, p90 day 10).
+- The rescue call is day-only, so the rescue is won on night 9.6 on average (p10 8, median 10, p90 11).
 
 **Upgrades (median buy day)**
 
 | Upgrade | Level 2 | Level 3 | Level 4 | Level 5 | Level 6 |
 |---|---|---|---|---|---|
-| Pick axe | 1 | 3 | 5 | 11 | 15 (only 6% of seeds by day 15) |
+| Pick axe | 1 | 3 | 5 | 11 | 15 (14% of seeds by day 15) |
 | Backpack | 1 | 2 | 4 | 9 | — |
-| Geiger Counter | 6 | 6 | 13 (93% of seeds) | — | — |
+| Boots | 3 | 5 | 12 | never (the rule cannot reach it) | — |
+| Geiger Counter | 6 | 6 | 13 (95% of seeds) | — | — |
+
+**What the boots rule changed** (same seeds, rule off against rule on):
+
+| | Rule off | Rule on |
+|---|---|---|
+| Day 35 uranium is refined (mean) | 9.51 | **8.96** |
+| Night the rescue is won (mean) | 10.26 | **9.59** |
+| Total gold, day 15 | 4484 | **5074** (+13%) |
+| Total uranium, day 15 | 106 | **119** |
+| Pick 6 by day 15 | 6% | **14%** |
+
+- Boots cost 285 gold in all (35 + 70 + 180), and the saved walking pays that back many times over.
+- From day 3 on, walking drops by about 7–30 s a day: for example 78 s against 104 s on day 9, and 84 s against 114 s on day 15.
 
 **Time**
-- Walking takes 35–50% of every day before hunting starts.
-- From day 7, hunting takes about 230–245 s of each 320 s day.
+- Walking takes 40–50% of each day before hunting starts.
+- From day 7, hunting takes about 245–255 s of each 320 s day.
 
 **Stalls**
 - Pick 1 stops at depth about 23, on stone 3.
@@ -140,7 +161,7 @@ Run of 2026-10-28: spacing 3, 200 seeds, `main` at ec47bad. Figures are means, w
 
 **Uranium**
 - Without hunting, the sim mines about a third of the model's uranium, because the model assumes hunting by sound (URANIUM_SELECTIVITY 10).
-- With the Geiger hunt, the sim reaches the target around day 9.5. The model says day 9.
+- With the Geiger hunt and boots, the sim reaches the target around day 9.0. The model also says day 9, though it gets there with a different spending split (it puts 15% of gold into boots from the start).
 
 **Walking**
 - The model reserves 60 s of overhead a day plus short walks.
@@ -148,6 +169,6 @@ Run of 2026-10-28: spacing 3, 200 seeds, `main` at ec47bad. Figures are means, w
 
 ## Caveats
 
-- **Hunting efficiency.** Method B gives up on more rocks than it finds: about 13 against 9 per run. That is caused by the dial's coarse rings and by digging through stone 5 with pick 4. A sharper hunter would win sooner and lose less gold, so the day-9.5 figure is a cautious estimate.
+- **Hunting efficiency.** Method B gives up on more rocks than it finds: about 17 against 10 per run. That is caused by the dial's coarse rings and by digging through stone 5 with pick 4. A sharper hunter would win sooner and lose less gold, so the day-9 figure is a cautious estimate.
 - **Rough geometry.** Pocket stairs, the second band's stairs, and walks into hunt tunnels are approximations. Tunnel walks ignore shortcuts through pockets.
 - **Built-in checks.** The run fails loudly if a check breaks: each day's time adds to 320 s, ore is conserved, bedrock is never mined, and the same seed always gives the same result.

@@ -50,6 +50,10 @@
 --   same day). Hunt tunnels keep the stall rule; a rock that cannot be reached is
 --   given up and no longer chased. A hunt repeats while the dial stays lit,
 --   then the player walks back to the line
+-- * boots (designer, 2026-10-29): once the pick axe and the backpack are both
+--   BOOTS_LEVEL_GAP levels above the boots, the next boots level is bought
+--   before anything else, saving for it if it is not yet affordable; boots
+--   set the walk speed. Without the rule boots are never bought
 -- * once every line has reached the far bedrock, stairs at the entrance lead
 --   to a second band of the same lines BAND_ROWS higher (the only other
 --   band whose cross-cut fits inside the first zone); added during the run
@@ -102,6 +106,11 @@ local CONFIG = {
 	-- the most stone blocks cleared around the settled point before the rock
 	-- is given up
 	HUNT_CLEAR_CELLS = 25,
+	-- the boots rule (designer, 2026-10-29): once the pick axe and the
+	-- backpack are both this many levels above the boots, the next boots level
+	-- comes first, saved for if need be; false never buys boots
+	IS_BOOTS_RULE_ENABLED = true,
+	BOOTS_LEVEL_GAP = 2,
 }
 -- settings for one run without editing the file: set, for example,
 -- _G.SoloMiningSimConfig = { SEEDS = 50, STALL_HITS = 5 } before pasting;
@@ -117,14 +126,15 @@ end
 -- camp walks in studs, measured with PathfindingService on the Deadman's
 -- Canyon map (2026-10-28): the mine mouth to the edge of the refine ring,
 -- the ring to each stand, stand to stand (round the counter), and each
--- stand back to the mouth. A visit takes the stands in STAND_ORDER
+-- stand back to the mouth (the boots stand's walks measured 2026-10-29). A
+-- visit takes the stands in STAND_ORDER
 local CAMP = {
 	MOUTH_TO_RING = 48,
-	RING_TO_STAND = { pick = 34, pack = 73, geiger = 61 },
-	BETWEEN_STANDS = { pick = { pack = 39, geiger = 44 }, pack = { geiger = 27 } },
-	STAND_TO_MOUTH = { ring = 48, pick = 83, pack = 105, geiger = 110 },
+	RING_TO_STAND = { pick = 34, pack = 73, boots = 64, geiger = 61 },
+	BETWEEN_STANDS = { pick = { pack = 39, boots = 47, geiger = 44 }, pack = { boots = 13, geiger = 27 }, boots = { geiger = 23 } },
+	STAND_TO_MOUTH = { ring = 48, pick = 83, pack = 105, boots = 113, geiger = 110 },
 }
-local STAND_ORDER = { "pick", "pack", "geiger" }
+local STAND_ORDER = { "pick", "pack", "boots", "geiger" }
 
 local BLOCK_STUDS = 4
 -- a walk around the inside of a pocket while clearing it, in blocks
@@ -149,11 +159,12 @@ local function classModifier(modifier: number): number
 	return recruitModifiers[modifier] or 1
 end
 local SWING_SEC = PickAxeData.HIT_INTERVAL_SEC / classModifier(Enums.ClassModifier.MINING_SPEED)
-local WALK_SPEED = BootsData.WALK_SPEED_BY_LEVEL[1] * classModifier(Enums.ClassModifier.MOVE_SPEED)
+local MOVE_SPEED = classModifier(Enums.ClassModifier.MOVE_SPEED)
 local DAY_SEC = RunCycleData.DAY_SEC
 local PICK_PRICES = MiningSuppliesData.UPGRADES[Enums.StoreItem.PICK_AXE].priceByLevel
 local PACK_PRICES = MiningSuppliesData.UPGRADES[Enums.StoreItem.BACKPACK].priceByLevel
 local GEIGER_PRICES = MiningSuppliesData.UPGRADES[Enums.StoreItem.GEIGER_COUNTER].priceByLevel
+local BOOTS_PRICES = MiningSuppliesData.UPGRADES[Enums.StoreItem.BOOTS].priceByLevel
 
 local function stoneName(rock: number): string
 	return Enums.getName(Enums.RockName, rock) or tostring(rock)
@@ -240,6 +251,8 @@ local function simulateRun(seed: number, spacing: number, stallHits: number, tra
 	local pocketVisited: { [number]: boolean } = {}
 
 	local pick, pack = 1, 1
+	-- boots set the walk speed (GameData/Mining/Boots); level 1 is the default
+	local bootsLevel = 1
 	-- level 1 is not owning a Geiger Counter
 	local geigerLevel = 1
 	local isGeigerOnSale = false
@@ -269,7 +282,7 @@ local function simulateRun(seed: number, spacing: number, stallHits: number, tra
 	local buckets: { [string]: number } = {}
 	local dayRow
 	local rows = {}
-	local buyDays = { pick = {}, pack = {}, geiger = {} }
+	local buyDays = { pick = {}, pack = {}, boots = {}, geiger = {} }
 	local firstStallByPick = {}
 	local stuckEvents = 0
 	local uraniumDay: number? = nil
@@ -294,7 +307,7 @@ local function simulateRun(seed: number, spacing: number, stallHits: number, tra
 		t += seconds
 	end
 	local function walk(studs: number, bucket: string?)
-		spend(bucket or "walk", studs / WALK_SPEED)
+		spend(bucket or "walk", studs / (BootsData.WALK_SPEED_BY_LEVEL[bootsLevel] * MOVE_SPEED))
 	end
 	local function capacity(): number
 		return BackpackData.CAPACITY_BY_LEVEL[pack]
@@ -475,7 +488,10 @@ local function simulateRun(seed: number, spacing: number, stallHits: number, tra
 	end
 
 	-- the cheapest next rung while affordable (a tie goes to the pick axe,
-	-- then the backpack, then the Geiger Counter); returns the stands visited
+	-- then the backpack, then the Geiger Counter), except that boots come
+	-- first once the pick axe and the backpack both lead them by
+	-- BOOTS_LEVEL_GAP: then nothing else is bought until the boots are.
+	-- Returns the stands visited
 	local function shop(): { [string]: boolean }
 		local visited = {}
 		while true do
@@ -484,6 +500,14 @@ local function simulateRun(seed: number, spacing: number, stallHits: number, tra
 				{ item = "pack", price = PACK_PRICES[pack + 1] },
 				{ item = "geiger", price = if isGeigerOnSale then GEIGER_PRICES[geigerLevel + 1] else nil },
 			}
+			local bootsPrice = BOOTS_PRICES[bootsLevel + 1]
+			local isBootsDue = CONFIG.IS_BOOTS_RULE_ENABLED
+				and bootsPrice ~= nil
+				and pick - bootsLevel >= CONFIG.BOOTS_LEVEL_GAP
+				and pack - bootsLevel >= CONFIG.BOOTS_LEVEL_GAP
+			if isBootsDue then
+				options = { { item = "boots", price = bootsPrice } }
+			end
 			local best = nil
 			for _, option in options do
 				if option.price ~= nil and (best == nil or option.price < best.price) then
@@ -504,6 +528,9 @@ local function simulateRun(seed: number, spacing: number, stallHits: number, tra
 			elseif best.item == "pack" then
 				pack += 1
 				level = pack
+			elseif best.item == "boots" then
+				bootsLevel += 1
+				level = bootsLevel
 			else
 				geigerLevel += 1
 				level = geigerLevel
@@ -1222,7 +1249,7 @@ local function simulateRun(seed: number, spacing: number, stallHits: number, tra
 			counted += buckets[name] or 0
 		end
 		assert(math.abs(counted - DAY_SEC) < 1e-6, string.format("day %d time adds to %.3f, not %d", day, counted, DAY_SEC))
-		dayRow.pick, dayRow.pack, dayRow.geiger = pick, pack, geigerLevel
+		dayRow.pick, dayRow.pack, dayRow.boots, dayRow.geiger = pick, pack, bootsLevel, geigerLevel
 		dayRow.balance = goldBalance
 		dayRow.ironTotal, dayRow.uraniumTotal = ironTotal, uraniumTotal
 		dayRow.deepest, dayRow.lines = deepest, started
@@ -1300,14 +1327,15 @@ local function describe(runs, label: string): string
 		end
 		table.insert(out, string.format("%2d | %s | %s | %s | %s | %s | %s", day, fmt(stats(g)), fmt(stats(i)), fmt(stats(u)), fmt(stats(cg)), fmt(stats(ci)), fmt(stats(cu))))
 	end
-	table.insert(out, "day | pick p10/p50/p90 | backpack p10/p50/p90 | gold spent | gold left | deepest | lines | pockets | % in band 2")
+	table.insert(out, "day | pick p10/p50/p90 | backpack p10/p50/p90 | boots p10/p50/p90 | gold spent | gold left | deepest | lines | pockets | % in band 2")
 	for day = 1, CONFIG.DAYS do
-		local p, b, s, l, dp, ln, pk = {}, {}, {}, {}, {}, {}, {}
+		local p, b, bt, s, l, dp, ln, pk = {}, {}, {}, {}, {}, {}, {}, {}
 		local upperBand = 0
 		for _, run in runs do
 			local row = run.rows[day]
 			table.insert(p, row.pick)
 			table.insert(b, row.pack)
+			table.insert(bt, row.boots)
 			table.insert(s, row.spent)
 			table.insert(l, row.balance)
 			table.insert(dp, row.deepest)
@@ -1317,8 +1345,8 @@ local function describe(runs, label: string): string
 				upperBand += 1
 			end
 		end
-		local ps, bs = stats(p), stats(b)
-		table.insert(out, string.format("%2d | %d/%d/%d | %d/%d/%d | %s | %s | %s | %.1f | %.1f | %d%%", day, ps.p10, ps.p50, ps.p90, bs.p10, bs.p50, bs.p90, fmt(stats(s)), fmt(stats(l)), fmt(stats(dp)), stats(ln).mean, stats(pk).mean, math.floor(upperBand / #runs * 100 + 0.5)))
+		local ps, bs, bts = stats(p), stats(b), stats(bt)
+		table.insert(out, string.format("%2d | %d/%d/%d | %d/%d/%d | %d/%d/%d | %s | %s | %s | %.1f | %.1f | %d%%", day, ps.p10, ps.p50, ps.p90, bs.p10, bs.p50, bs.p90, bts.p10, bts.p50, bts.p90, fmt(stats(s)), fmt(stats(l)), fmt(stats(dp)), stats(ln).mean, stats(pk).mean, math.floor(upperBand / #runs * 100 + 0.5)))
 	end
 	table.insert(out, "day | mean seconds: swing stone | swing ore | hunt stone | walk | refine+shop | stuck | idle | stuck events (mean, % of seeds)")
 	for day = 1, CONFIG.DAYS do
@@ -1351,7 +1379,7 @@ local function describe(runs, label: string): string
 		table.insert(out, string.format("%2d | %d/%d/%d | %.1f | %.1f | %.1f | %.0f", day, ls.p10, ls.p50, ls.p90, stats(hunts).mean, stats(found).mean, stats(givenUp).mean, stats(seconds).mean))
 	end
 	table.insert(out, "upgrade | bought by day 15 | buy day p10/p50/p90 (geiger 2 is the counter itself)")
-	for _, entry in { { "pick", 2, 6 }, { "pack", 2, 5 }, { "geiger", 2, #GEIGER_PRICES } } do
+	for _, entry in { { "pick", 2, 6 }, { "pack", 2, 5 }, { "boots", 2, #BOOTS_PRICES }, { "geiger", 2, #GEIGER_PRICES } } do
 		for level = entry[2], entry[3] do
 			local daysBought = {}
 			for _, run in runs do
@@ -1361,7 +1389,7 @@ local function describe(runs, label: string): string
 				end
 			end
 			local s = stats(daysBought)
-			local itemName = ({ pick = "pick", pack = "backpack", geiger = "geiger" })[entry[1]]
+			local itemName = ({ pick = "pick", pack = "backpack", boots = "boots", geiger = "geiger" })[entry[1]]
 			table.insert(out, string.format("%s %d | %d%% | %s", itemName, level, math.floor(#daysBought / #runs * 100 + 0.5), if #daysBought > 0 then string.format("%d/%d/%d", s.p10, s.p50, s.p90) else "-"))
 		end
 	end

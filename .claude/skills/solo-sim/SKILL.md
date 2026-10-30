@@ -52,6 +52,7 @@ return _G.SoloMiningSimReport or "still running"
 | `IS_GEIGER_ENABLED` | true | false is the plain line digger with no Geiger Counter |
 | `GEIGER_BUY_ZONE` / `HUNT_FROM_ZONE` | 5 / 4 | zones counted 0–5 from the mouth: where the counter goes on sale, and where hunts start |
 | `HUNT_MAX_STEPS`, `HUNT_CLEAR_CELLS` | 10, 25 | limits on one hunt sweep and on the final dig around a rock |
+| `IS_BOOTS_RULE_ENABLED`, `BOOTS_LEVEL_GAP` | true, 2 | boots come first once the pick and backpack both lead them by this many levels; false never buys boots |
 | `SPACINGS` | `{ 3 }` | line spacing. Only spacing 3 is run (designer, 2026-10-28) |
 
 An unknown key stops the run with an error, so a typo never passes silently.
