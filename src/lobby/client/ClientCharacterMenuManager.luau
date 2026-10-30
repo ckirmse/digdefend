@@ -176,7 +176,7 @@ function ClientCharacterMenuManager:renderUnlockCard(view: View, order: number, 
 	local isAvailable = true
 	if offer.currency == Enums.SlotCurrency.DIAMONDS then
 		unlockLabel.Text = UiStyle.formatTitle(UNLOCK_TEXT)
-		priceLabel.Text = utils.abbreviateNumber(offer.diamonds or 0)
+		priceLabel.Text = utils.formatWithCommas(offer.diamonds or 0)
 		priceIcon.Image = Icons.UI.DIAMONDS
 		priceIcon.Visible = true
 	elseif (offer.productId or 0) ~= 0 then
@@ -205,7 +205,7 @@ function ClientCharacterMenuManager:render()
 	if not view or not self.isOpen then
 		return
 	end
-	view.diamondLabel.Text = utils.abbreviateNumber(ClientDataManager:getDiamonds())
+	view.diamondLabel.Text = utils.formatWithCommas(ClientDataManager:getDiamonds())
 	for _, child in view.cards:GetChildren() do
 		if child:IsA("GuiObject") and child ~= view.cardTemplate then
 			child:Destroy()

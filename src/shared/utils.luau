@@ -27,6 +27,21 @@ function utils.abbreviateNumber(n: number): string
 	return tostring(math.floor(n))
 end
 
+-- the whole number with a comma every three digits ("7,200"): Diamond
+-- balances and prices are shown in full, never abbreviated (designer,
+-- 2026-10-30, after 7,200 read as 7.20K)
+function utils.formatWithCommas(n: number): string
+	if n < 0 then
+		return "-" .. utils.formatWithCommas(-n)
+	end
+	local digits = tostring(math.floor(n))
+	local withCommas = digits:reverse():gsub("(%d%d%d)", "%1,"):reverse()
+	if withCommas:sub(1, 1) == "," then
+		withCommas = withCommas:sub(2)
+	end
+	return withCommas
+end
+
 function utils.convertDurationSecToString(duration: number): string
 	local days = duration // (3600 * 24)
 	local hours = (duration - days * 3600 * 24) // 3600

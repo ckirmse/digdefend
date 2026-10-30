@@ -187,6 +187,9 @@ module = {
 	PAD_MAX_PLAYERS = "PadMaxPlayers",
 	PAD_VISIBILITY = "PadVisibility",
 	PAD_PLAYER_COUNT = "PadPlayerCount",
+	-- the members' user ids in join order as JSON (PartyRules codec), the
+	-- host first, for the Queue Menu's crew slots (2026-10-30)
+	PAD_MEMBER_USER_IDS = "PadMemberUserIds",
 	-- server time (GetServerTimeNow) the active pad timer expires; 0 when none;
 	-- clients count down locally from it
 	PAD_TIMER_END_TIME = "PadTimerEndTime",

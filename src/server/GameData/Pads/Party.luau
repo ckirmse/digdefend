@@ -10,7 +10,10 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 -- PartyRules.validateConfig checks this table at lobby startup.
 return {
 	-- seconds a host has to press Create before the pad is released
-	CREATION_TIMEOUT_SEC = 30,
+	-- 30 until 2026-10-30; the Create Party menu no longer shows the
+	-- countdown, so the host gets two quiet minutes and the "Party creation
+	-- timed out" line when it runs out
+	CREATION_TIMEOUT_SEC = 120,
 	-- seconds after Create before the party auto-launches
 	BOARDING_TIMEOUT_SEC = 20,
 	-- countdown once the party is full
@@ -40,7 +43,8 @@ return {
 	MAPS = {
 		{
 			map = Enums.Map.DEADMANS_CANYON,
-			thumbnail = "rbxassetid://0",
+			-- the designer's picture (2026-10-30)
+			thumbnail = "rbxassetid://124908198823908",
 		},
 		{
 			map = Enums.Map.FROSTBITE_PASS,

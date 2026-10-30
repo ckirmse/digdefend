@@ -6,7 +6,7 @@
 -- waiting, then "<map> (<difficulty>)" once configured), Private (PRIVATE
 -- in red / PUBLIC in green, hidden until a party exists), Players
 -- (waiting/max); plus Configuring, a full-panel red line ("<host> is
--- setting up a run", designed on Pad1 2026-10-09) shown alone, the other
+-- creating a party", designed on Pad1 2026-10-09, reworded 2026-10-30) shown alone, the other
 -- three hidden, while a host sets the run up.
 local Workspace = game:GetService("Workspace")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
@@ -65,7 +65,8 @@ local function buildPadGui(guiPart: BasePart)
 	stroke.Parent = panel
 
 	local status = addLabel(panel, "Status", 0.05, 0.25, UiStyle.TITLE_FONT, UiStyle.formatTitle("Waiting for players..."))
-	status.TextColor3 = UiStyle.TEXT_MUTED_COLOR
+	-- the accent gold, as the designer set it in the Explorer (2026-10-30)
+	status.TextColor3 = UiStyle.ACCENT_COLOR
 
 	local private = addLabel(panel, "Private", 0.28, 0.15, UiStyle.BODY_BOLD_FONT, UiStyle.formatTitle("Public"))
 	private.TextColor3 = UiStyle.POSITIVE_COLOR
@@ -75,13 +76,19 @@ local function buildPadGui(guiPart: BasePart)
 
 	-- ported from the designer's Pad1 label: centred, nearly the whole
 	-- panel, wrapping rather than truncating so a long name still reads
-	local configuring = addLabel(panel, "Configuring", 0.5, 0.95, UiStyle.TITLE_FONT, UiStyle.formatTitle("DisplayName is setting up a run"))
+	local configuring = addLabel(panel, "Configuring", 0.5, 0.95, UiStyle.TITLE_FONT, UiStyle.formatTitle("DisplayName is creating a party"))
 	configuring.AnchorPoint = Vector2.new(0.5, 0.5)
 	configuring.Size = UDim2.fromScale(0.95, 0.95)
 	configuring.TextTruncate = Enum.TextTruncate.None
 	configuring.TextWrapped = true
-	configuring.TextColor3 = UiStyle.PAD_CONFIGURING_COLOR
+	configuring.TextColor3 = UiStyle.ACCENT_COLOR
 	configuring.Visible = false
+
+	-- the boarding countdown under the rest (designer, 2026-10-30): red,
+	-- shown by the client only while a party boards
+	local timer = addLabel(panel, "Timer", 0.8, 0.18, UiStyle.TITLE_FONT, UiStyle.formatTitle("Leaving in: 30s"))
+	timer.TextColor3 = Color3.fromRGB(255, 0, 0)
+	timer.Visible = false
 
 	gui.Parent = guiPart
 end

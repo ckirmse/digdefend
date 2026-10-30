@@ -139,8 +139,10 @@ title.Size = UDim2.fromScale(1, 0.07)
 title.Parent = dialog
 
 -- a carousel row: arrows either side of a picture (or name) with the lock
--- state and requirement text under it
-local function makeCarousel(name, order, heightScale, hasThumbnail)
+-- state and requirement text under it. hasArrows false leaves the arrows
+-- out (the map carousel while there is one map, designer 2026-10-30; the
+-- client steps a carousel only through arrows it finds)
+local function makeCarousel(name, order, heightScale, hasThumbnail, hasArrows)
 	local carousel = Instance.new("Frame")
 	carousel.Name = name
 	carousel.LayoutOrder = order
@@ -148,17 +150,19 @@ local function makeCarousel(name, order, heightScale, hasThumbnail)
 	carousel.BackgroundTransparency = 1
 	carousel.Parent = dialog
 
-	local previous = makeArrowButton(Constants.CAROUSEL_PREVIOUS_BUTTON, "<")
-	previous.AnchorPoint = Vector2.new(0, 0.5)
-	previous.Position = UDim2.fromScale(0, 0.4)
-	previous.Size = UDim2.fromScale(0.14, 0.3)
-	previous.Parent = carousel
+	if hasArrows then
+		local previous = makeArrowButton(Constants.CAROUSEL_PREVIOUS_BUTTON, "<")
+		previous.AnchorPoint = Vector2.new(0, 0.5)
+		previous.Position = UDim2.fromScale(0, 0.4)
+		previous.Size = UDim2.fromScale(0.14, 0.3)
+		previous.Parent = carousel
 
-	local nextButton = makeArrowButton(Constants.CAROUSEL_NEXT_BUTTON, ">")
-	nextButton.AnchorPoint = Vector2.new(1, 0.5)
-	nextButton.Position = UDim2.fromScale(1, 0.4)
-	nextButton.Size = UDim2.fromScale(0.14, 0.3)
-	nextButton.Parent = carousel
+		local nextButton = makeArrowButton(Constants.CAROUSEL_NEXT_BUTTON, ">")
+		nextButton.AnchorPoint = Vector2.new(1, 0.5)
+		nextButton.Position = UDim2.fromScale(1, 0.4)
+		nextButton.Size = UDim2.fromScale(0.14, 0.3)
+		nextButton.Parent = carousel
+	end
 
 	local thumbnail = Instance.new("ImageLabel")
 	thumbnail.Name = Constants.CAROUSEL_THUMBNAIL
@@ -200,8 +204,8 @@ local function makeCarousel(name, order, heightScale, hasThumbnail)
 	return carousel
 end
 
-makeCarousel(Constants.CREATE_PARTY_MAP_CAROUSEL, 2, 0.27, true)
-makeCarousel(Constants.CREATE_PARTY_DIFFICULTY_CAROUSEL, 3, 0.15, false)
+makeCarousel(Constants.CREATE_PARTY_MAP_CAROUSEL, 2, 0.27, true, false)
+makeCarousel(Constants.CREATE_PARTY_DIFFICULTY_CAROUSEL, 3, 0.15, false, true)
 
 -- players stepper: label, minus, value, plus
 local stepper = Instance.new("Frame")
@@ -236,36 +240,65 @@ plus.Position = UDim2.fromScale(0.86, 0.5)
 plus.Size = UDim2.fromScale(0.14, 1)
 plus.Parent = stepper
 
--- visibility toggle: one button whose state label reads Off / On
+-- visibility toggle (ported from the designer's live row, 2026-10-30): a
+-- label and a pill-shaped switch button whose round Switch knob the client
+-- slides between the invisible SwitchOff and SwitchOn marker frames, the
+-- track red when off and green when on (an Off / On state label before)
+local toggleRow = Instance.new("Frame")
+toggleRow.Name = Constants.CREATE_PARTY_FRIENDS_ONLY_ROW
+toggleRow.LayoutOrder = 5
+toggleRow.Size = UDim2.fromScale(1, 0.09)
+toggleRow.BackgroundTransparency = 1
+toggleRow.Parent = dialog
+
+local toggleLabel = makeLabel("Label", "Friends Only", UiStyle.BODY_BOLD_FONT, UiStyle.TEXT_COLOR, UiStyle.BODY_TEXT_MIN_PX, 26)
+toggleLabel.AnchorPoint = Vector2.new(0, 0.5)
+toggleLabel.Position = UDim2.fromScale(0, 0.5)
+toggleLabel.Size = UDim2.fromScale(0.5, 0.8)
+toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+toggleLabel.Parent = toggleRow
+
 local toggle = Instance.new("TextButton")
 toggle.Name = Constants.CREATE_PARTY_FRIENDS_ONLY_TOGGLE
-toggle.LayoutOrder = 5
-toggle.Size = UDim2.fromScale(1, 0.08)
-toggle.BackgroundColor3 = UiStyle.EMPTY_SLOT_COLOR
+toggle.AnchorPoint = Vector2.new(1, 0.5)
+toggle.Position = UDim2.fromScale(1, 0.5)
+toggle.Size = UDim2.fromScale(0.6, 0.7)
+toggle.BackgroundColor3 = UiStyle.TOGGLE_OFF_COLOR
 toggle.BorderSizePixel = 0
 toggle.Text = ""
 toggle.AutoButtonColor = true
-toggle.Parent = dialog
-addCorner(toggle)
+toggle.Parent = toggleRow
+addTextSizeBounds(toggle, UiStyle.BODY_TEXT_MIN_PX, 34)
+addAspect(toggle, 2.73)
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(1, 0)
+toggleCorner.Parent = toggle
+local toggleStroke = Instance.new("UIStroke")
+toggleStroke.Thickness = 2
+toggleStroke.Color = Color3.new(0, 0, 0)
+toggleStroke.Parent = toggle
 
-local toggleLabel = makeLabel("Label", "Friends Only", UiStyle.BODY_BOLD_FONT, UiStyle.TEXT_COLOR, UiStyle.BODY_TEXT_MIN_PX, UiStyle.BODY_TEXT_MAX_PX)
-toggleLabel.AnchorPoint = Vector2.new(0, 0.5)
-toggleLabel.Position = UDim2.fromScale(0.04, 0.5)
-toggleLabel.Size = UDim2.fromScale(0.6, 0.7)
-toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
-toggleLabel.Parent = toggle
+local function makeSwitchFrame(name, xScale, isVisible)
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.Position = UDim2.fromScale(xScale, 0)
+	frame.Size = UDim2.fromScale(0.4, 1)
+	frame.BackgroundColor3 = Color3.fromRGB(68, 68, 68)
+	frame.BackgroundTransparency = if isVisible then 0 else 1
+	frame.BorderSizePixel = 0
+	frame.Parent = toggle
+	return frame
+end
+local switch = makeSwitchFrame(Constants.TOGGLE_SWITCH, 0, true)
+addAspect(switch, 1)
+local switchCorner = Instance.new("UICorner")
+switchCorner.CornerRadius = UDim.new(1, 0)
+switchCorner.Parent = switch
+makeSwitchFrame(Constants.TOGGLE_SWITCH_OFF, 0, false)
+makeSwitchFrame(Constants.TOGGLE_SWITCH_ON, 0.64, false)
 
-local toggleState = makeLabel(Constants.TOGGLE_STATE_LABEL, UiStyle.formatTitle("Off"), UiStyle.TITLE_FONT, UiStyle.TEXT_MUTED_COLOR, UiStyle.BODY_TEXT_MIN_PX, UiStyle.BODY_TEXT_MAX_PX)
-toggleState.AnchorPoint = Vector2.new(1, 0.5)
-toggleState.Position = UDim2.fromScale(0.96, 0.5)
-toggleState.Size = UDim2.fromScale(0.3, 0.7)
-toggleState.TextXAlignment = Enum.TextXAlignment.Right
-toggleState.Parent = toggle
-
-local countdown = makeLabel(Constants.CREATE_PARTY_COUNTDOWN_LABEL, "Cancelling in 30 seconds", UiStyle.BODY_FONT, UiStyle.NEGATIVE_COLOR, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.BODY_TEXT_MAX_PX)
-countdown.LayoutOrder = 6
-countdown.Size = UDim2.fromScale(1, 0.05)
-countdown.Parent = dialog
+-- no countdown label (designer, 2026-10-30): the creation timer runs on
+-- silently and the client shows the countdown only if the label exists
 
 local create = makeButton(Constants.CREATE_PARTY_CREATE_BUTTON, "Create")
 create.LayoutOrder = 7

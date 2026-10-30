@@ -73,18 +73,31 @@ root.Size = UDim2.fromScale(1, 1)
 root.BackgroundTransparency = 1
 root.Parent = billboard
 
+-- the designer's dark picture plate behind the title (ported from the live
+-- instance 2026-10-30; the title's stroke went with it)
+local background = Instance.new("ImageLabel")
+background.Name = Constants.FORTIFICATION_BACKGROUND
+background.Position = UDim2.fromScale(0, 0)
+background.Size = UDim2.fromScale(1, 0.32)
+background.BackgroundTransparency = 1
+background.Image = "rbxassetid://99484338119365"
+background.ImageColor3 = Color3.new(0, 0, 0)
+background.ImageTransparency = 0.26
+background.ScaleType = Enum.ScaleType.Slice
+background.SliceCenter = Rect.new(238, 207, 284, 278)
+background.Parent = root
+
 local title = Instance.new("TextLabel")
 title.Name = Constants.FORTIFICATION_TITLE_LABEL
 title.Position = UDim2.fromScale(0, 0)
-title.Size = UDim2.fromScale(1, 0.32)
+title.Size = UDim2.fromScale(1, 1)
 title.BackgroundTransparency = 1
 title.Text = UiStyle.formatTitle("Fortifications Level 1")
 title.TextColor3 = UiStyle.ACCENT_COLOR
 title.TextScaled = true
 title.FontFace = UiStyle.TITLE_FONT
 addTextSizeBounds(title, UiStyle.BODY_TEXT_MIN_PX, 60)
-addStroke(title, UiStyle.ACCENT_STROKE_COLOR, UiStyle.STROKE_PX)
-title.Parent = root
+title.Parent = background
 
 local bar = Instance.new("Frame")
 bar.Name = Constants.FORTIFICATION_BAR

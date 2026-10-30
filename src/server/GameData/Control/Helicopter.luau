@@ -42,5 +42,6 @@ return {
 	DEPARTURE_DISTANCE_STUDS = 1960,
 	DEPARTURE_HEIGHT_STUDS = 350,
 	DEPARTURE_NOSE_DOWN_DEGREES = 10,
-	DEPARTURE_BANK_DEGREES = 22,
+	-- the departure's turn to its heading is a hovering one over the lift
+	-- (designer, 2026-10-30; the bank into the lean's turn went with it)
 }

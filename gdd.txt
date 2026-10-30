@@ -52,7 +52,7 @@ Helicopter Pads – Party Creation/Teleports
 * All 6 pads are identical. A pad is not tied to a map or difficulty. The first player onto an idle pad becomes the party host and configures the run (map, difficulty, party size, visibility). This is modelled on Dead Rails' Create Party flow, without join-by-code. Adding a map or difficulty later means adding it to the party config, not building a pad.
 * Every Helicopter Pad has a Helicopter sitting on it when the server initializes (cloned from ReplicatedStorage.GameAssets.Helicopter onto HelicopterSpawn). Its rotor spins (client-side) from Create until the pad returns to Idle. The Helicopter sound rides on every helicopter as a 3D emitter and each client plays it from the first turn of the rotor until the blades are still again or the model is destroyed (decided 2026-09-16), so the sound and the blades always agree.
 * Every Helicopter Pad has a billboard gui at its entrance with three labels (decided 2026-09-11):
-   * Status: Idle "WAITING FOR PLAYERS...", Boarding "<MAP> (<DIFFICULTY>)" (since 2026-10-09; "Starts in: X" before, the countdown left the billboard that day), Departing "DEPARTING". While Configuring none of the three labels shows: a fourth label, Configuring, fills the panel alone in red with "<DISPLAYNAME> IS SETTING UP A RUN" (designed on Pad1, 2026-10-09). Every label is ALL CAPS
+   * Status: Idle "WAITING FOR PLAYERS...", Boarding "<MAP> (<DIFFICULTY>)" (since 2026-10-09; "Starts in: X" before, the countdown left the billboard that day), Departing "DEPARTING" in red. The waiting line and the run's name are in the accent gold (designer, 2026-10-30; grey and white before). The sign fades out over a second as the helicopter lifts off and fades back in, reset, when the next helicopter stands on the pad (2026-10-30). While Configuring none of the three labels shows: a fourth label, Configuring, fills the panel alone in the accent gold (red until 2026-10-30) with "<DISPLAYNAME> IS CREATING A PARTY" (designed on Pad1, 2026-10-09; "IS SETTING UP A RUN" until 2026-10-30). A fifth label, Timer, reads "LEAVING IN: Xs" in red under the rest while a party boards and is hidden otherwise (designer, 2026-10-30). Every label is ALL CAPS
    * Private: hidden while Idle or Configuring; once a party exists it shows "PUBLIC" in green or "PRIVATE" in red from the party config (2026-10-09; muted and gold before). Players reads waiting/max
    * Players: always shows current players / party size (an idle pad reads 0 / MaxPartySize)
 * Pad states. Each pad is in exactly one state, held in server Lua and replicated to clients as an attribute on the pad model so the billboard and menus can render it:
@@ -68,7 +68,7 @@ Helicopter Pads – Party Creation/Teleports
    * The host's client opens the Create Party Menu.
    * If two players touch an Idle pad at the same time, the first processed becomes host and the second gets "Pad is being set up". Never two hosts.
 * Configuring
-   * The Create Party Menu shows a countdown. Changing a setting does not reset it: CreationTimeout is a hard limit on how long a pad can be held without committing.
+   * The Create Party Menu showed a countdown until 2026-10-30; the timer now runs silently and the host sees only the "Party creation timed out" line when it ends. Changing a setting does not reset it: CreationTimeout is a hard limit on how long a pad can be held without committing.
    * If the countdown reaches zero, the host presses Cancel, or the host leaves the game: the host is moved to ExitSpawn, camera returned, menu closed, and the pad returns to Idle. The timeout gives the feedback "Party creation timed out"; Cancel and leaving give none.
    * When the host presses Create, the server validates the selection (see Create validation). If invalid, it rejects with feedback and the pad stays Configuring. If valid, the server records map, difficulty, max players, and visibility on the pad, sets Boarding, stops the CreationTimer, and starts the BoardingTimer at BoardingTimeout. The host's client swaps the Create Party Menu for the Queue Menu in host mode and the billboard shows the configuration.
 * Boarding
@@ -82,7 +82,7 @@ Helicopter Pads – Party Creation/Teleports
    * The CapacityTime countdown reaches zero after the party filled
    * A party of one launches solo. This is allowed and expected.
 * On launch:
-   * The pad is set to Departing and the billboard shows "Departing". Every client (party or not) sees the helicopter take off: it climbs 100 studs, then flies 1000 studs straight ahead, then disappears; a fresh helicopter is already on the pad by then. For party members the Queue Menu fades out while the camera stays on CameraPositionPart, and 2 seconds later the Departure Loading Screen comes in over the takeoff.
+   * The pad is set to Departing and the billboard shows "Departing". Every client (party or not) sees the helicopter take off: it rises straight up over 6 s, turning about to face the way it came (2026-10-30, so helicopters on pads facing each other never fly into each other), then leans away nose-first along the shared departure path (M75; it climbed 100 studs and flew 1000 straight ahead before) and is removed 35 s after lift-off; a fresh helicopter stands on the pad from the moment the party has gone, and the departing one flies on beside it (the reset restamped its flight and snapped it back onto the pad until 2026-10-30). For party members the Queue Menu fades out while the camera stays on CameraPositionPart, and 2 seconds later the Departure Loading Screen comes in over the takeoff.
    * Party members' characters are moved to random spawns inside HoldingArea.Spawns. This removes their avatars from view in case of teleport issues.
    * All party members are teleported together (one TeleportAsync call with the player list, never per player) to a fresh reserved gameplay server. Join data: map, difficulty, playerCount (the number actually teleported, not max players; the gameplay server scales from this and never waits for more), hostUserId, padIndex for logging, and memberUserIds. Only players in that party can enter that gameplay server: the reserved server keeps outsiders out, and the gameplay server's arrival gate kicks anyone whose join data is missing or does not list them.
    * A failed teleport is retried (3 attempts, 2 s apart); on final failure the player respawns in SpawnZone with a "Teleport failed" message and their camera and menus are restored. A player who disconnects during Departing is simply excluded from the teleport. A player still in the lobby 10 s after a successful teleport call is treated as a failed teleport.
@@ -114,7 +114,7 @@ Helicopter Pads – Party Creation/Teleports
    * Other decorations (not needed by code)
    * Runtime pad state (state, host, map, difficulty, max players, visibility, current player count, departure time) is server Lua replicated as attributes on the pad model. The party member list itself stays on the server; only the count replicates. The pad model carries no authored map, difficulty, or max players values.
 * Party config (one GameData module, nothing hardcoded in pad scripts). I need to be able to easily change:
-   * CreationTimeout (default 30 s): how long a host has to press Create
+   * CreationTimeout (120 s since 2026-10-30; 30 s before, while the menu showed the countdown): how long a host has to press Create
    * BoardingTimeout (default 20 s): seconds after Create before auto-launch
    * CapacityTime (default 3 s): countdown once the party is full
    * MaxPartySize (default 6): upper bound on the players stepper
@@ -145,17 +145,16 @@ HUD
 * The HUD will show the player state and have buttons to access the various other menus
    * Player State/Balance 
       * Diamonds Balance (the game’s permanent currency; called Diamonds until 2026-10-06, M33, when it took the name players already understand and the diamond icon)
-         * Displays the user’s current Diamonds balance beside the diamond icon (a resource is its icon, never a word)
+         * Displays the user’s current Diamonds balance beside the diamond icon (a resource is its icon, never a word), the whole number with thousands commas ("7,200"; abbreviated to "7.20K" until 2026-10-30). Diamond prices and the balance on the class screens read the same way
          * When pressed, opens the store menu to the currency section
          * After the initial value is loaded, if the value increases the text should turn green and play the CoinsAdded sound and update the value. If the value decreases, the text should turn red and it should play the SaleSuccess sound before updating the value (diamonds were spent). 
       * (The Loadout Slots strip along the bottom, five slots for the weapon, post, and 3 Defenses, was removed on 2026-10-12: a character brings its gear, shown in the Character Menu, so the HUD has nothing to show there)
    * Menu Buttons
       * Store Menu Button
          * When pressed, opens the store menu to the featured section
-      * Character Menu Button (the Loadout Menu Button until 2026-10-12)
+      * Classes Menu Button (the Loadout Menu Button until 2026-10-12, the Character Menu Button until 2026-10-30)
          * When pressed, opens the Character Select Menu (see "Character Menu")
-      * Daily Rewards Menu Button
-         * When pressed, opens the Daily Rewards Menu
+      * The Store and Classes buttons stack on the right edge with the jet pack fuel bar under them (2026-10-30). The Daily Rewards Menu Button left the HUD the same day: Daily Rewards are post launch (M39).
 * When any menu (Store, Daily Rewards, Loadout, Create Party, Queue) is opened, the HUD should hide off screen 
 
 
@@ -208,11 +207,11 @@ Create Party Menu
 * Shown to the host while their pad is Configuring (see Helicopter Pads section). Modelled on Dead Rails' Create Party screen.
 * Layout, top to bottom:
    * Title: "Create Party"
-   * Map carousel: left/right arrows around a large thumbnail with the map name overlaid. Locked maps are still shown (desaturated, lock icon, requirement text beneath such as "Complete Deadman's Canyon on Normal") but cannot be selected.
+   * Map carousel: left/right arrows around a large thumbnail with the map name overlaid (the arrows are off the gui while there is one map, 2026-10-30; the client steps a carousel only through arrows it finds, so they come back by authoring them again). Locked maps are still shown (desaturated, lock icon, requirement text beneath such as "Complete Deadman's Canyon on Normal") but cannot be selected.
    * Difficulty carousel: same pattern, smaller. Locked difficulties greyed with lock icon and requirement text. Re-evaluated whenever the map changes; if the current difficulty is locked on the new map, the selection resets to the first unlocked difficulty.
    * Players stepper: "Players" label, − and + buttons, current value. Range 1 to MaxPartySize, starts at DefaultMaxPlayers.
-   * Visibility toggle: one toggle labelled "Friends Only". Off = Public. Starts at DefaultVisibility.
-   * Countdown text: "Cancelling in N seconds", red, updates every second.
+   * Visibility toggle: one toggle labelled "Friends Only". Off = Public. Starts at DefaultVisibility. Since 2026-10-30 it is a switch: a round knob that slides between the designer's SwitchOff and SwitchOn marker spots on a track that is red (255, 89, 89) when off and green (90, 230, 100) when on (an Off / On label before).
+   * Countdown text: "Cancelling in N seconds", red, updates every second. Off the gui since 2026-10-30 (the client draws it only if the label is authored); the timeout is announced by the feedback line alone.
    * Create button: disabled while the selected map or difficulty is locked.
    * Cancel button, directly beneath Create: behaves exactly like the creation timeout (host to ExitSpawn, pad to Idle), with no feedback.
 * Opening the menu hides the HUD, like the other menus, and hides the pad billboards.
@@ -221,12 +220,12 @@ Create Party Menu
 Queue Menu
 * The Queue Menu appears when a player is in a Boarding party (see Helicopter Pads section)
 * Proposed 2026-10-03, revised 2026-10-15: each member's class name and rank show beside their name, so a host can see which roles the crew has (see "Classes")
-* Every member sees: map name, difficulty name, "Players: X / Y", visibility ("Public" or "Friends Only"), the host's display name, and "Departing in N seconds"
+* Every member sees (the designer's layout, 2026-10-30): the title YOUR PARTY, one line "<MAP> (<DIFFICULTY>)", the visibility as PRIVATE in red or PUBLIC in green, a CREW (n/max) panel with one seat per slot of the party (the members in join order from the left, the host first, each a round head shot with the display name under it; empty seats black), and "Departing in N seconds" over the buttons. A join fills the first empty seat and a leave closes the gap, the seats shifting left so the order never breaks (the client rebuilds the row from the pad's member list on every change). Before that day it listed map, difficulty, "Players: X / Y", the visibility word, and the host's name. Seat widths by party size: 0.48 of the row for 1 to 3 players, 0.25 for 4, 0.2 for 5, 0.16 for 6.
 * It has an ExitButton at the bottom center of the screen
    * When pressed, the player is removed from the party and their character is moved to the ExitSpawn part of the HelicopterPad model they're on
-* The host additionally sees a Launch button, which launches immediately. When a member is promoted to host, their menu switches to host mode and shows it.
+* The host additionally sees a Launch button, which launches immediately; the other members are told "The host chose to leave early" (2026-10-30). When a member is promoted to host, their menu switches to host mode and shows it.
 Daily Rewards Menu
-* This menu can only be accessed from the DailyRewardsButton in the HUD
+* Post launch (M39, decided 2026-10-30): the HUD button was removed until then. This menu can only be accessed from a Daily Rewards button in the HUD
 * It displays all the daily login rewards by day and the players current progress
 * Copy the format used in Lucky Lights
 * The designer should be able to easily the number of days and rewards for each day
@@ -447,7 +446,7 @@ Mining Tools
 * Tapping the tool icons for these equips the item and allows players to place/throw them at the desired spot
 * Torch (as built, M21): with a torch held, a tap places one on whatever surface the reticle points at within pick axe reach, like Minecraft. The server spends one, keeps the torch as an invisible part clients dress with a stick, a flame, and a shadowless point light (24 studs), and remembers which mine block it sits on: when that block is mined or blasted, the torch drops as a pickup anyone can walk over. Placement plays TorchPlace
 * Dynamite (as built, M21, decided 2026-09-15; the Demolitionist's alone since 2026-10-20): with dynamite held, a tap throws a stick about ten studs ahead (GameData/Mining/Dynamite), carrying the thrower's own run so a moving throw lands ahead; it leaves from inside the thrower's reach and passes through every character (a collision group) so it never catches on a rock face the player stands against or on the player. The thrower's client simulates it, since only clients have the mine's blocks to land on, and launches it itself once it owns it (a velocity set only by the server was lost in the handover now and then, dropping the stick at the thrower's feet); the server reads where it ended up (refusing a blast further than 60 studs from the throw) and after a 3 second fuse clears every breakable rock within one block of it (a 3x3x3 cube), broadcasting the breaks like swings, and deals 120 to every monster within 10 studs, the thrower credited (the Tank Destroyer, 2026-10-20). All ore from a blast drops on the ground; none goes to a backpack. The stick in hand and in the air (drawn three times the hand's size) is the designer's TntStick. The fuse hiss rides on the stick and the bang plays where it went off, both 3D so every player hears them in place; clients draw sparks, smoke, and a flash
-* The lobby place authors only the sounds it plays (CoinsAdded, SaleSuccess, the Helicopter loop; SoundNames lists them) and the startup audit expects only those there (2026-10-09). Sounds for both are authored in SoundService.Sfx like every other sound; the server clones them onto objects with an AudioEmitter (SpatialSoundManager), and each client keeps an AudioListener on its camera
+* The lobby place authors only the sounds it plays (CoinsAdded, SaleSuccess, the Helicopter loop; SoundNames lists them) and the startup audit expects only those there (2026-10-09). Its music is the LobbyMusic track and, since 2026-10-30, the gameplay place's OutdoorAmbience loop under it at its authored volume; both fade in over 10 s at Ready, out over the take-off, and back in after a failed teleport (ClientLobbyMusicManager). Sounds for both are authored in SoundService.Sfx like every other sound; the server clones them onto objects with an AudioEmitter (SpatialSoundManager), and each client keeps an AudioListener on its camera
 Mining
 Mining is half the game and is the only way players can win a run. However the goal is to keep mining simple, lightly strategic, but tactilely rewarding. Every mine is randomly generated based on a set of parameters created for each map/difficulty level. We want mining to feel exactly like mining in Roblox, so players just intuitively know how to mine. 
 

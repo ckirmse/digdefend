@@ -100,34 +100,34 @@ diamondsAmount.FontFace = UiStyle.BODY_BOLD_FONT
 addTextSizeBounds(diamondsAmount, UiStyle.BODY_TEXT_MIN_PX, 32)
 diamondsAmount.Parent = diamondWallet
 
--- Menu buttons, right edge, stacked
+-- Menu buttons, right edge, stacked; the jet pack bar closes up under them
+-- (2026-10-30: the Daily Rewards button went, post launch)
 local menuButtons = Instance.new("Frame")
 menuButtons.Name = "MenuButtons"
-menuButtons.AnchorPoint = Vector2.new(1, 0.5)
-menuButtons.Position = UDim2.fromScale(0.98, 0.5)
-menuButtons.Size = UDim2.fromScale(0.12, 0.3)
-addMaxSize(menuButtons, Vector2.new(220, 330))
+menuButtons.AnchorPoint = Vector2.new(1, 0)
+menuButtons.Position = UDim2.fromScale(0.98, 0.35)
+menuButtons.Size = UDim2.fromScale(0.12, 0.2)
+addMaxSize(menuButtons, Vector2.new(220, 220))
 menuButtons.BackgroundTransparency = 1
 menuButtons.Parent = gui
 
 local menuLayout = Instance.new("UIListLayout")
 menuLayout.FillDirection = Enum.FillDirection.Vertical
 menuLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-menuLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+menuLayout.VerticalAlignment = Enum.VerticalAlignment.Top
 menuLayout.Padding = UDim.new(0.05, 0)
 menuLayout.SortOrder = Enum.SortOrder.LayoutOrder
 menuLayout.Parent = menuButtons
 
 local menuButtonNames = {
 	{ name = "StoreButton", text = "Store" },
-	{ name = "CharacterButton", text = "Character" },
-	{ name = "DailyRewardsButton", text = "Daily Rewards" },
+	{ name = "ClassesButton", text = "Classes" },
 }
 for order, entry in menuButtonNames do
 	local button = Instance.new("TextButton")
 	button.Name = entry.name
 	button.LayoutOrder = order
-	button.Size = UDim2.fromScale(1, 0.3)
+	button.Size = UDim2.fromScale(1, 0.45)
 	addAspect(button, 2.4)
 	button.BackgroundColor3 = UiStyle.PANEL_COLOR
 	button.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
@@ -149,12 +149,12 @@ end
 
 -- the jet pack fuel bar and touch button (the pack flies in the lobby as in
 -- a run, designer 2026-10-12; ClientJetPackManager drives both). The bar
--- sits under the menu buttons on the right edge, level with where the
--- gameplay HUD keeps it; the button above Roblox's jump button, touch only
+-- sits under the menu buttons on the right edge, closed up to the shorter
+-- stack (2026-10-30); the button above Roblox's jump button, touch only
 local jetBar = Instance.new("Frame")
 jetBar.Name = "JetPackBar"
 jetBar.AnchorPoint = Vector2.new(1, 0)
-jetBar.Position = UDim2.fromScale(0.98, 0.68)
+jetBar.Position = UDim2.fromScale(0.98, 0.57)
 jetBar.Size = UDim2.fromScale(0.12, 0.05)
 addAspect(jetBar, 4.4)
 addMaxSize(jetBar, Vector2.new(260, 59))

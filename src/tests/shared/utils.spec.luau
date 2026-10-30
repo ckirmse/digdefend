@@ -8,6 +8,30 @@ local expect = JestGlobals.expect
 local utils = require(game:GetService("ReplicatedStorage").Shared.utils)
 
 describe(
+	"utils.formatWithCommas",
+	function()
+		it(
+			"writes the whole number with a comma every three digits",
+			function()
+				expect(utils.formatWithCommas(0)).toBe("0")
+				expect(utils.formatWithCommas(999)).toBe("999")
+				expect(utils.formatWithCommas(1000)).toBe("1,000")
+				expect(utils.formatWithCommas(7200)).toBe("7,200")
+				expect(utils.formatWithCommas(123456)).toBe("123,456")
+				expect(utils.formatWithCommas(1234567)).toBe("1,234,567")
+			end
+		)
+		it(
+			"floors fractions and keeps a minus sign in front",
+			function()
+				expect(utils.formatWithCommas(1999.9)).toBe("1,999")
+				expect(utils.formatWithCommas(-7200)).toBe("-7,200")
+			end
+		)
+	end
+)
+
+describe(
 	"utils.abbreviateNumber",
 	function()
 		it(

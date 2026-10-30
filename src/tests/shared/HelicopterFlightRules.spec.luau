@@ -179,10 +179,14 @@ describe(
 					expect(rising.Position.X).toBeCloseTo(PAD.Position.X, 5)
 					expect(rising.Position.Z).toBeCloseTo(PAD.Position.Z, 5)
 					expect(rising.Position.Y).toBeGreaterThan(PAD.Position.Y)
-					expectVectorClose(rising.LookVector, PAD.LookVector)
+					-- level while it turns
+					expect(rising.RightVector.Y).toBeCloseTo(0, 5)
+					expect(rising.LookVector.Y).toBeCloseTo(0, 5)
 				end
 				local top = HelicopterFlightRules.departurePose(PAD, heading, CONFIG, CONFIG.DEPARTURE_LIFT_SEC)
 				expectVectorClose(top.Position, PAD.Position + Vector3.new(0, CONFIG.DEPARTURE_LIFT_HEIGHT_STUDS, 0))
+				-- the nose has come round to the heading by the top of the lift
+				expectVectorClose(top.LookVector, heading)
 				local leaning = HelicopterFlightRules.departurePose(PAD, heading, CONFIG, CONFIG.DEPARTURE_LIFT_SEC + 3)
 				expect(leaning.Position.X).toBeGreaterThan(PAD.Position.X + 1)
 				expect(leaning.Position.Y).toBeGreaterThan(top.Position.Y)
@@ -223,16 +227,29 @@ describe(
 			end
 		)
 		it(
-			"banks into the turn and not at all when the heading is its facing",
+			"turns about over the pad during the lift and flies the lean nose-first without banking",
 			function()
-				local midway = HelicopterFlightRules.departurePose(PAD, heading, CONFIG, CONFIG.DEPARTURE_SEC * 0.5)
-				-- the pad faces -Z and the heading is +X: a right turn, so the
-				-- right side drops
-				expect(midway.RightVector.Y).toBeLessThan(-0.05)
-				local leftTurn = HelicopterFlightRules.departurePose(PAD, Vector3.new(-1, 0, 0), CONFIG, CONFIG.DEPARTURE_SEC * 0.5)
-				expect(leftTurn.RightVector.Y).toBeGreaterThan(0.05)
-				local straight = HelicopterFlightRules.departurePose(PAD, PAD.LookVector, CONFIG, CONFIG.DEPARTURE_SEC * 0.5)
-				expect(straight.RightVector.Y).toBeCloseTo(0, 5)
+				-- a half turn: the pad faces -Z, the heading is +Z (the lobby's
+				-- departure, so two helicopters facing each other part)
+				local back = Vector3.new(0, 0, 1)
+				local start = HelicopterFlightRules.departurePose(PAD, back, CONFIG, 0)
+				expectVectorClose(start.LookVector, PAD.LookVector)
+				local halfway = HelicopterFlightRules.departurePose(PAD, back, CONFIG, CONFIG.DEPARTURE_LIFT_SEC * 0.5)
+				expect(math.abs(halfway.LookVector.Z)).toBeLessThan(0.1)
+				expectVectorClose(halfway.Position, PAD.Position + Vector3.new(0, halfway.Position.Y - PAD.Position.Y, 0))
+				local top = HelicopterFlightRules.departurePose(PAD, back, CONFIG, CONFIG.DEPARTURE_LIFT_SEC)
+				expectVectorClose(top.LookVector, back)
+				-- from there it flies away the way it faces, level
+				for step = 0, 10 do
+					local pose = HelicopterFlightRules.departurePose(PAD, back, CONFIG, CONFIG.DEPARTURE_LIFT_SEC + (CONFIG.DEPARTURE_SEC - CONFIG.DEPARTURE_LIFT_SEC) * step / 10)
+					expect(pose.RightVector.Y).toBeCloseTo(0, 5)
+					expect(HelicopterFlightRules.flatten(pose.LookVector).Unit:Dot(back)).toBeGreaterThan(0.999)
+				end
+				local last = HelicopterFlightRules.departurePose(PAD, back, CONFIG, CONFIG.DEPARTURE_SEC)
+				expect(last.Position.Z).toBeGreaterThan(PAD.Position.Z + CONFIG.DEPARTURE_DISTANCE_STUDS * 0.99)
+				-- a heading that is the facing never turns at all
+				local straight = HelicopterFlightRules.departurePose(PAD, PAD.LookVector, CONFIG, CONFIG.DEPARTURE_LIFT_SEC * 0.5)
+				expectVectorClose(straight.LookVector, PAD.LookVector)
 			end
 		)
 	end
@@ -273,7 +290,7 @@ describe(
 			"round-trips a config",
 			function()
 				local config = table.clone(CONFIG)
-				config.DEPARTURE_BANK_DEGREES = 33
+				config.DEPARTURE_NOSE_DOWN_DEGREES = 33
 				expect(HelicopterFlightRules.decodeConfig(HelicopterFlightRules.encodeConfig(config))).toEqual(config)
 			end
 		)

@@ -26,8 +26,10 @@ local ClientPartyMenuManager = {}
 ClientPartyMenuManager.__index = ClientPartyMenuManager
 
 type CarouselView = {
-	previousButton: TextButton,
-	nextButton: TextButton,
+	-- optional: the map carousel has no arrows while there is one map
+	-- (designer, 2026-10-30); the stepping stays for when they return
+	previousButton: TextButton?,
+	nextButton: TextButton?,
 	thumbnail: ImageLabel,
 	nameLabel: TextLabel,
 	lockIcon: TextLabel,
@@ -43,8 +45,13 @@ type CreateView = {
 	plusButton: TextButton,
 	valueLabel: TextLabel,
 	toggle: TextButton,
-	toggleStateLabel: TextLabel,
-	countdownLabel: TextLabel,
+	-- the knob and the two marker frames it slides between
+	toggleSwitch: GuiObject,
+	toggleSwitchOff: GuiObject,
+	toggleSwitchOn: GuiObject,
+	-- optional: the creation countdown left the gui on 2026-10-30 (the
+	-- timer runs on silently; the host hears of it only when it runs out)
+	countdownLabel: TextLabel?,
 	createButton: TextButton,
 	cancelButton: TextButton,
 }
@@ -52,11 +59,19 @@ type CreateView = {
 type QueueView = {
 	gui: ScreenGui,
 	dialog: Frame,
+	-- "<MAP> (<DIFFICULTY>)"
 	mapLabel: TextLabel,
-	difficultyLabel: TextLabel,
-	playersLabel: TextLabel,
 	visibilityLabel: TextLabel,
-	hostLabel: TextLabel,
+	-- "CREW (n/max)" over the slot row
+	crewLabel: TextLabel,
+	crewSlots: GuiObject,
+	-- the designer's hidden templates: a member's picture and name, and an
+	-- empty seat; both are resized to the party's size before cloning
+	filledTemplate: GuiObject,
+	emptyTemplate: GuiObject,
+	-- the clones standing in the row, rebuilt whole on every change so the
+	-- filled seats always run left to right in join order
+	slotClones: { GuiObject },
 	countdownLabel: TextLabel,
 	launchButton: TextButton,
 	exitButton: TextButton,
@@ -72,6 +87,8 @@ export type ClientPartyMenuManager = typeof(setmetatable(
 		padModel: Model?,
 		padConnection: RBXScriptConnection?,
 		isHost: boolean,
+		-- crew head shots by user id, fetched once (renderCrewSlots)
+		thumbnailByUserId: { [number]: string },
 		-- Create Party selection, client-side until Create
 		mapIndex: number,
 		difficultyIndex: number,
@@ -98,15 +115,24 @@ local NOTIFY_PARTY_MENU_SHAPE = {
 local COUNTDOWN_REFRESH_SEC = 0.25
 local CANCELLING_IN = "Cancelling in %d seconds"
 local DEPARTING_IN = "Departing in %d seconds"
-local PLAYERS_FORMAT = "Players: %d / %d"
-local HOST_FORMAT = "Host: %s"
+-- a leaver stands this far above the ExitSpawn part, clear of it (the
+-- server's fallback move uses the same lift)
+local EXIT_LIFT = Vector3.new(0, 3, 0)
+-- the Queue Menu's lines (designer, 2026-10-30), formatted as titles
+local MAP_FORMAT = "%s (%s)"
+local CREW_FORMAT = "Crew (%d/%d)"
+local VISIBILITY_PRIVATE = "Private"
+local VISIBILITY_PUBLIC = "Public"
+-- a member whose name has not reached this client yet
+local UNKNOWN_MEMBER_NAME = "?"
 local DEPARTURE_CAPTION = "Flying to %s..."
 -- players get a look at their helicopter lifting off before the screen comes in
 local DEPARTURE_SCREEN_DELAY_SEC = 2
 local MENU_FADE_SEC = 0.4
 local MENU_FADE_SETTLE_SEC = 0.1
-local TOGGLE_ON = "On"
-local TOGGLE_OFF = "Off"
+-- the switch's knob slides and its track recolours over this long; the
+-- first draw of a menu snaps
+local TOGGLE_TWEEN_SEC = UiStyle.HUD_TWEEN_SEC
 local PLACEHOLDER_THUMBNAIL = "rbxassetid://0"
 -- until map art exists each map gets its own flat colour so the carousel reads
 local PLACEHOLDER_COLORS = {
@@ -138,18 +164,20 @@ local function findCarousel(root: Instance, name: string): CarouselView?
 	if not frame then
 		return nil
 	end
-	local previousButton = findChild(frame, Constants.CAROUSEL_PREVIOUS_BUTTON, "TextButton")
-	local nextButton = findChild(frame, Constants.CAROUSEL_NEXT_BUTTON, "TextButton")
+	-- the arrows are looked up without a warning: a carousel with one entry
+	-- is authored without them
+	local previousButton = frame:FindFirstChild(Constants.CAROUSEL_PREVIOUS_BUTTON, true)
+	local nextButton = frame:FindFirstChild(Constants.CAROUSEL_NEXT_BUTTON, true)
 	local thumbnail = findChild(frame, Constants.CAROUSEL_THUMBNAIL, "ImageLabel")
 	local nameLabel = findChild(frame, Constants.CAROUSEL_NAME_LABEL, "TextLabel")
 	local lockIcon = findChild(frame, Constants.CAROUSEL_LOCK_ICON, "TextLabel")
 	local requirementLabel = findChild(frame, Constants.CAROUSEL_REQUIREMENT_LABEL, "TextLabel")
-	if not (previousButton and nextButton and thumbnail and nameLabel and lockIcon and requirementLabel) then
+	if not (thumbnail and nameLabel and lockIcon and requirementLabel) then
 		return nil
 	end
 	return {
-		previousButton = previousButton :: TextButton,
-		nextButton = nextButton :: TextButton,
+		previousButton = if previousButton and previousButton:IsA("TextButton") then previousButton else nil,
+		nextButton = if nextButton and nextButton:IsA("TextButton") then nextButton else nil,
 		thumbnail = thumbnail :: ImageLabel,
 		nameLabel = nameLabel :: TextLabel,
 		lockIcon = lockIcon :: TextLabel,
@@ -221,6 +249,24 @@ function ClientPartyMenuManager:renderCarousel(carousel: CarouselView, name: str
 	end
 end
 
+-- the Friends Only switch: the knob at the SwitchOn marker on a green
+-- track when on, at SwitchOff on a red one when off (designer, 2026-10-30).
+-- The markers are the designer's invisible frames, so the knob's resting
+-- spots are tuned in the Explorer; a tap slides it, the menu opening snaps
+function ClientPartyMenuManager:renderToggle(view: CreateView, isAnimated: boolean)
+	local isOn = self.isFriendsOnly
+	local marker = if isOn then view.toggleSwitchOn else view.toggleSwitchOff
+	local trackColor = if isOn then UiStyle.TOGGLE_ON_COLOR else UiStyle.TOGGLE_OFF_COLOR
+	if not isAnimated then
+		view.toggleSwitch.Position = marker.Position
+		view.toggle.BackgroundColor3 = trackColor
+		return
+	end
+	local tweenInfo = TweenInfo.new(TOGGLE_TWEEN_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(view.toggleSwitch, tweenInfo, { Position = marker.Position }):Play()
+	TweenService:Create(view.toggle, tweenInfo, { BackgroundColor3 = trackColor }):Play()
+end
+
 function ClientPartyMenuManager:renderCreate()
 	local view = self.createView
 	local config = self.config
@@ -255,28 +301,13 @@ function ClientPartyMenuManager:renderCreate()
 	view.minusButton.TextColor3 = if self.maxPlayers > 1 then UiStyle.ACCENT_COLOR else UiStyle.DISABLED_COLOR
 	view.plusButton.TextColor3 = if self.maxPlayers < config.MAX_PARTY_SIZE then UiStyle.ACCENT_COLOR else UiStyle.DISABLED_COLOR
 
-	view.toggleStateLabel.Text = UiStyle.formatTitle(if self.isFriendsOnly then TOGGLE_ON else TOGGLE_OFF)
-	view.toggleStateLabel.TextColor3 = if self.isFriendsOnly then UiStyle.ACCENT_COLOR else UiStyle.TEXT_MUTED_COLOR
+	self:renderToggle(view, false)
 
 	local isUnlocked = self:isSelectionUnlocked()
 	view.createButton.Active = isUnlocked
 	view.createButton.AutoButtonColor = isUnlocked
 	view.createButton.BackgroundColor3 = if isUnlocked then UiStyle.ACCENT_COLOR else UiStyle.DISABLED_COLOR
 	self:renderCountdown()
-end
-
-function ClientPartyMenuManager:getHostName(): string
-	local padModel = self.padModel
-	if not padModel then
-		return ""
-	end
-	local hostUserId = getAttributeNumber(padModel, Attributes.PAD_HOST_USER_ID)
-	local publicData = ClientDataManager:getPlayerPublicData(hostUserId)
-	if publicData then
-		return publicData.displayName
-	end
-	local player = Players:GetPlayerByUserId(hostUserId)
-	return if player then player.DisplayName else ""
 end
 
 function ClientPartyMenuManager:renderQueue()
@@ -288,17 +319,91 @@ function ClientPartyMenuManager:renderQueue()
 	local map = getAttributeNumber(padModel, Attributes.PAD_MAP)
 	local difficulty = getAttributeNumber(padModel, Attributes.PAD_DIFFICULTY)
 	local visibility = getAttributeNumber(padModel, Attributes.PAD_VISIBILITY)
-	view.mapLabel.Text = UiStyle.formatTitle(Enums.getPublicName(Enums.Map, map) or "")
-	view.difficultyLabel.Text = Enums.getPublicName(Enums.Difficulty, difficulty) or ""
-	view.playersLabel.Text = string.format(
-		PLAYERS_FORMAT,
-		getAttributeNumber(padModel, Attributes.PAD_PLAYER_COUNT),
-		getAttributeNumber(padModel, Attributes.PAD_MAX_PLAYERS)
-	)
-	view.visibilityLabel.Text = Enums.getPublicName(Enums.PartyVisibility, visibility) or ""
-	view.hostLabel.Text = string.format(HOST_FORMAT, self:getHostName())
+	local mapName = Enums.getPublicName(Enums.Map, map) or ""
+	local difficultyName = Enums.getPublicName(Enums.Difficulty, difficulty) or ""
+	view.mapLabel.Text = UiStyle.formatTitle(string.format(MAP_FORMAT, mapName, difficultyName))
+	local isPrivate = visibility == Enums.PartyVisibility.FRIENDS_ONLY
+	view.visibilityLabel.Text = UiStyle.formatTitle(if isPrivate then VISIBILITY_PRIVATE else VISIBILITY_PUBLIC)
+	view.visibilityLabel.TextColor3 = if isPrivate then UiStyle.NEGATIVE_COLOR else UiStyle.POSITIVE_COLOR
+	local maxPlayers = getAttributeNumber(padModel, Attributes.PAD_MAX_PLAYERS)
+	local memberUserIds = PartyRules.decodeMemberUserIds(padModel:GetAttribute(Attributes.PAD_MEMBER_USER_IDS))
+	view.crewLabel.Text = UiStyle.formatTitle(string.format(CREW_FORMAT, #memberUserIds, maxPlayers))
+	self:renderCrewSlots(view, memberUserIds, maxPlayers)
 	view.launchButton.Visible = self.isHost
 	self:renderCountdown()
+end
+
+-- a member's display name: the replicated public data first, then the
+-- Player if they are in this place, else a placeholder
+local function memberDisplayName(userId: number): string
+	local publicData = ClientDataManager:getPlayerPublicData(userId)
+	if publicData then
+		return publicData.displayName
+	end
+	local player = Players:GetPlayerByUserId(userId)
+	return if player then player.DisplayName else UNKNOWN_MEMBER_NAME
+end
+
+-- the crew row (designer, 2026-10-30): one slot per seat of the party, the
+-- members in join order from the left (the host first) as Filled clones,
+-- the rest Empty clones, each slot's LayoutOrder its seat number. The row is
+-- rebuilt whole on every pad change: a join fills the first empty seat and
+-- a leave closes the gap, with nothing to shuffle by hand
+function ClientPartyMenuManager:renderCrewSlots(view: QueueView, memberUserIds: { number }, maxPlayers: number)
+	for _, clone in view.slotClones do
+		clone:Destroy()
+	end
+	table.clear(view.slotClones)
+	local widthScale = PartyRules.crewSlotWidthScale(maxPlayers)
+	for _, template in { view.filledTemplate, view.emptyTemplate } do
+		template.Size = UDim2.fromScale(widthScale, template.Size.Y.Scale)
+	end
+	for seat = 1, maxPlayers do
+		local userId = memberUserIds[seat]
+		local template = if userId then view.filledTemplate else view.emptyTemplate
+		local clone = template:Clone()
+		clone.Name = `Slot{seat}`
+		clone.LayoutOrder = seat
+		clone.Visible = true
+		if userId then
+			local nameLabel = clone:FindFirstChild(Constants.QUEUE_CREW_DISPLAY_NAME, true)
+			if nameLabel and nameLabel:IsA("TextLabel") then
+				nameLabel.Text = UiStyle.formatTitle(memberDisplayName(userId))
+			end
+			local thumbnail = clone:FindFirstChild(Constants.QUEUE_CREW_THUMBNAIL, true)
+			if thumbnail and thumbnail:IsA("ImageLabel") then
+				self:applyThumbnail(thumbnail, userId)
+			end
+		end
+		clone.Parent = view.crewSlots
+		table.insert(view.slotClones, clone)
+	end
+end
+
+-- the member's head shot, fetched once per user id and remembered, so a
+-- rebuilt row never refetches; a label gone by the time it arrives is skipped
+function ClientPartyMenuManager:applyThumbnail(label: ImageLabel, userId: number)
+	local cached = self.thumbnailByUserId[userId]
+	if cached then
+		label.Image = cached
+		return
+	end
+	task.spawn(
+		function()
+			local isSuccess, image = pcall(
+				function()
+					return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+				end
+			)
+			if not isSuccess or typeof(image) ~= "string" then
+				return
+			end
+			self.thumbnailByUserId[userId] = image
+			if label.Parent then
+				label.Image = image
+			end
+		end
+	)
 end
 
 function ClientPartyMenuManager:renderCountdown()
@@ -309,7 +414,7 @@ function ClientPartyMenuManager:renderCountdown()
 	local endTime = getAttributeNumber(padModel, Attributes.PAD_TIMER_END_TIME)
 	local remaining = math.max(0, math.ceil(endTime - workspace:GetServerTimeNow()))
 	local createView = self.createView
-	if self.activeMenu == Enums.PartyMenu.CREATE and createView then
+	if self.activeMenu == Enums.PartyMenu.CREATE and createView and createView.countdownLabel then
 		createView.countdownLabel.Text = string.format(CANCELLING_IN, remaining)
 	end
 	local queueView = self.queueView
@@ -321,13 +426,32 @@ end
 -- while in a party the only way off the pad is Exit or Cancel: jumping out
 -- of the seat is disabled (the server still treats an unseated member as
 -- having left, so death and other surprises stay covered)
-function ClientPartyMenuManager:setMovementLocked(isLocked: boolean)
+function ClientPartyMenuManager:setMovementLocked(isLocked: boolean, padModel: Model?)
 	local character = Players.LocalPlayer.Character
 	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
-	if not humanoid then
+	if not character or not humanoid then
 		return
 	end
 	humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, not isLocked)
+	-- a humanoid leaves a seat by jumping, which the lock forbade, so one
+	-- unseated by the server stayed Seated: stiff, and toppling once moved
+	-- (2026-10-30). This client owns its character's state and physics, so it
+	-- stands up itself once free and, in the same frame, steps clear to the
+	-- pad's ExitSpawn with no momentum: the stand-up's hop inside the cabin
+	-- caught the helicopter's geometry (Climbing) and a later move from the
+	-- server sent the body off tumbling. The server's own move is a fallback
+	if not isLocked and (humanoid.Sit or humanoid:GetState() == Enum.HumanoidStateType.Seated) then
+		humanoid.Sit = false
+		local exitSpawn = if padModel then padModel:FindFirstChild(Constants.PAD_EXIT_SPAWN_PART) else nil
+		local root = humanoid.RootPart
+		if exitSpawn and exitSpawn:IsA("BasePart") and root then
+			local facing = exitSpawn.CFrame.LookVector * Vector3.new(1, 0, 1)
+			local standPosition = exitSpawn.Position + EXIT_LIFT
+			character:PivotTo(CFrame.lookAlong(standPosition, if facing.Magnitude > 0 then facing.Unit else Vector3.zAxis))
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.AssemblyAngularVelocity = Vector3.zero
+		end
+	end
 end
 
 function ClientPartyMenuManager:setCamera(padModel: Model?)
@@ -454,9 +578,10 @@ function ClientPartyMenuManager:closeMenu()
 		padConnection:Disconnect()
 		self.padConnection = nil
 	end
+	local padModel = self.padModel
 	self.padModel = nil
 	self:setCamera(nil)
-	self:setMovementLocked(false)
+	self:setMovementLocked(false, padModel)
 	ClientPadBillboardManager:setBillboardsVisible(true)
 	local overlay = self.overlay
 	if overlay then
@@ -594,6 +719,11 @@ end
 function ClientPartyMenuManager:toggleFriendsOnly()
 	self.isFriendsOnly = not self.isFriendsOnly
 	self:renderCreate()
+	-- the tap slides the knob over the snap renderCreate just drew
+	local view = self.createView
+	if view then
+		self:renderToggle(view, true)
+	end
 end
 
 function ClientPartyMenuManager:sendCreate()
@@ -636,12 +766,16 @@ function ClientPartyMenuManager:findCreateView(playerGui: PlayerGui): CreateView
 	local minusButton = findChild(gui, Constants.STEPPER_MINUS_BUTTON, "TextButton")
 	local plusButton = findChild(gui, Constants.STEPPER_PLUS_BUTTON, "TextButton")
 	local valueLabel = findChild(gui, Constants.STEPPER_VALUE_LABEL, "TextLabel")
-	local toggle = findChild(gui, Constants.CREATE_PARTY_FRIENDS_ONLY_TOGGLE, "TextButton")
-	local toggleStateLabel = findChild(gui, Constants.TOGGLE_STATE_LABEL, "TextLabel")
-	local countdownLabel = findChild(gui, Constants.CREATE_PARTY_COUNTDOWN_LABEL, "TextLabel")
+	local toggleRow = findChild(gui, Constants.CREATE_PARTY_FRIENDS_ONLY_ROW, "Frame")
+	local toggle = if toggleRow then findChild(toggleRow, Constants.CREATE_PARTY_FRIENDS_ONLY_TOGGLE, "TextButton") else nil
+	local toggleSwitch = if toggle then findChild(toggle, Constants.TOGGLE_SWITCH, "GuiObject") else nil
+	local toggleSwitchOff = if toggle then findChild(toggle, Constants.TOGGLE_SWITCH_OFF, "GuiObject") else nil
+	local toggleSwitchOn = if toggle then findChild(toggle, Constants.TOGGLE_SWITCH_ON, "GuiObject") else nil
+	-- looked up quietly: the gui is authored without it
+	local countdownLabel = gui:FindFirstChild(Constants.CREATE_PARTY_COUNTDOWN_LABEL, true)
 	local createButton = findChild(gui, Constants.CREATE_PARTY_CREATE_BUTTON, "TextButton")
 	local cancelButton = findChild(gui, Constants.CREATE_PARTY_CANCEL_BUTTON, "TextButton")
-	if not (dialog and map and difficulty and minusButton and plusButton and valueLabel and toggle and toggleStateLabel and countdownLabel and createButton and cancelButton) then
+	if not (dialog and map and difficulty and minusButton and plusButton and valueLabel and toggle and toggleSwitch and toggleSwitchOff and toggleSwitchOn and createButton and cancelButton) then
 		return nil
 	end
 	return {
@@ -653,8 +787,10 @@ function ClientPartyMenuManager:findCreateView(playerGui: PlayerGui): CreateView
 		plusButton = plusButton :: TextButton,
 		valueLabel = valueLabel :: TextLabel,
 		toggle = toggle :: TextButton,
-		toggleStateLabel = toggleStateLabel :: TextLabel,
-		countdownLabel = countdownLabel :: TextLabel,
+		toggleSwitch = toggleSwitch :: GuiObject,
+		toggleSwitchOff = toggleSwitchOff :: GuiObject,
+		toggleSwitchOn = toggleSwitchOn :: GuiObject,
+		countdownLabel = if countdownLabel and countdownLabel:IsA("TextLabel") then countdownLabel else nil,
 		createButton = createButton :: TextButton,
 		cancelButton = cancelButton :: TextButton,
 	}
@@ -668,49 +804,70 @@ function ClientPartyMenuManager:findQueueView(playerGui: PlayerGui): QueueView?
 	end
 	local dialog = findChild(gui, Constants.MENU_DIALOG_FRAME, "Frame")
 	local mapLabel = findChild(gui, Constants.QUEUE_MAP_LABEL, "TextLabel")
-	local difficultyLabel = findChild(gui, Constants.QUEUE_DIFFICULTY_LABEL, "TextLabel")
-	local playersLabel = findChild(gui, Constants.QUEUE_PLAYERS_LABEL, "TextLabel")
 	local visibilityLabel = findChild(gui, Constants.QUEUE_VISIBILITY_LABEL, "TextLabel")
-	local hostLabel = findChild(gui, Constants.QUEUE_HOST_LABEL, "TextLabel")
-	local countdownLabel = findChild(gui, Constants.QUEUE_COUNTDOWN_LABEL, "TextLabel")
-	local launchButton = findChild(gui, Constants.QUEUE_LAUNCH_BUTTON, "TextButton")
-	local exitButton = findChild(gui, Constants.QUEUE_EXIT_BUTTON, "TextButton")
-	if not (dialog and mapLabel and difficultyLabel and playersLabel and visibilityLabel and hostLabel and countdownLabel and launchButton and exitButton) then
+	local crewFrame = findChild(gui, Constants.QUEUE_CREW_FRAME, "Frame")
+	-- the heading is the panel's one TextLabel child, unnamed by design
+	local crewLabel = if crewFrame then crewFrame:FindFirstChildWhichIsA("TextLabel") else nil
+	if crewFrame and not crewLabel then
+		warn(`ClientPartyMenuManager: {crewFrame:GetFullName()} has no TextLabel heading`)
+	end
+	local crewSlots = if crewFrame then findChild(crewFrame, Constants.QUEUE_CREW_SLOTS, "GuiObject") else nil
+	local filledTemplate = if crewSlots then findChild(crewSlots, Constants.QUEUE_CREW_FILLED_TEMPLATE, "GuiObject") else nil
+	local emptyTemplate = if crewSlots then findChild(crewSlots, Constants.QUEUE_CREW_EMPTY_TEMPLATE, "GuiObject") else nil
+	-- the countdown and the buttons live in the Buttons frame (2026-10-30),
+	-- found by name wherever the designer keeps them
+	local buttons = findChild(gui, Constants.QUEUE_BUTTONS_FRAME, "Frame") or gui
+	local countdownLabel = findChild(buttons, Constants.QUEUE_COUNTDOWN_LABEL, "TextLabel")
+	local launchButton = findChild(buttons, Constants.QUEUE_LAUNCH_BUTTON, "TextButton")
+	local exitButton = findChild(buttons, Constants.QUEUE_EXIT_BUTTON, "TextButton")
+	if not (dialog and mapLabel and visibilityLabel and crewLabel and crewSlots and filledTemplate and emptyTemplate and countdownLabel and launchButton and exitButton) then
 		return nil
 	end
 	return {
 		gui = gui,
 		dialog = dialog :: Frame,
 		mapLabel = mapLabel :: TextLabel,
-		difficultyLabel = difficultyLabel :: TextLabel,
-		playersLabel = playersLabel :: TextLabel,
 		visibilityLabel = visibilityLabel :: TextLabel,
-		hostLabel = hostLabel :: TextLabel,
+		crewLabel = crewLabel :: TextLabel,
+		crewSlots = crewSlots :: GuiObject,
+		filledTemplate = filledTemplate :: GuiObject,
+		emptyTemplate = emptyTemplate :: GuiObject,
+		slotClones = {},
 		countdownLabel = countdownLabel :: TextLabel,
 		launchButton = launchButton :: TextButton,
 		exitButton = exitButton :: TextButton,
 	}
 end
 
+-- a carousel's arrows step it when the gui has them
+local function connectCarousel(carousel: CarouselView, step: (number) -> ())
+	if carousel.previousButton then
+		carousel.previousButton.Activated:Connect(
+			function()
+				step(-1)
+			end
+		)
+	end
+	if carousel.nextButton then
+		carousel.nextButton.Activated:Connect(
+			function()
+				step(1)
+			end
+		)
+	end
+end
+
 function ClientPartyMenuManager:connectCreateView(view: CreateView)
-	view.map.previousButton.Activated:Connect(
-		function()
-			self:stepMap(-1)
+	connectCarousel(
+		view.map,
+		function(direction: number)
+			self:stepMap(direction)
 		end
 	)
-	view.map.nextButton.Activated:Connect(
-		function()
-			self:stepMap(1)
-		end
-	)
-	view.difficulty.previousButton.Activated:Connect(
-		function()
-			self:stepDifficulty(-1)
-		end
-	)
-	view.difficulty.nextButton.Activated:Connect(
-		function()
-			self:stepDifficulty(1)
+	connectCarousel(
+		view.difficulty,
+		function(direction: number)
+			self:stepDifficulty(direction)
 		end
 	)
 	view.minusButton.Activated:Connect(
@@ -803,7 +960,7 @@ function ClientPartyMenuManager:init()
 				self.activeMenu = Enums.PartyMenu.NONE
 				self:showGuis()
 				self:setCamera(nil)
-				self:setMovementLocked(false)
+				self:setMovementLocked(false, self.padModel)
 				ClientPadBillboardManager:setBillboardsVisible(true)
 				self:sendLeave()
 			end
@@ -850,6 +1007,7 @@ function ClientPartyMenuManager.new(): ClientPartyMenuManager
 	self.padModel = nil
 	self.padConnection = nil
 	self.isHost = false
+	self.thumbnailByUserId = {}
 	self.departingHandlers = {}
 	self.returnedHandlers = {}
 	self.mapIndex = 1

@@ -57,6 +57,12 @@ local NO_TIMER = 0
 -- lifts a character clear of the ExitSpawn part so it does not spawn inside it
 local EXIT_LIFT = Vector3.new(0, 3, 0)
 local EXIT_MOVE_DELAY_SEC = 0.1
+-- a leaver's move to the ExitSpawn waits for their own client to have stood
+-- the character up (a round trip; 2026-10-30)
+local EXIT_STAND_UP_DELAY_SEC = 0.4
+-- a leaver still farther than this from the ExitSpawn after that is moved
+-- there by the server
+local EXIT_FALLBACK_DISTANCE_STUDS = 10
 
 local EMPTY_SHAPE = {}
 
@@ -115,6 +121,11 @@ function PartyManager:replicate(party: Party)
 	model:SetAttribute(Attributes.PAD_MAX_PLAYERS, party.maxPlayers)
 	model:SetAttribute(Attributes.PAD_VISIBILITY, party.visibility)
 	model:SetAttribute(Attributes.PAD_PLAYER_COUNT, #party.members)
+	local memberUserIds = {}
+	for _, member in party.members do
+		table.insert(memberUserIds, member.UserId)
+	end
+	model:SetAttribute(Attributes.PAD_MEMBER_USER_IDS, PartyRules.encodeMemberUserIds(memberUserIds))
 	model:SetAttribute(Attributes.PAD_TIMER_END_TIME, party.timerEndTime)
 end
 
@@ -205,7 +216,18 @@ function PartyManager:setDeparting(party: Party)
 	party.state = Enums.PadState.DEPARTING
 	party.timerEndTime = NO_TIMER
 	self:replicate(party)
-	self:syncHelicopterPhase(party)
+	-- the lift-off is stamped here, once: retire renames the model, sets
+	-- its flight attributes (pad, heading, start time), flips it to FLYING,
+	-- and destroys it after its lifetime. Stamping it again at the reset
+	-- (as placeHelicopter did until 2026-10-30) restarted every client's
+	-- flight from the pad, on top of the new helicopter
+	local helicopter = party.helicopter
+	if helicopter and helicopter.Parent then
+		-- a lobby helicopter turns about on the lift and leaves the way it
+		-- then faces, so pads facing each other never send two into each
+		-- other (designer, 2026-10-30)
+		HelicopterManager:retire(helicopter, self:getConfig().DEPARTED_HELICOPTER_LIFETIME_SEC, -helicopter:GetPivot().LookVector)
+	end
 end
 
 function PartyManager:addMember(party: Party, player: Player)
@@ -268,11 +290,11 @@ function PartyManager:syncHelicopterPhase(party: Party)
 	if not helicopter then
 		return
 	end
+	-- a departure is not a phase of the pad's helicopter but its retirement
+	-- (setDeparting), so only the two grounded phases are synced here
 	local phase = Enums.HelicopterPhase.IDLE
 	if party.state == Enums.PadState.BOARDING then
 		phase = Enums.HelicopterPhase.SPINNING
-	elseif party.state == Enums.PadState.DEPARTING then
-		phase = Enums.HelicopterPhase.FLYING
 	end
 	HelicopterManager:setPhase(helicopter, phase)
 end
@@ -315,25 +337,31 @@ function PartyManager:moveToExit(party: Party, player: Player)
 		return
 	end
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	local seat = party.seatByPlayer[player]
-	if seat then
-		local weld = seat:FindFirstChild("SeatWeld")
-		if weld then
-			weld:Destroy()
-		end
-	end
+	-- the character leaves the seat on its own client, which owns the
+	-- humanoid's state: Sit = false replicates to it, and the menu closing
+	-- (notifyMenu NONE, sent right after this) has it jump clear once its
+	-- jump lock lifts. Tearing the SeatWeld out here (until 2026-10-30) left
+	-- the client's humanoid still Seated, stiff and toppling once moved; the
+	-- seat is disabled again by onSeatOccupantChanged as it empties
 	if humanoid then
 		humanoid.Sit = false
 	end
 	local exitSpawn = party.model:FindFirstChild(Constants.PAD_EXIT_SPAWN_PART)
 	if exitSpawn and exitSpawn:IsA("BasePart") then
-		-- the engine settles the character at the seat as it stands up; a move
-		-- in the same frame is undone, so it waits a beat (still inside the
-		-- touch grace window)
+		-- the leaver's own client moves itself to the ExitSpawn as it stands
+		-- up (ClientPartyMenuManager:setMovementLocked), since it owns the
+		-- character's physics; this is the fallback for a client that did
+		-- not (the part not yet streamed to it), after the round trip
 		task.delay(
-			EXIT_MOVE_DELAY_SEC,
+			EXIT_STAND_UP_DELAY_SEC,
 			function()
-				character:PivotTo(CFrame.new(exitSpawn.Position + EXIT_LIFT))
+				if character.Parent == nil then
+					return
+				end
+				local distance = (character:GetPivot().Position - exitSpawn.Position).Magnitude
+				if distance > EXIT_FALLBACK_DISTANCE_STUDS then
+					character:PivotTo(CFrame.new(exitSpawn.Position + EXIT_LIFT))
+				end
 			end
 		)
 	end
@@ -466,13 +494,11 @@ function PartyManager:placeHelicopter(party: Party)
 		-- LobbyMapManager already reported what is missing
 		return
 	end
+	-- a departed helicopter was renamed by retire and flies on beside the
+	-- new one; a model still under the template's name is a stale one
 	local existing = party.model:FindFirstChild(Constants.HELICOPTER_TEMPLATE)
 	if existing and existing:IsA("Model") then
-		if party.state == Enums.PadState.DEPARTING then
-			HelicopterManager:retire(existing, self:getConfig().DEPARTED_HELICOPTER_LIFETIME_SEC)
-		else
-			existing:Destroy()
-		end
+		existing:Destroy()
 	end
 	local helicopter = HelicopterManager:spawnAt(helicopterSpawn, party.model, Enums.HelicopterPhase.IDLE)
 	party.helicopter = helicopter
@@ -736,6 +762,12 @@ function PartyManager:handleTryLaunchParty(player: Player)
 	if not party or party.state ~= Enums.PadState.BOARDING or not self:isHost(party, player) then
 		warn(`PartyManager: TryLaunchParty from {player.Name} who is not hosting a boarding pad`)
 		return
+	end
+	-- the crew is told the host cut the countdown short (designer, 2026-10-30)
+	for _, member in party.members do
+		if member ~= player and member.Parent == Players then
+			PlayerFeedbackManager:give(member, PartyRules.FEEDBACK_HOST_LEFT_EARLY)
+		end
 	end
 	self:launch(party)
 end

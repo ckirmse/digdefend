@@ -365,7 +365,7 @@ end
 function ClientCharacterSheetManager:fillRerollButton(button: GuiObject, price: number)
 	local priceLabel = button:FindFirstChild(Constants.REROLL_BUTTON_PRICE_LABEL) :: TextLabel
 	local priceIcon = button:FindFirstChild(Constants.REROLL_BUTTON_PRICE_ICON) :: ImageLabel
-	priceLabel.Text = if price > 0 then utils.abbreviateNumber(price) else UiStyle.formatTitle(FREE_TEXT)
+	priceLabel.Text = if price > 0 then utils.formatWithCommas(price) else UiStyle.formatTitle(FREE_TEXT)
 	priceIcon.Visible = price > 0
 end
 
@@ -593,7 +593,7 @@ function ClientCharacterSheetManager:render()
 	if not view or not self.isOpen then
 		return
 	end
-	view.diamondLabel.Text = utils.abbreviateNumber(ClientDataManager:getDiamonds())
+	view.diamondLabel.Text = utils.formatWithCommas(ClientDataManager:getDiamonds())
 	local character = self:getCharacter()
 	if not character then
 		-- the character went away under the sheet (a dev reset): back out

@@ -382,3 +382,31 @@ describe(
 		)
 	end
 )
+
+describe(
+	"PartyRules crew slots",
+	function()
+		it(
+			"sizes a slot by the party's size, wide for a crew of three or fewer",
+			function()
+				expect(PartyRules.crewSlotWidthScale(1)).toBe(0.48)
+				expect(PartyRules.crewSlotWidthScale(3)).toBe(0.48)
+				expect(PartyRules.crewSlotWidthScale(4)).toBe(0.25)
+				expect(PartyRules.crewSlotWidthScale(5)).toBe(0.2)
+				expect(PartyRules.crewSlotWidthScale(6)).toBe(0.16)
+				expect(PartyRules.crewSlotWidthScale(9)).toBe(0.16)
+			end
+		)
+
+		it(
+			"round-trips the member ids in join order and reads nonsense as an empty crew",
+			function()
+				expect(PartyRules.decodeMemberUserIds(PartyRules.encodeMemberUserIds({ 10, 20, 30 }))).toEqual({ 10, 20, 30 })
+				expect(PartyRules.decodeMemberUserIds(PartyRules.encodeMemberUserIds({}))).toEqual({})
+				expect(PartyRules.decodeMemberUserIds(nil)).toEqual({})
+				expect(PartyRules.decodeMemberUserIds("not json")).toEqual({})
+				expect(PartyRules.decodeMemberUserIds("[1, \"x\", 2]")).toEqual({ 1, 2 })
+			end
+		)
+	end
+)

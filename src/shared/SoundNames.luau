@@ -360,6 +360,9 @@ local lobbySfxNames: { string } = {
 }
 local lobbyMusicNames: { string } = {
 	music.LOBBY,
+	-- the gameplay place's outdoors, under the lobby track too (designer,
+	-- 2026-10-30)
+	music.OUTDOOR_AMBIENCE,
 }
 
 local module = {

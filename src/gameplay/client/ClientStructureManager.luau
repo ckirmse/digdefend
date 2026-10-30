@@ -66,8 +66,11 @@ export type ClientStructureManager = typeof(setmetatable(
 		-- every HP bar off, whatever else says to show one (a dead player's screens)
 		areBarsHidden: boolean,
 		trackedByShadow: { [BasePart]: Tracked },
-		-- the structure under the reticle, within reach
+		-- the structure under the reticle, within the cost preview's reach
 		target: BasePart?,
+		-- how far along the look ray the target was struck, judged against
+		-- the Hammer's own reach before a swing
+		targetDistance: number,
 		highlight: Highlight?,
 		holdInput: ClientHoldInput.ClientHoldInput?,
 		aimConnection: RBXScriptConnection?,
@@ -95,6 +98,10 @@ local COST_GAIN_FORMAT = "for %d HP"
 local FEEDBACK_NOT_ENOUGH_IRON = "Not enough Iron"
 local DEFAULT_HIT_INTERVAL_SEC = 0.45
 local DEFAULT_REACH_STUDS = 12
+-- the structure under the reticle is picked out, with the price of a swing,
+-- from this many times the Hammer's reach (designer, 2026-10-30), so a player
+-- can read the cost on the walk in; the swing itself still needs the reach
+local COST_PREVIEW_REACH_MULTIPLE = 2
 local DEFAULT_REPAIR_CHUNK_HP = 10
 local DEFAULT_REPAIR_CHUNK_IRON = 4
 -- repairs by other players are heard only nearby
@@ -448,7 +455,8 @@ function ClientStructureManager:aim()
 	params.FilterDescendantsInstances = included
 	local origin = camera.CFrame.Position
 	local direction = camera.CFrame.LookVector
-	local result = workspace:Raycast(origin, direction * self.reachStuds, params)
+	local previewReachStuds = self.reachStuds * COST_PREVIEW_REACH_MULTIPLE
+	local result = workspace:Raycast(origin, direction * previewReachStuds, params)
 	local targetShadow: BasePart? = nil
 	local targetModel: Model? = nil
 	local targetDistance = math.huge
@@ -467,13 +475,14 @@ function ClientStructureManager:aim()
 		if typeof(boundsCFrame) ~= "CFrame" or typeof(boundsSize) ~= "Vector3" then
 			continue
 		end
-		local distance = StructureRules.rayBoxDistance(origin, direction, boundsCFrame, boundsSize, self.reachStuds)
+		local distance = StructureRules.rayBoxDistance(origin, direction, boundsCFrame, boundsSize, previewReachStuds)
 		if distance and distance < targetDistance then
 			targetDistance = distance
 			targetShadow = shadow
 			targetModel = self:findStructureModel(shadow)
 		end
 	end
+	self.targetDistance = targetDistance
 	self:setTarget(targetShadow, targetModel)
 end
 
@@ -482,6 +491,10 @@ end
 function ClientStructureManager:swing(isFreshPress: boolean): boolean
 	local target = self.target
 	if not target then
+		return false
+	end
+	-- the cost shows from twice the reach; the blow lands only from within it
+	if self.targetDistance > self.reachStuds then
 		return false
 	end
 	local repairable = self:readRepairable(target)
@@ -864,6 +877,7 @@ function ClientStructureManager.new(): ClientStructureManager
 	self.aimConnection = nil
 	self.hitIntervalSec = DEFAULT_HIT_INTERVAL_SEC
 	self.reachStuds = DEFAULT_REACH_STUDS
+	self.targetDistance = math.huge
 	self.repairChunkHp = DEFAULT_REPAIR_CHUNK_HP
 	self.repairChunkIron = DEFAULT_REPAIR_CHUNK_IRON
 	self.doorTweens = {}

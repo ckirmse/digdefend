@@ -87,6 +87,8 @@ PartyRules.FEEDBACK_ALREADY_IN_PARTY = "You're already in a party"
 PartyRules.FEEDBACK_FRIENDS_ONLY = "This party is friends only"
 PartyRules.FEEDBACK_CREATION_TIMED_OUT = "Party creation timed out"
 PartyRules.FEEDBACK_NOW_HOST = "You are now the party host"
+-- to the other members when the host presses Launch before the timer ends
+PartyRules.FEEDBACK_HOST_LEFT_EARLY = "The host chose to leave early"
 PartyRules.FEEDBACK_TELEPORT_FAILED = "Teleport failed"
 PartyRules.ARRIVAL_REJECTION = "This server is reserved for a party"
 
@@ -353,6 +355,45 @@ end
 
 -- the config travels to clients as one JSON attribute on GameMetadata; the
 -- client decodes and re-validates it so a broken replication fails loudly
+-- the Queue Menu's crew slots (designer, 2026-10-30): each slot's width as
+-- a share of the row, by the party's size, so the row stays filled
+local CREW_SLOT_WIDTH_SCALE_BY_MAX_PLAYERS: { [number]: number } = {
+	[1] = 0.48,
+	[2] = 0.48,
+	[3] = 0.48,
+	[4] = 0.25,
+	[5] = 0.2,
+	[6] = 0.16,
+}
+local CREW_SLOT_WIDTH_SCALE_FALLBACK = 0.16
+
+function PartyRules.crewSlotWidthScale(maxPlayers: number): number
+	return CREW_SLOT_WIDTH_SCALE_BY_MAX_PLAYERS[maxPlayers] or CREW_SLOT_WIDTH_SCALE_FALLBACK
+end
+
+-- the members' user ids in join order, carried on the pad as one JSON
+-- attribute; a decode of anything odd is an empty crew
+function PartyRules.encodeMemberUserIds(memberUserIds: { number }): string
+	return HttpService:JSONEncode(memberUserIds)
+end
+
+function PartyRules.decodeMemberUserIds(encoded: any): { number }
+	if typeof(encoded) ~= "string" or encoded == "" then
+		return {}
+	end
+	local isSuccess, decoded = pcall(HttpService.JSONDecode, HttpService, encoded)
+	if not isSuccess or typeof(decoded) ~= "table" then
+		return {}
+	end
+	local memberUserIds = {}
+	for _, userId in decoded do
+		if typeof(userId) == "number" then
+			table.insert(memberUserIds, userId)
+		end
+	end
+	return memberUserIds
+end
+
 function PartyRules.encodeConfig(config: Config): string
 	return HttpService:JSONEncode(config)
 end

@@ -47,9 +47,10 @@ Constants.HUD_DIAMOND_WALLET = "DiamondWallet"
 Constants.HUD_DIAMOND_AMOUNT_LABEL = "DiamondAmount"
 Constants.HUD_MENU_BUTTONS = "MenuButtons"
 Constants.HUD_STORE_BUTTON = "StoreButton"
--- the Loadout button until 2026-10-12 (M37): it opens the Character Select Menu
-Constants.HUD_CHARACTER_BUTTON = "CharacterButton"
-Constants.HUD_DAILY_REWARDS_BUTTON = "DailyRewardsButton"
+-- the Loadout button until 2026-10-12 (M37), the Character button until
+-- 2026-10-30: it opens the Character Select Menu (the classes). The Daily
+-- Rewards button left the HUD the same day (post launch, M39)
+Constants.HUD_CLASSES_BUTTON = "ClassesButton"
 -- SoundService layout (designer-authored in both places): AudioPlayers under
 -- these folders, each wired to the AudioDeviceOutput; see SoundNames
 -- how long a client manager waits for a Studio-authored instance (a
@@ -93,6 +94,8 @@ Constants.PAD_GUI_PRIVATE_LABEL = "Private"
 Constants.PAD_GUI_PLAYERS_LABEL = "Players"
 -- the designer's full-panel line shown alone while a host sets a run up (2026-10-09)
 Constants.PAD_GUI_CONFIGURING_LABEL = "Configuring"
+-- "LEAVING IN: Xs" while a party boards, hidden otherwise (designer, 2026-10-30)
+Constants.PAD_GUI_TIMER_LABEL = "Timer"
 -- helicopter template under GameAssets; the clone on a pad keeps the name
 Constants.HELICOPTER_TEMPLATE = "Helicopter"
 Constants.HELICOPTER_PLAYER_SPAWNS_FOLDER = "PlayerSpawns"
@@ -675,6 +678,9 @@ Constants.GUI_TEMPLATES_FOLDER = "Gui"
 -- (scripts/studio/build_fortification_billboard.luau)
 Constants.FORTIFICATION_BILLBOARD = "Fortification"
 Constants.FORTIFICATION_ROOT_FRAME = "Root"
+-- the designer's picture plate behind the title (2026-10-30); the title
+-- label sits inside it
+Constants.FORTIFICATION_BACKGROUND = "Background"
 Constants.FORTIFICATION_TITLE_LABEL = "TitleLabel"
 Constants.FORTIFICATION_BAR = "Bar"
 Constants.FORTIFICATION_FILL = "Fill"
@@ -699,8 +705,9 @@ Constants.STRUCTURE_HP_COST_ROW = "CostRow"
 Constants.STRUCTURE_HP_COST_AMOUNT_LABEL = "AmountLabel"
 Constants.STRUCTURE_HP_COST_ICON = "Icon"
 Constants.STRUCTURE_HP_COST_GAIN_LABEL = "GainLabel"
--- the Refinery's HP bar floats this far above the model's top
-Constants.REFINERY_HP_BILLBOARD_LIFT_STUDS = 5.5
+-- the Refinery's HP bar floats this far above the model's top (5.5 until
+-- 2026-10-30, lowered by the designer)
+Constants.REFINERY_HP_BILLBOARD_LIFT_STUDS = 3.5
 -- the radio's sign (M31), GameAssets/Gui/RescueRadio
 Constants.RESCUE_RADIO_BILLBOARD = "RescueRadio"
 Constants.RESCUE_RADIO_ROOT_FRAME = "Root"
@@ -883,16 +890,30 @@ Constants.CREATE_PARTY_PLAYERS_STEPPER = "PlayersStepper"
 Constants.STEPPER_MINUS_BUTTON = "MinusButton"
 Constants.STEPPER_PLUS_BUTTON = "PlusButton"
 Constants.STEPPER_VALUE_LABEL = "ValueLabel"
-Constants.CREATE_PARTY_FRIENDS_ONLY_TOGGLE = "FriendsOnlyToggle"
-Constants.TOGGLE_STATE_LABEL = "StateLabel"
+-- the Friends Only row: a switch button whose Switch knob sits at the
+-- SwitchOff or SwitchOn marker frame (designer, 2026-10-30; an Off / On
+-- state label before)
+Constants.CREATE_PARTY_FRIENDS_ONLY_ROW = "FriendsOnly"
+Constants.CREATE_PARTY_FRIENDS_ONLY_TOGGLE = "ToggleButton"
+Constants.TOGGLE_SWITCH = "Switch"
+Constants.TOGGLE_SWITCH_OFF = "SwitchOff"
+Constants.TOGGLE_SWITCH_ON = "SwitchOn"
 Constants.CREATE_PARTY_COUNTDOWN_LABEL = "Countdown"
 Constants.CREATE_PARTY_CREATE_BUTTON = "CreateButton"
 Constants.CREATE_PARTY_CANCEL_BUTTON = "CancelButton"
+-- the Queue Menu (the designer's layout, 2026-10-30): the map and difficulty
+-- in one label, the visibility, the CrewMember panel (its heading is its one
+-- TextLabel child; CrewSlots holds the hidden Filled and Empty slot
+-- templates), and the Buttons frame with the countdown and the two buttons
 Constants.QUEUE_MAP_LABEL = "MapLabel"
-Constants.QUEUE_DIFFICULTY_LABEL = "DifficultyLabel"
-Constants.QUEUE_PLAYERS_LABEL = "PlayersLabel"
 Constants.QUEUE_VISIBILITY_LABEL = "VisibilityLabel"
-Constants.QUEUE_HOST_LABEL = "HostLabel"
+Constants.QUEUE_CREW_FRAME = "CrewMember"
+Constants.QUEUE_CREW_SLOTS = "CrewSlots"
+Constants.QUEUE_CREW_FILLED_TEMPLATE = "FilledTemplate"
+Constants.QUEUE_CREW_EMPTY_TEMPLATE = "EmptyTemplate"
+Constants.QUEUE_CREW_THUMBNAIL = "Thumbnail"
+Constants.QUEUE_CREW_DISPLAY_NAME = "DisplayName"
+Constants.QUEUE_BUTTONS_FRAME = "Buttons"
 Constants.QUEUE_COUNTDOWN_LABEL = "Countdown"
 Constants.QUEUE_LAUNCH_BUTTON = "LaunchButton"
 Constants.QUEUE_EXIT_BUTTON = "ExitButton"

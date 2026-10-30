@@ -9,7 +9,10 @@
 -- Developer Console, the Defense Table). Gameplay only: the lobby is
 -- third person and keeps the arrow. Behind a scope glass
 -- (ClientScopeGlassManager) the dot stands down: the glass has its own
--- reticle, and a dot over it read as a stray cursor (2026-10-19).
+-- reticle, and a dot over it read as a stray cursor (2026-10-19). The icon
+-- is switched back on only when this manager switched it off: Roblox's
+-- freecam (Shift+P) hides the cursor itself, and forcing it on every
+-- frame put the arrow in every screenshot (designer, 2026-10-30).
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -21,6 +24,8 @@ ClientCursorManager.__index = ClientCursorManager
 export type ClientCursorManager = typeof(setmetatable(
 	{} :: {
 		isDotHidden: boolean,
+		-- true while this manager has the icon off, so only its own hide is undone
+		hasHiddenIcon: boolean,
 	},
 	ClientCursorManager
 ))
@@ -45,9 +50,13 @@ function ClientCursorManager:init()
 			if UserInputService.MouseIcon ~= icon then
 				UserInputService.MouseIcon = icon
 			end
-			local isIconWanted = not (isLocked and self.isDotHidden)
-			if UserInputService.MouseIconEnabled ~= isIconWanted then
-				UserInputService.MouseIconEnabled = isIconWanted
+			local isHideWanted = isLocked and self.isDotHidden
+			if isHideWanted and UserInputService.MouseIconEnabled then
+				UserInputService.MouseIconEnabled = false
+				self.hasHiddenIcon = true
+			elseif not isHideWanted and self.hasHiddenIcon then
+				UserInputService.MouseIconEnabled = true
+				self.hasHiddenIcon = false
 			end
 		end
 	)
@@ -56,6 +65,7 @@ end
 function ClientCursorManager.new(): ClientCursorManager
 	local self = setmetatable({}, ClientCursorManager) :: ClientCursorManager
 	self.isDotHidden = false
+	self.hasHiddenIcon = false
 	return self
 end
 

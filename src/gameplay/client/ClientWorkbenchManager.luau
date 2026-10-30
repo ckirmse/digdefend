@@ -206,7 +206,15 @@ function ClientWorkbenchManager:attachBillboard()
 		warn("ClientWorkbenchManager: the Fortification billboard has no Root frame")
 		return
 	end
-	local title = root:FindFirstChild(Constants.FORTIFICATION_TITLE_LABEL)
+	-- the title lives inside the designer's Background plate (2026-10-30);
+	-- the recursive search also accepts an older copy with it directly under Root
+	local background = root:FindFirstChild(Constants.FORTIFICATION_BACKGROUND)
+	local title = if background
+		then background:FindFirstChild(Constants.FORTIFICATION_TITLE_LABEL)
+		else root:FindFirstChild(Constants.FORTIFICATION_TITLE_LABEL, true)
+	if not title then
+		warn("ClientWorkbenchManager: the Fortification billboard has no TitleLabel")
+	end
 	self.titleLabel = if title and title:IsA("TextLabel") then title else nil
 	local bar = root:FindFirstChild(Constants.FORTIFICATION_BAR)
 	local fill = if bar then bar:FindFirstChild(Constants.FORTIFICATION_FILL) else nil

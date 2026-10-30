@@ -30,8 +30,10 @@ UiStyle.POSITIVE_COLOR = Color3.fromRGB(90, 230, 100)
 -- the loading screen's bar fill, from the designer's Loading mock-up (2026-10-28)
 UiStyle.LOADING_FILL_COLOR = Color3.fromRGB(182, 251, 93)
 UiStyle.NEGATIVE_COLOR = Color3.fromRGB(240, 80, 70)
--- the pad billboard's "<host> is setting up a run" line (designer's pick on Pad1, 2026-10-09)
-UiStyle.PAD_CONFIGURING_COLOR = Color3.fromRGB(255, 89, 89)
+-- a switch toggle's track, off and on (the Create Party menu's Friends
+-- Only switch, designer 2026-10-30)
+UiStyle.TOGGLE_OFF_COLOR = Color3.fromRGB(255, 89, 89)
+UiStyle.TOGGLE_ON_COLOR = Color3.fromRGB(90, 230, 100)
 UiStyle.DISABLED_COLOR = Color3.fromRGB(110, 106, 100)
 -- the tool bar slot's backing picture, plain and for the equipped tool
 -- (designer, 2026-10-29)

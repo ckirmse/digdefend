@@ -66,7 +66,7 @@ end
 function ClientHudManager:renderDiamonds(diamonds: number)
 	local label = self.diamondLabel
 	if label then
-		label.Text = utils.abbreviateNumber(diamonds)
+		label.Text = utils.formatWithCommas(diamonds)
 	end
 end
 
@@ -165,20 +165,18 @@ function ClientHudManager:init()
 	end
 	self:wireButton(
 		menuButtons,
-		Constants.HUD_CHARACTER_BUTTON,
+		Constants.HUD_CLASSES_BUTTON,
 		function()
 			ClientCharacterMenuManager:openMenu()
 		end
 	)
-	for _, name in { Constants.HUD_STORE_BUTTON, Constants.HUD_DAILY_REWARDS_BUTTON } do
-		self:wireButton(
-			menuButtons,
-			name,
-			function()
-				self:giveComingSoon()
-			end
-		)
-	end
+	self:wireButton(
+		menuButtons,
+		Constants.HUD_STORE_BUTTON,
+		function()
+			self:giveComingSoon()
+		end
+	)
 
 	ClientOverlayManager:addOverlayNotifier(self)
 

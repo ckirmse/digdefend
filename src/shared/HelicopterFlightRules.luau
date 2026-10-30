@@ -8,11 +8,15 @@
 -- sampled by time against a config (GameData/Control/Helicopter,
 -- published to the clients as GameMetadata JSON), so every client draws
 -- the same flight from the one server start time and a late viewer lands
--- on the right frame. The approach comes in nose down, banks as it turns
--- to the pad's facing and sinks straight onto the pad flaring nose-up;
--- the departure lifts, banks toward the heading and climbs away, at full
--- speed within DEPARTURE_RAMP_SEC of leaning forward. ClientHelicopterManager
--- renders the poses.
+-- on the right frame. The approach comes in nose down, turns hovering to
+-- the pad's facing and sinks straight onto the pad flaring nose-up; the
+-- departure lifts straight up, turning hovering from the pad's facing to
+-- the heading on the way (a half turn on the lobby pads, so two helicopters
+-- facing each other leave away from each other, designer 2026-10-30; the
+-- lean banked into the turn before, which never showed since every heading
+-- was the facing), then climbs away nose-first, at full speed within
+-- DEPARTURE_RAMP_SEC of leaning forward. ClientHelicopterManager renders
+-- the poses.
 local HttpService = game:GetService("HttpService")
 
 local HelicopterFlightRules = {}
@@ -37,7 +41,6 @@ export type Config = {
 	DEPARTURE_DISTANCE_STUDS: number,
 	DEPARTURE_HEIGHT_STUDS: number,
 	DEPARTURE_NOSE_DOWN_DEGREES: number,
-	DEPARTURE_BANK_DEGREES: number,
 }
 
 -- what a client flies with when no config has reached it
@@ -54,14 +57,8 @@ HelicopterFlightRules.DEFAULT_CONFIG = {
 	DEPARTURE_DISTANCE_STUDS = 1960,
 	DEPARTURE_HEIGHT_STUDS = 350,
 	DEPARTURE_NOSE_DOWN_DEGREES = 10,
-	DEPARTURE_BANK_DEGREES = 22,
 } :: Config
 
--- the yaw blend of a departure runs over this stretch of the path
-local DEPARTURE_TURN_START_SHARE = 0.05
-local DEPARTURE_TURN_END_SHARE = 0.45
--- a quarter turn or more banks fully; less banks in proportion
-local FULL_BANK_TURN_RADIANS = math.pi / 2
 -- the lift's pace at lift-off as a share of its average
 local DEPARTURE_START_PACE = 0.6
 -- the lean and the run-in are paced by distance along their curve, not
@@ -283,26 +280,25 @@ end
 -- at full speed DEPARTURE_RAMP_SEC into the lean
 function HelicopterFlightRules.departurePose(padCFrame: CFrame, heading: Vector3, config: Config, elapsedSec: number): CFrame
 	local padYaw = HelicopterFlightRules.yawOfCFrame(padCFrame)
+	local headingYaw = HelicopterFlightRules.yawOf(HelicopterFlightRules.flatDirection(Vector3.zero, HelicopterFlightRules.flatten(heading), padCFrame.LookVector))
 	local liftSec = math.max(config.DEPARTURE_LIFT_SEC, 0)
 	if elapsedSec < liftSec then
-		local rise = HelicopterFlightRules.easeInSoft(elapsedSec / liftSec)
+		-- a hovering turn from the pad's facing to the heading over the
+		-- whole lift, so the lean leaves nose-first (the approach's descent
+		-- turns the same way, back again)
+		local liftShare = elapsedSec / liftSec
+		local rise = HelicopterFlightRules.easeInSoft(liftShare)
 		local position = padCFrame.Position + Vector3.new(0, config.DEPARTURE_LIFT_HEIGHT_STUDS * rise, 0)
-		return HelicopterFlightRules.pose(position, padYaw, 0, 0)
+		local yaw = HelicopterFlightRules.lerpAngle(padYaw, headingYaw, smoothstep(liftShare))
+		return HelicopterFlightRules.pose(position, yaw, 0, 0)
 	end
 	local leanSec = math.max(config.DEPARTURE_SEC - liftSec, TINY)
 	local share = clamp01((elapsedSec - liftSec) / leanSec)
 	local p0, p1, p2, p3 = HelicopterFlightRules.departurePoints(padCFrame, heading, config)
 	local t = HelicopterFlightRules.parameterAtLengthShare(p0, p1, p2, p3, HelicopterFlightRules.leanProgress(share, config.DEPARTURE_RAMP_SEC / leanSec))
 	local position = HelicopterFlightRules.cubicBezier(p0, p1, p2, p3, t)
-	local headingYaw = HelicopterFlightRules.yawOf(HelicopterFlightRules.flatDirection(Vector3.zero, HelicopterFlightRules.flatten(heading), padCFrame.LookVector))
-	local turn = HelicopterFlightRules.angleDifference(padYaw, headingYaw)
-	local turnShare = smoothstep((t - DEPARTURE_TURN_START_SHARE) / (DEPARTURE_TURN_END_SHARE - DEPARTURE_TURN_START_SHARE))
-	local yaw = padYaw + turn * turnShare
-	local bankStrength = clamp01(math.abs(turn) / FULL_BANK_TURN_RADIANS)
-	-- a left turn (yaw growing) lifts the right side: positive roll
-	local roll = math.sign(turn) * math.rad(config.DEPARTURE_BANK_DEGREES) * bankStrength * math.sin(math.pi * turnShare)
 	local pitch = math.rad(-config.DEPARTURE_NOSE_DOWN_DEGREES) * smoothstep(t / 0.5)
-	return HelicopterFlightRules.pose(position, yaw, pitch, roll)
+	return HelicopterFlightRules.pose(position, headingYaw, pitch, 0)
 end
 
 function HelicopterFlightRules.encodeConfig(config: Config): string
