@@ -505,8 +505,9 @@ module = {
 	-- size, the Tower limit, and the sell share
 	DEFENSE_CATALOG = "DefenseCatalog",
 	-- CurrentPlayer (private): JSON list of the Enums.TowerKind values the
-	-- loadout brought (PlacementRules codec) and how many Towers this
-	-- player has standing
+	-- crew brought (PlacementRules codec; everyone builds from the one list,
+	-- 2026-10-29). GameMetadata: how many Towers stand in the camp, against
+	-- the catalogue's shared limit
 	TOWER_LOADOUT = "TowerLoadout",
 	ACTIVE_TOWER_COUNT = "ActiveTowerCount",
 	-- the Defense Table (DefenseTableManager). CurrentPlayer (private):

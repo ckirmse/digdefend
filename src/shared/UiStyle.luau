@@ -33,6 +33,10 @@ UiStyle.NEGATIVE_COLOR = Color3.fromRGB(240, 80, 70)
 -- the pad billboard's "<host> is setting up a run" line (designer's pick on Pad1, 2026-10-09)
 UiStyle.PAD_CONFIGURING_COLOR = Color3.fromRGB(255, 89, 89)
 UiStyle.DISABLED_COLOR = Color3.fromRGB(110, 106, 100)
+-- the tool bar slot's backing picture, plain and for the equipped tool
+-- (designer, 2026-10-29)
+UiStyle.TOOL_SLOT_COLOR = Color3.fromRGB(0, 0, 0)
+UiStyle.TOOL_SLOT_SELECTED_COLOR = Color3.fromRGB(124, 124, 124)
 -- the character sheet's REROLL ODDS button: a quiet grey so it never reads as a buy (designer, 2026-10-13)
 UiStyle.ODDS_BUTTON_COLOR = Color3.fromRGB(124, 124, 124)
 -- every HP bar runs HP_FULL_COLOR to HP_EMPTY_COLOR as the thing weakens

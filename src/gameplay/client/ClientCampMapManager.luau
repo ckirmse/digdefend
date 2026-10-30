@@ -51,6 +51,7 @@ export type ClientCampMapManager = typeof(setmetatable(
 		-- the authored REFINERY word, placed under the Refinery's box
 		refineryLabel: TextLabel?,
 		playerDotTemplate: GuiObject?,
+		playerConeTemplate: GuiObject?,
 		monsterDotTemplate: GuiObject?,
 		viewsByShadow: { [BasePart]: StructureView },
 		-- the camp's frame and fit, rebuilt when a structure comes or goes
@@ -58,6 +59,8 @@ export type ClientCampMapManager = typeof(setmetatable(
 		layout: CampMapRules.Layout?,
 		isLayoutDirty: boolean,
 		playerDotByUserId: { [number]: GuiObject },
+		-- the facing cone under each dot, keyed the same way
+		playerConeByUserId: { [number]: GuiObject },
 		-- a pool of monster dots, the first `monsterDotsShown` visible
 		monsterDots: { GuiObject },
 		monsterDotsShown: number,
@@ -80,6 +83,9 @@ local MAX_MONSTER_DOTS = 150
 local MIN_STRUCTURE_SIDE_SHARE = 0.045
 -- the map waits off the right edge of the screen by day; clear of its own width
 local HIDDEN_POSITION_X_SCALE = 1.6
+-- the cone picture fans upward from its centre, and rotationDegrees
+-- reads 0 as screen right, so a facing's angle turns the cone by this more
+local CONE_IMAGE_UP_DEGREES = 90
 
 local function readNumber(value: any, default: number): number
 	return if typeof(value) == "number" then value else default
@@ -121,6 +127,7 @@ function ClientCampMapManager:findGui()
 		warn("ClientCampMapManager: the CampMap canvas has no RefineryLabel; rerun scripts/studio/build_camp_map_gui.luau")
 	end
 	self.playerDotTemplate = findTemplate(Constants.CAMP_MAP_PLAYER_DOT_TEMPLATE)
+	self.playerConeTemplate = findTemplate(Constants.CAMP_MAP_PLAYER_CONE_TEMPLATE)
 	self.monsterDotTemplate = findTemplate(Constants.CAMP_MAP_MONSTER_DOT_TEMPLATE)
 end
 
@@ -343,19 +350,55 @@ function ClientCampMapManager:getPlayerDot(userId: number, colorIndex: number): 
 	dot.Visible = false
 	dot.Parent = canvas
 	self.playerDotByUserId[userId] = dot
+	local coneTemplate = self.playerConeTemplate
+	if coneTemplate then
+		local cone = coneTemplate:Clone()
+		cone.Name = tostring(userId)
+		if cone:IsA("ImageLabel") then
+			cone.ImageColor3 = dot.BackgroundColor3
+		end
+		cone.Visible = false
+		cone.Parent = canvas
+		self.playerConeByUserId[userId] = cone
+	end
 	return dot
+end
+
+-- the cone sits where the dot is and turns to the facing; the camera's look
+-- for the local player (first person, so it is where they look), the loaded
+-- character's for a crewmate, and no cone for one whose body is not loaded
+function ClientCampMapManager:placeCone(userId: number, dot: GuiObject, facing: Vector3?)
+	local cone = self.playerConeByUserId[userId]
+	local frame = self.frame
+	if not cone then
+		return
+	end
+	if not facing or not frame or not dot.Visible then
+		cone.Visible = false
+		return
+	end
+	cone.Position = dot.Position
+	cone.Rotation = CampMapRules.rotationDegrees(frame, facing) + CONE_IMAGE_UP_DEGREES
+	cone.Visible = true
 end
 
 -- a loaded character is smoother than the published spot; far crewmates
 -- are only ever the published spot, since streaming hides their characters
-local function livePosition(userId: number, data: ClientDataManager.PublicData): Vector3?
+local function livePosition(userId: number, data: ClientDataManager.PublicData): (Vector3?, Vector3?)
 	local player = Players:GetPlayerByUserId(userId)
 	local character = if player then player.Character else nil
 	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
 	if root and root:IsA("BasePart") then
-		return root.Position
+		local facing = root.CFrame.LookVector
+		if player == Players.LocalPlayer then
+			local camera = workspace.CurrentCamera
+			if camera then
+				facing = camera.CFrame.LookVector
+			end
+		end
+		return root.Position, facing
 	end
-	return data.compassPosition
+	return data.compassPosition, nil
 end
 
 function ClientCampMapManager:stepPlayers()
@@ -370,17 +413,26 @@ function ClientCampMapManager:stepPlayers()
 		if not dot then
 			continue
 		end
-		local position = if data.isDead then nil else livePosition(userId, data)
+		local position: Vector3?, facing: Vector3? = nil, nil
+		if not data.isDead then
+			position, facing = livePosition(userId, data)
+		end
 		if position then
 			self:placeDot(dot, position.X, position.Z)
 		else
 			dot.Visible = false
 		end
+		self:placeCone(userId, dot, facing)
 	end
 	for userId, dot in self.playerDotByUserId do
 		if not seen[userId] then
 			dot:Destroy()
 			self.playerDotByUserId[userId] = nil
+			local cone = self.playerConeByUserId[userId]
+			if cone then
+				cone:Destroy()
+				self.playerConeByUserId[userId] = nil
+			end
 		end
 	end
 end
@@ -487,12 +539,14 @@ function ClientCampMapManager.new(): ClientCampMapManager
 	self.destroyedMarkTemplate = nil
 	self.refineryLabel = nil
 	self.playerDotTemplate = nil
+	self.playerConeTemplate = nil
 	self.monsterDotTemplate = nil
 	self.viewsByShadow = {}
 	self.frame = nil
 	self.layout = nil
 	self.isLayoutDirty = false
 	self.playerDotByUserId = {}
+	self.playerConeByUserId = {}
 	self.monsterDots = {}
 	self.monsterDotsShown = 0
 	self.sinceStepSec = 0

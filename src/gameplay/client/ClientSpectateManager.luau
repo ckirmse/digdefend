@@ -33,6 +33,8 @@ export type ClientSpectateManager = typeof(setmetatable(
 		targetUserId: number?,
 		-- the Humanoid the camera is on, so it is set once per character
 		subject: Humanoid?,
+		-- the subject's own CameraOffset, put back when the camera leaves it
+		subjectCameraOffset: Vector3?,
 		savedCameraMode: Enum.CameraMode?,
 		savedMinZoom: number?,
 		savedMaxZoom: number?,
@@ -54,6 +56,10 @@ local STEP_INTERVAL_SEC = 0.25
 local MIN_ZOOM_STUDS = 8
 local MAX_ZOOM_STUDS = 30
 local NO_TARGET = 0
+-- the follow camera's focus sits this far under the watched character,
+-- so the body stands clear of the Spectate bar across the screen's
+-- bottom (designer, 2026-10-29); a client-side offset on the Humanoid
+local FOCUS_DROP_STUDS = 2.5
 
 function ClientSpectateManager:getIsSpectating(): boolean
 	return self.isSpectating
@@ -97,9 +103,19 @@ function ClientSpectateManager:getViewPosition(): Vector3?
 	return if data then data.compassPosition else nil
 end
 
+-- gives the watched Humanoid its own camera offset back and forgets it
+function ClientSpectateManager:releaseSubject()
+	local subject = self.subject
+	if subject and self.subjectCameraOffset then
+		subject.CameraOffset = self.subjectCameraOffset
+	end
+	self.subject = nil
+	self.subjectCameraOffset = nil
+end
+
 function ClientSpectateManager:setTarget(userId: number)
 	self.targetUserId = userId
-	self.subject = nil
+	self:releaseSubject()
 	local data = ClientDataManager:getPlayerPublicData(userId)
 	if self.nameLabel then
 		self.nameLabel.Text = if data then data.displayName else ""
@@ -117,7 +133,10 @@ function ClientSpectateManager:attachCameraIfNeeded()
 	if not camera or not humanoid or self.subject == humanoid then
 		return
 	end
+	self:releaseSubject()
 	self.subject = humanoid
+	self.subjectCameraOffset = humanoid.CameraOffset
+	humanoid.CameraOffset = humanoid.CameraOffset - Vector3.new(0, FOCUS_DROP_STUDS, 0)
 	camera.CameraType = Enum.CameraType.Custom
 	camera.CameraSubject = humanoid
 end
@@ -161,7 +180,7 @@ function ClientSpectateManager:stop()
 	end
 	self.isSpectating = false
 	self.targetUserId = nil
-	self.subject = nil
+	self:releaseSubject()
 	if self.gui then
 		self.gui.Enabled = false
 	end
@@ -325,6 +344,7 @@ function ClientSpectateManager.new(): ClientSpectateManager
 	self.isSpectating = false
 	self.targetUserId = nil
 	self.subject = nil
+	self.subjectCameraOffset = nil
 	self.savedCameraMode = nil
 	self.savedMinZoom = nil
 	self.savedMaxZoom = nil

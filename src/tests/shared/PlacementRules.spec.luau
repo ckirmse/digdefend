@@ -276,6 +276,76 @@ describe(
 )
 
 describe(
+	"PlacementRules.snapBesideAnchor",
+	function()
+		local grid = PlacementRules.measureZone(ZONE_CFRAME, ZONE_SIZE, CELL)
+		local function occupy(occupancy, cell, footprint, id)
+			for _, covered in PlacementRules.footprintCells(cell, footprint) do
+				occupancy[PlacementRules.occupancyKey(covered)] = id
+			end
+		end
+		it(
+			"joins a long item past its short side, the far column end first",
+			function()
+				local occupancy = {}
+				occupy(occupancy, { column = 3, row = 2 }, { 4, 2 }, "Wall1")
+				local nextCell = PlacementRules.snapBesideAnchor(grid, occupancy, { column = 3, row = 2 }, { 4, 2 }, {})
+				expect(nextCell.column).toBe(7)
+				expect(nextCell.row).toBe(2)
+			end
+		)
+		it(
+			"takes the near end when the far one is off the grid",
+			function()
+				local occupancy = {}
+				occupy(occupancy, { column = 9, row = 2 }, { 2, 1 }, "Wall1")
+				local nextCell = PlacementRules.snapBesideAnchor(grid, occupancy, { column = 9, row = 2 }, { 2, 1 }, {})
+				expect(nextCell.column).toBe(7)
+				expect(nextCell.row).toBe(2)
+			end
+		)
+		it(
+			"carries on the way the line was growing",
+			function()
+				local occupancy = {}
+				occupy(occupancy, { column = 3, row = 2 }, { 2, 1 }, "Wall1")
+				occupy(occupancy, { column = 5, row = 2 }, { 2, 1 }, "Wall2")
+				local nextCell = PlacementRules.snapBesideAnchor(grid, occupancy, { column = 5, row = 2 }, { 2, 1 }, { { column = 3, row = 2 } })
+				expect(nextCell.column).toBe(7)
+				expect(nextCell.row).toBe(2)
+				local occupancyBack = {}
+				occupy(occupancyBack, { column = 7, row = 2 }, { 2, 1 }, "Wall1")
+				occupy(occupancyBack, { column = 5, row = 2 }, { 2, 1 }, "Wall2")
+				local back = PlacementRules.snapBesideAnchor(grid, occupancyBack, { column = 5, row = 2 }, { 2, 1 }, { { column = 7, row = 2 } })
+				expect(back.column).toBe(3)
+				expect(back.row).toBe(2)
+			end
+		)
+		it(
+			"grows an item longer along the rows past its row ends, and a square item any side",
+			function()
+				local tall = PlacementRules.snapBesideAnchor(grid, {}, { column = 4, row = 3 }, { 1, 2 }, {})
+				expect(tall.column).toBe(4)
+				expect(tall.row).toBe(5)
+				local square = PlacementRules.snapBesideAnchor(grid, {}, { column = 5, row = 3 }, { 2, 2 }, { { column = 5, row = 1 } })
+				expect(square.column).toBe(5)
+				expect(square.row).toBe(5)
+			end
+		)
+		it(
+			"is nil when both ends are taken",
+			function()
+				local occupancy = {}
+				occupy(occupancy, { column = 3, row = 2 }, { 2, 1 }, "Wall1")
+				occupy(occupancy, { column = 5, row = 2 }, { 2, 1 }, "Wall2")
+				occupy(occupancy, { column = 7, row = 2 }, { 2, 1 }, "Wall3")
+				expect(PlacementRules.snapBesideAnchor(grid, occupancy, { column = 5, row = 2 }, { 2, 1 }, { { column = 3, row = 2 } })).toBeNil()
+			end
+		)
+	end
+)
+
+describe(
 	"PlacementRules towers",
 	function()
 		it(
@@ -401,13 +471,36 @@ describe(
 			end
 		)
 		it(
-			"shares the camp's Towers out evenly, rounding up",
+			"turns only a kind the data calls rotatable",
 			function()
-				expect(PlacementRules.towerAllowance(12, 1)).toBe(12)
-				expect(PlacementRules.towerAllowance(12, 4)).toBe(3)
-				expect(PlacementRules.towerAllowance(12, 5)).toBe(3)
-				expect(PlacementRules.towerAllowance(12, 6)).toBe(2)
-				expect(PlacementRules.towerAllowance(12, 0)).toBe(12)
+				local catalog = {
+					cellSizeStuds = 1,
+					maxActiveTowersCamp = 12,
+					towerSellShare = 0.5,
+					trapSellShare = 0.5,
+					towers = {
+						[Enums.TowerKind.SENTRY_GUN] = { BUILD_PRICE_IRON = 1, UPGRADE_PRICE_IRON_BY_LEVEL = {}, FOOTPRINT_CELLS = { 4, 4 }, IS_ROTATABLE = false, STATS_BY_LEVEL = {} },
+					},
+					traps = {
+						[Enums.TrapKind.WALL] = { PRICE_IRON = 1, MAX_HP = 1, FOOTPRINT_CELLS = { 4, 2 }, IS_ROTATABLE = true },
+						[Enums.TrapKind.SPIKE_TRAP] = { PRICE_IRON = 1, MAX_HP = 1, FOOTPRINT_CELLS = { 4, 4 } },
+					},
+				}
+				expect(PlacementRules.isRotatable(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.WALL)).toBe(true)
+				expect(PlacementRules.isRotatable(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.SPIKE_TRAP)).toBe(false)
+				expect(PlacementRules.isRotatable(catalog, Enums.PlacementKind.TOWER, Enums.TowerKind.SENTRY_GUN)).toBe(false)
+				expect(PlacementRules.isRotatable(catalog, Enums.PlacementKind.TRAP, Enums.TrapKind.DECOY)).toBe(false)
+			end
+		)
+		it(
+			"leaves a map's excluded Traps off the catalogue",
+			function()
+				local wall = { PRICE_IRON = 1, MAX_HP = 1, FOOTPRINT_CELLS = { 4, 2 } }
+				local decoy = { PRICE_IRON = 1, MAX_HP = 1, FOOTPRINT_CELLS = { 2, 2 } }
+				local traps = { [Enums.TrapKind.WALL] = wall, [Enums.TrapKind.DECOY] = decoy }
+				expect(PlacementRules.excludeTraps(traps, { Enums.TrapKind.DECOY })).toEqual({ [Enums.TrapKind.WALL] = wall })
+				expect(PlacementRules.excludeTraps(traps, nil)).toEqual(traps)
+				expect(PlacementRules.excludeTraps(traps, {})).toEqual(traps)
 			end
 		)
 		it(

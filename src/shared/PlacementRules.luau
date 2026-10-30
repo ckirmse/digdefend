@@ -63,6 +63,8 @@ export type TowerData = {
 	UPGRADE_PRICE_IRON_BY_LEVEL: { number },
 	-- columns by rows
 	FOOTPRINT_CELLS: { number },
+	-- whether the Rotate button turns it (GameData; no Tower so far)
+	IS_ROTATABLE: boolean?,
 	-- the four Enums.TowerStat the Tower Menu lists, in order
 	STAT_ROWS: { number }?,
 	-- nil for a Tower that never attacks (the Drill Rig)
@@ -75,6 +77,8 @@ export type TrapData = {
 	PRICE_IRON: number,
 	MAX_HP: number,
 	FOOTPRINT_CELLS: { number },
+	-- whether the Rotate button turns it (the Wall and the Goo Pit)
+	IS_ROTATABLE: boolean?,
 	-- whether the Hammer can repair it, as it can any Tower
 	IS_REPAIRABLE: boolean?,
 	-- Enums.TrapBehavior and its numbers (GameData/Defenses/Traps), M27
@@ -491,6 +495,53 @@ function PlacementRules.nextFreeAnchor(grid: Grid, occupancy: Occupancy, cell: C
 	return nil
 end
 
+-- after a build, the next ghost joins the line: beside the item just built
+-- (`reference`, anchored like the ghost and of the same turned footprint)
+-- past one of its short sides, so a 4 x 2 Wall grows end to end; a square
+-- item may take any side. The side tried first carries on from the nearest
+-- other of the kind lying the same way (`others`), so a row keeps growing
+-- the way it was going; with none, the far column end, then the near one,
+-- then the rows. Nil when no side is free (designer, 2026-10-29)
+function PlacementRules.snapBesideAnchor(grid: Grid, occupancy: Occupancy, reference: Cell, footprint: { number }, others: { Cell }): Cell?
+	local candidates: { Cell } = {}
+	if footprint[1] >= footprint[2] then
+		table.insert(candidates, { column = reference.column + footprint[1], row = reference.row })
+		table.insert(candidates, { column = reference.column - footprint[1], row = reference.row })
+	end
+	if footprint[2] >= footprint[1] then
+		table.insert(candidates, { column = reference.column, row = reference.row + footprint[2] })
+		table.insert(candidates, { column = reference.column, row = reference.row - footprint[2] })
+	end
+	local nearest: Cell? = nil
+	local nearestDistance = math.huge
+	for _, other in others do
+		local distance = (other.column - reference.column) ^ 2 + (other.row - reference.row) ^ 2
+		if distance > 0 and distance < nearestDistance then
+			nearest = other
+			nearestDistance = distance
+		end
+	end
+	if nearest then
+		local directionColumn = reference.column - nearest.column
+		local directionRow = reference.row - nearest.row
+		local function alongLine(candidate: Cell): number
+			return (candidate.column - reference.column) * directionColumn + (candidate.row - reference.row) * directionRow
+		end
+		table.sort(
+			candidates,
+			function(a: Cell, b: Cell)
+				return alongLine(a) > alongLine(b)
+			end
+		)
+	end
+	for _, candidate in candidates do
+		if PlacementRules.canPlace(grid, occupancy, candidate, footprint) then
+			return candidate
+		end
+	end
+	return nil
+end
+
 function PlacementRules.footprintFor(catalog: Catalog, placementKind: number, typeKind: number): { number }?
 	if placementKind == Enums.PlacementKind.TOWER then
 		local tower = catalog.towers[typeKind]
@@ -703,9 +754,24 @@ local function decodeNumberKeys(map: any): { [number]: any }
 	return decoded
 end
 
--- the camp's Towers shared out evenly: each player may hold this many
-function PlacementRules.towerAllowance(maxActiveTowersCamp: number, crewCount: number): number
-	return math.ceil(maxActiveTowersCamp / math.max(crewCount, 1))
+-- whether the kind may be turned with the Rotate button (IS_ROTATABLE in
+-- GameData: the Wall and the Goo Pit, decided 2026-10-29); an unknown kind
+-- never turns
+function PlacementRules.isRotatable(catalog: Catalog, placementKind: number, typeKind: number): boolean
+	local data: any = if placementKind == Enums.PlacementKind.TOWER then catalog.towers[typeKind] else catalog.traps[typeKind]
+	return data ~= nil and data.IS_ROTATABLE == true
+end
+
+-- the catalogue's Traps less the kinds a map leaves off its bar
+-- (TrapsData.EXCLUDED_KINDS_BY_MAP); nil excludes nothing
+function PlacementRules.excludeTraps(traps: { [number]: TrapData }, excludedKinds: { number }?): { [number]: TrapData }
+	local kept = {}
+	for kind, trap in traps do
+		if not excludedKinds or not table.find(excludedKinds, kind) then
+			kept[kind] = trap
+		end
+	end
+	return kept
 end
 
 function PlacementRules.encodeCatalog(catalog: Catalog): string

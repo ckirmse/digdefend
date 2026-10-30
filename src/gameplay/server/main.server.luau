@@ -187,8 +187,8 @@ RunManager:subscribeRunStarted(
 -- Defensive Zones at run start
 PlacementManager:init()
 RunManager:subscribeRunStarted(
-	function(_map: number, _difficulty: number)
-		PlacementManager:onRunStarted()
+	function(map: number, _difficulty: number)
+		PlacementManager:onRunStarted(map)
 	end
 )
 -- after the placements they read every Heartbeat and the target registry

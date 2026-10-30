@@ -55,6 +55,9 @@ export type Tracked = {
 	yawValue: NumberValue?,
 	flame: BasePart?,
 	spikes: { SpikePart },
+	-- only the ghost shows while the owner moves it; kept so a redraw mid-move
+	-- (a level change) stays hidden
+	isBodyHidden: boolean,
 }
 
 export type ClientPlacementManager = typeof(setmetatable(
@@ -133,6 +136,34 @@ function ClientPlacementManager:fireChanged()
 	for _, handler in self.changedHandlers do
 		handler()
 	end
+end
+
+-- the local transparency, so the server's copy and every effect stay untouched
+local function applyBodyHidden(tracked: Tracked)
+	local modifier = if tracked.isBodyHidden then 1 else 0
+	local body = tracked.body
+	if body then
+		for _, descendant in body:GetDescendants() do
+			if descendant:IsA("BasePart") or descendant:IsA("Decal") or descendant:IsA("Texture") then
+				(descendant :: any).LocalTransparencyModifier = modifier
+			end
+		end
+	end
+	local billboard = tracked.billboard
+	if billboard then
+		billboard.Enabled = not tracked.isBodyHidden
+	end
+end
+
+-- a placement being moved shows only its ghost (designer, 2026-10-29): its
+-- drawn body and billboard go while the move is on
+function ClientPlacementManager:setBodyHidden(shadow: BasePart, isHidden: boolean)
+	local tracked = self.trackedByShadow[shadow]
+	if not tracked then
+		return
+	end
+	tracked.isBodyHidden = isHidden
+	applyBodyHidden(tracked)
 end
 
 function ClientPlacementManager:getTrackedShadows(): { BasePart }
@@ -468,6 +499,7 @@ function ClientPlacementManager:dress(tracked: Tracked)
 	tracked.flame = nil
 	tracked.yawValue = nil
 	self:bindTurret(tracked, body)
+	applyBodyHidden(tracked)
 	self:bindSpikes(tracked, body)
 
 	if not tracked.billboard then
@@ -496,6 +528,7 @@ function ClientPlacementManager:track(shadow: Instance)
 		turretParts = {},
 		yawValue = nil,
 		flame = nil,
+		isBodyHidden = false,
 		spikes = {},
 	}
 	self.trackedByShadow[shadow] = tracked

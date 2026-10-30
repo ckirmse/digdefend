@@ -10,7 +10,9 @@
 -- further row is what one upgrade makes it, so an upgrade can change any
 -- mix of stats. UPGRADE_PRICE_IRON_BY_LEVEL[N] is the price of reaching
 -- level N + 1. FOOTPRINT_CELLS is columns by rows on the grid
--- (GameData/Defenses/Placement fixes the cell size). Upgrades are never
+-- (GameData/Defenses/Placement fixes the cell size). IS_ROTATABLE is
+-- whether the Rotate button turns it (no Tower: every footprint is
+-- square, 2026-10-29). Upgrades are never
 -- gated by Camp Level (GDD "Camp Level": Towers are never capped).
 -- STAT_ROWS names the four stats the Tower Menu shows for the kind, in
 -- order (a Frost Tower never lists a Damage of 0). BEHAVIOR is everything
@@ -27,11 +29,10 @@ return {
 	-- a character's second Tower row starts on a different kind so a new
 	-- player's Build Mode offers two towers, not one twice (M55, 2026-10-12)
 	DEFAULT_SECOND_TOWER = Enums.TowerKind.FLAMETHROWER,
-	-- the camp's Towers, shared out evenly among the crew (decided
-	-- 2026-09-28, docs/balance-plan.md): each player may hold
-	-- ceil(camp / crew), so a solo player builds the whole camp's worth and
-	-- a crew of six a couple each. The crew count is the one sampled at
-	-- dawn, so a leaver's share opens up the next morning
+	-- the camp's Towers as one shared pool (designer, 2026-10-29): any
+	-- crewmate may build while fewer than this stand, whoever built them.
+	-- From 2026-09-28 until then each player held ceil(camp / crew) of the
+	-- crew sampled at dawn (docs/balance-plan.md)
 	MAX_ACTIVE_TOWERS_CAMP = 12,
 	PRICE_RESOURCE = Enums.RefinedResource.IRON_BAR,
 	-- every build and upgrade price tripled on 2026-10-06 (the second M34
@@ -58,6 +59,7 @@ return {
 			BUILD_PRICE_IRON = 50,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 30, 60, 120, 240 },
 			FOOTPRINT_CELLS = { 4, 4 },
+			IS_ROTATABLE = false,
 			STAT_ROWS = { Enums.TowerStat.FIRE_RATE, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
 			BEHAVIOR = {
 				ATTACK = Enums.TowerAttack.SINGLE,
@@ -80,6 +82,7 @@ return {
 			BUILD_PRICE_IRON = 90,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 45, 75, 150, 300 },
 			FOOTPRINT_CELLS = { 4, 4 },
+			IS_ROTATABLE = false,
 			STAT_ROWS = { Enums.TowerStat.FLAME_LENGTH, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
 			BEHAVIOR = {
 				ATTACK = Enums.TowerAttack.CONE,
@@ -105,6 +108,7 @@ return {
 			BUILD_PRICE_IRON = 105,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 45, 75, 150, 300 },
 			FOOTPRINT_CELLS = { 4, 4 },
+			IS_ROTATABLE = false,
 			STAT_ROWS = { Enums.TowerStat.FIRE_RATE, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
 			BEHAVIOR = {
 				ATTACK = Enums.TowerAttack.SINGLE,
@@ -128,6 +132,7 @@ return {
 			BUILD_PRICE_IRON = 90,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 45, 75, 150, 300 },
 			FOOTPRINT_CELLS = { 4, 4 },
+			IS_ROTATABLE = false,
 			STAT_ROWS = { Enums.TowerStat.SLOW_RATE, Enums.TowerStat.FREEZE_LENGTH, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
 			BEHAVIOR = {
 				ATTACK = Enums.TowerAttack.CONE,
@@ -154,6 +159,7 @@ return {
 			BUILD_PRICE_IRON = 120,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 45, 105, 210, 420 },
 			FOOTPRINT_CELLS = { 4, 4 },
+			IS_ROTATABLE = false,
 			STAT_ROWS = { Enums.TowerStat.DAMAGE, Enums.TowerStat.FIRE_RATE, Enums.TowerStat.RANGE, Enums.TowerStat.CHAIN_COUNT },
 			BEHAVIOR = {
 				ATTACK = Enums.TowerAttack.CHAIN,
@@ -175,6 +181,7 @@ return {
 			BUILD_PRICE_IRON = 135,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 45, 105, 210, 420 },
 			FOOTPRINT_CELLS = { 4, 4 },
+			IS_ROTATABLE = false,
 			STAT_ROWS = { Enums.TowerStat.FIRE_RATE, Enums.TowerStat.DAMAGE, Enums.TowerStat.HP, Enums.TowerStat.RANGE },
 			BEHAVIOR = {
 				ATTACK = Enums.TowerAttack.SINGLE,
@@ -203,6 +210,7 @@ return {
 			BUILD_PRICE_IRON = 90,
 			UPGRADE_PRICE_IRON_BY_LEVEL = { 45, 75, 150, 300 },
 			FOOTPRINT_CELLS = { 4, 4 },
+			IS_ROTATABLE = false,
 			STAT_ROWS = { Enums.TowerStat.YIELD, Enums.TowerStat.STOCK, Enums.TowerStat.HP },
 			DRILL = {
 				RESOURCE_SHARES = {

@@ -6,6 +6,7 @@
 -- and the contents menu (an overlay) listing only the ores carried. All
 -- numbers come from the CurrentPlayer attributes BackpackManager writes.
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local BackpackRules = require("@game/ReplicatedStorage/Shared/BackpackRules")
@@ -69,6 +70,9 @@ local COLOR_BY_RAW: { [number]: Color3 } = {
 }
 
 local COUNT_FORMAT = "%d/%d"
+-- the keyboard shortcut for the menu (designer, 2026-10-29); the HUD button
+-- stays the touch and gamepad way in
+local TOGGLE_KEY = Enum.KeyCode.B
 -- listed in a fixed order so the menu does not reshuffle as ore arrives
 local RESOURCE_ORDER = {
 	Enums.RawResource.IRON_ORE,
@@ -215,6 +219,24 @@ function ClientBackpackManager:openMenu()
 	menuGui.Enabled = true
 	self:setHudVisible()
 	ClientOverlayManager:notifyBeginOverlay(overlay)
+end
+
+-- B toggles the menu: closes it when open, opens it only where a tap on the
+-- HUD button could (the HUD up, no other menu over the screen); a key the
+-- chat box took is left alone
+function ClientBackpackManager:onInputBegan(input: InputObject, isGameProcessed: boolean)
+	if isGameProcessed or input.UserInputType ~= Enum.UserInputType.Keyboard or input.KeyCode ~= TOGGLE_KEY then
+		return
+	end
+	if self.isMenuOpen then
+		self:closeMenu()
+		return
+	end
+	local hudGui = self.hudGui
+	if not hudGui or not hudGui.Enabled or ClientOverlayManager:isOverlayActive() then
+		return
+	end
+	self:openMenu()
 end
 
 function ClientBackpackManager:onOreCollected(payload: any)
@@ -386,6 +408,12 @@ function ClientBackpackManager:init()
 		)
 	end
 	self:renderHud()
+
+	UserInputService.InputBegan:Connect(
+		function(input: InputObject, isGameProcessed: boolean)
+			self:onInputBegan(input, isGameProcessed)
+		end
+	)
 
 	ClientNetManager:registerHandler(
 		NetEventNames.NOTIFY_ORE_COLLECTED,

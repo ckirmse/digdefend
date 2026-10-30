@@ -32,7 +32,12 @@ export type ClientRefineryHpManager = typeof(setmetatable(
 	{} :: {
 		gui: ScreenGui?,
 		slide: ClientHudSlide.ClientHudSlide?,
-		fill: Frame?,
+		fill: ImageLabel?,
+		-- the fill is the bar's own picture over it (designer, 2026-10-29):
+		-- its size never changes, the Mask gradient hides the spent part
+		fillMask: UIGradient?,
+		-- the share on show, tweened so the mask can follow a tween
+		fillShare: NumberValue,
 		icon: GuiObject?,
 		-- the red flash while under attack: the tween of the half-beat under
 		-- way, and a count that outdates a loop once the attack ends
@@ -46,6 +51,8 @@ export type ClientRefineryHpManager = typeof(setmetatable(
 
 local LABEL_TEXT = "Refinery HP"
 local FILL_TWEEN_SEC = 0.25
+-- the mask's edge: a hair of fade so the cut reads clean at any width
+local FILL_MASK_EDGE_SHARE = 0.002
 -- one under-attack flash, black to red and back, with the siren once at
 -- its start (designer, 2026-10-06)
 local ALARM_FLASH_SEC = 1
@@ -72,7 +79,9 @@ function ClientRefineryHpManager:findGui()
 	end
 	local bar = if root then root:FindFirstChild(Constants.REFINERY_HP_BAR) else nil
 	local fill = if bar then bar:FindFirstChild(Constants.REFINERY_HP_FILL) else nil
-	self.fill = if fill and fill:IsA("Frame") then fill else nil
+	self.fill = if fill and fill:IsA("ImageLabel") then fill else nil
+	local fillMask = if fill then fill:FindFirstChild(Constants.REFINERY_HP_FILL_MASK) else nil
+	self.fillMask = if fillMask and fillMask:IsA("UIGradient") then fillMask else nil
 	local icon = if root then root:FindFirstChild(Constants.REFINERY_HP_ICON) else nil
 	self.icon = if icon and icon:IsA("GuiObject") then icon else nil
 	local label = if root then root:FindFirstChild(Constants.REFINERY_HP_LABEL) else nil
@@ -96,22 +105,47 @@ function ClientRefineryHpManager:getHpShare(): number
 	return math.clamp(hp / maxHp, 0, 1)
 end
 
+-- the mask keeps the left `share` of the fill and hides the rest: a
+-- gradient runs on screen whatever the label's Rotation, so 0 is the
+-- bar's left end
+function ClientRefineryHpManager:setFillShare(share: number)
+	local fillMask = self.fillMask
+	if not fillMask then
+		return
+	end
+	if share >= 1 - FILL_MASK_EDGE_SHARE then
+		fillMask.Transparency = NumberSequence.new(0)
+	elseif share <= 0 then
+		fillMask.Transparency = NumberSequence.new(1)
+	else
+		local edge = math.min(share + FILL_MASK_EDGE_SHARE, 1)
+		fillMask.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(share, 0),
+			NumberSequenceKeypoint.new(edge, 1),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+	end
+end
+
 function ClientRefineryHpManager:render(isInstant: boolean)
 	local fill = self.fill
 	if not fill then
 		return
 	end
 	local share = self:getHpShare()
-	local goal = {
-		Size = UDim2.fromScale(share, 1),
-		BackgroundColor3 = UiStyle.HP_EMPTY_COLOR:Lerp(UiStyle.HP_FULL_COLOR, share),
-	}
+	local color = UiStyle.HP_EMPTY_COLOR:Lerp(UiStyle.HP_FULL_COLOR, share)
+	local fillShare = self.fillShare
 	if isInstant then
-		fill.Size = goal.Size
-		fill.BackgroundColor3 = goal.BackgroundColor3
+		fill.ImageColor3 = color
+		fillShare.Value = share
 		return
 	end
-	TweenService:Create(fill, TweenInfo.new(FILL_TWEEN_SEC), goal):Play()
+	local tweenInfo = TweenInfo.new(FILL_TWEEN_SEC)
+	TweenService:Create(fill, tweenInfo, { ImageColor3 = color }):Play()
+	-- a NumberSequence cannot be tweened, so the share is, and the mask
+	-- follows it through the value's Changed
+	TweenService:Create(fillShare, tweenInfo, { Value = share }):Play()
 end
 
 function ClientRefineryHpManager:watchShadow(instance: Instance)
@@ -252,6 +286,15 @@ function ClientRefineryHpManager.new(): ClientRefineryHpManager
 	self.gui = nil
 	self.slide = nil
 	self.fill = nil
+	self.fillMask = nil
+	local fillShare = Instance.new("NumberValue")
+	fillShare.Value = 1
+	fillShare.Changed:Connect(
+		function()
+			self:setFillShare(fillShare.Value)
+		end
+	)
+	self.fillShare = fillShare
 	self.icon = nil
 	self.alarmTween = nil
 	self.alarmGeneration = 0

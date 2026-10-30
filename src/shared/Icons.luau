@@ -155,7 +155,20 @@ Icons.UI = {
 	TRAP = "rbxassetid://71088256703142",
 	-- the Rotate button beside Place in Build Mode (designer's art, 2026-10-02)
 	ROTATE = "rbxassetid://108992733643165",
+	-- the left mouse button on the mouse scheme's Place key card (designer, 2026-10-29)
+	MOUSE_LEFT_BUTTON = "rbxassetid://133479972513291",
 	-- the day clock's circle (M28): placeholders until the art lands
+	-- the day clock badge frame behind the phase pictures (designer, 2026-10-29)
+	CLOCK_FRAME = "rbxassetid://90693046172973",
+	-- the day clock track and fill pill (designer, 2026-10-29)
+	CLOCK_BAR = "rbxassetid://129096785125881",
+	-- the Refinery HP bar's pill, bar and fill alike (designer, 2026-10-29)
+	HP_BAR = "rbxassetid://123932033889575",
+	-- the Camp Map facing cone: a white sector fanning up from the picture's
+	-- centre, fading outward (generated with ImageMagick, 2026-10-29)
+	CAMP_MAP_FACING_CONE = "rbxassetid://77909401635814",
+	-- the designer's rough-edged panel picture behind HUD boxes (2026-10-29)
+	PANEL_BACKING = "rbxassetid://99484338119365",
 	CLOCK_DAY = "rbxassetid://98516537326926",
 	CLOCK_DUSK = "rbxassetid://91444734897924",
 	CLOCK_NIGHT = "rbxassetid://72038436524050",

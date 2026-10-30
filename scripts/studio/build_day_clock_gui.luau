@@ -1,5 +1,5 @@
 -- Builds the "DayClock" ScreenGui under StarterGui (GDD "Wave Cycle", M28):
--- a bar top centre, just under the announcement box, with a circle on the
+-- a bar top centre, just under the announcement box, with a badge on the
 -- left that ClientRunCycleManager fills with the day, dusk, or night
 -- picture, a track whose Fill starts full at dawn and empties from right
 -- to left until night, and "Day N" under the bar. Run from the Studio
@@ -35,7 +35,7 @@ gui.Enabled = false
 local root = Instance.new("CanvasGroup")
 root.Name = "Root"
 root.AnchorPoint = Vector2.new(0.5, 0)
-root.Position = UDim2.fromScale(0.5, 0.012)
+root.Position = UDim2.fromScale(0.5, 0.014)
 root.Size = UDim2.fromScale(0.325, 0.10625)
 root.BackgroundTransparency = 1
 root.BorderSizePixel = 0
@@ -56,30 +56,37 @@ rootPadding.PaddingBottom = UDim.new(0, UiStyle.STROKE_PX)
 rootPadding.Parent = root
 root.Parent = gui
 
--- the circle: a white disc the height of the bar row; one picture and one
--- gradient per phase sit under it and ClientRunCycleManager shows the pair
--- for the current phase (designer-authored 2026-09-25, ported here)
+-- the phase badge: a translucent white square at the row's height with the
+-- designer's black frame picture drawn a little larger behind the phase
+-- pictures; one picture and one gradient per phase sit under it and
+-- ClientRunCycleManager shows the pair for the current phase (a white
+-- rounded Frame before 2026-10-29; designer-authored)
 local icon = Instance.new("Frame")
 icon.Name = "PhaseIcon"
 icon.AnchorPoint = Vector2.new(0, 0.5)
-icon.Position = UDim2.fromScale(0, 0.36)
-icon.Size = UDim2.fromScale(0.17, 0.72)
+icon.Position = UDim2.fromScale(0.01, 0.5)
+icon.Size = UDim2.fromScale(0.95, 0.95)
 icon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+icon.BackgroundTransparency = 0.45
 icon.BorderSizePixel = 0
--- above the bar so the disc overlaps the bar end (designer, 2026-09-25)
+-- above the bar so the badge overlaps the bar end
 icon.ZIndex = 2
 local iconAspect = Instance.new("UIAspectRatioConstraint")
 iconAspect.AspectRatio = 1
 iconAspect.DominantAxis = Enum.DominantAxis.Height
 iconAspect.Parent = icon
-local iconCorner = Instance.new("UICorner")
--- a rounded square, not a disc (designer, 2026-09-25)
-iconCorner.CornerRadius = UDim.new(0.2, 0)
-iconCorner.Parent = icon
-local iconStroke = Instance.new("UIStroke")
-iconStroke.Thickness = UiStyle.STROKE_PX
-iconStroke.Color = UiStyle.ACCENT_STROKE_COLOR
-iconStroke.Parent = icon
+local iconFrame = Instance.new("ImageLabel")
+iconFrame.Name = "Frame"
+iconFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+iconFrame.Position = UDim2.fromScale(0.5, 0.5)
+iconFrame.Size = UDim2.fromScale(1.1, 1.1)
+iconFrame.BackgroundTransparency = 1
+iconFrame.BorderSizePixel = 0
+iconFrame.Image = Icons.UI.CLOCK_FRAME
+iconFrame.ImageColor3 = Color3.fromRGB(0, 0, 0)
+iconFrame.ScaleType = Enum.ScaleType.Stretch
+iconFrame.ZIndex = 1
+iconFrame.Parent = icon
 
 local PHASE_LOOKS = {
 	{
@@ -122,6 +129,8 @@ for _, look in PHASE_LOOKS do
 	phaseImage.Image = look.image
 	phaseImage.ImageColor3 = look.imageColor
 	phaseImage.ScaleType = Enum.ScaleType.Fit
+	-- above the Frame picture at 1
+	phaseImage.ZIndex = 2
 	phaseImage.Visible = false
 	phaseImage.Parent = icon
 	local gradient = Instance.new("UIGradient")
@@ -133,43 +142,48 @@ for _, look in PHASE_LOOKS do
 end
 icon.Parent = root
 
--- the track, to the right of the circle
-local bar = Instance.new("Frame")
+-- the track, to the right of the badge: the designer's pill picture in
+-- black (a Frame with a pill corner and stroke before 2026-10-29)
+local bar = Instance.new("ImageLabel")
 bar.Name = "Bar"
 bar.AnchorPoint = Vector2.new(1, 0.5)
-bar.Position = UDim2.fromScale(1, 0.36)
-bar.Size = UDim2.fromScale(0.85, 0.4)
-bar.BackgroundColor3 = UiStyle.EMPTY_SLOT_COLOR
+bar.Position = UDim2.fromScale(1, 0.4)
+bar.Size = UDim2.fromScale(0.77, 0.4)
+bar.BackgroundTransparency = 1
 bar.BorderSizePixel = 0
-local barCorner = Instance.new("UICorner")
--- scale radius so the bar ends stay a pill at every size (designer, 2026-09-25)
-barCorner.CornerRadius = UDim.new(0.4, 0)
-barCorner.Parent = bar
-local barStroke = Instance.new("UIStroke")
-barStroke.Thickness = UiStyle.STROKE_PX
-barStroke.Color = UiStyle.ACCENT_STROKE_COLOR
-barStroke.Parent = bar
+bar.Image = Icons.UI.CLOCK_BAR
+bar.ImageColor3 = Color3.fromRGB(0, 0, 0)
+bar.ImageTransparency = 0.45
+bar.ScaleType = Enum.ScaleType.Stretch
 bar.Parent = root
 
--- anchored at the left so a shrinking width empties from the right
-local fill = Instance.new("Frame")
+-- the same pill in the fill colour, exactly over the bar so the two pictures
+-- stay registered; the client hides the spent part through the Mask
+-- gradient's transparency, so the fill never moves or resizes
+local fill = Instance.new("ImageLabel")
 fill.Name = "Fill"
-fill.AnchorPoint = Vector2.new(0, 0.5)
-fill.Position = UDim2.fromScale(0, 0.5)
+fill.AnchorPoint = Vector2.new(0, 0)
+fill.Position = UDim2.fromScale(0, 0)
 fill.Size = UDim2.fromScale(1, 1)
-fill.BackgroundColor3 = UiStyle.ACCENT_COLOR
+fill.BackgroundTransparency = 1
 fill.BorderSizePixel = 0
-local fillCorner = Instance.new("UICorner")
-fillCorner.CornerRadius = UDim.new(0.4, 0)
-fillCorner.Parent = fill
+fill.Image = Icons.UI.CLOCK_BAR
+fill.ImageColor3 = Color3.fromRGB(245, 200, 80)
+fill.ScaleType = Enum.ScaleType.Stretch
+local fillMask = Instance.new("UIGradient")
+fillMask.Name = "Mask"
+fillMask.Transparency = NumberSequence.new(0)
+fillMask.Parent = fill
 fill.Parent = bar
 
 local dayLabel = Instance.new("TextLabel")
 dayLabel.Name = "DayLabel"
 dayLabel.AnchorPoint = Vector2.new(1, 1)
-dayLabel.Position = UDim2.fromScale(1, 1)
-dayLabel.Size = UDim2.fromScale(0.87, 0.35)
+-- a little below the row's bottom, into the padding (designer, 2026-10-29)
+dayLabel.Position = UDim2.fromScale(1, 1.1)
+dayLabel.Size = UDim2.fromScale(0.87, 0.45)
 dayLabel.BackgroundTransparency = 1
+dayLabel.BorderSizePixel = 0
 dayLabel.FontFace = UiStyle.TITLE_SEMIBOLD_FONT
 dayLabel.TextColor3 = UiStyle.TEXT_COLOR
 dayLabel.TextScaled = true
@@ -179,10 +193,6 @@ local dayTextSize = Instance.new("UITextSizeConstraint")
 dayTextSize.MinTextSize = UiStyle.BODY_TEXT_MIN_PX
 dayTextSize.MaxTextSize = UiStyle.BODY_TEXT_MAX_PX
 dayTextSize.Parent = dayLabel
-local dayStroke = Instance.new("UIStroke")
-dayStroke.Thickness = UiStyle.STROKE_PX
-dayStroke.Color = UiStyle.ACCENT_STROKE_COLOR
-dayStroke.Parent = dayLabel
 dayLabel.Parent = root
 
 gui.Parent = StarterGui

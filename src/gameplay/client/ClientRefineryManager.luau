@@ -27,6 +27,9 @@ local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManage
 local ClientBackpackManager = require(script.Parent.ClientBackpackManager)
 local ClientIconFlightManager = require(script.Parent.ClientIconFlightManager)
 
+-- the gap between the balance rows once the crew headings are gone
+local SOLO_BALANCES_PADDING = UDim.new(0.04, 0)
+
 local ClientRefineryManager = {}
 ClientRefineryManager.__index = ClientRefineryManager
 
@@ -44,6 +47,9 @@ export type ClientRefineryManager = typeof(setmetatable(
 		-- the refining ring drawn around the camp's Refinery, local only
 		ring: Model?,
 		rowByResource: { [number]: Row },
+		-- the Balances box, kept so a solo run can drop its crew headings
+		balancesFrame: Instance?,
+		hasRemovedCrewHeadings: boolean,
 		-- the grinder while it runs: the spin's Heartbeat connection, the
 		-- 3D grind loop on the Funnel, and the server time it gives up
 		-- should the completion never come; all nil while the Refinery is idle
@@ -555,6 +561,7 @@ function ClientRefineryManager:findHud()
 	end
 	self.gui = gui
 	local balances = gui:FindFirstChild(Constants.HUD_BALANCES_FRAME)
+	self.balancesFrame = balances
 	if balances then
 		for resource, rowName in ROW_NAME_BY_REFINED do
 			local frame = balances:FindFirstChild(rowName)
@@ -672,8 +679,35 @@ function ClientRefineryManager:watchRefinery()
 	)
 end
 
+-- the Balances box's three text labels (YOUR RESOURCES, CREW RESOURCES,
+-- and the spacer) are for a crew: a solo run destroys them and closes the
+-- rows up to SOLO_BALANCES_PADDING once the run's group flag says there is
+-- nobody else (designer, 2026-10-29). Only an explicit false counts, since
+-- the flag is unset until the server has counted
+function ClientRefineryManager:removeCrewHeadingsIfSolo(isGroup: any)
+	local balances = self.balancesFrame
+	if isGroup ~= false or self.hasRemovedCrewHeadings or not balances then
+		return
+	end
+	self.hasRemovedCrewHeadings = true
+	for _, child in balances:GetChildren() do
+		if child:IsA("TextLabel") then
+			child:Destroy()
+		elseif child:IsA("UIListLayout") then
+			child.Padding = SOLO_BALANCES_PADDING
+		end
+	end
+end
+
 function ClientRefineryManager:init()
 	self:findHud()
+	self:removeCrewHeadingsIfSolo(ClientDataManager:getGameMetadata(Attributes.RUN_IS_GROUP))
+	ClientDataManager:subscribeGameMetadataAttribute(
+		Attributes.RUN_IS_GROUP,
+		function(value: any)
+			self:removeCrewHeadingsIfSolo(value)
+		end
+	)
 	task.spawn(
 		function()
 			self:watchRefinery()
@@ -737,6 +771,8 @@ function ClientRefineryManager.new(): ClientRefineryManager
 	self.gui = nil
 	self.ring = nil
 	self.rowByResource = {}
+	self.balancesFrame = nil
+	self.hasRemovedCrewHeadings = false
 	self.spinConnection = nil
 	self.grindPlayer = nil
 	self.grindUntil = nil

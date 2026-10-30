@@ -6,6 +6,8 @@
 -- One entry per Enums.TrapKind; a new Trap plugs in by adding its enum
 -- key, an entry here, and a model of that key's name under
 -- GameAssets/Traps.
+-- IS_ROTATABLE is whether the Rotate button turns it on the grid (designer,
+-- 2026-10-29): only the Wall and the Goo Pit, whose footprints are long.
 -- IS_REPAIRABLE is whether the Hammer can mend the Trap like a Tower, a
 -- chunk of HP for a few Iron per swing (2026-09-30): only the Wall for now,
 -- since the rest are spent by doing their job.
@@ -25,6 +27,15 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 return {
 	PRICE_RESOURCE = Enums.RefinedResource.IRON_BAR,
 	SELL_SHARE = 0.5,
+	-- the kinds a map's Defense Table leaves off the bar (designer,
+	-- 2026-10-29: Deadman's Canyon sells no Land Mine, Bear Trap, or Decoy)
+	EXCLUDED_KINDS_BY_MAP = {
+		[Enums.Map.DEADMANS_CANYON] = {
+			Enums.TrapKind.LAND_MINE,
+			Enums.TrapKind.BEAR_TRAP,
+			Enums.TrapKind.DECOY,
+		},
+	},
 	BY_KIND = {
 		[Enums.TrapKind.WALL] = {
 			-- 10 (designer, 2026-10-23; 12 before)
@@ -38,6 +49,7 @@ return {
 			-- so the grid tiles. The template (GameAssets/Traps/WALL) is sized
 			-- to the footprint's length with no gap, so a row of walls joins up
 			FOOTPRINT_CELLS = { 4, 2 },
+			IS_ROTATABLE = true,
 			IS_REPAIRABLE = true,
 			BEHAVIOR = Enums.TrapBehavior.BARRIER,
 			DRAWS_ATTACKS = false,
@@ -46,6 +58,7 @@ return {
 			PRICE_IRON = 15,
 			MAX_HP = 120,
 			FOOTPRINT_CELLS = { 4, 4 },
+			IS_ROTATABLE = false,
 			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.SPIKES,
 			DAMAGE = 25,
@@ -57,6 +70,7 @@ return {
 			MAX_HP = 100,
 			-- 4 x 2 since 2026-10-02 (5 x 2 before) so it is whole units
 			FOOTPRINT_CELLS = { 4, 2 },
+			IS_ROTATABLE = true,
 			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.GOO,
 			SLOW_SHARE = 0.5,
@@ -67,6 +81,7 @@ return {
 			MAX_HP = 60,
 			-- 2 x 2 since 2026-10-02 (1 x 1 before): the smallest footprint
 			FOOTPRINT_CELLS = { 2, 2 },
+			IS_ROTATABLE = false,
 			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.MINE,
 			DAMAGE = 120,
@@ -76,6 +91,7 @@ return {
 			PRICE_IRON = 8,
 			MAX_HP = 80,
 			FOOTPRINT_CELLS = { 2, 2 },
+			IS_ROTATABLE = false,
 			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.SNARE,
 			DAMAGE = 40,
@@ -86,6 +102,7 @@ return {
 			PRICE_IRON = 18,
 			MAX_HP = 400,
 			FOOTPRINT_CELLS = { 2, 2 },
+			IS_ROTATABLE = false,
 			IS_REPAIRABLE = false,
 			BEHAVIOR = Enums.TrapBehavior.BARRIER,
 			DRAWS_ATTACKS = true,
