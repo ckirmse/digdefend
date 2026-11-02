@@ -848,6 +848,23 @@ module = {
 			ROBUX = "Robux",
 		},
 	},
+	-- what one gacha roll turned into once resolved against the player's
+	-- progress (GDD "Class Unlock System", M70): a class the player did not
+	-- own, the next skill slot of one they did, a cosmetic, or Keys (a
+	-- complete class or a duplicate cosmetic pays Keys instead)
+	GachaResultKind = {
+		CLASS = 1,
+		SKILL_SLOT = 2,
+		COSMETIC = 3,
+		KEYS = 4,
+
+		PublicNames = {
+			CLASS = "New Class",
+			SKILL_SLOT = "Skill Slot",
+			COSMETIC = "Cosmetic",
+			KEYS = "Keys",
+		},
+	},
 	-- the skin slots a character equips (M61; reserved in the save from
 	-- M55). Skins are owned by the account and equipped per character; the
 	-- helicopter skin is account-wide, so it is not a slot here

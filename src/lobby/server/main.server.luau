@@ -2,6 +2,7 @@
 
 -- Lobby-only server startup. The shared GameController starts from
 -- ServerScriptService/Server/main; this script wires the lobby's own managers.
+local GachaManager = require(script.Parent.GachaManager)
 local LobbyCharacterManager = require(script.Parent.LobbyCharacterManager)
 local LobbyMapManager = require(script.Parent.LobbyMapManager)
 local PartyManager = require(script.Parent.PartyManager)
@@ -15,3 +16,6 @@ LobbyCharacterManager:init()
 -- the jet pack flies in the lobby as in a run (designer, 2026-10-12)
 JetPackManager:init()
 PartyManager:init()
+-- the class gacha (M70): rolls, the restricted player's direct buy, and
+-- the dev commands behind the Gacha dev panel
+GachaManager:init()

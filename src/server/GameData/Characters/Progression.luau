@@ -1,14 +1,12 @@
 --!strict
 
--- Character progression (GDD "Characters"), M55. A character has no level
+-- Character progression (GDD "Characters", M55). A character has no level
 -- and no XP (decided 2026-10-12): it counts Nights Survived, one per dawn it
--- is alive at, and that count opens its skill slots. Placeholders until M56
--- tunes them against real runs.
+-- is alive at. The count opened its skill slots until M70 (2026-11-02):
+-- since then a skill slot opens when the class gacha rolls a class the
+-- player already owns (GameData/Gacha/Gacha), and Nights Survived is a
+-- record on the card alone.
 return {
-	-- the Nights Survived a character needs for each skill slot, by slot
-	-- index (slot 1 at 5 nights since 2026-10-12, designer; it opened from
-	-- the start before)
-	SKILL_SLOT_UNLOCK_NIGHTS = { 5, 15, 50 },
 	-- how many characters an account may hold, the free one included
 	-- (the second slot is Diamonds, every later one Robux; M37)
 	MAX_CHARACTERS = 5,

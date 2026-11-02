@@ -25,6 +25,7 @@ local CharacterRules = require("@game/ReplicatedStorage/Shared/CharacterRules")
 local CharacterSchema = require("@game/ReplicatedStorage/Shared/CharacterSchema")
 local ClassRules = require("@game/ReplicatedStorage/Shared/ClassRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
 local GearStatsRules = require("@game/ReplicatedStorage/Shared/GearStatsRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PlayerData = require(script.Parent.PlayerData)
@@ -67,6 +68,10 @@ local SELECT_CHARACTER_SHAPE = {
 	characterId = "string",
 }
 
+local SELECT_CLASS_SHAPE = {
+	classKind = { type = "enum", name = "ClassKind" },
+}
+
 local BUY_CHARACTER_SLOT_SHAPE = {}
 
 local RENAME_CHARACTER_SHAPE = {
@@ -106,6 +111,8 @@ local FEEDBACK_SELECTED = "%s will go on the next run"
 local FEEDBACK_NOT_ENOUGH_DIAMONDS_ROLL = "Not enough Diamonds for that reroll"
 local FEEDBACK_ROLL_PENDING = "Keep or take the roll on screen first"
 local FEEDBACK_SLOT_LOCKED = "That skill slot is still locked"
+local FEEDBACK_CLASS_LOCKED = "You do not own that class yet"
+local FEEDBACK_CLASS_SELECTED = "%s equipped"
 
 function CharacterManager:getNetHandlers()
 	return {
@@ -113,6 +120,12 @@ function CharacterManager:getNetHandlers()
 			shape = SELECT_CHARACTER_SHAPE,
 			handler = function(player: Player, payload: { [string]: any })
 				self:handleTrySelectCharacter(player, payload)
+			end,
+		},
+		[NetEventNames.TRY_SELECT_CLASS] = {
+			shape = SELECT_CLASS_SHAPE,
+			handler = function(player: Player, payload: { [string]: any })
+				self:selectClass(player, payload.classKind)
 			end,
 		},
 		[NetEventNames.TRY_BUY_CHARACTER_SLOT] = {
@@ -241,6 +254,36 @@ function CharacterManager:notifyClassChangedIfNeeded(player: Player, previousCla
 	end
 end
 
+-- whether the account's gacha progress holds the class (M70); the free
+-- class is always owned, so this is never false for the default
+function CharacterManager:isClassOwned(player: Player, classKind: number): boolean
+	local playerData = self:getPlayerData(player)
+	if not playerData then
+		return classKind == ClassRosterData.DEFAULT_CLASS
+	end
+	return GachaRules.isClassOwned(playerData:getClassProgress(), classKind)
+end
+
+-- a player equipping a class on the active character: the one path a
+-- client reaches, so the ownership check lives here and never trusts the
+-- menu's greying (the dev dropdown goes through setClassKind and may
+-- reach a class the player does not own)
+function CharacterManager:selectClass(player: Player, classKind: number)
+	if not self:isClassOwned(player, classKind) then
+		PlayerFeedbackManager:give(player, FEEDBACK_CLASS_LOCKED)
+		return
+	end
+	if not self:setClassKind(player, nil, classKind) then
+		warn(`CharacterManager: {player.Name} selected unknown class {tostring(classKind)}`)
+		return
+	end
+	local playerData = self:getPlayerData(player)
+	if playerData then
+		playerData:saveNow()
+	end
+	PlayerFeedbackManager:give(player, string.format(FEEDBACK_CLASS_SELECTED, Enums.getPublicName(Enums.ClassKind, classKind)))
+end
+
 function CharacterManager:setClassKind(player: Player, characterId: string?, classKind: number): boolean
 	local record = self:getCharacter(player, characterId)
 	local className = Enums.getName(Enums.ClassKind, classKind)
@@ -287,8 +330,15 @@ function CharacterManager:getGearStars(player: Player, gearSlot: number): number
 	return stars
 end
 
-function CharacterManager:getOpenSkillSlots(record: CharacterSchema.CharacterSave): number
-	return CharacterSchema.openSkillSlots(record.nightsSurvived, PlayerData.getCharacterDefaults().skillSlotUnlockNights)
+-- the skill slots open on a record: the account's gacha progress on the
+-- record's class (M70), so every character of one class shares them
+function CharacterManager:getOpenSkillSlots(player: Player, record: CharacterSchema.CharacterSave): number
+	local playerData = self:getPlayerData(player)
+	if not playerData then
+		return 0
+	end
+	local defaults = PlayerData.getCharacterDefaults()
+	return GachaRules.openSkillSlots(playerData:getClassProgress(), CharacterSchema.getClassKind(record, defaults), defaults.maxSkillSlots)
 end
 
 function CharacterManager:getSlotPricing(): CharacterRules.SlotPricing
@@ -307,7 +357,7 @@ function CharacterManager:getRerollPricing(): CharacterRules.RerollPricing
 		minStars = StarsData.MIN_STARS,
 		maxStars = StarsData.MAX_STARS,
 		bonusPerStar = StarsData.BONUS_PER_STAR,
-		skillSlotUnlockNights = PlayerData.getCharacterDefaults().skillSlotUnlockNights,
+		maxSkillSlots = PlayerData.getCharacterDefaults().maxSkillSlots,
 		rankPointsByRarity = RankData.POINTS_BY_RARITY,
 		rankBaselinePoints = RankData.BASELINE_POINTS,
 		rankBands = self:getRankBands(),
@@ -428,7 +478,7 @@ function CharacterManager:rerollSkill(player: Player, characterId: string?, slot
 		PlayerFeedbackManager:give(player, FEEDBACK_ROLL_PENDING)
 		return
 	end
-	if slot > self:getOpenSkillSlots(record) then
+	if slot > self:getOpenSkillSlots(player, record) then
 		PlayerFeedbackManager:give(player, FEEDBACK_SLOT_LOCKED)
 		return
 	end
@@ -695,7 +745,7 @@ function CharacterManager:setSkill(player: Player, characterId: string?, slot: n
 		return false
 	end
 	local defaults = PlayerData.getCharacterDefaults()
-	if slot < 1 or slot > self:getOpenSkillSlots(record) or slot ~= math.floor(slot) then
+	if slot < 1 or slot > self:getOpenSkillSlots(player, record) or slot ~= math.floor(slot) then
 		return false
 	end
 	if skillId == nil then

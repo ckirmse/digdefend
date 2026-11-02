@@ -18,6 +18,7 @@ local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayMa
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientCharacterMenuManager = require(script.Parent.ClientCharacterMenuManager)
+local ClientGachaMenuManager = require(script.Parent.ClientGachaMenuManager)
 
 local ClientHudManager = {}
 ClientHudManager.__index = ClientHudManager
@@ -170,11 +171,13 @@ function ClientHudManager:init()
 			ClientCharacterMenuManager:openMenu()
 		end
 	)
+	-- the Store button opens the class gacha until the Store Menu lands
+	-- (M40), which will hold the gacha as one of its sections
 	self:wireButton(
 		menuButtons,
 		Constants.HUD_STORE_BUTTON,
 		function()
-			self:giveComingSoon()
+			ClientGachaMenuManager:openMenu()
 		end
 	)
 

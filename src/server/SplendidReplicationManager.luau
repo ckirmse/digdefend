@@ -60,7 +60,8 @@ end
 -- folder itself, so the select menu can draw every card and a late viewer
 -- gets them all
 local function syncCharactersFolder(folder: Instance, playerData: any)
-	local unlockNights = PlayerData.getCharacterDefaults().skillSlotUnlockNights
+	local classProgress = playerData:getClassProgress()
+	local maxSkillSlots = PlayerData.getCharacterDefaults().maxSkillSlots
 	local records = playerData:getCharacters()
 	local keep: { [string]: boolean } = {}
 	for _, record in records do
@@ -73,7 +74,7 @@ local function syncCharactersFolder(folder: Instance, playerData: any)
 			child = Instance.new("Folder")
 			child.Name = record.id
 		end
-		writeAttributes(child, PlayerPublicSchema.buildCharacterAttributes(record, unlockNights))
+		writeAttributes(child, PlayerPublicSchema.buildCharacterAttributes(record, classProgress, maxSkillSlots))
 		if child.Parent ~= folder then
 			child.Parent = folder
 		end
@@ -95,7 +96,10 @@ local function snapshot(player: Player, playerData: any): PlayerPublicSchema.Sna
 		isAdmin = playerData:getIsAdmin(),
 		diamonds = playerData:getDiamonds(),
 		activeCharacter = playerData:getActiveCharacter(),
-		skillSlotUnlockNights = PlayerData.getCharacterDefaults().skillSlotUnlockNights,
+		classProgress = playerData:getClassProgress(),
+		maxSkillSlots = PlayerData.getCharacterDefaults().maxSkillSlots,
+		keys = playerData:getKeys(),
+		ownedCosmetics = playerData:getOwnedCosmetics(),
 		dailyRewardLastClaimedDay = dailyReward.lastClaimedDay,
 		dailyRewardNextClaimTime = dailyReward.nextClaimTime,
 	}
@@ -308,12 +312,24 @@ function SplendidReplicationManager:replicateCharacters(player: Player)
 	if not playerData or not currentPlayer then
 		return
 	end
-	local unlockNights = PlayerData.getCharacterDefaults().skillSlotUnlockNights
-	writeAttributes(currentPlayer, PlayerPublicSchema.buildCharacterAttributes(playerData:getActiveCharacter(), unlockNights))
+	local maxSkillSlots = PlayerData.getCharacterDefaults().maxSkillSlots
+	writeAttributes(currentPlayer, PlayerPublicSchema.buildCharacterAttributes(playerData:getActiveCharacter(), playerData:getClassProgress(), maxSkillSlots))
 	local characters = currentPlayer:FindFirstChild(Constants.CHARACTERS_FOLDER)
 	if characters then
 		syncCharactersFolder(characters, playerData)
 	end
+end
+
+-- the Keys balance, the class progress, and the owned cosmetics (M70);
+-- GachaManager calls this after a roll, and replicateCharacters after it
+-- when a skill slot opened, since the slot count rides on each character
+function SplendidReplicationManager:replicateGacha(player: Player)
+	local playerData = gameController:getPlayerData(player)
+	local currentPlayer = self:getCurrentPlayerFolder(player)
+	if not playerData or not currentPlayer then
+		return
+	end
+	writeAttributes(currentPlayer, PlayerPublicSchema.buildGachaAttributes(snapshot(player, playerData)))
 end
 
 function SplendidReplicationManager:replicateCompletions(player: Player)

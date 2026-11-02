@@ -133,6 +133,20 @@ UiStyle.RARITY_COLORS = {
 	[Enums.Rarity.LEGENDARY] = Color3.fromRGB(255, 170, 40),
 }
 UiStyle.CAMP_MAP_MONSTER_COLOR = Color3.fromRGB(230, 40, 40)
+-- the class gacha's tiles and odds rows by what they hold (M70): a class
+-- in the accent gold, a cosmetic in the Rare blue, Keys in the Common grey
+UiStyle.GACHA_KIND_COLORS = {
+	[Enums.GachaResultKind.CLASS] = Color3.fromRGB(245, 200, 80),
+	[Enums.GachaResultKind.SKILL_SLOT] = Color3.fromRGB(245, 200, 80),
+	[Enums.GachaResultKind.COSMETIC] = Color3.fromRGB(80, 150, 255),
+	[Enums.GachaResultKind.KEYS] = Color3.fromRGB(200, 200, 200),
+}
+-- the reveal strip (M70): how long the roulette eases onto the winner, how
+-- far the winner tile pops, and the celebration stroke's pulse
+UiStyle.GACHA_SPIN_SEC = 3
+UiStyle.GACHA_WINNER_POP_SCALE = 1.25
+UiStyle.GACHA_WINNER_POP_SEC = 0.35
+UiStyle.GACHA_STROKE_PULSE_SEC = 0.6
 
 function UiStyle.formatTitle(text: string): string
 	return string.upper(text)

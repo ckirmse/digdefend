@@ -8,9 +8,12 @@ local expect = JestGlobals.expect
 local Attributes = require(game:GetService("ReplicatedStorage").Shared.Attributes)
 local CharacterSchema = require(game:GetService("ReplicatedStorage").Shared.CharacterSchema)
 local Enums = require(game:GetService("ReplicatedStorage").Shared.Enums)
+local GachaRules = require(game:GetService("ReplicatedStorage").Shared.GachaRules)
 local PlayerPublicSchema = require(game:GetService("ReplicatedStorage").Shared.PlayerPublicSchema)
 
-local UNLOCK_NIGHTS = { 0, 15, 50 }
+-- the account owns the Gunner with two skill slots open (M70)
+local PROGRESS = { RECRUIT = 0, GUNNER = 2 }
+local MAX_SKILL_SLOTS = 3
 
 local function makeCharacter()
 	return {
@@ -37,7 +40,10 @@ local function makeSnapshot()
 		isAdmin = true,
 		diamonds = 4321,
 		activeCharacter = makeCharacter(),
-		skillSlotUnlockNights = UNLOCK_NIGHTS,
+		classProgress = PROGRESS,
+		maxSkillSlots = MAX_SKILL_SLOTS,
+		keys = 5,
+		ownedCosmetics = { HARD_HAT = true },
 		dailyRewardLastClaimedDay = 3,
 		dailyRewardNextClaimTime = 1700000000,
 	}
@@ -76,7 +82,7 @@ describe(
 		it(
 			"maps a character to enum values, the open slot count, and the codecs",
 			function()
-				local attributes = PlayerPublicSchema.buildCharacterAttributes(makeCharacter(), UNLOCK_NIGHTS)
+				local attributes = PlayerPublicSchema.buildCharacterAttributes(makeCharacter(), PROGRESS, MAX_SKILL_SLOTS)
 				expect(attributes[Attributes.CHARACTER_ID]).toBe("char-1")
 				expect(attributes[Attributes.CHARACTER_NAME]).toBe("Digger Dan")
 				expect(attributes[Attributes.CHARACTER_NIGHTS_SURVIVED]).toBe(20)
@@ -98,13 +104,13 @@ describe(
 		it(
 			"writes blanks for no character so stale values are overwritten",
 			function()
-				local attributes = PlayerPublicSchema.buildCharacterAttributes(nil, UNLOCK_NIGHTS)
+				local attributes = PlayerPublicSchema.buildCharacterAttributes(nil, PROGRESS, MAX_SKILL_SLOTS)
 				expect(attributes[Attributes.CHARACTER_ID]).toBe("")
 				expect(attributes[Attributes.CHARACTER_WEAPON_KIND]).toBe(0)
 				expect(attributes[Attributes.CHARACTER_SKILL_SLOTS_OPEN]).toBe(0)
 				expect(attributes[Attributes.CHARACTER_SKILLS]).toBe("")
 				expect(attributes[Attributes.CHARACTER_TOWER_2_STARS]).toBe(0)
-				local filled = PlayerPublicSchema.buildCharacterAttributes(makeCharacter(), UNLOCK_NIGHTS)
+				local filled = PlayerPublicSchema.buildCharacterAttributes(makeCharacter(), PROGRESS, MAX_SKILL_SLOTS)
 				for name in filled do
 					expect(attributes[name]).never.toBeNil()
 				end
@@ -144,6 +150,9 @@ describe(
 				expect(attributes[Attributes.CHARACTER_TOWER_2_KIND]).toBe(Enums.TowerKind.SNIPER_TOWER)
 				expect(attributes[Attributes.DAILY_REWARD_LAST_CLAIMED_DAY]).toBe(3)
 				expect(attributes[Attributes.DAILY_REWARD_NEXT_CLAIM_TIME]).toBe(1700000000)
+				expect(attributes[Attributes.KEYS]).toBe(5)
+				expect(GachaRules.decodeProgress(attributes[Attributes.CLASS_PROGRESS])).toEqual(PROGRESS)
+				expect(GachaRules.decodeOwnedCosmetics(attributes[Attributes.OWNED_COSMETICS])).toEqual({ HARD_HAT = true })
 			end
 		)
 
@@ -159,6 +168,8 @@ describe(
 				expect(attributes[Attributes.IS_ADMIN]).toBe(false)
 				expect(attributes[Attributes.CHARACTER_ID]).toBe("")
 				expect(attributes[Attributes.DAILY_REWARD_LAST_CLAIMED_DAY]).toBe(0)
+				expect(attributes[Attributes.KEYS]).toBe(0)
+				expect(GachaRules.decodeProgress(attributes[Attributes.CLASS_PROGRESS])).toEqual({})
 			end
 		)
 	end

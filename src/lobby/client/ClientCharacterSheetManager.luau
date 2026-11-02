@@ -421,8 +421,7 @@ function ClientCharacterSheetManager:renderSkillRows(view: View, character: Clie
 		end
 	end
 	local catalogue = self:getSkillCatalogue()
-	local unlockNights = if pricing then pricing.skillSlotUnlockNights else {}
-	local slotCount = math.max(#unlockNights, character.skillSlotsOpen)
+	local slotCount = math.max(if pricing then pricing.maxSkillSlots else 0, character.skillSlotsOpen)
 	for slot = 1, slotCount do
 		local row = view.skillRowTemplate:Clone()
 		row.Name = "SkillRow" .. tostring(slot)

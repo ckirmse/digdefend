@@ -139,8 +139,9 @@ export type RerollPricing = {
 	minStars: number,
 	maxStars: number,
 	bonusPerStar: number,
-	-- Nights Survived per skill slot, so a locked row can name its threshold
-	skillSlotUnlockNights: { number },
+	-- the skill slots a class can open (the gacha opens them, M70), so the
+	-- sheet draws every row, the locked ones too
+	maxSkillSlots: number,
 	-- the Rank formula's inputs (GameData/Characters/Rank), so the sheet
 	-- can show a roll's Rank before and after
 	rankPointsByRarity: { [number]: number },

@@ -7,6 +7,7 @@
 local Attributes = require(script.Parent.Attributes)
 local CharacterSchema = require(script.Parent.CharacterSchema)
 local Enums = require(script.Parent.Enums)
+local GachaRules = require(script.Parent.GachaRules)
 
 local PlayerPublicSchema = {}
 
@@ -19,8 +20,12 @@ export type Snapshot = {
 	-- the character the player brings (M55); nil only for a snapshot built
 	-- before the save loaded
 	activeCharacter: CharacterSchema.CharacterSave?,
-	-- Nights Survived per skill slot, so the open slot count travels too
-	skillSlotUnlockNights: { number }?,
+	-- the account's class progress (M70), so a character's open skill
+	-- slot count travels with it; nil before the save loaded
+	classProgress: GachaRules.Progress?,
+	maxSkillSlots: number?,
+	keys: number?,
+	ownedCosmetics: GachaRules.OwnedCosmetics?,
 	dailyRewardLastClaimedDay: number?,
 	dailyRewardNextClaimTime: number?,
 }
@@ -56,16 +61,20 @@ end
 -- one character as attributes: on CurrentPlayer for the active one, and on
 -- its own folder under CurrentPlayer.Characters for every one (M55). Kinds
 -- travel as enum values, so the client never sees a save's key names;
--- nil writes blanks, so a cleared value still overwrites the old one
-function PlayerPublicSchema.buildCharacterAttributes(record: CharacterSchema.CharacterSave?, skillSlotUnlockNights: { number }?): AttributeMap
-	local unlockNights = skillSlotUnlockNights or {}
+-- nil writes blanks, so a cleared value still overwrites the old one. The
+-- open skill slots are the account's gacha progress on the record's class
+-- (M70), so two characters of one class open together
+function PlayerPublicSchema.buildCharacterAttributes(record: CharacterSchema.CharacterSave?, classProgress: GachaRules.Progress?, maxSkillSlots: number?): AttributeMap
+	local progress = classProgress or {}
+	local slotCount = maxSkillSlots or 0
+	local classKind = if record then (Enums.getValueByName(Enums.ClassKind, record.classKind) or 0) else 0
 	local attributes: AttributeMap = {
 		[Attributes.CHARACTER_ID] = if record then record.id else "",
 		[Attributes.CHARACTER_NAME] = if record then record.name else "",
 		[Attributes.CHARACTER_NIGHTS_SURVIVED] = if record then record.nightsSurvived else 0,
-		[Attributes.CHARACTER_CLASS_KIND] = if record then (Enums.getValueByName(Enums.ClassKind, record.classKind) or 0) else 0,
-		[Attributes.CHARACTER_SKILL_SLOTS_OPEN] = if record then CharacterSchema.openSkillSlots(record.nightsSurvived, unlockNights) else 0,
-		[Attributes.CHARACTER_SKILLS] = if record then CharacterSchema.encodeSkills(record.skills, #unlockNights) else "",
+		[Attributes.CHARACTER_CLASS_KIND] = classKind,
+		[Attributes.CHARACTER_SKILL_SLOTS_OPEN] = if record then GachaRules.openSkillSlots(progress, classKind, slotCount) else 0,
+		[Attributes.CHARACTER_SKILLS] = if record then CharacterSchema.encodeSkills(record.skills, slotCount) else "",
 		[Attributes.CHARACTER_COSMETICS] = if record then CharacterSchema.encodeCosmetics(record.cosmetics) else "",
 	}
 	for gearSlot, names in GEAR_ATTRIBUTES_BY_SLOT do
@@ -81,6 +90,16 @@ function PlayerPublicSchema.buildCharacterAttributes(record: CharacterSchema.Cha
 	return attributes
 end
 
+-- the account's gacha state (M70): the Keys balance, the class progress
+-- map, and the owned cosmetics, each private to the player
+function PlayerPublicSchema.buildGachaAttributes(snapshot: Snapshot): AttributeMap
+	return {
+		[Attributes.KEYS] = snapshot.keys or 0,
+		[Attributes.CLASS_PROGRESS] = GachaRules.encodeProgress(snapshot.classProgress or {}),
+		[Attributes.OWNED_COSMETICS] = GachaRules.encodeOwnedCosmetics(snapshot.ownedCosmetics or {}),
+	}
+end
+
 -- private per-player state (CurrentPlayer attributes); marker-folder sets
 -- (completions) and the character list are children, not attributes
 function PlayerPublicSchema.buildCurrentPlayerAttributes(snapshot: Snapshot): AttributeMap
@@ -91,7 +110,10 @@ function PlayerPublicSchema.buildCurrentPlayerAttributes(snapshot: Snapshot): At
 		[Attributes.DAILY_REWARD_LAST_CLAIMED_DAY] = snapshot.dailyRewardLastClaimedDay or 0,
 		[Attributes.DAILY_REWARD_NEXT_CLAIM_TIME] = snapshot.dailyRewardNextClaimTime or 0,
 	}
-	for name, value in PlayerPublicSchema.buildCharacterAttributes(snapshot.activeCharacter, snapshot.skillSlotUnlockNights) do
+	for name, value in PlayerPublicSchema.buildGachaAttributes(snapshot) do
+		attributes[name] = value
+	end
+	for name, value in PlayerPublicSchema.buildCharacterAttributes(snapshot.activeCharacter, snapshot.classProgress, snapshot.maxSkillSlots) do
 		attributes[name] = value
 	end
 	return attributes

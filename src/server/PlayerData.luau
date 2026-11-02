@@ -7,6 +7,7 @@
 local HttpService = game:GetService("HttpService")
 
 local ProgressionData = require("@game/ServerScriptService/GameData/Characters/Progression")
+local GachaData = require("@game/ServerScriptService/GameData/Gacha/Gacha")
 local ClassRosterData = require("@game/ServerScriptService/GameData/Classes/Roster")
 local HatsData = require("@game/ServerScriptService/GameData/Characters/Hats")
 local SkillsData = require("@game/ServerScriptService/GameData/Characters/Skills")
@@ -42,6 +43,9 @@ export type PlayerData = typeof(setmetatable(
 		sessionMeta: PlayerSaveSchema.SessionMetaSave,
 		processedPurchaseIds: { string },
 		reviveCredits: { [string]: number },
+		classProgress: { [string]: number },
+		keys: number,
+		ownedCosmetics: { [string]: boolean },
 	},
 	PlayerData
 ))
@@ -57,6 +61,9 @@ local SAVE_FIELDS = {
 	"sessionMeta",
 	"processedPurchaseIds",
 	"reviveCredits",
+	"classProgress",
+	"keys",
+	"ownedCosmetics",
 }
 
 local function buildValidSkillIds(): { [string]: boolean }
@@ -80,7 +87,7 @@ local CHARACTER_DEFAULTS: CharacterSchema.Defaults = {
 	},
 	minStars = StarsData.MIN_STARS,
 	maxStars = StarsData.MAX_STARS,
-	skillSlotUnlockNights = ProgressionData.SKILL_SLOT_UNLOCK_NIGHTS,
+	maxSkillSlots = GachaData.MAX_SKILL_SLOTS,
 	validSkillIds = buildValidSkillIds(),
 	maxNameLength = ProgressionData.MAX_NAME_LENGTH,
 	defaultNamePrefix = ProgressionData.DEFAULT_NAME_PREFIX,
@@ -312,6 +319,32 @@ function PlayerData:spendReviveCredit(reviveKind: number): boolean
 		return false
 	end
 	self.reviveCredits[key] -= 1
+	return true
+end
+
+-- the class gacha's account state (M70); GachaManager is the one writer
+-- of progress and cosmetics, and reads the live tables to resolve a roll
+function PlayerData:getClassProgress(): { [string]: number }
+	return self.classProgress
+end
+
+function PlayerData:getOwnedCosmetics(): { [string]: boolean }
+	return self.ownedCosmetics
+end
+
+function PlayerData:getKeys(): number
+	return self.keys
+end
+
+function PlayerData:addKeys(amount: number)
+	self.keys = math.max(0, math.floor(self.keys + amount))
+end
+
+function PlayerData:spendKeys(amount: number): boolean
+	if amount < 0 or self.keys < amount then
+		return false
+	end
+	self.keys -= amount
 	return true
 end
 

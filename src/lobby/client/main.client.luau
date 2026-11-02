@@ -7,6 +7,8 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientDevConsoleManager = require(script.Parent.Parent.Client.ClientDevConsoleManager)
 local ClientCharacterMenuManager = require(script.Parent.ClientCharacterMenuManager)
 local ClientCharacterSheetManager = require(script.Parent.ClientCharacterSheetManager)
+local ClientGachaDevTools = require(script.Parent.ClientGachaDevTools)
+local ClientGachaMenuManager = require(script.Parent.ClientGachaMenuManager)
 local ClientHudManager = require(script.Parent.ClientHudManager)
 local ClientJetPackManager = require(script.Parent.Parent.Client.ClientJetPackManager)
 local ClientPadBillboardManager = require(script.Parent.ClientPadBillboardManager)
@@ -17,9 +19,11 @@ ClientDataManager:awaitReady()
 ClientButtonSoundManager:init()
 ClientDevConsoleManager:init()
 
--- the menus before the HUD, whose Character button opens them
+-- the menus before the HUD, whose Classes and Store buttons open them
 ClientCharacterSheetManager:init()
 ClientCharacterMenuManager:init()
+ClientGachaMenuManager:init()
+ClientGachaDevTools:init()
 ClientHudManager:init()
 -- after the HUD, whose jet pack bar and touch button it drives
 ClientJetPackManager:init()

@@ -9,6 +9,7 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local CharacterSchema = require("@game/ReplicatedStorage/Shared/CharacterSchema")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
 local PlayerPublicSchema = require("@game/ReplicatedStorage/Shared/PlayerPublicSchema")
 
 -- the ready wait never gives up; the number only marks the yield as intended
@@ -157,6 +158,24 @@ end
 
 function ClientDataManager:getIsAdmin(): boolean
 	return self:getCurrentPlayerAttribute(Attributes.IS_ADMIN) == true
+end
+
+-- the class gacha's account state (M70), replicated by replicateGacha
+function ClientDataManager:getKeys(): number
+	local value = self:getCurrentPlayerAttribute(Attributes.KEYS)
+	return if typeof(value) == "number" then value else 0
+end
+
+function ClientDataManager:getClassProgress(): GachaRules.Progress
+	return GachaRules.decodeProgress(self:getCurrentPlayerAttribute(Attributes.CLASS_PROGRESS))
+end
+
+function ClientDataManager:getOwnedCosmetics(): GachaRules.OwnedCosmetics
+	return GachaRules.decodeOwnedCosmetics(self:getCurrentPlayerAttribute(Attributes.OWNED_COSMETICS))
+end
+
+function ClientDataManager:isPaidRandomItemsRestricted(): boolean
+	return self:getCurrentPlayerAttribute(Attributes.IS_PAID_RANDOM_ITEMS_RESTRICTED) == true
 end
 
 local function readCharacter(instance: Instance): CharacterData

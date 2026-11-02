@@ -214,8 +214,23 @@ module = {
 	CHARACTER_TOWER_1_STARS = "CharacterTower1Stars",
 	CHARACTER_TOWER_2_KIND = "CharacterTower2Kind",
 	CHARACTER_TOWER_2_STARS = "CharacterTower2Stars",
-	-- how many skill slots the character's Nights Survived has opened
+	-- how many skill slots the account's gacha progress has opened on the
+	-- character's class (M70; Nights Survived opened them before)
 	CHARACTER_SKILL_SLOTS_OPEN = "CharacterSkillSlotsOpen",
+	-- CurrentPlayer (private), the class gacha (M70): the Keys balance,
+	-- JSON of Enums.ClassKind key name to skill slots unlocked (an entry
+	-- means the class is owned), and a JSON list of owned cosmetic ids
+	-- (GachaRules codecs); written by replicateGacha
+	KEYS = "Keys",
+	CLASS_PROGRESS = "ClassProgress",
+	OWNED_COSMETICS = "OwnedCosmetics",
+	-- CurrentPlayer (private): true when PolicyService says the player may
+	-- not buy paid random items, so the menu offers the direct class buy
+	-- instead of the roll (M70)
+	IS_PAID_RANDOM_ITEMS_RESTRICTED = "IsPaidRandomItemsRestricted",
+	-- GameMetadata: JSON of the gacha's price, odds, pool, and the direct
+	-- class price (GachaRules codec), so the menu draws without asking
+	GACHA_CONFIG = "GachaConfig",
 	-- JSON array of { skillId, rarity } in slot order (CharacterSchema codec)
 	CHARACTER_SKILLS = "CharacterSkills",
 	-- JSON of Enums.CosmeticSlot key name to skin id (M61)

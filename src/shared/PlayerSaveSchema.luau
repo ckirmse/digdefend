@@ -42,6 +42,16 @@ export type SaveData = {
 	-- Enums.ReviveKind key name -> revives paid for but not yet used (a
 	-- purchase that could not apply is kept as a credit, never refused)
 	reviveCredits: { [string]: number },
+	-- Enums.ClassKind key name -> skill slots unlocked on that class (M70):
+	-- a class with an entry is owned, one without is locked. The free class
+	-- is always present, so a player can never own nothing
+	classProgress: { [string]: number },
+	-- the third currency (M70): paid by the gacha for a complete class or
+	-- a duplicate cosmetic, spent on cosmetics by name (M61)
+	keys: number,
+	-- cosmetic id -> true for every cosmetic the account owns; the defaults
+	-- every character starts in are always present
+	ownedCosmetics: { [string]: boolean },
 }
 
 export type Defaults = {
@@ -72,6 +82,22 @@ function PlayerSaveSchema.makeDefaultCharacter(defaults: Defaults, index: number
 	return CharacterSchema.getDefault(defaults.character, defaults.generateId(), CharacterSchema.makeDefaultName(defaults.character, index))
 end
 
+-- the free class, owned from the start with no skill slots
+function PlayerSaveSchema.getDefaultClassProgress(defaults: Defaults): { [string]: number }
+	return {
+		[Enums.getName(Enums.ClassKind, defaults.character.defaultClassKind) :: string] = 0,
+	}
+end
+
+-- every cosmetic a new character wears is owned by every account
+function PlayerSaveSchema.getDefaultOwnedCosmetics(defaults: Defaults): { [string]: boolean }
+	local owned: { [string]: boolean } = {}
+	for _, cosmeticId in defaults.character.defaultCosmetics do
+		owned[cosmeticId] = true
+	end
+	return owned
+end
+
 function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 	local firstCharacter = PlayerSaveSchema.makeDefaultCharacter(defaults, 1)
 	return {
@@ -91,6 +117,9 @@ function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 		},
 		processedPurchaseIds = {},
 		reviveCredits = PlayerSaveSchema.getDefaultReviveCredits(),
+		classProgress = PlayerSaveSchema.getDefaultClassProgress(defaults),
+		keys = 0,
+		ownedCosmetics = PlayerSaveSchema.getDefaultOwnedCosmetics(defaults),
 	}
 end
 
@@ -226,6 +255,58 @@ local function validateReviveCredits(data: any, repairs: { Repair })
 	end
 end
 
+-- one slot count per owned class, keyed by a class the enum knows and
+-- clamped to the slot cap; the free class is always owned (M70)
+local function validateClassProgress(data: any, defaults: Defaults, repairs: { Repair })
+	if typeof(data.classProgress) ~= "table" then
+		data.classProgress = PlayerSaveSchema.getDefaultClassProgress(defaults)
+		table.insert(repairs, "classProgress reset")
+		return
+	end
+	local maxSkillSlots = CharacterSchema.getMaxSkillSlots(defaults.character)
+	for className, slots in data.classProgress do
+		if typeof(className) ~= "string" or Enums.getValueByName(Enums.ClassKind, className) == nil then
+			data.classProgress[className] = nil
+			table.insert(repairs, "classProgress dropped entry " .. tostring(className))
+			continue
+		end
+		if not Validate.isValueType(slots, "nonnegativeInteger") then
+			data.classProgress[className] = 0
+			table.insert(repairs, "classProgress." .. className .. " reset")
+		elseif slots > maxSkillSlots then
+			data.classProgress[className] = maxSkillSlots
+			table.insert(repairs, "classProgress." .. className .. " clamped")
+		end
+	end
+	for className, slots in PlayerSaveSchema.getDefaultClassProgress(defaults) do
+		if data.classProgress[className] == nil then
+			data.classProgress[className] = slots
+			table.insert(repairs, "classProgress." .. className .. " restored")
+		end
+	end
+end
+
+-- a set of non-empty ids; the default cosmetics are always owned
+local function validateOwnedCosmetics(data: any, defaults: Defaults, repairs: { Repair })
+	if typeof(data.ownedCosmetics) ~= "table" then
+		data.ownedCosmetics = PlayerSaveSchema.getDefaultOwnedCosmetics(defaults)
+		table.insert(repairs, "ownedCosmetics reset")
+		return
+	end
+	for cosmeticId, value in data.ownedCosmetics do
+		if typeof(cosmeticId) ~= "string" or cosmeticId == "" or value ~= true then
+			data.ownedCosmetics[cosmeticId] = nil
+			table.insert(repairs, "ownedCosmetics dropped entry " .. tostring(cosmeticId))
+		end
+	end
+	for cosmeticId in PlayerSaveSchema.getDefaultOwnedCosmetics(defaults) do
+		if data.ownedCosmetics[cosmeticId] == nil then
+			data.ownedCosmetics[cosmeticId] = true
+			table.insert(repairs, "ownedCosmetics." .. cosmeticId .. " restored")
+		end
+	end
+end
+
 -- repairs data in place and returns it, plus the list of repairs made; a
 -- non-table save is replaced wholesale
 function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { Repair })
@@ -279,6 +360,15 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 
 	validatePurchaseIds(data, repairs)
 	validateReviveCredits(data, repairs)
+
+	-- a save from before M70 arrives with the defaults reconciled in, so
+	-- these only ever repair a broken value
+	validateClassProgress(data, defaults, repairs)
+	if not Validate.isValueType(data.keys, "nonnegativeInteger") then
+		data.keys = 0
+		table.insert(repairs, "keys reset")
+	end
+	validateOwnedCosmetics(data, defaults, repairs)
 
 	-- unknown top-level keys are dropped so a renamed field cannot linger
 	-- forever (the pre-M55 ownedUnlocks and loadout go this way: only the

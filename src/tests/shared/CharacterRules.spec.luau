@@ -75,7 +75,7 @@ local REROLL_PRICING = {
 	minStars = 1,
 	maxStars = 5,
 	bonusPerStar = 0.05,
-	skillSlotUnlockNights = { 0, 15, 50 },
+	maxSkillSlots = 3,
 	rankPointsByRarity = { 1, 2, 3, 4, 5 },
 	rankBaselinePoints = 3,
 	rankBands = { { minRank = 1, rarity = 1 }, { minRank = 8, rarity = 2 }, { minRank = 18, rarity = 3 } },

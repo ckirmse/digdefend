@@ -26,7 +26,7 @@ local DEFAULTS = {
 		},
 		minStars = 1,
 		maxStars = 5,
-		skillSlotUnlockNights = { 0, 15, 50 },
+		maxSkillSlots = 3,
 		validSkillIds = { GOLD_DIGGER = true },
 		maxNameLength = 20,
 		defaultNamePrefix = "Character ",
@@ -63,6 +63,9 @@ local function makeValidSave()
 		sessionMeta = { creationTime = 1690000000, sessions = 4, totalPlaySec = 3600, saveTime = 1700000000 },
 		processedPurchaseIds = { "purchase-1", "purchase-2" },
 		reviveCredits = { SELF = 1, FRIEND = 0, TEAM = 2 },
+		classProgress = { RECRUIT = 0, GUNNER = 2 },
+		keys = 3,
+		ownedCosmetics = { HARD_HAT = true, LAMP = true },
 	}
 end
 
@@ -90,6 +93,9 @@ describe(
 				expect(data.completions).toEqual({})
 				expect(data.dailyReward).toEqual({ lastClaimedDay = 0, nextClaimTime = 0 })
 				expect(data.sessionMeta.sessions).toBe(0)
+				expect(data.classProgress).toEqual({ RECRUIT = 0 })
+				expect(data.keys).toBe(0)
+				expect(data.ownedCosmetics).toEqual({ HARD_HAT = true })
 			end
 		)
 
@@ -113,6 +119,36 @@ describe(
 				expect(validated).toBe(save)
 				expect(repairs).toEqual({})
 				expect(validated).toEqual(makeValidSave())
+			end
+		)
+
+		it(
+			"repairs the class gacha fields: unknown classes dropped, slots clamped, the free class and default cosmetics kept, bad keys zeroed",
+			function()
+				local save = makeValidSave()
+				save.classProgress = { GUNNER = 9, SNIPER = "two", DRAGON = 1 }
+				save.keys = -4
+				save.ownedCosmetics = { LAMP = true, [""] = true, GLOVES = false }
+				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
+				expect(validated.classProgress).toEqual({ RECRUIT = 0, GUNNER = 3, SNIPER = 0 })
+				expect(validated.keys).toBe(0)
+				expect(validated.ownedCosmetics).toEqual({ HARD_HAT = true, LAMP = true })
+				-- the clamp, the reset, the dropped class, the restored Recruit,
+				-- the keys, the two dropped cosmetics, the restored hat
+				expect(#repairs).toBe(8)
+			end
+		)
+
+		it(
+			"resets the class gacha fields that are not tables",
+			function()
+				local save = makeValidSave()
+				save.classProgress = "none"
+				save.ownedCosmetics = 7
+				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
+				expect(validated.classProgress).toEqual({ RECRUIT = 0 })
+				expect(validated.ownedCosmetics).toEqual({ HARD_HAT = true })
+				expect(#repairs).toBe(2)
 			end
 		)
 
@@ -274,7 +310,10 @@ describe(
 				expect(validated.sessionMeta.sessions).toBe(0)
 				expect(validated.processedPurchaseIds).toEqual({})
 				expect(validated.reviveCredits).toEqual({ SELF = 0, FRIEND = 0, TEAM = 0 })
-				expect(#repairs).toBe(7)
+				expect(validated.classProgress).toEqual({ RECRUIT = 0 })
+				expect(validated.keys).toBe(0)
+				expect(validated.ownedCosmetics).toEqual({ HARD_HAT = true })
+				expect(#repairs).toBe(10)
 			end
 		)
 		it(

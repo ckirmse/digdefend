@@ -53,9 +53,9 @@ export type Defaults = {
 	defaultKindByGearSlot: { [number]: number },
 	minStars: number,
 	maxStars: number,
-	-- Nights Survived needed per skill slot, by slot index; its length is
-	-- the slot count
-	skillSlotUnlockNights: { number },
+	-- the skill slots a class can open (the gacha opens them, M70); the
+	-- highest slot index a save may name
+	maxSkillSlots: number,
 	-- skill id -> true for every skill in the catalogue
 	validSkillIds: { [string]: boolean },
 	maxNameLength: number,
@@ -116,22 +116,10 @@ function CharacterSchema.getDefault(defaults: Defaults, id: string, name: string
 	}
 end
 
--- how many skill slots this many nights has opened: slot N opens when the
--- count reaches its threshold, and thresholds only ever climb
-function CharacterSchema.openSkillSlots(nightsSurvived: number, skillSlotUnlockNights: { number }): number
-	local open = 0
-	for _, threshold in skillSlotUnlockNights do
-		if nightsSurvived >= threshold then
-			open += 1
-		else
-			break
-		end
-	end
-	return open
-end
-
+-- which skill slots are open is the class's gacha progress on the account
+-- (GachaRules.openSkillSlots, M70), never a property of the record
 function CharacterSchema.getMaxSkillSlots(defaults: Defaults): number
-	return #defaults.skillSlotUnlockNights
+	return defaults.maxSkillSlots
 end
 
 -- every gear slot present with a kind its enum knows and stars in range;

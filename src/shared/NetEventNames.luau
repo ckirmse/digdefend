@@ -26,6 +26,14 @@ module = {
 	TRY_RESOLVE_SKILL_ROLL = "TryResolveSkillRoll",
 	NOTIFY_GEAR_ROLL_OFFER = "NotifyGearRollOffer",
 	NOTIFY_SKILL_ROLL_OFFER = "NotifySkillRollOffer",
+	-- the class gacha (M70, GachaManager in the lobby): one roll for
+	-- Diamonds, answered with what it turned into; the direct class buy for
+	-- a player restricted from paid random items; and equipping an owned
+	-- class on the active character (CharacterManager, ownership checked)
+	TRY_ROLL_GACHA = "TryRollGacha",
+	TRY_BUY_CLASS = "TryBuyClass",
+	TRY_SELECT_CLASS = "TrySelectClass",
+	NOTIFY_GACHA_RESULT = "NotifyGachaResult",
 	-- helicopter pad parties (GDD "Helicopter Pads"); joining is by touch, not message
 	TRY_CREATE_PARTY = "TryCreateParty",
 	TRY_LEAVE_PARTY = "TryLeaveParty",

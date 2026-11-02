@@ -179,6 +179,9 @@ Icons.UI = {
 	-- Diamonds, the lobby currency (M33): the lobby HUD wallet and the
 	-- Results Menu row; the art the in-run Diamond had before it was retired
 	DIAMONDS = "rbxassetid://101719152234191",
+	-- Keys, the gacha's third currency (M70): the lock marker's art stands
+	-- in until a key is drawn
+	KEYS = "rbxassetid://134742178329103",
 }
 
 function Icons.isPlaceholder(id: string?): boolean

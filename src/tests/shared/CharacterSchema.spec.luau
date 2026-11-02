@@ -18,7 +18,7 @@ local DEFAULTS = {
 	},
 	minStars = 1,
 	maxStars = 5,
-	skillSlotUnlockNights = { 0, 15, 50 },
+	maxSkillSlots = 3,
 	validSkillIds = { GOLD_DIGGER = true, DEAD_EYE = true },
 	maxNameLength = 20,
 	defaultNamePrefix = "Character ",
@@ -79,23 +79,6 @@ describe(
 				local validated, repairs = validate(record)
 				expect(validated).toBe(record)
 				expect(repairs).toEqual({})
-			end
-		)
-	end
-)
-
-describe(
-	"CharacterSchema.openSkillSlots",
-	function()
-		it(
-			"opens slots as the thresholds are reached, in order",
-			function()
-				expect(CharacterSchema.openSkillSlots(0, { 0, 15, 50 })).toBe(1)
-				expect(CharacterSchema.openSkillSlots(14, { 0, 15, 50 })).toBe(1)
-				expect(CharacterSchema.openSkillSlots(15, { 0, 15, 50 })).toBe(2)
-				expect(CharacterSchema.openSkillSlots(49, { 0, 15, 50 })).toBe(2)
-				expect(CharacterSchema.openSkillSlots(50, { 0, 15, 50 })).toBe(3)
-				expect(CharacterSchema.openSkillSlots(999, { 0, 15, 50 })).toBe(3)
 			end
 		)
 	end
