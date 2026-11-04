@@ -231,6 +231,9 @@ module = {
 	-- GameMetadata: JSON of the gacha's price, odds, pool, and the direct
 	-- class price (GachaRules codec), so the menu draws without asking
 	GACHA_CONFIG = "GachaConfig",
+	-- GameMetadata: the Diamonds packs as JSON (DiamondStoreRules codec;
+	-- M40, 2026-11-03), republished when the Robux prices arrive
+	DIAMOND_STORE_CATALOGUE = "DiamondStoreCatalogue",
 	-- JSON array of { skillId, rarity } in slot order (CharacterSchema codec)
 	CHARACTER_SKILLS = "CharacterSkills",
 	-- JSON of Enums.CosmeticSlot key name to skin id (M61)

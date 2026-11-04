@@ -35,6 +35,13 @@ UiStyle.NEGATIVE_COLOR = Color3.fromRGB(240, 80, 70)
 UiStyle.TOGGLE_OFF_COLOR = Color3.fromRGB(255, 89, 89)
 UiStyle.TOGGLE_ON_COLOR = Color3.fromRGB(90, 230, 100)
 UiStyle.DISABLED_COLOR = Color3.fromRGB(110, 106, 100)
+-- the Robux sign, a glyph every Roblox font carries; a price reads as the
+-- glyph then the number (the resource-icon rule, with the glyph as the icon)
+UiStyle.ROBUX_GLYPH = utf8.char(0xE002)
+-- the Diamond Store's card banner (BEST VALUE and the like), the accent on
+-- a dark title
+UiStyle.STORE_BANNER_COLOR = Color3.fromRGB(245, 200, 80)
+UiStyle.STORE_BANNER_TEXT_COLOR = Color3.fromRGB(34, 31, 28)
 -- the tool bar slot's backing picture, plain and for the equipped tool
 -- (designer, 2026-10-29)
 UiStyle.TOOL_SLOT_COLOR = Color3.fromRGB(0, 0, 0)
@@ -141,12 +148,33 @@ UiStyle.GACHA_KIND_COLORS = {
 	[Enums.GachaResultKind.COSMETIC] = Color3.fromRGB(80, 150, 255),
 	[Enums.GachaResultKind.KEYS] = Color3.fromRGB(200, 200, 200),
 }
--- the reveal strip (M70): how long the roulette eases onto the winner, how
--- far the winner tile pops, and the celebration stroke's pulse
-UiStyle.GACHA_SPIN_SEC = 3
-UiStyle.GACHA_WINNER_POP_SCALE = 1.25
-UiStyle.GACHA_WINNER_POP_SEC = 0.35
+-- the 3D crate opening (M70, designer 2026-11-03): the camera's glide
+-- between its shots, the world fading round the crate, the TAP CRATE TO
+-- OPEN line, the lid swinging up, the prize card flying out of the crate
+-- to the screen's centre, and the card stroke's pulse
+UiStyle.GACHA_CAMERA_TWEEN_SEC = 1
+UiStyle.GACHA_WORLD_FADE_SEC = 0.8
+UiStyle.GACHA_TAP_HINT_FADE_SEC = 0.4
+UiStyle.GACHA_LID_OPEN_SEC = 0.7
+UiStyle.GACHA_CARD_FLY_SEC = 0.6
 UiStyle.GACHA_STROKE_PULSE_SEC = 0.6
+-- the panel easing back in after a claim (designer, 2026-11-03)
+UiStyle.GACHA_PANEL_FADE_SEC = 0.5
+-- the 3D class card (designer, 2026-11-03): its rise out of the crate, a
+-- newly earned star's colour turning gold, and the star colours themselves
+UiStyle.GACHA_CARD_RISE_SEC = 0.8
+-- the Key's rise out of the crate and one full turn about its upright
+-- while it waits for the claim (designer, 2026-11-03)
+UiStyle.GACHA_KEY_RISE_SEC = 0.8
+UiStyle.GACHA_KEY_SPIN_SEC = 2
+UiStyle.GACHA_STAR_FILL_SEC = 0.5
+-- the beat between the card landing and its new star lighting (designer)
+UiStyle.GACHA_STAR_DELAY_SEC = 0.5
+UiStyle.CLASS_CARD_STAR_GOLD_COLOR = Color3.fromRGB(239, 184, 56)
+UiStyle.CLASS_CARD_STAR_DARK_COLOR = Color3.fromRGB(17, 17, 17)
+-- the gap between the HUD's Diamonds and Keys wallets when both show, as
+-- a share of the screen width
+UiStyle.HUD_WALLET_GAP_SCALE = 0.01
 
 function UiStyle.formatTitle(text: string): string
 	return string.upper(text)

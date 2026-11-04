@@ -30,9 +30,17 @@ local TRANSPARENCY_PROPERTIES_BY_CLASS: { [string]: { string } } = {
 -- fades root's elements out over fadeSec; onDone runs at the end, before
 -- the authored values go back (disable the gui there, or it shows whole
 -- again). An element already fully transparent is left alone
+-- root itself fades with its descendants (a wallet frame is its own
+-- picture, 2026-11-03); a ScreenGui root has no transparency and is skipped
+local function collectElements(root: Instance): { Instance }
+	local elements = root:GetDescendants()
+	table.insert(elements, 1, root)
+	return elements
+end
+
 function ClientGuiFade.fadeOut(root: Instance, fadeSec: number, onDone: (() -> ())?)
 	local authoredByInstance: { [Instance]: { [string]: number } } = {}
-	for _, descendant in root:GetDescendants() do
+	for _, descendant in collectElements(root) do
 		local properties = TRANSPARENCY_PROPERTIES_BY_CLASS[descendant.ClassName]
 		if not properties then
 			continue
@@ -71,7 +79,7 @@ end
 -- their authored values over fadeSec (the Results Menu arriving at the
 -- end of the ride out, 2026-10-27); root should be enabled already
 function ClientGuiFade.fadeIn(root: Instance, fadeSec: number)
-	for _, descendant in root:GetDescendants() do
+	for _, descendant in collectElements(root) do
 		local properties = TRANSPARENCY_PROPERTIES_BY_CLASS[descendant.ClassName]
 		if not properties then
 			continue

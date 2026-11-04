@@ -200,6 +200,8 @@ local sfx = {
 	REROLL = "Reroll",
 	REROLL_SPIN = "RerollSpin",
 	REROLL_REVEAL = "RerollReveal",
+	-- the Supply Crate's lid swinging open (ClientGachaMenuManager, designer 2026-11-03)
+	CRATE_OPEN = "CrateOpen",
 }
 
 -- each weapon's sound set, by its Enums.WeaponKind key. A new weapon adds its
@@ -357,6 +359,7 @@ local lobbySfxNames: { string } = {
 	sfx.REROLL,
 	sfx.REROLL_SPIN,
 	sfx.REROLL_REVEAL,
+	sfx.CRATE_OPEN,
 }
 local lobbyMusicNames: { string } = {
 	music.LOBBY,

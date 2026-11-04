@@ -34,6 +34,11 @@ module = {
 	TRY_BUY_CLASS = "TryBuyClass",
 	TRY_SELECT_CLASS = "TrySelectClass",
 	NOTIFY_GACHA_RESULT = "NotifyGachaResult",
+	-- the Diamond Store (M40, DiamondStoreManager in the lobby): ask for
+	-- the Robux prompt of one pack ({ packIndex }); to the buyer once the
+	-- receipt granted it ({ diamonds }), for the sound
+	TRY_BUY_DIAMOND_PACK = "TryBuyDiamondPack",
+	NOTIFY_DIAMOND_PACK_BOUGHT = "NotifyDiamondPackBought",
 	-- helicopter pad parties (GDD "Helicopter Pads"); joining is by touch, not message
 	TRY_CREATE_PARTY = "TryCreateParty",
 	TRY_LEAVE_PARTY = "TryLeaveParty",

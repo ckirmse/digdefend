@@ -32,6 +32,7 @@ local ROLL_FREE_COMMAND = "rollGachaFree"
 local SET_KEYS_COMMAND = "setKeys"
 local GRANT_CLASS_STEP_COMMAND = "grantClassStep"
 local SET_RESTRICTED_COMMAND = "setPaidRandomRestricted"
+local CLEAR_CLASS_PROGRESS_COMMAND = "clearClassProgress"
 
 local function sendDevTool(command: string, args: { [string]: any })
 	ClientNetManager:fireServer(
@@ -73,6 +74,9 @@ function ClientGachaDevTools:renderSection()
 			table.insert(self.classOptions, Enums.getName(Enums.ClassKind, classKind) or "?")
 		end
 		self.classOption:set(self.classOptions[1] or "")
+	end
+	if Iris.Button({ "Clear class progress" }).clicked() then
+		sendDevTool(CLEAR_CLASS_PROGRESS_COMMAND, {})
 	end
 	Iris.ComboArray({ "Class to step" }, { index = self.classOption }, self.classOptions)
 	if Iris.Button({ "Grant next step of class" }).clicked() then

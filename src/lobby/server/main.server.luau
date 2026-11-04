@@ -2,6 +2,7 @@
 
 -- Lobby-only server startup. The shared GameController starts from
 -- ServerScriptService/Server/main; this script wires the lobby's own managers.
+local DiamondStoreManager = require(script.Parent.DiamondStoreManager)
 local GachaManager = require(script.Parent.GachaManager)
 local LobbyCharacterManager = require(script.Parent.LobbyCharacterManager)
 local LobbyMapManager = require(script.Parent.LobbyMapManager)
@@ -19,3 +20,4 @@ PartyManager:init()
 -- the class gacha (M70): rolls, the restricted player's direct buy, and
 -- the dev commands behind the Gacha dev panel
 GachaManager:init()
+DiamondStoreManager:init()

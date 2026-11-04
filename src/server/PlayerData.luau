@@ -328,6 +328,11 @@ function PlayerData:getClassProgress(): { [string]: number }
 	return self.classProgress
 end
 
+-- back to a new account's classes (the free one alone), for the dev tool
+function PlayerData:resetClassProgress()
+	self.classProgress = PlayerSaveSchema.getDefaultClassProgress(SCHEMA_DEFAULTS)
+end
+
 function PlayerData:getOwnedCosmetics(): { [string]: boolean }
 	return self.ownedCosmetics
 end

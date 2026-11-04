@@ -24,6 +24,7 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
+local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
 local DevTools = require(script.Parent.Parent.Server.DevTools)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
@@ -67,6 +68,7 @@ GachaManager.ROLL_FREE_COMMAND = "rollGachaFree"
 GachaManager.SET_KEYS_COMMAND = "setKeys"
 GachaManager.GRANT_CLASS_STEP_COMMAND = "grantClassStep"
 GachaManager.SET_RESTRICTED_COMMAND = "setPaidRandomRestricted"
+GachaManager.CLEAR_CLASS_PROGRESS_COMMAND = "clearClassProgress"
 
 local FEEDBACK_NOT_ENOUGH_DIAMONDS = "Not enough Diamonds for a roll"
 local FEEDBACK_NOT_ENOUGH_DIAMONDS_CLASS = "Not enough Diamonds for that class"
@@ -308,6 +310,22 @@ function GachaManager:registerDevCommands()
 				return
 			end
 			self:grantClassStep(player, args.classKind)
+		end
+	)
+	-- every class and slot forgotten, as a new account; the Recruit is
+	-- equipped since the class worn may no longer be owned
+	DevTools:registerPlaceCommand(
+		GachaManager.CLEAR_CLASS_PROGRESS_COMMAND,
+		function(player: Player, _args: { [string]: any })
+			local playerData = GameController:getPlayerData(player)
+			if not playerData then
+				return
+			end
+			playerData:resetClassProgress()
+			SplendidReplicationManager:replicateGacha(player)
+			CharacterManager:selectClass(player, Enums.ClassKind.RECRUIT)
+			playerData:saveNow()
+			PlayerFeedbackManager:give(player, "Class progress cleared")
 		end
 	)
 	DevTools:registerPlaceCommand(

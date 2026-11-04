@@ -64,6 +64,10 @@ module = {
 	-- them, both out again at dawn (ClientNightLightManager)
 	NIGHT_LIGHT = "NightLight",
 	NIGHT_LIGHT_BULB = "NightLightBulb",
+	-- a decorative lobby rig (designer, 2026-11-03): the store salespeople.
+	-- Tagged in Studio; ClientLobbyNpcManager plays its idle and an
+	-- occasional wave locally, so the server never animates it
+	LOBBY_NPC = "LobbyNpc",
 }
 
 return module

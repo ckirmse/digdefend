@@ -100,6 +100,19 @@ diamondsAmount.FontFace = UiStyle.BODY_BOLD_FONT
 addTextSizeBounds(diamondsAmount, UiStyle.BODY_TEXT_MIN_PX, 32)
 diamondsAmount.Parent = diamondWallet
 
+-- the Keys wallet (designer, 2026-11-03): the Diamonds wallet's twin,
+-- hidden until the player holds any Keys; ClientHudManager centres the
+-- pair as a group when both show. (The live HUD's wallets carry the
+-- designer's panel backing picture and are ImageButtons; port those
+-- differences here before any rebuild.)
+local keysWallet = diamondWallet:Clone()
+keysWallet.Name = "KeysWallet"
+keysWallet.AutoButtonColor = false
+keysWallet.Visible = false
+keysWallet.Icon.Image = Icons.UI.KEYS
+keysWallet.DiamondAmount.Name = "KeysAmount"
+keysWallet.Parent = gui
+
 -- Menu buttons, right edge, stacked; the jet pack bar closes up under them
 -- (2026-10-30: the Daily Rewards button went, post launch)
 local menuButtons = Instance.new("Frame")

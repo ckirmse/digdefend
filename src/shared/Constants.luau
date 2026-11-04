@@ -45,6 +45,10 @@ Constants.PLAYER_FEEDBACK_ICON = "Icon"
 Constants.HUD_GUI_NAME = "HUD"
 Constants.HUD_DIAMOND_WALLET = "DiamondWallet"
 Constants.HUD_DIAMOND_AMOUNT_LABEL = "DiamondAmount"
+-- the Keys wallet beside it (designer, 2026-11-03): shown only while the
+-- player holds any Keys; the two are centred as a group (ClientHudManager)
+Constants.HUD_KEYS_WALLET = "KeysWallet"
+Constants.HUD_KEYS_AMOUNT_LABEL = "KeysAmount"
 Constants.HUD_MENU_BUTTONS = "MenuButtons"
 Constants.HUD_STORE_BUTTON = "StoreButton"
 -- the Loadout button until 2026-10-12 (M37), the Character button until
@@ -773,41 +777,94 @@ Constants.CHARACTER_SELECT_WALLET = "DiamondWallet"
 Constants.CHARACTER_SELECT_CARDS = "Cards"
 Constants.CHARACTER_SELECT_CARD_TEMPLATE = "CardTemplate"
 Constants.CHARACTER_SELECT_HINT = "Hint"
--- the class gacha menu (M70; scripts/studio/build_gacha_gui.luau): a
--- header with Back and the two wallets, an odds panel, the ROLL button
--- (or, for a player restricted from paid random items, a list of classes
--- to buy outright cloned from the row template), and the reveal panel
+-- the class gacha menu (M70; scripts/studio/build_gacha_gui.luau; the 3D
+-- crate opening since 2026-11-03): a panel on the right third of the
+-- screen with an X close button, the odds list (or, for a player
+-- restricted from paid random items, the classes to buy outright, cloned
+-- from the row template), and OPEN CRATE with its price; outside the
+-- panel the TAP CRATE TO OPEN line and the prize card with CLAIM
 Constants.GACHA_GUI_NAME = "Gacha"
-Constants.GACHA_BACK_BUTTON = "BackButton"
-Constants.GACHA_WALLET = "DiamondWallet"
-Constants.GACHA_KEYS_WALLET = "KeysWallet"
-Constants.GACHA_KEYS_AMOUNT_LABEL = "KeysAmount"
+Constants.GACHA_CLOSE_BUTTON = "CloseButton"
 Constants.GACHA_ODDS_PANEL = "Odds"
 Constants.GACHA_ODDS_ROW_TEMPLATE = "OddsRowTemplate"
 Constants.GACHA_ODDS_ROW_NAME_LABEL = "Name"
 Constants.GACHA_ODDS_ROW_SHARE_LABEL = "Share"
-Constants.GACHA_CLASSES_PANEL = "Classes"
 Constants.GACHA_CLASS_ROW_TEMPLATE = "ClassRowTemplate"
 Constants.GACHA_CLASS_ROW_NAME_LABEL = "Name"
 Constants.GACHA_CLASS_ROW_PROGRESS_LABEL = "Progress"
 Constants.GACHA_CLASS_ROW_BUY_BUTTON = "BuyButton"
 Constants.GACHA_ROLL_BUTTON = "RollButton"
 Constants.GACHA_ROLL_PRICE_LABEL = "Price"
--- the reveal: a roulette strip of prize tiles (cloned from the hidden
--- template) that eases onto the winner under the pointer, then the
--- winner's line and DONE (the reference game's Lucky Box reveal)
-Constants.GACHA_REVEAL_PANEL = "Reveal"
-Constants.GACHA_REVEAL_STRIP_WINDOW = "StripWindow"
-Constants.GACHA_REVEAL_STRIP = "Strip"
-Constants.GACHA_REVEAL_POINTER = "Pointer"
-Constants.GACHA_REVEAL_TILE_TEMPLATE = "PrizeTile"
-Constants.GACHA_REVEAL_TILE_KIND_LABEL = "Kind"
-Constants.GACHA_REVEAL_TILE_NAME_LABEL = "Name"
-Constants.GACHA_REVEAL_TILE_ODDS_LABEL = "Odds"
-Constants.GACHA_REVEAL_KIND_LABEL = "Kind"
-Constants.GACHA_REVEAL_NAME_LABEL = "Name"
-Constants.GACHA_REVEAL_DETAIL_LABEL = "Detail"
-Constants.GACHA_REVEAL_DONE_BUTTON = "DoneButton"
+Constants.GACHA_TAP_HINT = "TapHint"
+-- the headline along the top once a class card has landed (designer,
+-- 2026-11-03): NEW CLASS UNLOCKED! or CLASS TIER INCREASED!
+Constants.GACHA_REVEAL_TITLE = "RevealTitle"
+-- the headline is the designer's picture backing with the words inside
+-- it (2026-11-03)
+Constants.GACHA_REVEAL_TEXT = "RevealText"
+Constants.GACHA_CARD = "Card"
+Constants.GACHA_CARD_KIND_LABEL = "Kind"
+Constants.GACHA_CARD_NAME_LABEL = "Name"
+Constants.GACHA_CARD_DETAIL_LABEL = "Detail"
+-- CLAIM sits under either card, so it is the gui's own child (2026-11-03)
+Constants.GACHA_CARD_CLAIM_BUTTON = "ClaimButton"
+-- the Diamond Store menu (M40; scripts/studio/build_diamond_store_gui.luau):
+-- a header with Back and the wallet, and a row of pack cards cloned from
+-- the hidden template, each with its amount, an optional banner across
+-- the top, and a BUY button carrying the Robux price
+Constants.DIAMOND_STORE_GUI_NAME = "DiamondStore"
+Constants.DIAMOND_STORE_BACK_BUTTON = "BackButton"
+Constants.DIAMOND_STORE_WALLET = "DiamondWallet"
+Constants.DIAMOND_STORE_PACKS = "Packs"
+Constants.DIAMOND_STORE_PACK_TEMPLATE = "PackTemplate"
+Constants.DIAMOND_STORE_PACK_ICON = "Icon"
+Constants.DIAMOND_STORE_PACK_AMOUNT_LABEL = "Amount"
+Constants.DIAMOND_STORE_PACK_BANNER = "Banner"
+Constants.DIAMOND_STORE_PACK_BANNER_LABEL = "Text"
+Constants.DIAMOND_STORE_PACK_BUY_BUTTON = "BuyButton"
+Constants.DIAMOND_STORE_PACK_PRICE_LABEL = "Price"
+-- the lobby's two store stalls (designer, 2026-11-03): a Folder each in
+-- Workspace, with a MenuTouchPart whose volume opens that stall's menu
+-- when the player walks into it (ClientStoreZoneManager)
+Constants.LOBBY_SUPPLY_CRATE_STORE_FOLDER = "SupplyCrateStore"
+Constants.LOBBY_DIAMOND_STORE_FOLDER = "DiamondStore"
+Constants.STORE_MENU_TOUCH_PART = "MenuTouchPart"
+-- the Supply Crate stall's crate (designer's model, 2026-11-03): the
+-- Crate part with the Attachment holding the light and the emitter, the
+-- Lid, and the two invisible reference poses the lid tweens between;
+-- the ring the stall stands on (the designer's Union, faded during the
+-- opening); and the three camera shots (scripts/studio/
+-- build_supply_crate_parts.luau)
+Constants.SUPPLY_CRATE_MODEL = "SupplyCrate"
+Constants.SUPPLY_CRATE_PART = "Crate"
+Constants.SUPPLY_CRATE_ATTACHMENT = "Attachment"
+Constants.SUPPLY_CRATE_LID = "Lid"
+Constants.SUPPLY_CRATE_LID_CLOSED = "LidClosed"
+Constants.SUPPLY_CRATE_LID_OPEN = "LidOpen"
+Constants.SUPPLY_CRATE_RING = "Union"
+Constants.SUPPLY_CRATE_CAMERA_MENU = "CameraMenuOpen"
+Constants.SUPPLY_CRATE_CAMERA_SEQUENCE = "CameraOpenSequence"
+Constants.SUPPLY_CRATE_CAMERA_OPEN = "CameraOpen"
+-- the crate's card poses (designer, 2026-11-03): where the 3D class card
+-- starts, flat inside the crate at half size, and where it rises to
+Constants.SUPPLY_CRATE_CARD_START = "CardStart"
+Constants.SUPPLY_CRATE_CARD_END = "CardEnd"
+-- the Key's poses the same way (designer, 2026-11-03): the mesh rises from
+-- KeyStart to KeyEnd and spins there until the claim
+Constants.SUPPLY_CRATE_KEY_START = "KeyStart"
+Constants.SUPPLY_CRATE_KEY_END = "KeyEnd"
+-- the designer's 3D class card under GameAssets/Store (2026-11-03): a Card
+-- part (the primary) with a SurfaceGui holding the class name and icon,
+-- and three star parts, each with its effects under an Effect attachment
+Constants.STORE_ASSETS_FOLDER = "Store"
+Constants.CLASS_CARD_TEMPLATE = "ClassCard"
+-- the designer's Key mesh beside it, shown for a Keys draw
+Constants.KEY_TEMPLATE = "Key"
+Constants.CLASS_CARD_NAME_LABEL = "ClassName"
+Constants.CLASS_CARD_ICON_LABEL = "ImageLabel"
+Constants.CLASS_CARD_STAR_NAME_FORMAT = "Star%d"
+Constants.CLASS_CARD_STAR_COUNT = 3
+Constants.CLASS_CARD_EFFECT_ATTACHMENT = "Effect"
 Constants.CHARACTER_CARD_TITLE = "Title"
 Constants.CHARACTER_CARD_AVATAR = "Avatar"
 Constants.CHARACTER_CARD_RANK_LABEL = "RankLabel"
