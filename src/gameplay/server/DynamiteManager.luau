@@ -36,7 +36,7 @@ local DynamiteData = require("@game/ServerScriptService/GameData/Mining/Dynamite
 local RockDefinitionsData = require("@game/ServerScriptService/GameData/Rocks/RockDefinitions")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local utils = require("@game/ReplicatedStorage/Shared/utils")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local SpatialSoundManager = require(script.Parent.Parent.Server.SpatialSoundManager)
@@ -97,7 +97,7 @@ function DynamiteManager:dropOre(rock: number, blockCenter: Vector3)
 end
 
 function DynamiteManager:hasDynamiteGadget(player: Player): boolean
-	return CharacterManager:getGadgetKind(player) == Enums.GadgetKind.DYNAMITE
+	return ClassManager:getGadgetKind(player) == Enums.GadgetKind.DYNAMITE
 end
 
 function DynamiteManager:replicate(player: Player)
@@ -351,7 +351,7 @@ function DynamiteManager:init()
 	-- the slot drains its sheet over the same wait the server keeps
 	SplendidReplicationManager:setGameMetadata(Attributes.DYNAMITE_RESPAWN_SEC, DynamiteData.RESPAWN_SEC)
 	GameController:registerPlaceManager(self)
-	CharacterManager:subscribeClassChanged(
+	ClassManager:subscribeClassChanged(
 		function(player: Player, _classKind: number)
 			if GameController:isPlayerReady(player) then
 				self:applyGadget(player)

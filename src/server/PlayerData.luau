@@ -6,17 +6,13 @@
 -- system asking "may I act on this player" asks one object.
 local HttpService = game:GetService("HttpService")
 
-local ProgressionData = require("@game/ServerScriptService/GameData/Characters/Progression")
 local GachaData = require("@game/ServerScriptService/GameData/Gacha/Gacha")
 local ClassRosterData = require("@game/ServerScriptService/GameData/Classes/Roster")
 local HatsData = require("@game/ServerScriptService/GameData/Characters/Hats")
 local SkillsData = require("@game/ServerScriptService/GameData/Characters/Skills")
-local StarsData = require("@game/ServerScriptService/GameData/Characters/Stars")
 local PlayerControlData = require("@game/ServerScriptService/GameData/Control/Player")
-local TowersData = require("@game/ServerScriptService/GameData/Defenses/Towers")
-local PostWeaponsData = require("@game/ServerScriptService/GameData/Posts/PostWeapons")
-local HandheldData = require("@game/ServerScriptService/GameData/Weapons/Handheld")
-local CharacterSchema = require("@game/ReplicatedStorage/Shared/CharacterSchema")
+local ClassSchema = require("@game/ReplicatedStorage/Shared/ClassSchema")
+local CosmeticLoadoutSchema = require("@game/ReplicatedStorage/Shared/CosmeticLoadoutSchema")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local PlayerSaveSchema = require("@game/ReplicatedStorage/Shared/PlayerSaveSchema")
 local utils = require("@game/ReplicatedStorage/Shared/utils")
@@ -25,7 +21,7 @@ local PlayerData = {}
 PlayerData.__index = PlayerData
 
 export type SaveData = PlayerSaveSchema.SaveData
-export type CharacterSave = CharacterSchema.CharacterSave
+export type ClassSave = ClassSchema.ClassSave
 
 export type PlayerData = typeof(setmetatable(
 	{} :: {
@@ -36,8 +32,8 @@ export type PlayerData = typeof(setmetatable(
 		sessionStartTime: number,
 		isSaveOnExit: boolean,
 		diamonds: number,
-		characters: { CharacterSave },
-		activeCharacterId: string,
+		classes: ClassSchema.Records,
+		activeClassKind: string,
 		completions: { [string]: boolean },
 		dailyReward: PlayerSaveSchema.DailyRewardSave,
 		sessionMeta: PlayerSaveSchema.SessionMetaSave,
@@ -54,8 +50,9 @@ export type PlayerData = typeof(setmetatable(
 -- adding a field here means adding it to PlayerSaveSchema too
 local SAVE_FIELDS = {
 	"diamonds",
-	"characters",
-	"activeCharacterId",
+	"classes",
+	"cosmetics",
+	"activeClassKind",
 	"completions",
 	"dailyReward",
 	"sessionMeta",
@@ -74,49 +71,31 @@ local function buildValidSkillIds(): { [string]: boolean }
 	return ids
 end
 
--- the GameData the pure schemas need, gathered once: the character shape
--- (defaults, star bounds, slot thresholds, the skill catalogue's ids) and
--- the account shape around it
-local CHARACTER_DEFAULTS: CharacterSchema.Defaults = {
-	defaultClassKind = ClassRosterData.DEFAULT_CLASS,
-	defaultKindByGearSlot = {
-		[Enums.GearSlot.WEAPON] = HandheldData.DEFAULT_WEAPON,
-		[Enums.GearSlot.POST] = PostWeaponsData.DEFAULT_POST_WEAPON,
-		[Enums.GearSlot.TOWER_1] = TowersData.DEFAULT_TOWER,
-		[Enums.GearSlot.TOWER_2] = TowersData.DEFAULT_SECOND_TOWER,
-	},
-	minStars = StarsData.MIN_STARS,
-	maxStars = StarsData.MAX_STARS,
+-- the GameData the pure schemas need, gathered once: the class record
+-- shape (the slot cap, the skill catalogue's ids), the skins a new
+-- account wears, and the account shape around them
+local CLASS_DEFAULTS: ClassSchema.Defaults = {
 	maxSkillSlots = GachaData.MAX_SKILL_SLOTS,
 	validSkillIds = buildValidSkillIds(),
-	maxNameLength = ProgressionData.MAX_NAME_LENGTH,
-	defaultNamePrefix = ProgressionData.DEFAULT_NAME_PREFIX,
-	defaultCosmetics = {
-		[Enums.getName(Enums.CosmeticSlot, Enums.CosmeticSlot.HELMET) :: string] = HatsData.DEFAULT_HAT_ID,
-	},
 }
 
 local SCHEMA_DEFAULTS: PlayerSaveSchema.Defaults = {
 	startingDiamonds = PlayerControlData.STARTING_DIAMONDS,
-	character = CHARACTER_DEFAULTS,
-	maxCharacters = ProgressionData.MAX_CHARACTERS,
-	generateId = function()
-		return HttpService:GenerateGUID(false)
-	end,
+	class = CLASS_DEFAULTS,
+	defaultCosmetics = {
+		[Enums.getName(Enums.CosmeticSlot, Enums.CosmeticSlot.HELMET) :: string] = HatsData.DEFAULT_HAT_ID,
+	},
+	defaultClassKind = ClassRosterData.DEFAULT_CLASS,
 }
 
 function PlayerData.getDefaultSaveData(): SaveData
 	return PlayerSaveSchema.getDefault(SCHEMA_DEFAULTS)
 end
 
--- the character shape's tuning, for managers that reason about a record
--- (open skill slots, star bounds) without requiring GameData themselves
-function PlayerData.getCharacterDefaults(): CharacterSchema.Defaults
-	return CHARACTER_DEFAULTS
-end
-
-function PlayerData.getMaxCharacters(): number
-	return SCHEMA_DEFAULTS.maxCharacters
+-- the class record shape's tuning, for managers that reason about a
+-- record (open skill slots) without requiring GameData themselves
+function PlayerData.getClassDefaults(): ClassSchema.Defaults
+	return CLASS_DEFAULTS
 end
 
 function PlayerData:validate(data: any): SaveData
@@ -226,47 +205,52 @@ function PlayerData:spendDiamonds(amount: number): boolean
 	return true
 end
 
--- the live records, in slot order; callers mutate through CharacterManager
--- so every change is replicated
-function PlayerData:getCharacters(): { CharacterSave }
-	return self.characters
+-- the live class records; callers mutate through ClassManager so every
+-- change is replicated
+function PlayerData:getClassRecords(): ClassSchema.Records
+	return self.classes
 end
 
-function PlayerData:getCharacter(characterId: string): CharacterSave?
-	for _, record in self.characters do
-		if record.id == characterId then
-			return record
-		end
+-- a class's record by its Enums.ClassKind key name, made from the
+-- defaults the first time it is asked for, so a save stays small until a
+-- class is touched
+function PlayerData:getClassRecord(className: string): ClassSave
+	local record = self.classes[className]
+	if not record then
+		record = ClassSchema.getDefault(CLASS_DEFAULTS)
+		self.classes[className] = record
 	end
-	return nil
+	return record
 end
 
-function PlayerData:getActiveCharacterId(): string
-	return self.activeCharacterId
+function PlayerData:getActiveClassName(): string
+	return self.activeClassKind
 end
 
--- the schema guarantees the active id names a character, so this never
--- returns nil for a loaded save
-function PlayerData:getActiveCharacter(): CharacterSave
-	return self:getCharacter(self.activeCharacterId) or self.characters[1]
+-- the schema guarantees the active class names a real one, so the
+-- fallback only guards a save that has not loaded
+function PlayerData:getActiveClassKind(): number
+	return Enums.getValueByName(Enums.ClassKind, self.activeClassKind) or ClassRosterData.DEFAULT_CLASS
 end
 
-function PlayerData:setActiveCharacterId(characterId: string): boolean
-	if not self:getCharacter(characterId) then
+-- the account's one cosmetic loadout (Enums.CosmeticSlot key name to
+-- skin id); CosmeticManager is the one writer, so every change is
+-- replicated
+function PlayerData:getCosmetics(): CosmeticLoadoutSchema.Loadout
+	return self.cosmetics
+end
+
+function PlayerData:getActiveClassRecord(): ClassSave
+	return self:getClassRecord(self.activeClassKind)
+end
+
+function PlayerData:setActiveClassKind(classKind: number): boolean
+	local className = Enums.getName(Enums.ClassKind, classKind)
+	if not className then
 		return false
 	end
-	self.activeCharacterId = characterId
+	self.activeClassKind = className
 	return true
-end
-
--- a new empty character in the next slot, or nil at the cap
-function PlayerData:addCharacter(): CharacterSave?
-	if #self.characters >= SCHEMA_DEFAULTS.maxCharacters then
-		return nil
-	end
-	local record = PlayerSaveSchema.makeDefaultCharacter(SCHEMA_DEFAULTS, #self.characters + 1)
-	table.insert(self.characters, record)
-	return record
 end
 
 function PlayerData:hasCompletion(completionKey: string): boolean
@@ -335,6 +319,13 @@ end
 
 function PlayerData:getOwnedCosmetics(): { [string]: boolean }
 	return self.ownedCosmetics
+end
+
+-- back to a new account's cosmetics (the default hat alone), for the dev
+-- tool; a character still wearing a cleared skin keeps it, since what is
+-- worn is never checked against what is owned
+function PlayerData:resetOwnedCosmetics()
+	self.ownedCosmetics = PlayerSaveSchema.getDefaultOwnedCosmetics(SCHEMA_DEFAULTS)
 end
 
 function PlayerData:getKeys(): number

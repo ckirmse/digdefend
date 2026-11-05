@@ -45,7 +45,7 @@ local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local ProjectileRules = require("@game/ReplicatedStorage/Shared/ProjectileRules")
 local PostWeaponsData = require("@game/ServerScriptService/GameData/Posts/PostWeapons")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -284,7 +284,7 @@ function PostManager:getStats(post: Post): PostRules.Stats?
 		-- the owner's class scales the post's damage on top of its Iron
 		-- upgrades (M64); the stats table is fresh per call, so this never
 		-- compounds
-		local damageScale: number = CharacterManager:getModifier(owner, Enums.ClassModifier.POST_DAMAGE)
+		local damageScale: number = ClassManager:getModifier(owner, Enums.ClassModifier.POST_DAMAGE)
 		stats.damage *= damageScale
 	end
 	return stats
@@ -300,7 +300,7 @@ function PostManager:resolveWeaponKind(player: Player): number
 	if state.loadoutOverride and self:getWeaponData(state.loadoutOverride) then
 		return state.loadoutOverride
 	end
-	local kind = CharacterManager:getGearKind(player, Enums.GearSlot.POST, PostWeaponsData.DEFAULT_POST_WEAPON)
+	local kind = ClassManager:getGearKind(player, Enums.GearSlot.POST, PostWeaponsData.DEFAULT_POST_WEAPON)
 	if not self:getWeaponData(kind) then
 		warn(`PostManager: no GameData/Posts/PostWeapons entry for post weapon {kind}; using the default`)
 		kind = PostWeaponsData.DEFAULT_POST_WEAPON
@@ -1695,7 +1695,7 @@ function PostManager:init(monsterManagerIn: any)
 	}
 	SplendidReplicationManager:setGameMetadata(Attributes.POST_CATALOG, PostRules.encodeCatalog(self.catalog))
 	GameController:registerPlaceManager(self)
-	CharacterManager:subscribeClassChanged(
+	ClassManager:subscribeClassChanged(
 		function(player: Player, _classKind: number)
 			self:applyClass(player)
 		end

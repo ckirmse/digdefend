@@ -12,6 +12,7 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientDevTools = require(script.Parent.Parent.Client.ClientDevTools)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local Iris = require(script.Parent.Parent.Client.Iris)
+local ClientGachaMenuManager = require(script.Parent.ClientGachaMenuManager)
 
 local ClientGachaDevTools = {}
 ClientGachaDevTools.__index = ClientGachaDevTools
@@ -21,6 +22,10 @@ export type ClientGachaDevTools = typeof(setmetatable(
 		keysInput: any,
 		classOption: any,
 		classOptions: { string },
+		-- the dropdown of every prize in the pool, label to prize key
+		prizeOption: any,
+		prizeOptions: { string },
+		prizeKeyByOption: { [string]: string },
 		restrictedChecked: any,
 		lastSentRestricted: boolean?,
 	},
@@ -29,10 +34,12 @@ export type ClientGachaDevTools = typeof(setmetatable(
 
 -- must match GachaManager.*_COMMAND on the server
 local ROLL_FREE_COMMAND = "rollGachaFree"
+local ROLL_FORCED_COMMAND = "rollGachaForced"
 local SET_KEYS_COMMAND = "setKeys"
 local GRANT_CLASS_STEP_COMMAND = "grantClassStep"
 local SET_RESTRICTED_COMMAND = "setPaidRandomRestricted"
 local CLEAR_CLASS_PROGRESS_COMMAND = "clearClassProgress"
+local CLEAR_COSMETICS_COMMAND = "clearCosmetics"
 
 local function sendDevTool(command: string, args: { [string]: any })
 	ClientNetManager:fireServer(
@@ -61,6 +68,40 @@ function ClientGachaDevTools:renderSection()
 		sendDevTool(ROLL_FREE_COMMAND, {})
 	end
 
+	-- every prize in the pool, from the published config, so the list is
+	-- the server's; the label is the prize's name and its key is what is sent
+	if config and #self.prizeOptions ~= #config.prizes then
+		self.prizeOptions = {}
+		self.prizeKeyByOption = {}
+		for _, prize in config.prizes do
+			local label
+			if prize.kind == Enums.GachaResultKind.CLASS then
+				label = "Class: " .. (Enums.getName(Enums.ClassKind, prize.classKind or 0) or "?")
+			elseif prize.kind == Enums.GachaResultKind.COSMETIC then
+				label = "Cosmetic: " .. tostring(prize.cosmeticId)
+			else
+				label = "Keys"
+			end
+			table.insert(self.prizeOptions, label)
+			self.prizeKeyByOption[label] = prize.key
+		end
+		table.sort(self.prizeOptions)
+		self.prizeOption:set(self.prizeOptions[1] or "")
+	end
+	Iris.ComboArray({ "Prize to force" }, { index = self.prizeOption }, self.prizeOptions)
+	if Iris.Button({ "Roll the chosen prize (free)" }).clicked() then
+		local prizeKey = self.prizeKeyByOption[self.prizeOption:get()]
+		if prizeKey then
+			local send = function()
+				sendDevTool(ROLL_FORCED_COMMAND, { prizeKey = prizeKey })
+			end
+			-- with the menu open the crate plays it out; closed, it just lands
+			if not ClientGachaMenuManager:requestForcedRoll(send) then
+				send()
+			end
+		end
+	end
+
 	Iris.InputNum({ "Keys", 1, 0 }, { number = self.keysInput })
 	if Iris.Button({ "Set Keys" }).clicked() then
 		sendDevTool(SET_KEYS_COMMAND, { keys = math.max(0, math.floor(self.keysInput:get())) })
@@ -77,6 +118,9 @@ function ClientGachaDevTools:renderSection()
 	end
 	if Iris.Button({ "Clear class progress" }).clicked() then
 		sendDevTool(CLEAR_CLASS_PROGRESS_COMMAND, {})
+	end
+	if Iris.Button({ "Clear cosmetics" }).clicked() then
+		sendDevTool(CLEAR_COSMETICS_COMMAND, {})
 	end
 	Iris.ComboArray({ "Class to step" }, { index = self.classOption }, self.classOptions)
 	if Iris.Button({ "Grant next step of class" }).clicked() then
@@ -103,6 +147,7 @@ end
 function ClientGachaDevTools:init()
 	self.keysInput = Iris.State(0)
 	self.classOption = Iris.State("")
+	self.prizeOption = Iris.State("")
 	self.restrictedChecked = Iris.State(false)
 	ClientDevTools:addMenuSection(
 		function()
@@ -116,6 +161,9 @@ function ClientGachaDevTools.new(): ClientGachaDevTools
 	self.keysInput = nil
 	self.classOption = nil
 	self.classOptions = {}
+	self.prizeOption = nil
+	self.prizeOptions = {}
+	self.prizeKeyByOption = {}
 	self.restrictedChecked = nil
 	self.lastSentRestricted = nil
 	return self

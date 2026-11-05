@@ -14,7 +14,7 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
 local MiningSuppliesData = require("@game/ServerScriptService/GameData/Store/MiningSupplies")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -114,7 +114,7 @@ function MiningStoreManager:buy(player: Player, item: number)
 	-- surcharge from the second pick rung, the mining discounts on every
 	-- rung, nothing on a consumable), the same rule the stands show
 	local isConsumable = self.catalog.consumables[item] ~= nil
-	local classData = CharacterManager:getClassData(player)
+	local classData = ClassManager:getClassData(player)
 	local price = StoreRules.scaledPrice(item, offer, isConsumable, if classData then classData.MODIFIERS else {})
 	if not StoreRules.canAfford(RefineryManager:getGoldBars(player), price) then
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_GOLD)

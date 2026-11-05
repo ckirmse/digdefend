@@ -9,7 +9,7 @@ local Players = game:GetService("Players")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local BootsData = require("@game/ServerScriptService/GameData/Mining/Boots")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 
@@ -40,7 +40,7 @@ function BootsManager:getWalkSpeed(player: Player): number
 	local speeds = BootsData.WALK_SPEED_BY_LEVEL
 	local level = math.clamp(self:getLevel(player), 1, #speeds)
 	-- the class scales the boots' speed (M64)
-	local speedScale: number = CharacterManager:getModifier(player, Enums.ClassModifier.MOVE_SPEED)
+	local speedScale: number = ClassManager:getModifier(player, Enums.ClassModifier.MOVE_SPEED)
 	local boost = self.boostByPlayer[player]
 	local boostScale = if boost and workspace:GetServerTimeNow() < boost.endTime then boost.multiplier else 1
 	return speeds[level] * speedScale * boostScale

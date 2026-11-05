@@ -31,7 +31,7 @@ local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local FlareData = require("@game/ServerScriptService/GameData/Gadgets/Flare")
 local HandheldData = require("@game/ServerScriptService/GameData/Weapons/Handheld")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
@@ -87,7 +87,7 @@ function FlareManager:getShadowFolder(): Folder
 end
 
 function FlareManager:hasFlareGadget(player: Player): boolean
-	return CharacterManager:getGadgetKind(player) == Enums.GadgetKind.FLARE
+	return ClassManager:getGadgetKind(player) == Enums.GadgetKind.FLARE
 end
 
 function FlareManager:hasFlare(id: string): boolean
@@ -308,7 +308,7 @@ function FlareManager:init()
 	-- the slot drains its sheet over the same wait the server keeps
 	SplendidReplicationManager:setGameMetadata(Attributes.FLARE_COOLDOWN_SEC, FlareData.COOLDOWN_SEC)
 	GameController:registerPlaceManager(self)
-	CharacterManager:subscribeClassChanged(
+	ClassManager:subscribeClassChanged(
 		function(player: Player, _classKind: number)
 			if GameController:isPlayerReady(player) then
 				self:applyGadget(player)

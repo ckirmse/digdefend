@@ -11,13 +11,11 @@ Constants.SPLENDID_GAMES_NAME = "SplendidGames"
 Constants.GAME_METADATA_FOLDER = "GameMetadata"
 Constants.ALL_PLAYERS_FOLDER = "AllPlayers"
 Constants.CURRENT_PLAYER_FOLDER = "CurrentPlayer"
--- CurrentPlayer sub-folders: Completions holds name-only marker folders;
--- Characters holds one folder per character (M55), named by the
--- character's id and carrying the CHARACTER_* attributes, with the active
--- id as an attribute on the folder itself. OwnedUnlocks went with the
--- bought-unlock loadout on 2026-10-12
+-- CurrentPlayer sub-folder: Completions holds name-only marker folders.
+-- OwnedUnlocks went with the bought-unlock loadout on 2026-10-12, the
+-- Characters folder with the Class Menu on 2026-11-04 (class records
+-- travel as one attribute now)
 Constants.COMPLETIONS_FOLDER = "Completions"
-Constants.CHARACTERS_FOLDER = "Characters"
 
 -- ScreenGuis authored in Studio (scripts/studio/*.luau rebuild them)
 Constants.LOADING_GUI_NAME = "Loading"
@@ -513,6 +511,9 @@ Constants.TOOL_HANDLE_PART = "Handle"
 -- the jet pack worn on the back (GameAssets/Wearables/JET_PACK) and the
 -- attachment its Handle welds to; its Flame part is shown while burning
 Constants.WEARABLE_TEMPLATES_FOLDER = "Wearables"
+-- cosmetic skins (M61 first pass, 2026-11-04): GameAssets/Cosmetics/<SLOT
+-- name>/<template>, built by scripts/studio/build_cosmetic_templates.luau
+Constants.COSMETIC_TEMPLATES_FOLDER = "Cosmetics"
 -- catalogue hats loaded by HatManager at startup (GameData/Characters/Hats),
 -- one Accessory per hat id, so clients can clone one onto a menu avatar
 Constants.HAT_TEMPLATES_FOLDER = "Hats"
@@ -521,6 +522,9 @@ Constants.HAT_TEMPLATES_FOLDER = "Hats"
 -- avatars can wear them while the live character wears a catalogue hat
 Constants.OWN_HATS_FOLDER = "OwnHats"
 Constants.JET_PACK_TEMPLATE = "JET_PACK"
+-- the name the worn copy carries on a character (ClientJetPackManager,
+-- LobbyCharacterManager), so a menu avatar can take it off
+Constants.WORN_JET_PACK_MODEL = "WornJetPack"
 Constants.JET_PACK_FLAME_PART = "Flame"
 -- the attachments on the pack's tanks where the stowed pick axe and hammer
 -- skins mount (designer, 2026-10-12; used from M61)
@@ -768,15 +772,63 @@ Constants.HELICOPTER_ROTOR_PART = "Rotar"
 -- the tail rotor, a part of the model itself, spun about its own X axis
 Constants.HELICOPTER_TAIL_ROTOR_PART = "BackBlades"
 -- pad menus (built by scripts/studio/build_create_party_gui.luau and build_queue_gui.luau)
--- the Character Select Menu (M37; scripts/studio/build_character_select_gui.luau):
--- a header with Back and the Diamonds wallet, a row of cards cloned from
--- the template (one per character, then the next slot to buy), and a hint
-Constants.CHARACTER_SELECT_GUI_NAME = "CharacterSelect"
-Constants.CHARACTER_SELECT_BACK_BUTTON = "BackButton"
-Constants.CHARACTER_SELECT_WALLET = "DiamondWallet"
-Constants.CHARACTER_SELECT_CARDS = "Cards"
-Constants.CHARACTER_SELECT_CARD_TEMPLATE = "CardTemplate"
-Constants.CHARACTER_SELECT_HINT = "Hint"
+-- the Class Menu (GDD "Classes", the Class Equip Menu of 2026-11-04;
+-- scripts/studio/build_class_menu_gui.luau; it replaced the Character
+-- Select Menu and the Character Sheet of M37): a header with Back and
+-- the Diamonds wallet; on the left a scrolling list with one button per
+-- class cloned from the template (its icon, its name under it, a lock in
+-- the corner and a grey wash when locked, a stroke on the selected one);
+-- in the middle the 3D avatar the player turns by dragging, dressed for
+-- the selected class and holding its pick axe, with CUSTOMIZE CLASS
+-- APPEARANCE under it; on the right the info panel for the selected class
+Constants.CLASS_MENU_GUI_NAME = "ClassMenu"
+Constants.CLASS_MENU_BACK_BUTTON = "BackButton"
+Constants.CLASS_MENU_WALLET = "DiamondWallet"
+Constants.CLASS_MENU_CLASS_LIST = "ClassList"
+Constants.CLASS_MENU_CLASS_LIST_TITLE = "ClassListTitle"
+Constants.CLASS_MENU_CLASS_BUTTON_TEMPLATE = "ClassButtonTemplate"
+Constants.CLASS_BUTTON_ICON = "Icon"
+Constants.CLASS_BUTTON_NAME_LABEL = "NameLabel"
+Constants.CLASS_BUTTON_LOCK_ICON = "LockIcon"
+Constants.CLASS_BUTTON_SELECTED_STROKE = "SelectedStroke"
+-- the info panel: the class name, three stars (Star1 to Star3, gold for
+-- each tier earned, dark otherwise, as on the gacha card), the class
+-- icon, one sentence, the four kit slots (Post Weapon, Weapon, Tower,
+-- Gadget, cloned from the template; a tap opens the item's tooltip in
+-- the info dialog), the three perk rows (cloned from the template; a
+-- locked one reads "N [star] REQUIRED" with a lock, an open one rolls
+-- like the old skill rows), the ODDS button, and EQUIP
+Constants.CLASS_MENU_INFO_PANEL = "InfoPanel"
+Constants.CLASS_INFO_NAME_LABEL = "NameLabel"
+Constants.CLASS_INFO_STARS = "Stars"
+Constants.CLASS_INFO_STAR_NAME_FORMAT = "Star%d"
+Constants.CLASS_INFO_STAR_COUNT = 3
+Constants.CLASS_INFO_ICON = "Icon"
+Constants.CLASS_INFO_DESCRIPTION_LABEL = "DescriptionLabel"
+-- the LOADOUT and SKILLS headings over the two columns (designer's
+-- layout, 2026-11-04)
+Constants.CLASS_INFO_LOADOUT_TITLE = "LoadoutTitle"
+Constants.CLASS_INFO_SKILLS_TITLE = "SkillsTitle"
+Constants.CLASS_INFO_KIT_ROW = "KitRow"
+Constants.CLASS_INFO_KIT_SLOT_TEMPLATE = "KitSlotTemplate"
+Constants.KIT_SLOT_ICON = "Icon"
+Constants.KIT_SLOT_LABEL = "SlotLabel"
+-- the item's own name under the slot word
+Constants.KIT_SLOT_ITEM_LABEL = "ItemLabel"
+Constants.CLASS_INFO_PERK_ROWS = "PerkRows"
+Constants.CLASS_INFO_PERK_ROW_TEMPLATE = "PerkRowTemplate"
+Constants.PERK_ROW_BADGE = "Badge"
+Constants.PERK_ROW_BADGE_LABEL = "Number"
+Constants.PERK_ROW_NAME_LABEL = "NameLabel"
+Constants.PERK_ROW_DESCRIPTION_LABEL = "DescriptionLabel"
+Constants.PERK_ROW_REROLL_BUTTON = "RerollButton"
+Constants.PERK_ROW_LOCK_ICON = "LockIcon"
+Constants.PERK_ROW_REQUIREMENT_LABEL = "RequirementLabel"
+Constants.PERK_ROW_REQUIREMENT_STAR = "RequirementStar"
+Constants.CLASS_INFO_ODDS_BUTTON = "OddsButton"
+Constants.CLASS_INFO_EQUIP_BUTTON = "EquipButton"
+Constants.CLASS_MENU_OFFER_DIALOG = "OfferDialog"
+Constants.CLASS_MENU_INFO_DIALOG = "InfoDialog"
 -- the class gacha menu (M70; scripts/studio/build_gacha_gui.luau; the 3D
 -- crate opening since 2026-11-03): a panel on the right third of the
 -- screen with an X close button, the odds list (or, for a player
@@ -808,6 +860,8 @@ Constants.GACHA_CARD_NAME_LABEL = "Name"
 Constants.GACHA_CARD_DETAIL_LABEL = "Detail"
 -- CLAIM sits under either card, so it is the gui's own child (2026-11-03)
 Constants.GACHA_CARD_CLAIM_BUTTON = "ClaimButton"
+-- the TextLabel child the designer put on the gacha buttons; its Text is the word shown
+Constants.GACHA_BUTTON_TEXT_LABEL = "TextLabel"
 -- the Diamond Store menu (M40; scripts/studio/build_diamond_store_gui.luau):
 -- a header with Back and the wallet, and a row of pack cards cloned from
 -- the hidden template, each with its amount, an optional banner across
@@ -853,6 +907,13 @@ Constants.SUPPLY_CRATE_CARD_END = "CardEnd"
 -- KeyStart to KeyEnd and spins there until the claim
 Constants.SUPPLY_CRATE_KEY_START = "KeyStart"
 Constants.SUPPLY_CRATE_KEY_END = "KeyEnd"
+-- the poses any cosmetic skin rises between, fitted to PrizeEnd's size
+-- by its bounding box (designer-placed, 2026-11-04)
+-- the template under GameAssets/Cosmetics/<SLOT> the avatar wears when a
+-- class has the stock skin (CosmeticLoadoutSchema.DEFAULT_SKIN_ID) in that slot
+Constants.DEFAULT_SKIN_TEMPLATE = "DEFAULT"
+Constants.SUPPLY_CRATE_PRIZE_START = "PrizeStart"
+Constants.SUPPLY_CRATE_PRIZE_END = "PrizeEnd"
 -- the designer's 3D class card under GameAssets/Store (2026-11-03): a Card
 -- part (the primary) with a SurfaceGui holding the class name and icon,
 -- and three star parts, each with its effects under an Effect attachment
@@ -860,83 +921,26 @@ Constants.STORE_ASSETS_FOLDER = "Store"
 Constants.CLASS_CARD_TEMPLATE = "ClassCard"
 -- the designer's Key mesh beside it, shown for a Keys draw
 Constants.KEY_TEMPLATE = "Key"
+-- the name a cosmetic skin's clone carries while it flies out of the crate
+Constants.GACHA_PRIZE_CLONE = "GachaPrize"
 Constants.CLASS_CARD_NAME_LABEL = "ClassName"
 Constants.CLASS_CARD_ICON_LABEL = "ImageLabel"
 Constants.CLASS_CARD_STAR_NAME_FORMAT = "Star%d"
 Constants.CLASS_CARD_STAR_COUNT = 3
 Constants.CLASS_CARD_EFFECT_ATTACHMENT = "Effect"
-Constants.CHARACTER_CARD_TITLE = "Title"
-Constants.CHARACTER_CARD_AVATAR = "Avatar"
-Constants.CHARACTER_CARD_RANK_LABEL = "RankLabel"
-Constants.CHARACTER_CARD_NIGHTS_LABEL = "NightsLabel"
-Constants.CHARACTER_CARD_UNLOCK_BUTTON = "UnlockButton"
-Constants.CHARACTER_CARD_UNLOCK_LABEL = "UnlockLabel"
-Constants.CHARACTER_CARD_PRICE_FRAME = "Price"
-Constants.CHARACTER_CARD_PRICE_LABEL = "PriceLabel"
-Constants.CHARACTER_CARD_PRICE_ICON = "PriceIcon"
-Constants.CHARACTER_CARD_SELECTED_STROKE = "SelectedStroke"
--- the EQUIP button and the EQUIPPED word that replaces it on the active
--- card, shown only when the player has a choice of two or more
--- (designer, 2026-10-13)
-Constants.CHARACTER_CARD_EQUIP_BUTTON = "EquipButton"
-Constants.CHARACTER_CARD_EQUIPPED_LABEL = "EquippedLabel"
--- the Character Sheet (M37; scripts/studio/build_character_sheet_gui.luau):
--- the same header, a left panel for the character, and a right panel with
--- the LOADOUT and COSMETICS tabs; gear cards and skill rows are cloned
--- from their templates, and the roll offer dialog sits over the sheet
-Constants.CHARACTER_SHEET_GUI_NAME = "CharacterSheet"
-Constants.CHARACTER_SHEET_LEFT_PANEL = "LeftPanel"
-Constants.CHARACTER_SHEET_NAME_LABEL = "NameLabel"
-Constants.CHARACTER_SHEET_NAME_BOX = "NameBox"
-Constants.CHARACTER_SHEET_RENAME_BUTTON = "RenameButton"
-Constants.CHARACTER_SHEET_RANK_INFO_BUTTON = "RankInfoButton"
--- the one REROLL ODDS button under the left panel (designer, 2026-10-13):
--- every roll's odds in one dialog, reachable before any REROLL
-Constants.CHARACTER_SHEET_ODDS_BUTTON = "OddsButton"
-Constants.CHARACTER_SHEET_RIGHT_PANEL = "RightPanel"
-Constants.CHARACTER_SHEET_LOADOUT_TAB = "LoadoutTab"
-Constants.CHARACTER_SHEET_COSMETICS_TAB = "CosmeticsTab"
-Constants.CHARACTER_SHEET_LOADOUT_PAGE = "LoadoutPage"
-Constants.CHARACTER_SHEET_COSMETICS_PAGE = "CosmeticsPage"
-Constants.CHARACTER_SHEET_GEAR_ROW = "GearRow"
-Constants.CHARACTER_SHEET_GEAR_CARD_TEMPLATE = "GearCardTemplate"
-Constants.CHARACTER_SHEET_SKILL_ROWS = "SkillRows"
-Constants.CHARACTER_SHEET_SKILLS_HEADING = "SkillsHeading"
-Constants.CHARACTER_SHEET_SKILL_ROW_TEMPLATE = "SkillRowTemplate"
-Constants.GEAR_CARD_SLOT_LABEL = "SlotLabel"
-Constants.GEAR_CARD_KIND_LABEL = "KindLabel"
-Constants.GEAR_CARD_RARITY_LABEL = "RarityLabel"
-Constants.GEAR_CARD_PICTURE = "Picture"
-Constants.GEAR_CARD_REROLL_BUTTON = "RerollButton"
+-- the designer's attachment on the card's own part whose emitters burst
+-- when the card is a class newly unlocked (2026-11-04)
+Constants.CLASS_CARD_BURST_ATTACHMENT = "Attachment"
+-- a reroll button's parts (the perk rows): the word, the price, its icon
 Constants.REROLL_BUTTON_LABEL = "Label"
 Constants.REROLL_BUTTON_PRICE_LABEL = "PriceLabel"
 Constants.REROLL_BUTTON_PRICE_ICON = "PriceIcon"
-Constants.SKILL_ROW_BADGE = "Badge"
-Constants.SKILL_ROW_BADGE_LABEL = "Number"
-Constants.SKILL_ROW_NAME_LABEL = "NameLabel"
-Constants.SKILL_ROW_DESCRIPTION_LABEL = "DescriptionLabel"
-Constants.SKILL_ROW_REROLL_BUTTON = "RerollButton"
-Constants.SKILL_ROW_LOCK_ICON = "LockIcon"
+-- the cosmetic slots a class loadout shows, in order (designer,
+-- 2026-10-13: only these three until the other slots have skins)
+Constants.CLASS_COSMETIC_SLOTS = { Enums.CosmeticSlot.PICK_AXE, Enums.CosmeticSlot.JET_PACK, Enums.CosmeticSlot.HELMET }
 -- the roll screen (designer, 2026-10-12): CURRENT and NEW boxes side by
 -- side, the NEW box's icon flipping until it stops on the result, then its
 -- name and rarity appear with Keep and Undo under the boxes
--- the COSMETICS tab's hat picker: one button per hat cloned from the
--- template, plus the "own hat" button, under a heading
--- the COSMETICS tab (designer's mock-up, 2026-10-13): a vertical scrolling
--- list with a row per Enums.CosmeticSlot, each a type box beside a
--- horizontal scrolling strip of picture-only item buttons
-Constants.CHARACTER_SHEET_COSMETIC_ROWS = "CosmeticRows"
--- the rows shown, in order (designer, 2026-10-13: only these three until
--- the other slots have skins)
-Constants.CHARACTER_SHEET_COSMETIC_SLOTS = { Enums.CosmeticSlot.PICK_AXE, Enums.CosmeticSlot.JET_PACK, Enums.CosmeticSlot.HELMET }
-Constants.CHARACTER_SHEET_COSMETIC_ROW_TEMPLATE = "CosmeticRowTemplate"
-Constants.COSMETIC_ROW_TYPE_BOX = "TypeBox"
-Constants.COSMETIC_ROW_TYPE_ICON = "Icon"
-Constants.COSMETIC_ROW_TYPE_LABEL = "NameLabel"
-Constants.COSMETIC_ROW_ITEMS = "Items"
-Constants.COSMETIC_ROW_ITEM_TEMPLATE = "ItemTemplate"
-Constants.COSMETIC_ITEM_SELECTED_STROKE = "SelectedStroke"
-Constants.CHARACTER_SHEET_OFFER_DIALOG = "OfferDialog"
 Constants.OFFER_DIALOG_TITLE = "Title"
 Constants.OFFER_CURRENT_BOX = "CurrentBox"
 Constants.OFFER_NEW_BOX = "NewBox"
@@ -947,18 +951,8 @@ Constants.OFFER_BOX_NAME_LABEL = "NameLabel"
 Constants.OFFER_BOX_DETAIL_LABEL = "DetailLabel"
 Constants.OFFER_KEEP_BUTTON = "KeepButton"
 Constants.OFFER_UNDO_BUTTON = "UndoButton"
--- the stats panel on the roll screen's right (designer, 2026-10-13): one
--- row per stat, current value then the candidate's, the Rank line at its foot
-Constants.OFFER_STATS_PANEL = "StatsPanel"
-Constants.OFFER_STAT_ROWS = "Rows"
-Constants.OFFER_STAT_ROW_TEMPLATE = "RowTemplate"
-Constants.OFFER_STAT_ROW_LABEL = "Label"
-Constants.OFFER_STAT_ROW_CURRENT = "CurrentValue"
-Constants.OFFER_STAT_ROW_NEW = "NewValue"
-Constants.OFFER_RANK_LABEL = "RankLabel"
--- the info dialog over the sheet (2026-10-13): a reroll's odds by rarity
--- (the ODDS buttons) or a gear kind's stats (tapping its name or picture)
-Constants.CHARACTER_SHEET_INFO_DIALOG = "InfoDialog"
+-- the info dialog over the menu (2026-10-13): a reroll's odds by rarity
+-- (the ODDS button) or a kit item's tooltip (tapping its slot)
 Constants.INFO_DIALOG_TITLE = "Title"
 Constants.INFO_DIALOG_PICTURE = "Picture"
 Constants.INFO_DIALOG_ROWS = "Rows"

@@ -1,20 +1,24 @@
 --!strict
 
--- The spinning 3D avatar on a Character Menu card (M37, designer:
--- 2026-10-12): a copy of the player's own character stood in a
--- ViewportFrame in its rest pose and turned slowly on the spot. One copy
--- of the character is made the first time it is asked for; every viewport
--- gets its own clone, posed from its joints (a straight clone keeps
--- whatever frame of animation the live character was in, since nothing
--- animates inside a viewport), dressed for the character it shows, and
--- one Heartbeat loop turns every viewport that is on screen.
+-- The 3D avatar in a menu (M37, designer: 2026-10-12; the Class Menu's
+-- turnable one since 2026-11-04): a copy of the player's own character
+-- stood in a ViewportFrame in its rest pose, dressed for a class's
+-- loadout (its hat, its pick axe in hand, its jet pack on its back), and
+-- either turned slowly on the spot or turned by the player dragging
+-- across the frame. One copy of the character is made the first time it
+-- is asked for; every viewport gets its own clone, posed from its joints
+-- (a straight clone keeps whatever frame of animation the live character
+-- was in, since nothing animates inside a viewport), and one Heartbeat
+-- loop turns every viewport that is on screen.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local CosmeticLoadoutSchema = require("@game/ReplicatedStorage/Shared/CosmeticLoadoutSchema")
 local Wearables = require("@game/ReplicatedStorage/Shared/Wearables")
 
 local ClientAvatarViewport = {}
@@ -24,6 +28,24 @@ type Spinner = {
 	viewport: ViewportFrame,
 	model: Model,
 	angle: number,
+	-- turns on its own; a dragged one holds still between drags
+	isTurning: boolean,
+	-- the drag in progress: where the pointer last was
+	dragLastX: number?,
+	connections: { RBXScriptConnection },
+}
+
+export type Options = {
+	-- the locked slot's darkened look
+	isDimmed: boolean?,
+	-- Enums.CosmeticSlot key name -> skin id, the class's loadout
+	cosmetics: { [string]: string }?,
+	-- turn on the spot (the default) or only when dragged
+	isTurning: boolean?,
+	-- the player can drag across the frame to turn the avatar
+	isDraggable: boolean?,
+	-- the facing to start at; the model faces the camera at 0
+	startAngle: number?,
 }
 
 export type ClientAvatarViewport = typeof(setmetatable(
@@ -36,11 +58,18 @@ export type ClientAvatarViewport = typeof(setmetatable(
 ))
 
 local TURN_DEGREES_PER_SEC = 40
+-- a drag across the whole frame turns the avatar this far
+local DRAG_TURNS_PER_FRAME_WIDTH = 1.0
 -- the camera stands this far in front of the model, framed on its
 -- bounding box, with the field of view narrow enough to fill the card
 local AVATAR_FOV = 30
 local AVATAR_DISTANCE_FACTOR = 2.0
 local DIMMED_COLOR = Color3.fromRGB(70, 70, 70)
+-- the pick axe held in the right hand: the model's haft runs along its
+-- own Y, so it is turned to stand up out of the grip and lean forward
+local PICK_AXE_GRIP_OFFSET = CFrame.Angles(math.rad(-90), 0, 0) * CFrame.new(0, 0.6, 0)
+local AVATAR_PICK_AXE_NAME = "AvatarPickAxe"
+local AVATAR_JET_PACK_NAME = "AvatarJetPack"
 
 -- puts every part where its joints say it rests: walk the rig from the
 -- root, clear each joint's animation transform (this rig's limbs hang on
@@ -134,19 +163,83 @@ local function restPose(model: Model)
 	end
 end
 
--- the character's equipped cosmetics on the preview (Enums.CosmeticSlot
--- key name -> skin id). Hats swap the avatar's own hat for the equipped
--- one (first pass, 2026-10-12); the gear skins join with M61's art
+local function getGameAssets(): Instance?
+	return ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
+end
+
+-- the template a slot's skin id names under GameAssets/Cosmetics/<SLOT>;
+-- the stock skin is the DEFAULT template, an unknown id nothing
+local function findSkinTemplate(slot: number, skinId: string?): Model?
+	local gameAssets = getGameAssets()
+	local cosmetics = if gameAssets then gameAssets:FindFirstChild(Constants.COSMETIC_TEMPLATES_FOLDER) else nil
+	local slotName = Enums.getName(Enums.CosmeticSlot, slot)
+	local folder = if cosmetics and slotName then cosmetics:FindFirstChild(slotName) else nil
+	if not folder then
+		return nil
+	end
+	local templateName = if skinId == nil or skinId == CosmeticLoadoutSchema.DEFAULT_SKIN_ID then Constants.DEFAULT_SKIN_TEMPLATE else skinId
+	local template = folder:FindFirstChild(templateName)
+	return if template and template:IsA("Model") then template else nil
+end
+
+-- a prop placed by its pivot inside the avatar model, so the avatar's
+-- own PivotTo carries it; nothing in a viewport simulates, so no weld
+local function placeProp(model: Model, template: Model, name: string, cframe: CFrame)
+	local prop = template:Clone()
+	prop.Name = name
+	for _, descendant in prop:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = true
+			descendant.CanCollide = false
+			descendant.CanQuery = false
+		end
+	end
+	prop:PivotTo(cframe)
+	prop.Parent = model
+end
+
+-- the pick axe stands in the right hand's grip, the jet pack hangs from
+-- the torso's back attachment
+local function applyGearSkins(model: Model, cosmetics: { [string]: string })
+	local pickAxeSlot = Enums.getName(Enums.CosmeticSlot, Enums.CosmeticSlot.PICK_AXE) :: string
+	local jetPackSlot = Enums.getName(Enums.CosmeticSlot, Enums.CosmeticSlot.JET_PACK) :: string
+	local pickAxe = findSkinTemplate(Enums.CosmeticSlot.PICK_AXE, cosmetics[pickAxeSlot])
+	local rightHand = model:FindFirstChild("RightHand")
+	local grip = if rightHand then rightHand:FindFirstChild("RightGripAttachment") else nil
+	if pickAxe and grip and grip:IsA("Attachment") then
+		placeProp(model, pickAxe, AVATAR_PICK_AXE_NAME, grip.WorldCFrame * PICK_AXE_GRIP_OFFSET)
+	end
+	local jetPack = findSkinTemplate(Enums.CosmeticSlot.JET_PACK, cosmetics[jetPackSlot])
+	local torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
+	local back = if torso then torso:FindFirstChild("BodyBackAttachment") else nil
+	local handle = if jetPack then jetPack:FindFirstChild(Constants.TOOL_HANDLE_PART) else nil
+	if jetPack and back and back:IsA("Attachment") and handle and handle:IsA("BasePart") then
+		-- the server's wearOnBack hangs the Handle this far behind the attachment
+		local handleOffset = jetPack:GetPivot():Inverse() * handle.CFrame
+		placeProp(model, jetPack, AVATAR_JET_PACK_NAME, back.WorldCFrame * CFrame.new(0, 0, handle.Size.Z / 2) * handleOffset:Inverse())
+	end
+end
+
+-- the class's equipped cosmetics on the preview (Enums.CosmeticSlot key
+-- name -> skin id). Hats swap the avatar's own hat for the equipped one
+-- (first pass, 2026-10-12); the pick axe and the jet pack are the slot's
+-- template under GameAssets/Cosmetics (2026-11-04)
 local function applyCosmetics(model: Model, cosmetics: { [string]: string }?)
 	if not cosmetics then
 		return
 	end
+	-- the copy was taken from the live character, which wears the active
+	-- class's jet pack: it comes off so the shown class's goes on
+	local wornJetPack = model:FindFirstChild(Constants.WORN_JET_PACK_MODEL)
+	if wornJetPack then
+		wornJetPack:Destroy()
+	end
+	applyGearSkins(model, cosmetics)
 	local hatId = cosmetics[Enums.getName(Enums.CosmeticSlot, Enums.CosmeticSlot.HELMET) :: string]
-	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
+	local gameAssets = getGameAssets()
 	local hats = if gameAssets then gameAssets:FindFirstChild(Constants.HAT_TEMPLATES_FOLDER) else nil
 	local template = if hats and hatId then hats:FindFirstChild(hatId) else nil
-	-- the copy was taken from the live character, which may be wearing
-	-- another character's hat: always start bare-headed
+	-- the copy may be wearing another class's hat: always start bare-headed
 	Wearables.removeHatAccessories(model)
 	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
 	local ownHats = if playerGui then playerGui:FindFirstChild(Constants.OWN_HATS_FOLDER) else nil
@@ -194,20 +287,68 @@ function ClientAvatarViewport:getTemplate(): Model?
 	return copy
 end
 
+-- a drag across the frame turns the avatar by hand (mouse or touch); the
+-- auto turn is off while a drag is held and stays off after
+function ClientAvatarViewport:watchDrag(spinner: Spinner)
+	local viewport = spinner.viewport
+	table.insert(
+		spinner.connections,
+		viewport.InputBegan:Connect(
+			function(input: InputObject)
+				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+					spinner.dragLastX = input.Position.X
+					spinner.isTurning = false
+				end
+			end
+		)
+	)
+	table.insert(
+		spinner.connections,
+		UserInputService.InputChanged:Connect(
+			function(input: InputObject)
+				local lastX = spinner.dragLastX
+				if lastX == nil then
+					return
+				end
+				if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
+					return
+				end
+				local width = math.max(viewport.AbsoluteSize.X, 1)
+				spinner.angle += (input.Position.X - lastX) / width * DRAG_TURNS_PER_FRAME_WIDTH * math.pi * 2
+				spinner.dragLastX = input.Position.X
+				spinner.model:PivotTo(CFrame.Angles(0, spinner.angle, 0))
+			end
+		)
+	)
+	table.insert(
+		spinner.connections,
+		UserInputService.InputEnded:Connect(
+			function(input: InputObject)
+				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+					spinner.dragLastX = nil
+				end
+			end
+		)
+	)
+end
+
 -- stands a fresh copy in the viewport in its rest pose, facing the
--- camera, dressed in `cosmetics`, and starts it turning; `isDimmed` is the
--- locked slot's darkened look
-function ClientAvatarViewport:fill(viewport: ViewportFrame, isDimmed: boolean, cosmetics: { [string]: string }?)
+-- camera, dressed for `options.cosmetics`, and starts it turning (or
+-- waiting to be dragged)
+function ClientAvatarViewport:fill(viewport: ViewportFrame, options: Options?)
 	self:clear(viewport)
 	local template = self:getTemplate()
 	if not template then
 		return
 	end
+	local settings: Options = options or {}
 	local model = template:Clone()
 	model:PivotTo(CFrame.new(0, 0, 0))
 	restPose(model)
-	applyCosmetics(model, cosmetics)
+	applyCosmetics(model, settings.cosmetics)
 	local boundsCFrame, boundsSize = model:GetBoundingBox()
+	local startAngle = settings.startAngle or 0
+	model:PivotTo(CFrame.Angles(0, startAngle, 0))
 	model.Parent = viewport
 
 	local camera = Instance.new("Camera")
@@ -216,17 +357,30 @@ function ClientAvatarViewport:fill(viewport: ViewportFrame, isDimmed: boolean, c
 	camera.CFrame = CFrame.lookAt(lookAt + Vector3.new(0, 0, boundsSize.Y * AVATAR_DISTANCE_FACTOR), lookAt)
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
-	viewport.ImageColor3 = if isDimmed then DIMMED_COLOR else Color3.new(1, 1, 1)
+	viewport.ImageColor3 = if settings.isDimmed then DIMMED_COLOR else Color3.new(1, 1, 1)
 
-	self.spinners[viewport] = {
+	local spinner: Spinner = {
 		viewport = viewport,
 		model = model,
-		angle = 0,
+		angle = startAngle,
+		isTurning = settings.isTurning ~= false,
+		dragLastX = nil,
+		connections = {},
 	}
+	self.spinners[viewport] = spinner
+	if settings.isDraggable then
+		self:watchDrag(spinner)
+	end
 	self:startIfNeeded()
 end
 
 function ClientAvatarViewport:clear(viewport: ViewportFrame)
+	local spinner = self.spinners[viewport]
+	if spinner then
+		for _, connection in spinner.connections do
+			connection:Disconnect()
+		end
+	end
 	self.spinners[viewport] = nil
 	viewport:ClearAllChildren()
 end
@@ -235,10 +389,10 @@ function ClientAvatarViewport:step(deltaSec: number)
 	for viewport, spinner in self.spinners do
 		-- a card that was destroyed with its menu drops out here
 		if viewport.Parent == nil then
-			self.spinners[viewport] = nil
+			self:clear(viewport)
 			continue
 		end
-		if not viewport.Visible then
+		if not viewport.Visible or not spinner.isTurning then
 			continue
 		end
 		spinner.angle += math.rad(TURN_DEGREES_PER_SEC) * deltaSec

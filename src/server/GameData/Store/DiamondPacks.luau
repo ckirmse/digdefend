@@ -15,17 +15,17 @@ return {
 			-- names the pack in logs and the purchase record; never shown
 			id = "SMALL",
 			diamonds = 100,
-			productId = 0,
+			productId = 3728013173,
 		},
 		{
 			id = "MEDIUM",
 			diamonds = 300,
-			productId = 0,
+			productId = 3728013237,
 		},
 		{
 			id = "LARGE",
 			diamonds = 700,
-			productId = 0,
+			productId = 3728013286,
 			-- an optional banner across the top of the card, shown as a
 			-- title (caps); leave it out for no banner
 			banner = "Popular",
@@ -33,7 +33,7 @@ return {
 		{
 			id = "HUGE",
 			diamonds = 1500,
-			productId = 0,
+			productId = 3728013341,
 			banner = "Best value",
 		},
 	},

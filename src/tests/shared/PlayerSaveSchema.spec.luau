@@ -8,56 +8,28 @@ local expect = JestGlobals.expect
 local Enums = require(game:GetService("ReplicatedStorage").Shared.Enums)
 local PlayerSaveSchema = require(game:GetService("ReplicatedStorage").Shared.PlayerSaveSchema)
 
-local nextId = 0
-local function generateId()
-	nextId += 1
-	return "id" .. nextId
-end
-
 local DEFAULTS = {
 	startingDiamonds = 0,
-	character = {
-		defaultClassKind = Enums.ClassKind.RECRUIT,
-		defaultKindByGearSlot = {
-			[Enums.GearSlot.WEAPON] = Enums.WeaponKind.RIFLE,
-			[Enums.GearSlot.POST] = Enums.PostWeaponKind.MACHINE_GUN,
-			[Enums.GearSlot.TOWER_1] = Enums.TowerKind.SENTRY_GUN,
-			[Enums.GearSlot.TOWER_2] = Enums.TowerKind.FLAMETHROWER,
-		},
-		minStars = 1,
-		maxStars = 5,
+	class = {
 		maxSkillSlots = 3,
 		validSkillIds = { GOLD_DIGGER = true },
-		maxNameLength = 20,
-		defaultNamePrefix = "Character ",
-		defaultCosmetics = { HELMET = "HARD_HAT" },
 	},
-	maxCharacters = 3,
-	generateId = generateId,
+	defaultCosmetics = { HELMET = "HARD_HAT" },
+	defaultClassKind = Enums.ClassKind.RECRUIT,
 }
 
-local function makeCharacter(id, name)
+local function makeClassRecord()
 	return {
-		id = id,
-		name = name,
-		classKind = "RECRUIT",
-		nightsSurvived = 4,
-		gear = {
-			WEAPON = { kind = "RIFLE", stars = 2 },
-			POST = { kind = "MACHINE_GUN", stars = 1 },
-			TOWER_1 = { kind = "SENTRY_GUN", stars = 1 },
-			TOWER_2 = { kind = "FLAMETHROWER", stars = 1 },
-		},
 		skills = { ["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.Rarity.COMMON } },
-		cosmetics = { HELMET = "HARD_HAT" },
 	}
 end
 
 local function makeValidSave()
 	return {
 		diamonds = 250,
-		characters = { makeCharacter("a", "Ada"), makeCharacter("b", "Bob") },
-		activeCharacterId = "b",
+		classes = { RECRUIT = makeClassRecord(), GUNNER = makeClassRecord() },
+		cosmetics = { HELMET = "LAMP" },
+		activeClassKind = "GUNNER",
 		completions = { ["DEADMANS_CANYON/NORMAL"] = true },
 		dailyReward = { lastClaimedDay = 3, nextClaimTime = 1700000000 },
 		sessionMeta = { creationTime = 1690000000, sessions = 4, totalPlaySec = 3600, saveTime = 1700000000 },
@@ -73,23 +45,18 @@ describe(
 	"PlayerSaveSchema.getDefault",
 	function()
 		it(
-			"starts a new player with the configured diamonds and one empty character",
+			"starts a new player with the configured diamonds, no class records, and the free class equipped",
 			function()
 				local data = PlayerSaveSchema.getDefault({
 					startingDiamonds = 50,
-					character = DEFAULTS.character,
-					maxCharacters = 3,
-					generateId = function()
-						return "fresh"
-					end,
+					class = DEFAULTS.class,
+					defaultCosmetics = DEFAULTS.defaultCosmetics,
+					defaultClassKind = Enums.ClassKind.RECRUIT,
 				})
 				expect(data.diamonds).toBe(50)
-				expect(#data.characters).toBe(1)
-				expect(data.characters[1].id).toBe("fresh")
-				expect(data.characters[1].name).toBe("Character 1")
-				expect(data.characters[1].nightsSurvived).toBe(0)
-				expect(data.characters[1].classKind).toBe("RECRUIT")
-				expect(data.activeCharacterId).toBe("fresh")
+				expect(data.classes).toEqual({})
+				expect(data.cosmetics).toEqual({ HELMET = "HARD_HAT" })
+				expect(data.activeClassKind).toBe("RECRUIT")
 				expect(data.completions).toEqual({})
 				expect(data.dailyReward).toEqual({ lastClaimedDay = 0, nextClaimTime = 0 })
 				expect(data.sessionMeta.sessions).toBe(0)
@@ -148,7 +115,29 @@ describe(
 				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
 				expect(validated.classProgress).toEqual({ RECRUIT = 0 })
 				expect(validated.ownedCosmetics).toEqual({ HARD_HAT = true })
+				-- the Gunner is no longer owned, so the active class falls back too
+				expect(validated.activeClassKind).toBe("RECRUIT")
+				expect(#repairs).toBe(3)
+			end
+		)
+
+		it(
+			"repairs the cosmetic loadout and moves a class record's cosmetics onto it",
+			function()
+				local save = makeValidSave()
+				save.cosmetics = { BOGUS = "x" }
+				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
+				expect(validated.cosmetics).toEqual({ HELMET = "HARD_HAT" })
 				expect(#repairs).toBe(2)
+
+				save = makeValidSave()
+				save.classes.GUNNER.cosmetics = { HELMET = "lamp" }
+				save.classes.RECRUIT.cosmetics = { HELMET = "other" }
+				validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
+				expect(validated.cosmetics).toEqual({ HELMET = "lamp" })
+				expect(validated.classes.GUNNER).toEqual(makeClassRecord())
+				expect(validated.classes.RECRUIT).toEqual(makeClassRecord())
+				expect(repairs).toEqual({ "class cosmetics migrated to the account loadout" })
 			end
 		)
 
@@ -157,7 +146,7 @@ describe(
 			function()
 				local validated, repairs = PlayerSaveSchema.validate("garbage", DEFAULTS)
 				expect(validated.diamonds).toBe(0)
-				expect(#validated.characters).toBe(1)
+				expect(validated.classes).toEqual({})
 				expect(#repairs).toBe(1)
 			end
 		)
@@ -176,76 +165,39 @@ describe(
 		)
 
 		it(
-			"drops characters that cannot be repaired, duplicates, and non-list entries",
+			"repairs class records: unknown classes dropped, a broken record defaulted, bad skills dropped",
 			function()
 				local save = makeValidSave()
-				save.characters = {
-					makeCharacter("a", "Ada"),
-					"junk",
-					makeCharacter("a", "Twin"),
-					makeCharacter("c", "Cid"),
-					extra = makeCharacter("d", "Dee"),
-				}
-				save.activeCharacterId = "c"
+				save.classes.DRAGON = makeClassRecord()
+				save.classes.SNIPER = "junk"
+				save.classes.GUNNER.skills["2"] = { skillId = "NOPE", rarity = 1 }
 				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
-				expect(#validated.characters).toBe(2)
-				expect(validated.characters[1].id).toBe("a")
-				expect(validated.characters[2].id).toBe("c")
-				expect(validated.activeCharacterId).toBe("c")
+				expect(validated.classes.DRAGON).toBeNil()
+				expect(validated.classes.SNIPER).toEqual({ skills = {} })
+				expect(validated.classes.GUNNER.skills["2"]).toBeNil()
 				expect(#repairs).toBe(3)
 			end
 		)
 
 		it(
-			"names a repaired character for its kept position",
+			"resets a classes field that is not a table and keeps a save with no records",
 			function()
 				local save = makeValidSave()
-				save.characters = { "junk", makeCharacter("z", "") }
-				local validated = PlayerSaveSchema.validate(save, DEFAULTS)
-				expect(validated.characters[1].name).toBe("Character 1")
-			end
-		)
-
-		it(
-			"trims characters past the cap and keeps the first ones",
-			function()
-				local save = makeValidSave()
-				save.characters = { makeCharacter("a", "A"), makeCharacter("b", "B"), makeCharacter("c", "C"), makeCharacter("d", "D") }
-				save.activeCharacterId = "d"
+				save.classes = 4
 				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
-				expect(#validated.characters).toBe(3)
-				expect(validated.characters[3].id).toBe("c")
-				expect(validated.activeCharacterId).toBe("a")
-				expect(#repairs).toBe(2)
+				expect(validated.classes).toEqual({})
+				expect(#repairs).toBe(1)
 			end
 		)
 
 		it(
-			"never leaves a player without a character",
+			"points the active class at the free one when it is unknown or not owned",
 			function()
-				local save = makeValidSave()
-				save.characters = {}
-				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
-				expect(#validated.characters).toBe(1)
-				expect(validated.characters[1].nightsSurvived).toBe(0)
-				expect(validated.activeCharacterId).toBe(validated.characters[1].id)
-				expect(#repairs).toBe(2)
-
-				local missing = makeValidSave()
-				missing.characters = nil
-				local refilled = PlayerSaveSchema.validate(missing, DEFAULTS)
-				expect(#refilled.characters).toBe(1)
-			end
-		)
-
-		it(
-			"points a stale active id at the first character",
-			function()
-				for _, badId in { "nobody", 7, nil } do
+				for _, badKind in { "nobody", 7, nil, "SNIPER" } do
 					local save = makeValidSave()
-					save.activeCharacterId = badId
+					save.activeClassKind = badKind
 					local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
-					expect(validated.activeCharacterId).toBe("a")
+					expect(validated.activeClassKind).toBe("RECRUIT")
 					expect(#repairs).toBe(1)
 				end
 			end
@@ -304,8 +256,8 @@ describe(
 			function()
 				local validated, repairs = PlayerSaveSchema.validate({ diamonds = 10 }, DEFAULTS)
 				expect(validated.diamonds).toBe(10)
-				expect(#validated.characters).toBe(1)
-				expect(validated.activeCharacterId).toBe(validated.characters[1].id)
+				expect(validated.classes).toEqual({})
+				expect(validated.activeClassKind).toBe("RECRUIT")
 				expect(validated.completions).toEqual({})
 				expect(validated.sessionMeta.sessions).toBe(0)
 				expect(validated.processedPurchaseIds).toEqual({})
@@ -313,7 +265,8 @@ describe(
 				expect(validated.classProgress).toEqual({ RECRUIT = 0 })
 				expect(validated.keys).toBe(0)
 				expect(validated.ownedCosmetics).toEqual({ HARD_HAT = true })
-				expect(#repairs).toBe(10)
+				expect(validated.cosmetics).toEqual({ HELMET = "HARD_HAT" })
+				expect(#repairs).toBe(11)
 			end
 		)
 		it(
@@ -377,6 +330,66 @@ describe(
 				local validated, repairs = PlayerSaveSchema.validate({ diamonds = 7 }, DEFAULTS)
 				expect(validated.diamonds).toBe(7)
 				expect(table.find(repairs, "cash migrated to diamonds")).toBeNil()
+			end
+		)
+	end
+)
+
+describe(
+	"PlayerSaveSchema characters migration",
+	function()
+		local function makeOldCharacter(id, className, skillId)
+			return {
+				id = id,
+				name = "Old " .. id,
+				classKind = className,
+				nightsSurvived = 4,
+				gear = {},
+				skills = if skillId then { ["1"] = { skillId = skillId, rarity = Enums.Rarity.COMMON } } else {},
+				cosmetics = { HELMET = "lamp" },
+			}
+		end
+
+		it(
+			"turns each character into its class's record and the active one into the active class",
+			function()
+				local save = makeValidSave()
+				save.classes = {}
+				save.activeClassKind = "RECRUIT"
+				save.characters = { makeOldCharacter("a", "RECRUIT", nil), makeOldCharacter("b", "GUNNER", "GOLD_DIGGER") }
+				save.activeCharacterId = "b"
+				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
+				expect(validated.characters).toBeNil()
+				expect(validated.activeCharacterId).toBeNil()
+				expect(validated.activeClassKind).toBe("GUNNER")
+				expect(validated.classes.GUNNER.skills["1"].skillId).toBe("GOLD_DIGGER")
+				expect(validated.cosmetics).toEqual({ HELMET = "lamp" })
+				expect(validated.classes.RECRUIT.skills).toEqual({})
+				expect(table.find(repairs, "characters migrated to classes")).never.toBeNil()
+			end
+		)
+
+		it(
+			"keeps the first character seen for a class and ignores junk entries",
+			function()
+				local save = makeValidSave()
+				save.classes = {}
+				save.characters = { "junk", makeOldCharacter("a", "GUNNER", "GOLD_DIGGER"), makeOldCharacter("b", "GUNNER", nil) }
+				save.activeCharacterId = "nobody"
+				local validated = PlayerSaveSchema.validate(save, DEFAULTS)
+				expect(validated.classes.GUNNER.skills["1"].skillId).toBe("GOLD_DIGGER")
+				expect(validated.activeClassKind).toBe("GUNNER")
+			end
+		)
+
+		it(
+			"never overwrites a class record that already exists",
+			function()
+				local save = makeValidSave()
+				save.characters = { makeOldCharacter("a", "GUNNER", nil) }
+				save.activeCharacterId = "a"
+				local validated = PlayerSaveSchema.validate(save, DEFAULTS)
+				expect(validated.classes.GUNNER).toEqual(makeClassRecord())
 			end
 		)
 	end

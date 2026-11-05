@@ -182,6 +182,21 @@ function GachaRules.prizeList(pool: Pool): { Prize }
 	return prizes
 end
 
+-- the draw a prize key names, for the dev tool's forced roll: nil when
+-- the key is not in the pool, so a stale panel can never conjure a prize
+function GachaRules.drawForPrizeKey(pool: Pool, prizeKey: string): Draw?
+	for _, prize in GachaRules.prizeList(pool) do
+		if prize.key == prizeKey then
+			return {
+				kind = prize.kind,
+				classKind = prize.classKind,
+				cosmeticId = prize.cosmeticId,
+			}
+		end
+	end
+	return nil
+end
+
 -- 0.5 -> "50%", 0.045 -> "4.5%", 0.0005 -> "0.05%": the detail grows as the
 -- chance shrinks, so a rare entry never reads as 0% (the reference game's
 -- GachaOddsFormat)

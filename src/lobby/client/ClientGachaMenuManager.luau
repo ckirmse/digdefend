@@ -36,7 +36,9 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
-local CharacterRules = require("@game/ReplicatedStorage/Shared/CharacterRules")
+local Icons = require("@game/ReplicatedStorage/Shared/Icons")
+local SkillRules = require("@game/ReplicatedStorage/Shared/SkillRules")
+local CosmeticRules = require("@game/ReplicatedStorage/Shared/CosmeticRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
@@ -47,6 +49,7 @@ local ClientGuiFade = require(script.Parent.Parent.Client.ClientGuiFade)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
+local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
 
 local ClientGachaMenuManager = {}
 ClientGachaMenuManager.__index = ClientGachaMenuManager
@@ -92,6 +95,9 @@ type Crate = {
 	-- the Key's poses the same way
 	keyStart: BasePart?,
 	keyEnd: BasePart?,
+	-- any cosmetic skin's poses: the skin is fitted to PrizeEnd's size
+	prizeStart: BasePart?,
+	prizeEnd: BasePart?,
 }
 
 -- one transparency taken away by the world fade, to be put back
@@ -112,11 +118,23 @@ export type ClientGachaMenuManager = typeof(setmetatable(
 		keyTemplate: BasePart?,
 		keyClone: BasePart?,
 		keySpinConnection: RBXScriptConnection?,
+		-- the landed class card's bob and tilt, until the claim or the sink
+		cardFloatConnection: RBXScriptConnection?,
+		-- a cosmetic skin's clone flying out of the crate, and its spin
+		prizeClone: Model?,
+		prizeSpinConnection: RBXScriptConnection?,
+		-- places the standing prize a share of the way back into the crate,
+		-- for the exchange's sink
+		prizeSinkStep: ((share: number) -> ())?,
 		overlay: ClientOverlayManager.Overlay?,
 		isOpen: boolean,
 		stage: number,
 		-- a roll sent and not yet claimed: the button waits
 		isRolling: boolean,
+		-- the odds list's authored gap and top padding, as scales of the
+		-- window's height
+		oddsGapScale: number?,
+		oddsPaddingTopScale: number?,
 		-- the result that arrived, held until the crate is tapped
 		pendingResult: { [string]: any }?,
 		-- a step of the sequence started after this one cancels it
@@ -153,7 +171,8 @@ local Stage = {
 	OPENING = 4,
 	-- the card up with CLAIM
 	CLAIM = 5,
-	-- a maxed class's card up with SELL FOR KEYS (designer, 2026-11-03)
+	-- a maxed class's card up with EXCHANGE FOR KEYS (designer, 2026-11-03;
+	-- renamed and the crate reopened for the Keys, 2026-11-04)
 	SELL = 6,
 }
 
@@ -174,9 +193,11 @@ local HEADLINE_NEW_CLASS = "New class unlocked!"
 local HEADLINE_TIER_UP = "Class tier increased!"
 local HEADLINE_KEYS = "+%d keys"
 local HEADLINE_MAXED = "Class already maxed out"
--- the button under the card: CLAIM, or SELL FOR KEYS under a maxed class
+local HEADLINE_COSMETIC = "%s unlocked!"
+local HEADLINE_COSMETIC_OWNED = "You already own %s"
+-- the button under the card: CLAIM, or EXCHANGE FOR KEYS under a maxed class
 local CLAIM_TEXT = "Claim"
-local SELL_TEXT = "Sell for keys"
+local SELL_TEXT = "Exchange for keys"
 
 -- a roll whose result never comes (the server refused it) is let go of
 -- after this long waiting at the crate, and the menu comes back
@@ -192,7 +213,7 @@ local CARD_FLY_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_CARD_FLY_SEC, Enum.Easin
 local CARD_RISE_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_CARD_RISE_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local KEY_RISE_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_KEY_RISE_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 -- the sold card sinking back into the crate
-local CARD_SINK_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_CARD_RISE_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+local CARD_SINK_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_CARD_SINK_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 local STAR_FILL_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_STAR_FILL_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local PANEL_FADE_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_PANEL_FADE_SEC, Enum.EasingStyle.Linear)
 
@@ -200,12 +221,39 @@ function ClientGachaMenuManager:getConfig(): GachaRules.Config_Published?
 	return GachaRules.decodeConfig(ClientDataManager:getGameMetadata(Attributes.GACHA_CONFIG))
 end
 
--- the name a cosmetic id shows, from the hat catalogue until M61 adds
--- the other slots
+-- the name a cosmetic id shows: the cosmetics catalogue's skins, else
+-- the hat catalogue's hats
 function ClientGachaMenuManager:cosmeticName(cosmeticId: string): string
-	local catalogue = CharacterRules.decodeHatCatalogue(ClientDataManager:getGameMetadata(Attributes.CHARACTER_HAT_CATALOGUE))
+	local skin = self:findCosmeticEntry(cosmeticId)
+	if skin then
+		return skin.name
+	end
+	local catalogue = SkillRules.decodeHatCatalogue(ClientDataManager:getGameMetadata(Attributes.HAT_CATALOGUE))
 	local entry = catalogue[cosmeticId]
 	return if entry then entry.name else cosmeticId
+end
+
+function ClientGachaMenuManager:findCosmeticEntry(cosmeticId: string): CosmeticRules.PublishedEntry?
+	local published = CosmeticRules.decodeCatalogue(ClientDataManager:getGameMetadata(Attributes.COSMETIC_CATALOGUE))
+	if not published then
+		return nil
+	end
+	return CosmeticRules.findEntry(published, cosmeticId)
+end
+
+-- the skin's model under GameAssets/Cosmetics/<SLOT>/<template>; nil
+-- (and the 2D card) when the template is not built
+function ClientGachaMenuManager:findCosmeticTemplate(entry: CosmeticRules.PublishedEntry): Model?
+	local slotName = Enums.getName(Enums.CosmeticSlot, entry.slot)
+	local assets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
+	local cosmetics = assets and assets:FindFirstChild(Constants.COSMETIC_TEMPLATES_FOLDER)
+	local folder = cosmetics and slotName and cosmetics:FindFirstChild(slotName)
+	local template = folder and folder:FindFirstChild(entry.templateName)
+	if not template or not template:IsA("Model") then
+		warn(`ClientGachaMenuManager: no {Constants.GAME_ASSETS_FOLDER}.{Constants.COSMETIC_TEMPLATES_FOLDER}.{tostring(slotName)}.{entry.templateName} model (run build_cosmetic_templates); the 2D card stands in`)
+		return nil
+	end
+	return template
 end
 
 function ClientGachaMenuManager:prizeName(prize: GachaRules.Prize): string
@@ -217,6 +265,18 @@ function ClientGachaMenuManager:prizeName(prize: GachaRules.Prize): string
 	return KEYS_NAME
 end
 
+-- the designer's buttons draw their word on a TextLabel child over a
+-- picture backing, so the button's own Text is never what shows; a button
+-- without the child still takes its Text
+local function setButtonText(button: GuiButton, text: string)
+	local label = button:FindFirstChild(Constants.GACHA_BUTTON_TEXT_LABEL)
+	if label and label:IsA("TextLabel") then
+		label.Text = text
+	elseif button:IsA("TextButton") then
+		button.Text = text
+	end
+end
+
 local function kindColor(kind: number): Color3
 	return UiStyle.GACHA_KIND_COLORS[kind] or UiStyle.TEXT_COLOR
 end
@@ -225,6 +285,37 @@ local function clearRows(panel: GuiObject, templates: { GuiObject })
 	for _, child in panel:GetChildren() do
 		if child:IsA("GuiObject") and not table.find(templates, child) then
 			child:Destroy()
+		end
+	end
+end
+
+-- the odds panel is a ScrollingFrame whose canvas grows to its rows, but a
+-- row sized by scale is measured against the window, so the canvas never
+-- grew and the list was cut off (designer, 2026-11-04). Each row and the
+-- list's gap take their authored scale of the window's height as pixels,
+-- redone whenever the window changes size, so the designer's scale values
+-- stay the source
+function ClientGachaMenuManager:fitRowsToWindow(view: View)
+	local panel = view.oddsPanel
+	if not panel:IsA("ScrollingFrame") then
+		return
+	end
+	local windowHeight = panel.AbsoluteWindowSize.Y
+	for _, child in panel:GetChildren() do
+		if child:IsA("GuiObject") and child ~= view.oddsRowTemplate and child ~= view.classRowTemplate then
+			local template = if child.Name:sub(1, 7) == "OddsRow" then view.oddsRowTemplate else view.classRowTemplate
+			child.Size = UDim2.new(template.Size.X.Scale, 0, 0, template.Size.Y.Scale * windowHeight)
+		elseif child:IsA("UIListLayout") then
+			local authoredGap: number = self.oddsGapScale or child.Padding.Scale
+			self.oddsGapScale = authoredGap
+			child.Padding = UDim.new(0, authoredGap * windowHeight)
+		elseif child:IsA("UIPadding") then
+			-- the canvas does not count a scale padding either, and the
+			-- bottom takes the top's room so the last row clears the edge
+			local authoredTop: number = self.oddsPaddingTopScale or child.PaddingTop.Scale
+			self.oddsPaddingTopScale = authoredTop
+			child.PaddingTop = UDim.new(0, authoredTop * windowHeight)
+			child.PaddingBottom = UDim.new(0, authoredTop * windowHeight)
 		end
 	end
 end
@@ -295,7 +386,7 @@ function ClientGachaMenuManager:renderRollButton(view: View, config: GachaRules.
 	local canAfford = ClientDataManager:getDiamonds() >= config.rollPriceDiamonds
 	local isReady = canAfford and not self.isRolling
 	view.rollButton.BackgroundColor3 = if isReady then UiStyle.POSITIVE_COLOR else UiStyle.DISABLED_COLOR
-	view.rollButton.Text = UiStyle.formatTitle(if self.isRolling then ROLLING_TEXT else ROLL_TEXT)
+	setButtonText(view.rollButton, UiStyle.formatTitle(if self.isRolling then ROLLING_TEXT else ROLL_TEXT))
 	view.rollPriceLabel.Text = utils.abbreviateNumber(config.rollPriceDiamonds)
 end
 
@@ -316,6 +407,7 @@ function ClientGachaMenuManager:render()
 	else
 		self:renderOdds(view, config)
 	end
+	self:fitRowsToWindow(view)
 	self:renderRollButton(view, config, isRestricted)
 end
 
@@ -525,10 +617,23 @@ function ClientGachaMenuManager:setCrateEffects(crate: Crate, isOn: boolean)
 	end
 end
 
+-- a closing lid keeps the crate's light and sparks until it is down
+-- (designer, 2026-11-04); a lid opened again before then cancels the
+-- close, so its tween never completes and the light stays
 function ClientGachaMenuManager:tweenLid(crate: Crate, isOpen: boolean)
 	local target = if isOpen then crate.lidOpenCFrame else crate.lidClosedCFrame
 	local info = if isOpen then LID_TWEEN_INFO else LID_CLOSE_TWEEN_INFO
-	TweenService:Create(crate.lid, info, { CFrame = target }):Play()
+	local tween = TweenService:Create(crate.lid, info, { CFrame = target })
+	if not isOpen then
+		tween.Completed:Connect(
+			function(playbackState)
+				if playbackState == Enum.PlaybackState.Completed then
+					self:setCrateEffects(crate, false)
+				end
+			end
+		)
+	end
+	tween:Play()
 end
 
 function ClientGachaMenuManager:stopPulse()
@@ -652,6 +757,12 @@ local function isMaxedClassDraw(payload: { [string]: any }): boolean
 	return payload.kind == Enums.GachaResultKind.KEYS and payload.convertedFromKind == Enums.GachaResultKind.CLASS
 end
 
+-- a cosmetic drawn that the player owns: the same show as a maxed class,
+-- the prize revealed and then exchanged for the Keys (designer, 2026-11-04)
+local function isOwnedCosmeticDraw(payload: { [string]: any }): boolean
+	return payload.kind == Enums.GachaResultKind.KEYS and payload.convertedFromKind == Enums.GachaResultKind.COSMETIC
+end
+
 local function setStarEffects(star: BasePart, isOn: boolean)
 	local effect = star:FindFirstChild(Constants.CLASS_CARD_EFFECT_ATTACHMENT)
 	if not effect then
@@ -680,7 +791,12 @@ function ClientGachaMenuManager:flyClassCard(view: View, crate: Crate, payload: 
 	if nameLabel and nameLabel:IsA("TextLabel") then
 		nameLabel.Text = UiStyle.formatTitle(className)
 	end
-	-- the class icon lands later; the label keeps the designer's placeholder
+	-- the class picture, where the designer has made one
+	local iconLabel = card:FindFirstChild(Constants.CLASS_CARD_ICON_LABEL, true)
+	local iconId = Icons.CLASS_KIND[classKind]
+	if iconLabel and iconLabel:IsA("ImageLabel") and iconId then
+		iconLabel.Image = iconId
+	end
 
 	-- stars are the class's open skill slots: the ones held before this
 	-- draw are gold already, and a slot result adds its own
@@ -717,13 +833,27 @@ function ClientGachaMenuManager:flyClassCard(view: View, crate: Crate, payload: 
 		end
 	)
 	local headline = if isMaxed then HEADLINE_MAXED elseif newStar then HEADLINE_TIER_UP else HEADLINE_NEW_CLASS
+	local isNewClass = payload.kind == Enums.GachaResultKind.CLASS and not isMaxed
 	local function finishClassReveal()
+		if isNewClass then
+			-- a class the player did not own: the card's own emitters burst
+			-- and the unlock sting plays as it lands (designer, 2026-11-04)
+			local burst = cardPart and cardPart:FindFirstChild(Constants.CLASS_CARD_BURST_ATTACHMENT)
+			if burst then
+				for _, emitter in burst:GetChildren() do
+					if emitter:IsA("ParticleEmitter") then
+						emitter.Enabled = true
+					end
+				end
+			end
+			ClientSoundManager:playSfx(SoundNames.Sfx.CLASS_UNLOCKED)
+		end
 		self:setHeadlineShown(view, true, headline)
 		self:finishReveal(view)
 		if isMaxed then
 			-- the same button, now the offer to sell
 			self.stage = Stage.SELL
-			view.claimButton.Text = UiStyle.formatTitle(SELL_TEXT)
+			setButtonText(view.claimButton, UiStyle.formatTitle(SELL_TEXT))
 		end
 	end
 	local rise = TweenService:Create(progress, CARD_RISE_TWEEN_INFO, { Value = 1 })
@@ -733,6 +863,7 @@ function ClientGachaMenuManager:flyClassCard(view: View, crate: Crate, payload: 
 			if playbackState ~= Enum.PlaybackState.Completed or serial ~= self.sequenceSerial then
 				return
 			end
+			self:startCardFloat(card, cardEnd)
 			local star = if newStar then stars[newStar] else nil
 			if not star then
 				finishClassReveal()
@@ -746,6 +877,7 @@ function ClientGachaMenuManager:flyClassCard(view: View, crate: Crate, payload: 
 						return
 					end
 					setStarEffects(star, true)
+					ClientSoundManager:playSfx(SoundNames.Sfx.CLASS_TIER_UP)
 					local fill = TweenService:Create(star, STAR_FILL_TWEEN_INFO, { Color = UiStyle.CLASS_CARD_STAR_GOLD_COLOR })
 					fill.Completed:Connect(
 						function()
@@ -763,7 +895,46 @@ function ClientGachaMenuManager:flyClassCard(view: View, crate: Crate, payload: 
 	rise:Play()
 end
 
+-- the landed card drifts: a slow bob up and down about CardEnd with a
+-- slight pitch and roll, so it never sits dead still while the claim
+-- waits (designer, 2026-11-04); three sines at different rates so the
+-- tilt never repeats in step with the bob, every one starting from zero
+-- and the whole swing eased in, so the first frame is the landed pose
+function ClientGachaMenuManager:startCardFloat(card: Model, cardEnd: BasePart)
+	self:stopCardFloat()
+	local restFrame = cardEnd.CFrame
+	local height = cardEnd.Size.Y * UiStyle.GACHA_CARD_FLOAT_HEIGHT_SHARE
+	local tilt = math.rad(UiStyle.GACHA_CARD_FLOAT_TILT_DEGREES)
+	local period = UiStyle.GACHA_CARD_FLOAT_PERIOD_SEC
+	local startTime = workspace:GetServerTimeNow()
+	self.cardFloatConnection = RunService.RenderStepped:Connect(
+		function()
+			if card.Parent == nil then
+				return
+			end
+			local elapsed = workspace:GetServerTimeNow() - startTime
+			local phase = elapsed / period * math.pi * 2
+			-- a smooth step from 0 to 1 over the ease-in
+			local grown = math.clamp(elapsed / UiStyle.GACHA_CARD_FLOAT_EASE_IN_SEC, 0, 1)
+			grown = grown * grown * (3 - 2 * grown)
+			local lift = math.sin(phase) * height * grown
+			local pitch = math.sin(phase * 0.7) * tilt * grown
+			local roll = math.sin(phase * 0.5) * tilt * grown
+			card:PivotTo(restFrame * CFrame.new(0, lift, 0) * CFrame.Angles(pitch, 0, roll))
+		end
+	)
+end
+
+function ClientGachaMenuManager:stopCardFloat()
+	local connection = self.cardFloatConnection
+	if connection then
+		connection:Disconnect()
+		self.cardFloatConnection = nil
+	end
+end
+
 function ClientGachaMenuManager:destroyClassCard()
+	self:stopCardFloat()
 	local card = self.classCard
 	if card then
 		card:Destroy()
@@ -812,6 +983,107 @@ function ClientGachaMenuManager:flyKey(view: View, payload: { [string]: any }, k
 	rise:Play()
 end
 
+-- a cosmetic skin out of the crate (designer, 2026-11-04): whatever its
+-- art's size, the clone is scaled so its longest side matches PrizeEnd's
+-- longest side (times the catalogue's REVEAL_SCALE) and placed by its
+-- bounding box's centre, not its own pivot, so a pick axe pivoted at the
+-- handle and a jet pack pivoted at the plate both rise centred; it grows
+-- from PrizeStart's size on the way up and turns about the world's up
+-- while the claim waits, as the Key does
+function ClientGachaMenuManager:flyPrize(view: View, payload: { [string]: any }, entry: CosmeticRules.PublishedEntry, prizeStart: BasePart, prizeEnd: BasePart, template: Model, isOwned: boolean)
+	local serial = self.sequenceSerial
+	local prize = template:Clone()
+	prize.Name = Constants.GACHA_PRIZE_CLONE
+	for _, descendant in prize:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = true
+			descendant.CanCollide = false
+			descendant.CanQuery = false
+			descendant.CanTouch = false
+		end
+	end
+	local function longestSide(size: Vector3): number
+		return math.max(size.X, size.Y, size.Z)
+	end
+	local _, extents = prize:GetBoundingBox()
+	local endScale = longestSide(prizeEnd.Size) * entry.revealScale / math.max(longestSide(extents), 0.001)
+	local startScale = endScale * UiStyle.GACHA_PRIZE_START_SCALE_SHARE
+	prize:ScaleTo(endScale)
+	-- where the pivot sits inside the box, so a box frame places the model
+	local boxCFrame = prize:GetBoundingBox()
+	local pivotInBox = boxCFrame:Inverse() * prize:GetPivot()
+	local function boxFrameAt(pose: BasePart): CFrame
+		return pose.CFrame
+	end
+	local function place(boxFrame: CFrame, scale: number)
+		prize:ScaleTo(scale)
+		prize:PivotTo(boxFrame * pivotInBox)
+	end
+	place(boxFrameAt(prizeStart), startScale)
+	prize.Parent = workspace
+	self.prizeClone = prize
+	self.prizeSinkStep = function(share: number)
+		if prize.Parent == nil then
+			return
+		end
+		place(boxFrameAt(prizeEnd):Lerp(boxFrameAt(prizeStart), share), endScale + (startScale - endScale) * share)
+	end
+
+	local progress = Instance.new("NumberValue")
+	progress.Value = 0
+	progress.Changed:Connect(
+		function(value)
+			if prize.Parent == nil then
+				return
+			end
+			place(boxFrameAt(prizeStart):Lerp(boxFrameAt(prizeEnd), value), startScale + (endScale - startScale) * value)
+		end
+	)
+	local rise = TweenService:Create(progress, KEY_RISE_TWEEN_INFO, { Value = 1 })
+	rise.Completed:Connect(
+		function(playbackState)
+			progress:Destroy()
+			if playbackState ~= Enum.PlaybackState.Completed or serial ~= self.sequenceSerial then
+				return
+			end
+			local restFrame = boxFrameAt(prizeEnd)
+			local position = restFrame.Position
+			local rotation = restFrame - position
+			local startTime = workspace:GetServerTimeNow()
+			self.prizeSpinConnection = RunService.RenderStepped:Connect(
+				function()
+					local elapsed = workspace:GetServerTimeNow() - startTime
+					local angle = (elapsed / UiStyle.GACHA_KEY_SPIN_SEC) * math.pi * 2
+					place(CFrame.new(position) * CFrame.Angles(0, angle, 0) * rotation, endScale)
+				end
+			)
+			local headline = if isOwned then HEADLINE_COSMETIC_OWNED else HEADLINE_COSMETIC
+			self:setHeadlineShown(view, true, string.format(headline, entry.name))
+			self:finishReveal(view)
+			if isOwned then
+				-- the same button, now the offer to exchange
+				self.stage = Stage.SELL
+				setButtonText(view.claimButton, UiStyle.formatTitle(SELL_TEXT))
+			end
+		end
+	)
+	rise:Play()
+end
+
+function ClientGachaMenuManager:destroyPrize()
+	local connection = self.prizeSpinConnection
+	if connection then
+		connection:Disconnect()
+		self.prizeSpinConnection = nil
+	end
+	local prize = self.prizeClone
+	if prize then
+		prize:Destroy()
+		self.prizeClone = nil
+	end
+	self.prizeSinkStep = nil
+end
+
 function ClientGachaMenuManager:destroyKey()
 	local connection = self.keySpinConnection
 	if connection then
@@ -825,9 +1097,11 @@ function ClientGachaMenuManager:destroyKey()
 	end
 end
 
--- SELL FOR KEYS under a maxed class's card: the card sinks back into the
--- crate, and the Keys the server paid rise out of it in its place, the
--- lid still open and the camera where it stands
+-- EXCHANGE FOR KEYS under a maxed class's card (designer, 2026-11-04): the
+-- card sinks back into the crate while the Keys the server paid rise out
+-- of it at the same time, the lid open, the light on, and the camera
+-- held on the open shot throughout (a lid close and reopen between the
+-- two was tried and dropped the same day)
 function ClientGachaMenuManager:sellCard()
 	local view = self.view
 	local crate = self.crate
@@ -841,11 +1115,14 @@ function ClientGachaMenuManager:sellCard()
 	self.stage = Stage.OPENING
 	local serial = self.sequenceSerial
 	view.claimButton.Visible = false
-	view.claimButton.Text = UiStyle.formatTitle(CLAIM_TEXT)
+	setButtonText(view.claimButton, UiStyle.formatTitle(CLAIM_TEXT))
 	self:setHeadlineShown(view, false)
+	-- the Keys rise as the card sinks, the lid open and the light on
+	self:stopCardFloat()
+	self:revealKeys(view, crate, payload)
 	if not card or not cardStart or not cardEnd then
 		self:destroyClassCard()
-		self:revealKeys(view, crate, payload)
+		self:sinkPrize()
 		return
 	end
 	local endScale = card:GetScale()
@@ -869,7 +1146,40 @@ function ClientGachaMenuManager:sellCard()
 				return
 			end
 			self:destroyClassCard()
-			self:revealKeys(view, crate, payload)
+		end
+	)
+	sink:Play()
+end
+
+-- an owned cosmetic's exchange: the prize stops spinning and goes back
+-- down into the crate the way it came, shrinking to its start pose
+function ClientGachaMenuManager:sinkPrize()
+	local step = self.prizeSinkStep
+	local connection = self.prizeSpinConnection
+	if connection then
+		connection:Disconnect()
+		self.prizeSpinConnection = nil
+	end
+	if not step then
+		self:destroyPrize()
+		return
+	end
+	local serial = self.sequenceSerial
+	local progress = Instance.new("NumberValue")
+	progress.Value = 0
+	progress.Changed:Connect(
+		function(value)
+			step(value)
+		end
+	)
+	local sink = TweenService:Create(progress, CARD_SINK_TWEEN_INFO, { Value = 1 })
+	sink.Completed:Connect(
+		function(playbackState)
+			progress:Destroy()
+			if playbackState ~= Enum.PlaybackState.Completed or serial ~= self.sequenceSerial then
+				return
+			end
+			self:destroyPrize()
 		end
 	)
 	sink:Play()
@@ -899,6 +1209,16 @@ function ClientGachaMenuManager:flyCard(view: View, crate: Crate, payload: { [st
 			return
 		elseif isMaxedClassDraw(payload) then
 			self:flyClassCard(view, crate, payload, cardStart, cardEnd, template, true)
+			return
+		end
+	end
+	local isOwnedCosmetic = isOwnedCosmeticDraw(payload)
+	if payload.kind == Enums.GachaResultKind.COSMETIC or isOwnedCosmetic then
+		local cosmeticId = if isOwnedCosmetic then payload.convertedCosmeticId else payload.cosmeticId
+		local entry = self:findCosmeticEntry(tostring(cosmeticId))
+		local prizeTemplate = if entry then self:findCosmeticTemplate(entry) else nil
+		if entry and prizeTemplate and crate.prizeStart and crate.prizeEnd then
+			self:flyPrize(view, payload, entry, crate.prizeStart, crate.prizeEnd, prizeTemplate, isOwnedCosmetic)
 			return
 		end
 	end
@@ -968,13 +1288,13 @@ function ClientGachaMenuManager:returnToMenu()
 	self:stopPulse()
 	self:destroyClassCard()
 	self:destroyKey()
+	self:destroyPrize()
 	view.card.Visible = false
 	view.claimButton.Visible = false
-	view.claimButton.Text = UiStyle.formatTitle(CLAIM_TEXT)
+	setButtonText(view.claimButton, UiStyle.formatTitle(CLAIM_TEXT))
 	self:setTapHintShown(view, false)
 	self:setHeadlineShown(view, false)
 	self:notifyWalletsFaded(false, UiStyle.GACHA_WORLD_FADE_SEC)
-	self:setCrateEffects(crate, false)
 	self:tweenLid(crate, false)
 	self:fadeWorld(crate, false)
 	self.stage = Stage.PANNING
@@ -998,11 +1318,33 @@ function ClientGachaMenuManager:requestRoll()
 	if not view or not config or self.isRolling or self.stage ~= Stage.MENU then
 		return
 	end
-	if ClientDataManager:getDiamonds() < config.rollPriceDiamonds then
+	local diamonds = ClientDataManager:getDiamonds()
+	if diamonds < config.rollPriceDiamonds then
+		ClientDiamondStoreManager:handleDiamondsShort(config.rollPriceDiamonds, diamonds)
 		return
 	end
+	self:beginRoll(
+		function()
+			ClientNetManager:fireServer(NetEventNames.TRY_ROLL_GACHA, {})
+		end
+	)
+end
+
+-- the dev panel's forced roll (2026-11-04): with the menu open the whole
+-- crate sequence plays for the named prize, free; closed, the server
+-- still grants it and only the balances move. Returns whether the
+-- sequence took it
+function ClientGachaMenuManager:requestForcedRoll(send: () -> ()): boolean
+	if not self.isOpen or self.isRolling or self.stage ~= Stage.MENU then
+		return false
+	end
+	self:beginRoll(send)
+	return true
+end
+
+function ClientGachaMenuManager:beginRoll(send: () -> ())
 	self.isRolling = true
-	ClientNetManager:fireServer(NetEventNames.TRY_ROLL_GACHA, {})
+	send()
 	self:render()
 	-- the pan covers the round trip; the result is waited for at the crate
 	self:startSequence()
@@ -1059,11 +1401,12 @@ function ClientGachaMenuManager:resetSequence()
 	self:stopPulse()
 	self:destroyClassCard()
 	self:destroyKey()
+	self:destroyPrize()
 	self:notifyWalletsFaded(false, 0)
 	if view then
 		view.card.Visible = false
 		view.claimButton.Visible = false
-		view.claimButton.Text = UiStyle.formatTitle(CLAIM_TEXT)
+		setButtonText(view.claimButton, UiStyle.formatTitle(CLAIM_TEXT))
 		view.tapHint.Visible = false
 		view.revealTitle.Visible = false
 		view.dialog.BackgroundTransparency = self.dialogAuthoredTransparency
@@ -1171,6 +1514,11 @@ function ClientGachaMenuManager:findCrate(): Crate?
 	if not keyStart or not keyStart:IsA("BasePart") or not keyEnd or not keyEnd:IsA("BasePart") then
 		warn(`ClientGachaMenuManager: {model:GetFullName()} has no {Constants.SUPPLY_CRATE_KEY_START} and {Constants.SUPPLY_CRATE_KEY_END}; the 2D card stands in for Keys`)
 	end
+	local prizeStart = model:FindFirstChild(Constants.SUPPLY_CRATE_PRIZE_START)
+	local prizeEnd = model:FindFirstChild(Constants.SUPPLY_CRATE_PRIZE_END)
+	if not prizeStart or not prizeStart:IsA("BasePart") or not prizeEnd or not prizeEnd:IsA("BasePart") then
+		warn(`ClientGachaMenuManager: {model:GetFullName()} has no {Constants.SUPPLY_CRATE_PRIZE_START} and {Constants.SUPPLY_CRATE_PRIZE_END}; the 2D card stands in for a cosmetic`)
+	end
 	return {
 		model = model,
 		attachment = attachment,
@@ -1187,6 +1535,8 @@ function ClientGachaMenuManager:findCrate(): Crate?
 		cardEnd = if cardEnd and cardEnd:IsA("BasePart") then cardEnd else nil,
 		keyStart = if keyStart and keyStart:IsA("BasePart") then keyStart else nil,
 		keyEnd = if keyEnd and keyEnd:IsA("BasePart") then keyEnd else nil,
+		prizeStart = if prizeStart and prizeStart:IsA("BasePart") then prizeStart else nil,
+		prizeEnd = if prizeEnd and prizeEnd:IsA("BasePart") then prizeEnd else nil,
 	}
 end
 
@@ -1288,6 +1638,11 @@ function ClientGachaMenuManager:init()
 		return
 	end
 	self.view = view
+	view.oddsPanel:GetPropertyChangedSignal("AbsoluteSize"):Connect(
+		function()
+			self:fitRowsToWindow(view)
+		end
+	)
 	self.dialogAuthoredTransparency = view.dialog.BackgroundTransparency
 	view.oddsRowTemplate.Visible = false
 	view.classRowTemplate.Visible = false
@@ -1392,12 +1747,18 @@ end
 function ClientGachaMenuManager.new(): ClientGachaMenuManager
 	local self = setmetatable({}, ClientGachaMenuManager) :: ClientGachaMenuManager
 	self.view = nil
+	self.oddsGapScale = nil
+	self.oddsPaddingTopScale = nil
 	self.crate = nil
 	self.classCardTemplate = nil
 	self.classCard = nil
 	self.keyTemplate = nil
 	self.keyClone = nil
 	self.keySpinConnection = nil
+	self.cardFloatConnection = nil
+	self.prizeClone = nil
+	self.prizeSpinConnection = nil
+	self.prizeSinkStep = nil
 	self.overlay = nil
 	self.isOpen = false
 	self.stage = Stage.MENU

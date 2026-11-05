@@ -31,7 +31,7 @@ local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local TowerRules = require("@game/ReplicatedStorage/Shared/TowerRules")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local AutoTurretData = require("@game/ServerScriptService/GameData/Gadgets/AutoTurret")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -166,7 +166,7 @@ function AutoTurretManager:getTurrets(): { Turret }
 end
 
 function AutoTurretManager:hasAutoTurretGadget(player: Player): boolean
-	return CharacterManager:getGadgetKind(player) == Enums.GadgetKind.AUTO_TURRET
+	return ClassManager:getGadgetKind(player) == Enums.GadgetKind.AUTO_TURRET
 end
 
 function AutoTurretManager:getDrawRangeStuds(): number
@@ -223,7 +223,7 @@ end
 -- change): the Gunner holds the turret button while none stands, every
 -- other class has no gadget slot yet
 function AutoTurretManager:applyGadget(player: Player)
-	local gadgetKind = CharacterManager:getGadgetKind(player)
+	local gadgetKind = ClassManager:getGadgetKind(player)
 	ToolManager:setGadgetKind(player, gadgetKind)
 	if gadgetKind ~= Enums.GadgetKind.AUTO_TURRET then
 		local standing = self.turretByPlayer[player]
@@ -522,7 +522,7 @@ function AutoTurretManager:init()
 			self:onDayStarted()
 		end
 	)
-	CharacterManager:subscribeClassChanged(
+	ClassManager:subscribeClassChanged(
 		function(player: Player, _classKind: number)
 			if GameController:isPlayerReady(player) then
 				self:applyGadget(player)

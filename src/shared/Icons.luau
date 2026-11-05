@@ -116,6 +116,18 @@ Icons.WEAPON_KIND = {
 	[Enums.WeaponKind.RIFLE] = "rbxassetid://126641049266938",
 }
 
+-- the designer's class pictures (2026-11-04): the gacha's 3D class card;
+-- a class without one keeps the card's authored placeholder
+Icons.CLASS_KIND = {
+	[Enums.ClassKind.SNIPER] = "rbxassetid://105683326705463",
+	[Enums.ClassKind.RANGER] = "rbxassetid://84456092602659",
+	[Enums.ClassKind.PYRO] = "rbxassetid://129584863380176",
+	[Enums.ClassKind.PROSPECTOR] = "rbxassetid://103204546509022",
+	[Enums.ClassKind.GUNNER] = "rbxassetid://137376924445466",
+	[Enums.ClassKind.DEMOLITIONIST] = "rbxassetid://114125041037006",
+	[Enums.ClassKind.AIR_DEFENSE] = "rbxassetid://110014529125871",
+}
+
 -- the type box of each row on the sheet's COSMETICS tab (designer's
 -- mock-up, 2026-10-13): the slot's own art where it exists, the Hard Hat's
 -- catalogue thumbnail for the Helmet, the placeholder for the rest

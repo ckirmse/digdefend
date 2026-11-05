@@ -21,7 +21,7 @@ local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
 local MiningRules = require("@game/ReplicatedStorage/Shared/MiningRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local OreScannerData = require("@game/ServerScriptService/GameData/Gadgets/OreScanner")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -48,7 +48,7 @@ local FEEDBACK_NOT_IN_MINE = "The scanner only works inside the mine."
 local FEEDBACK_NOT_YET = "Not until the day starts."
 
 function OreScannerManager:hasScanner(player: Player): boolean
-	return CharacterManager:getGadgetKind(player) == Enums.GadgetKind.ORE_SCANNER
+	return ClassManager:getGadgetKind(player) == Enums.GadgetKind.ORE_SCANNER
 end
 
 -- seconds until the scanner is ready; 0 when it is
@@ -158,7 +158,7 @@ function OreScannerManager:init()
 	-- the slot drains its sheet over the same wait the server keeps
 	SplendidReplicationManager:setGameMetadata(Attributes.ORE_SCANNER_COOLDOWN_SEC, OreScannerData.COOLDOWN_SEC)
 	GameController:registerPlaceManager(self)
-	CharacterManager:subscribeClassChanged(
+	ClassManager:subscribeClassChanged(
 		function(player: Player, _classKind: number)
 			if GameController:isPlayerReady(player) then
 				self:applyGadget(player)

@@ -54,39 +54,6 @@ local function syncMarkerFolder(folder: Instance, names: { [string]: boolean })
 	end
 end
 
--- keeps the Characters folder equal to the player's list (M55): one child
--- folder per character named by its id and carrying the same attribute set
--- as the active character on CurrentPlayer, plus the active id on the
--- folder itself, so the select menu can draw every card and a late viewer
--- gets them all
-local function syncCharactersFolder(folder: Instance, playerData: any)
-	local classProgress = playerData:getClassProgress()
-	local maxSkillSlots = PlayerData.getCharacterDefaults().maxSkillSlots
-	local records = playerData:getCharacters()
-	local keep: { [string]: boolean } = {}
-	for _, record in records do
-		keep[record.id] = true
-		local existing = folder:FindFirstChild(record.id)
-		local child: Instance
-		if existing then
-			child = existing
-		else
-			child = Instance.new("Folder")
-			child.Name = record.id
-		end
-		writeAttributes(child, PlayerPublicSchema.buildCharacterAttributes(record, classProgress, maxSkillSlots))
-		if child.Parent ~= folder then
-			child.Parent = folder
-		end
-	end
-	for _, child in folder:GetChildren() do
-		if not keep[child.Name] then
-			child:Destroy()
-		end
-	end
-	folder:SetAttribute(Attributes.ACTIVE_CHARACTER_ID, playerData:getActiveCharacterId())
-end
-
 local function snapshot(player: Player, playerData: any): PlayerPublicSchema.Snapshot
 	local dailyReward = playerData:getDailyReward()
 	return {
@@ -95,9 +62,11 @@ local function snapshot(player: Player, playerData: any): PlayerPublicSchema.Sna
 		isReady = true,
 		isAdmin = playerData:getIsAdmin(),
 		diamonds = playerData:getDiamonds(),
-		activeCharacter = playerData:getActiveCharacter(),
+		classRecords = playerData:getClassRecords(),
+		activeClassKind = playerData:getActiveClassKind(),
+		cosmetics = playerData:getCosmetics(),
 		classProgress = playerData:getClassProgress(),
-		maxSkillSlots = PlayerData.getCharacterDefaults().maxSkillSlots,
+		maxSkillSlots = PlayerData.getClassDefaults().maxSkillSlots,
 		keys = playerData:getKeys(),
 		ownedCosmetics = playerData:getOwnedCosmetics(),
 		dailyRewardLastClaimedDay = dailyReward.lastClaimedDay,
@@ -143,10 +112,6 @@ end
 function SplendidReplicationManager:writeCurrentPlayer(player: Player, playerData: any, currentPlayer: Instance)
 	writeAttributes(currentPlayer, PlayerPublicSchema.buildCurrentPlayerAttributes(snapshot(player, playerData)))
 	writeAttributes(currentPlayer, self.extraCurrentPlayerByUserId[player.UserId] or {})
-	local characters = currentPlayer:FindFirstChild(Constants.CHARACTERS_FOLDER)
-	if characters then
-		syncCharactersFolder(characters, playerData)
-	end
 	local completions = currentPlayer:FindFirstChild(Constants.COMPLETIONS_FOLDER)
 	if completions then
 		syncMarkerFolder(completions, playerData.completions)
@@ -179,9 +144,6 @@ function SplendidReplicationManager:buildPlayerTree(player: Player)
 
 	local currentPlayer = Instance.new("Folder")
 	currentPlayer.Name = Constants.CURRENT_PLAYER_FOLDER
-	local characters = Instance.new("Folder")
-	characters.Name = Constants.CHARACTERS_FOLDER
-	characters.Parent = currentPlayer
 	local completions = Instance.new("Folder")
 	completions.Name = Constants.COMPLETIONS_FOLDER
 	completions.Parent = currentPlayer
@@ -304,25 +266,31 @@ function SplendidReplicationManager:replicateDiamonds(player: Player)
 	currentPlayer:SetAttribute(Attributes.DIAMONDS, playerData:getDiamonds())
 end
 
--- the active character's attributes on CurrentPlayer and the whole list
--- under Characters; CharacterManager calls this after every change
-function SplendidReplicationManager:replicateCharacters(player: Player)
+-- the active class and every class record on CurrentPlayer (the Class
+-- Menu, 2026-11-04); ClassManager calls this after every change
+function SplendidReplicationManager:replicateClasses(player: Player)
 	local playerData = gameController:getPlayerData(player)
 	local currentPlayer = self:getCurrentPlayerFolder(player)
 	if not playerData or not currentPlayer then
 		return
 	end
-	local maxSkillSlots = PlayerData.getCharacterDefaults().maxSkillSlots
-	writeAttributes(currentPlayer, PlayerPublicSchema.buildCharacterAttributes(playerData:getActiveCharacter(), playerData:getClassProgress(), maxSkillSlots))
-	local characters = currentPlayer:FindFirstChild(Constants.CHARACTERS_FOLDER)
-	if characters then
-		syncCharactersFolder(characters, playerData)
+	local maxSkillSlots = PlayerData.getClassDefaults().maxSkillSlots
+	writeAttributes(currentPlayer, PlayerPublicSchema.buildClassAttributes(playerData:getClassRecords(), playerData:getActiveClassKind(), maxSkillSlots))
+end
+
+-- the account's cosmetic loadout on CurrentPlayer (2026-11-04);
+-- CosmeticManager calls this after every equip
+function SplendidReplicationManager:replicateCosmetics(player: Player)
+	local playerData = gameController:getPlayerData(player)
+	local currentPlayer = self:getCurrentPlayerFolder(player)
+	if not playerData or not currentPlayer then
+		return
 	end
+	writeAttributes(currentPlayer, PlayerPublicSchema.buildCosmeticAttributes(playerData:getCosmetics()))
 end
 
 -- the Keys balance, the class progress, and the owned cosmetics (M70);
--- GachaManager calls this after a roll, and replicateCharacters after it
--- when a skill slot opened, since the slot count rides on each character
+-- GachaManager calls this after a roll
 function SplendidReplicationManager:replicateGacha(player: Player)
 	local playerData = gameController:getPlayerData(player)
 	local currentPlayer = self:getCurrentPlayerFolder(player)

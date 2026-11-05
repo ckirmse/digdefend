@@ -22,6 +22,7 @@ local utils = require("@game/ReplicatedStorage/Shared/utils")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
+local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 
 local ClientDiamondStoreManager = {}
@@ -41,6 +42,9 @@ export type ClientDiamondStoreManager = typeof(setmetatable(
 		view: View?,
 		overlay: ClientOverlayManager.Overlay?,
 		isOpen: boolean,
+		-- told whenever a Diamonds purchase fell short, so every balance
+		-- label on screen (the HUD wallet, a menu's own) can flash red
+		shortListeners: { () -> () },
 	},
 	ClientDiamondStoreManager
 ))
@@ -49,6 +53,7 @@ export type ClientDiamondStoreManager = typeof(setmetatable(
 -- arrived (0 until Roblox answers; the catalogue is republished then)
 local COMING_SOON_TEXT = "Coming soon"
 local PRICE_LOADING_TEXT = "..."
+local SHORT_TEXT = "You don't have enough Diamonds"
 
 local function clearCards(panel: GuiObject, template: GuiObject)
 	for _, child in panel:GetChildren() do
@@ -69,6 +74,40 @@ function ClientDiamondStoreManager:requestBuy(pack: DiamondStoreRules.PublishedP
 	ClientNetManager:fireServer(NetEventNames.TRY_BUY_DIAMOND_PACK, {
 		packIndex = pack.index,
 	})
+end
+
+function ClientDiamondStoreManager:subscribeDiamondsShort(listener: () -> ())
+	table.insert(self.shortListeners, listener)
+end
+
+-- a Diamonds purchase the player cannot afford, whether the server
+-- refused it or the menu knew before asking (designer, 2026-11-04): the
+-- fail sound, every balance label flashing red, the message, and Roblox's
+-- prompt for the smallest pack that covers the shortfall. A menu that
+-- already knows the price and the balance calls this directly and skips
+-- the round trip
+function ClientDiamondStoreManager:handleDiamondsShort(priceDiamonds: number, balance: number)
+	ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
+	for _, listener in self.shortListeners do
+		listener()
+	end
+	ClientPlayerFeedbackManager:alertLocal(SHORT_TEXT)
+	local catalogue = self:getCatalogue()
+	if not catalogue then
+		return
+	end
+	local pack = DiamondStoreRules.packForShortfall(catalogue, priceDiamonds, balance)
+	if pack then
+		self:requestBuy(pack)
+	end
+end
+
+function ClientDiamondStoreManager:onDiamondsShort(payload: { [string]: any })
+	if typeof(payload) ~= "table" or typeof(payload.priceDiamonds) ~= "number" or typeof(payload.balance) ~= "number" then
+		warn("ClientDiamondStoreManager: NotifyDiamondsShort carried no price and balance")
+		return
+	end
+	self:handleDiamondsShort(payload.priceDiamonds, payload.balance)
 end
 
 function ClientDiamondStoreManager:renderCard(view: View, pack: DiamondStoreRules.PublishedPack)
@@ -246,6 +285,12 @@ function ClientDiamondStoreManager:init()
 			self:onPackBought()
 		end
 	)
+	ClientNetManager:registerHandler(
+		NetEventNames.NOTIFY_DIAMONDS_SHORT,
+		function(payload: any)
+			self:onDiamondsShort(payload)
+		end
+	)
 end
 
 function ClientDiamondStoreManager.new(): ClientDiamondStoreManager
@@ -253,6 +298,7 @@ function ClientDiamondStoreManager.new(): ClientDiamondStoreManager
 	self.view = nil
 	self.overlay = nil
 	self.isOpen = false
+	self.shortListeners = {}
 	return self
 end
 

@@ -43,7 +43,7 @@ local StructuresData = require("@game/ServerScriptService/GameData/Camp/Structur
 local PlacementData = require("@game/ServerScriptService/GameData/Defenses/Placement")
 local TowersData = require("@game/ServerScriptService/GameData/Defenses/Towers")
 local TrapsData = require("@game/ServerScriptService/GameData/Defenses/Traps")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -196,7 +196,7 @@ function PlacementManager:resolvePlayerTowerKinds(player: Player): { number }
 	if override and #override > 0 then
 		return override
 	end
-	return CharacterManager:getClassTowerKinds(player)
+	return ClassManager:getClassTowerKinds(player)
 end
 
 -- every Ready crewmate's kinds, each once, in join order (designer,
@@ -435,7 +435,7 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 	-- traps since 2026-10-22; two until then) on every build, the first
 	-- tower of the run included (designer, that evening: a pricing dial
 	-- applies to every tier); the menus show the same scaled price
-	local price = ClassRules.scaleAmount(PlacementRules.buildPrice(self.catalog, placementKind, typeKind), CharacterManager:getModifier(player, Enums.ClassModifier.DEFENSE_COST))
+	local price = ClassRules.scaleAmount(PlacementRules.buildPrice(self.catalog, placementKind, typeKind), ClassManager:getModifier(player, Enums.ClassModifier.DEFENSE_COST))
 	if isDevBuild then
 		price = 0
 	elseif not PlacementRules.canAfford(RefineryManager:getIronBars(player), price) or not RefineryManager:spendIronBars(player, price) then
@@ -528,7 +528,7 @@ function PlacementManager:upgrade(player: Player, id: string)
 		return
 	end
 	-- the class's defense dial scales an upgrade as it does a build (2026-10-22)
-	local price = ClassRules.scaleAmount(offer.price, CharacterManager:getModifier(player, Enums.ClassModifier.DEFENSE_COST))
+	local price = ClassRules.scaleAmount(offer.price, ClassManager:getModifier(player, Enums.ClassModifier.DEFENSE_COST))
 	if not PlacementRules.canAfford(RefineryManager:getIronBars(player), price) or not RefineryManager:spendIronBars(player, price) then
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_IRON)
 		return
@@ -582,8 +582,8 @@ function PlacementManager:repairPlacement(player: Player, id: string)
 	-- a placement repairs at the first tier's chunk whatever its level; the
 	-- class scales the chunk a swing gains and the Iron it costs (M64)
 	local chunkHp, chunkIron = StructureRules.repairChunkForTier(StructuresData.REPAIR_CHUNK_HP_BY_TIER, StructuresData.REPAIR_CHUNK_IRON_BY_TIER, 1)
-	chunkHp = ClassRules.scaleAmount(chunkHp, CharacterManager:getModifier(player, Enums.ClassModifier.REPAIR_SPEED))
-	chunkIron = ClassRules.scaleAmount(chunkIron, CharacterManager:getModifier(player, Enums.ClassModifier.REPAIR_COST))
+	chunkHp = ClassRules.scaleAmount(chunkHp, ClassManager:getModifier(player, Enums.ClassModifier.REPAIR_SPEED))
+	chunkIron = ClassRules.scaleAmount(chunkIron, ClassManager:getModifier(player, Enums.ClassModifier.REPAIR_COST))
 	local gained, cost = StructureRules.repairChunk(placement.maxHp, placement.hp, chunkHp, chunkIron)
 	if gained <= 0 then
 		return
@@ -774,7 +774,7 @@ function PlacementManager:init()
 	self:replicateTowerCount()
 	GameController:registerPlaceManager(self)
 	-- the dev dropdown's class change swaps that player's towers on every bar
-	CharacterManager:subscribeClassChanged(
+	ClassManager:subscribeClassChanged(
 		function(_player: Player, _classKind: number)
 			self:replicateLoadouts()
 		end

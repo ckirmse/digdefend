@@ -6,7 +6,8 @@ local it = JestGlobals.it
 local expect = JestGlobals.expect
 
 local Attributes = require(game:GetService("ReplicatedStorage").Shared.Attributes)
-local CharacterSchema = require(game:GetService("ReplicatedStorage").Shared.CharacterSchema)
+local ClassSchema = require(game:GetService("ReplicatedStorage").Shared.ClassSchema)
+local CosmeticLoadoutSchema = require(game:GetService("ReplicatedStorage").Shared.CosmeticLoadoutSchema)
 local Enums = require(game:GetService("ReplicatedStorage").Shared.Enums)
 local GachaRules = require(game:GetService("ReplicatedStorage").Shared.GachaRules)
 local PlayerPublicSchema = require(game:GetService("ReplicatedStorage").Shared.PlayerPublicSchema)
@@ -15,20 +16,11 @@ local PlayerPublicSchema = require(game:GetService("ReplicatedStorage").Shared.P
 local PROGRESS = { RECRUIT = 0, GUNNER = 2 }
 local MAX_SKILL_SLOTS = 3
 
-local function makeCharacter()
+local function makeRecords()
 	return {
-		id = "char-1",
-		name = "Digger Dan",
-		classKind = "GUNNER",
-		nightsSurvived = 20,
-		gear = {
-			WEAPON = { kind = "RIFLE", stars = 2 },
-			POST = { kind = "ROCKET_LAUNCHER", stars = 4 },
-			TOWER_1 = { kind = "TESLA_COIL", stars = 1 },
-			TOWER_2 = { kind = "SNIPER_TOWER", stars = 3 },
+		GUNNER = {
+			skills = { ["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.Rarity.RARE } },
 		},
-		skills = { ["1"] = { skillId = "GOLD_DIGGER", rarity = Enums.Rarity.RARE } },
-		cosmetics = { HELMET = "lamp" },
 	}
 end
 
@@ -39,7 +31,9 @@ local function makeSnapshot()
 		isReady = true,
 		isAdmin = true,
 		diamonds = 4321,
-		activeCharacter = makeCharacter(),
+		classRecords = makeRecords(),
+		activeClassKind = Enums.ClassKind.GUNNER,
+		cosmetics = { HELMET = "lamp" },
 		classProgress = PROGRESS,
 		maxSkillSlots = MAX_SKILL_SLOTS,
 		keys = 5,
@@ -70,67 +64,44 @@ describe(
 				local attributes = PlayerPublicSchema.buildPublicAttributes(makeSnapshot())
 				expect(attributes[Attributes.IS_ADMIN]).toBeNil()
 				expect(attributes[Attributes.DIAMONDS]).toBeNil()
-				expect(attributes[Attributes.CHARACTER_WEAPON_KIND]).toBeNil()
+				expect(attributes[Attributes.CLASS_RECORDS]).toBeNil()
 			end
 		)
 	end
 )
 
 describe(
-	"PlayerPublicSchema.buildCharacterAttributes",
+	"PlayerPublicSchema.buildClassAttributes",
 	function()
 		it(
-			"maps a character to enum values, the open slot count, and the codecs",
+			"carries the active class as a value and every record through the codec",
 			function()
-				local attributes = PlayerPublicSchema.buildCharacterAttributes(makeCharacter(), PROGRESS, MAX_SKILL_SLOTS)
-				expect(attributes[Attributes.CHARACTER_ID]).toBe("char-1")
-				expect(attributes[Attributes.CHARACTER_NAME]).toBe("Digger Dan")
-				expect(attributes[Attributes.CHARACTER_NIGHTS_SURVIVED]).toBe(20)
-				expect(attributes[Attributes.CHARACTER_CLASS_KIND]).toBe(Enums.ClassKind.GUNNER)
-				expect(attributes[Attributes.CHARACTER_WEAPON_KIND]).toBe(Enums.WeaponKind.RIFLE)
-				expect(attributes[Attributes.CHARACTER_WEAPON_STARS]).toBe(2)
-				expect(attributes[Attributes.CHARACTER_POST_KIND]).toBe(Enums.PostWeaponKind.ROCKET_LAUNCHER)
-				expect(attributes[Attributes.CHARACTER_POST_STARS]).toBe(4)
-				expect(attributes[Attributes.CHARACTER_TOWER_1_KIND]).toBe(Enums.TowerKind.TESLA_COIL)
-				expect(attributes[Attributes.CHARACTER_TOWER_1_STARS]).toBe(1)
-				expect(attributes[Attributes.CHARACTER_TOWER_2_KIND]).toBe(Enums.TowerKind.SNIPER_TOWER)
-				expect(attributes[Attributes.CHARACTER_TOWER_2_STARS]).toBe(3)
-				expect(attributes[Attributes.CHARACTER_SKILL_SLOTS_OPEN]).toBe(2)
-				expect(CharacterSchema.decodeSkills(attributes[Attributes.CHARACTER_SKILLS])).toEqual(makeCharacter().skills)
-				expect(CharacterSchema.decodeCosmetics(attributes[Attributes.CHARACTER_COSMETICS])).toEqual({ HELMET = "lamp" })
+				local attributes = PlayerPublicSchema.buildClassAttributes(makeRecords(), Enums.ClassKind.GUNNER, MAX_SKILL_SLOTS)
+				expect(attributes[Attributes.ACTIVE_CLASS_KIND]).toBe(Enums.ClassKind.GUNNER)
+				expect(ClassSchema.decodeRecords(attributes[Attributes.CLASS_RECORDS])).toEqual(makeRecords())
 			end
 		)
 
 		it(
-			"writes blanks for no character so stale values are overwritten",
+			"writes blanks for no save so stale values are overwritten",
 			function()
-				local attributes = PlayerPublicSchema.buildCharacterAttributes(nil, PROGRESS, MAX_SKILL_SLOTS)
-				expect(attributes[Attributes.CHARACTER_ID]).toBe("")
-				expect(attributes[Attributes.CHARACTER_WEAPON_KIND]).toBe(0)
-				expect(attributes[Attributes.CHARACTER_SKILL_SLOTS_OPEN]).toBe(0)
-				expect(attributes[Attributes.CHARACTER_SKILLS]).toBe("")
-				expect(attributes[Attributes.CHARACTER_TOWER_2_STARS]).toBe(0)
-				local filled = PlayerPublicSchema.buildCharacterAttributes(makeCharacter(), PROGRESS, MAX_SKILL_SLOTS)
-				for name in filled do
-					expect(attributes[name]).never.toBeNil()
-				end
+				local attributes = PlayerPublicSchema.buildClassAttributes(nil, nil, nil)
+				expect(attributes[Attributes.ACTIVE_CLASS_KIND]).toBe(0)
+				expect(attributes[Attributes.CLASS_RECORDS]).toBe("")
 			end
 		)
 	end
 )
 
 describe(
-	"PlayerPublicSchema.getGearAttributes",
+	"PlayerPublicSchema.classKindOf",
 	function()
 		it(
-			"names a kind and a stars attribute for every gear slot",
+			"resolves a class name and reads nil or an unknown name as 0",
 			function()
-				for _, gearSlot in Enums.getAllValues(Enums.GearSlot) do
-					local kindAttribute, starsAttribute = PlayerPublicSchema.getGearAttributes(gearSlot)
-					expect(typeof(kindAttribute)).toBe("string")
-					expect(typeof(starsAttribute)).toBe("string")
-				end
-				expect((PlayerPublicSchema.getGearAttributes(99))).toBeNil()
+				expect(PlayerPublicSchema.classKindOf("GUNNER")).toBe(Enums.ClassKind.GUNNER)
+				expect(PlayerPublicSchema.classKindOf("NOPE")).toBe(0)
+				expect(PlayerPublicSchema.classKindOf(nil)).toBe(0)
 			end
 		)
 	end
@@ -140,14 +111,15 @@ describe(
 	"PlayerPublicSchema.buildCurrentPlayerAttributes",
 	function()
 		it(
-			"maps private fields and the active character",
+			"maps private fields, the gacha state, and the classes",
 			function()
 				local attributes = PlayerPublicSchema.buildCurrentPlayerAttributes(makeSnapshot())
 				expect(attributes[Attributes.USER_ID]).toBe(123)
 				expect(attributes[Attributes.DIAMONDS]).toBe(4321)
 				expect(attributes[Attributes.IS_ADMIN]).toBe(true)
-				expect(attributes[Attributes.CHARACTER_ID]).toBe("char-1")
-				expect(attributes[Attributes.CHARACTER_TOWER_2_KIND]).toBe(Enums.TowerKind.SNIPER_TOWER)
+				expect(attributes[Attributes.ACTIVE_CLASS_KIND]).toBe(Enums.ClassKind.GUNNER)
+				expect(ClassSchema.decodeRecords(attributes[Attributes.CLASS_RECORDS]).GUNNER.skills["1"].skillId).toBe("GOLD_DIGGER")
+				expect(CosmeticLoadoutSchema.decode(attributes[Attributes.COSMETICS])).toEqual({ HELMET = "lamp" })
 				expect(attributes[Attributes.DAILY_REWARD_LAST_CLAIMED_DAY]).toBe(3)
 				expect(attributes[Attributes.DAILY_REWARD_NEXT_CLAIM_TIME]).toBe(1700000000)
 				expect(attributes[Attributes.KEYS]).toBe(5)
@@ -166,7 +138,8 @@ describe(
 				})
 				expect(attributes[Attributes.DIAMONDS]).toBe(0)
 				expect(attributes[Attributes.IS_ADMIN]).toBe(false)
-				expect(attributes[Attributes.CHARACTER_ID]).toBe("")
+				expect(attributes[Attributes.ACTIVE_CLASS_KIND]).toBe(0)
+				expect(attributes[Attributes.CLASS_RECORDS]).toBe("")
 				expect(attributes[Attributes.DAILY_REWARD_LAST_CLAIMED_DAY]).toBe(0)
 				expect(attributes[Attributes.KEYS]).toBe(0)
 				expect(GachaRules.decodeProgress(attributes[Attributes.CLASS_PROGRESS])).toEqual({})

@@ -4,8 +4,9 @@
 -- data out, so it is unit-testable and PlayerData (the sole owner of the live
 -- record) stays thin. Adding a save field = a type entry, a default, and a
 -- validation rule here, plus coverage in the reset-player dev tool contract.
-local CharacterSchema = require(script.Parent.CharacterSchema)
+local ClassSchema = require(script.Parent.ClassSchema)
 local CompletionKeys = require(script.Parent.CompletionKeys)
+local CosmeticLoadoutSchema = require(script.Parent.CosmeticLoadoutSchema)
 local Enums = require(script.Parent.Enums)
 local Validate = require(script.Parent.Validate)
 
@@ -25,13 +26,18 @@ export type DailyRewardSave = {
 
 export type SaveData = {
 	diamonds: number,
-	-- the player's characters in slot order (M55); every player has at
-	-- least one, and a character is named by its id, never its position.
-	-- The bought-unlock `ownedUnlocks` and `loadout` fields went with the
-	-- Character redesign on 2026-10-12: the character brings its gear
-	characters: { CharacterSchema.CharacterSave },
-	-- the id of the character the player brings on the next run
-	activeCharacterId: string,
+	-- Enums.ClassKind key name -> what the player has put on that class
+	-- (its rolled skills; the Class Equip Menu of 2026-11-04, which
+	-- replaced the `characters` list of M55: a class is the loadout now).
+	-- A class with no record reads as the default one
+	classes: ClassSchema.Records,
+	-- the account's one cosmetic loadout, worn with every class (designer,
+	-- 2026-11-04; a field of each class record for a few hours before, and
+	-- of each character before that)
+	cosmetics: CosmeticLoadoutSchema.Loadout,
+	-- Enums.ClassKind key name of the class the player brings on the next
+	-- run; always an owned one
+	activeClassKind: string,
 	-- set of CompletionKeys ("MAP/DIFFICULTY")
 	completions: { [string]: boolean },
 	dailyReward: DailyRewardSave,
@@ -56,10 +62,13 @@ export type SaveData = {
 
 export type Defaults = {
 	startingDiamonds: number,
-	character: CharacterSchema.Defaults,
-	maxCharacters: number,
-	-- makes a fresh character id; handed in so the schema stays pure
-	generateId: () -> string,
+	class: ClassSchema.Defaults,
+	-- Enums.CosmeticSlot key name -> the skin a new account wears; a
+	-- loadout missing one of these slots is repaired to it
+	defaultCosmetics: CosmeticLoadoutSchema.Loadout,
+	-- Enums.ClassKind value every new player starts as, the one class
+	-- always owned, and the one a save is repaired to
+	defaultClassKind: number,
 }
 
 -- only the newest receipts are kept: Roblox retries a receipt for days at
@@ -77,33 +86,32 @@ function PlayerSaveSchema.getDefaultReviveCredits(): { [string]: number }
 	return credits
 end
 
--- the empty character a new slot holds, named for its position
-function PlayerSaveSchema.makeDefaultCharacter(defaults: Defaults, index: number): CharacterSchema.CharacterSave
-	return CharacterSchema.getDefault(defaults.character, defaults.generateId(), CharacterSchema.makeDefaultName(defaults.character, index))
+function PlayerSaveSchema.getDefaultClassName(defaults: Defaults): string
+	return Enums.getName(Enums.ClassKind, defaults.defaultClassKind) :: string
 end
 
 -- the free class, owned from the start with no skill slots
 function PlayerSaveSchema.getDefaultClassProgress(defaults: Defaults): { [string]: number }
 	return {
-		[Enums.getName(Enums.ClassKind, defaults.character.defaultClassKind) :: string] = 0,
+		[PlayerSaveSchema.getDefaultClassName(defaults)] = 0,
 	}
 end
 
--- every cosmetic a new character wears is owned by every account
+-- every cosmetic a new account wears is owned by every account
 function PlayerSaveSchema.getDefaultOwnedCosmetics(defaults: Defaults): { [string]: boolean }
 	local owned: { [string]: boolean } = {}
-	for _, cosmeticId in defaults.character.defaultCosmetics do
+	for _, cosmeticId in defaults.defaultCosmetics do
 		owned[cosmeticId] = true
 	end
 	return owned
 end
 
 function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
-	local firstCharacter = PlayerSaveSchema.makeDefaultCharacter(defaults, 1)
 	return {
 		diamonds = defaults.startingDiamonds,
-		characters = { firstCharacter },
-		activeCharacterId = firstCharacter.id,
+		classes = {},
+		cosmetics = CosmeticLoadoutSchema.getDefault(defaults.defaultCosmetics),
+		activeClassKind = PlayerSaveSchema.getDefaultClassName(defaults),
 		completions = {},
 		dailyReward = {
 			lastClaimedDay = 0,
@@ -123,62 +131,86 @@ function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 	}
 end
 
--- every record repaired by CharacterSchema in list order; a record that
--- cannot be repaired, a duplicate id, or one past the cap is dropped, and a
--- player is never left without a character
-local function validateCharacters(data: any, defaults: Defaults, repairs: { Repair })
+-- a save from before the Class Menu (M55 to 2026-11-04) carried a
+-- `characters` list, each with a class, skills, and cosmetics, and the id
+-- of the active one. Each character's skills become its class's record
+-- (the first character seen for a class wins), the active character's
+-- class becomes the active class, its cosmetics the account's loadout,
+-- and the old fields go. The profile is reconciled against the defaults
+-- before it gets here, so `classes` already exists; what the old list
+-- holds is laid over it
+local function migrateCharacters(data: any, repairs: { Repair })
 	if typeof(data.characters) ~= "table" then
-		data.characters = { PlayerSaveSchema.makeDefaultCharacter(defaults, 1) }
-		table.insert(repairs, "characters reset")
 		return
 	end
-	local kept: { CharacterSchema.CharacterSave } = {}
-	local seenIds: { [string]: boolean } = {}
-	local isRepaired = false
-	for key, record in data.characters do
-		if typeof(key) ~= "number" then
-			table.insert(repairs, "characters dropped entry " .. tostring(key))
-			isRepaired = true
-			continue
-		end
-		local position = #kept + 1
-		local prefix = "characters[" .. tostring(key) .. "]."
-		local validated = CharacterSchema.validate(record, defaults.character, CharacterSchema.makeDefaultName(defaults.character, position), prefix, repairs)
-		if not validated then
-			isRepaired = true
-			continue
-		end
-		if seenIds[validated.id] then
-			table.insert(repairs, prefix .. "dropped: duplicate id")
-			isRepaired = true
-			continue
-		end
-		if position > defaults.maxCharacters then
-			table.insert(repairs, prefix .. "dropped: over the character cap")
-			isRepaired = true
-			continue
-		end
-		seenIds[validated.id] = true
-		table.insert(kept, validated)
+	if typeof(data.classes) ~= "table" then
+		data.classes = {}
 	end
-	if #kept == 0 then
-		table.insert(kept, PlayerSaveSchema.makeDefaultCharacter(defaults, 1))
-		table.insert(repairs, "characters refilled with a new character")
-		isRepaired = true
+	local activeClassName: string? = nil
+	for _, record in data.characters do
+		if typeof(record) ~= "table" or typeof(record.classKind) ~= "string" then
+			continue
+		end
+		if data.classes[record.classKind] == nil then
+			data.classes[record.classKind] = {
+				skills = if typeof(record.skills) == "table" then record.skills else {},
+			}
+		end
+		if record.id ~= nil and record.id == data.activeCharacterId then
+			activeClassName = record.classKind
+			if typeof(record.cosmetics) == "table" then
+				data.cosmetics = record.cosmetics
+			end
+		end
 	end
-	if isRepaired then
-		data.characters = kept
+	if activeClassName then
+		data.activeClassKind = activeClassName
+	end
+	data.characters = nil
+	data.activeCharacterId = nil
+	table.insert(repairs, "characters migrated to classes")
+end
+
+-- for a few hours on 2026-11-04 each class record carried its own
+-- `cosmetics`: the active class's become the account's loadout and every
+-- record's copy goes, so the record validation never reports them
+local function migrateClassCosmetics(data: any, repairs: { Repair })
+	if typeof(data.classes) ~= "table" then
+		return
+	end
+	local isFound = false
+	for className, record in data.classes do
+		if typeof(record) ~= "table" or record.cosmetics == nil then
+			continue
+		end
+		if className == data.activeClassKind and typeof(record.cosmetics) == "table" then
+			data.cosmetics = record.cosmetics
+		end
+		record.cosmetics = nil
+		isFound = true
+	end
+	if isFound then
+		table.insert(repairs, "class cosmetics migrated to the account loadout")
 	end
 end
 
-local function validateActiveCharacterId(data: any, repairs: { Repair })
-	for _, record in data.characters do
-		if record.id == data.activeCharacterId then
-			return
-		end
+local function validateCosmetics(data: any, defaults: Defaults, repairs: { Repair })
+	data.cosmetics = CosmeticLoadoutSchema.validate(data.cosmetics, defaults.defaultCosmetics, "cosmetics.", repairs)
+end
+
+local function validateClasses(data: any, defaults: Defaults, repairs: { Repair })
+	data.classes = ClassSchema.validateRecords(data.classes, defaults.class, repairs)
+end
+
+-- the active class must be one the account owns (classProgress validated
+-- first), else the free one
+local function validateActiveClassKind(data: any, defaults: Defaults, repairs: { Repair })
+	local name = data.activeClassKind
+	if typeof(name) == "string" and Enums.getValueByName(Enums.ClassKind, name) ~= nil and data.classProgress[name] ~= nil then
+		return
 	end
-	data.activeCharacterId = data.characters[1].id
-	table.insert(repairs, "activeCharacterId reset")
+	data.activeClassKind = PlayerSaveSchema.getDefaultClassName(defaults)
+	table.insert(repairs, "activeClassKind reset")
 end
 
 local function validateCompletions(data: any, repairs: { Repair })
@@ -263,7 +295,7 @@ local function validateClassProgress(data: any, defaults: Defaults, repairs: { R
 		table.insert(repairs, "classProgress reset")
 		return
 	end
-	local maxSkillSlots = CharacterSchema.getMaxSkillSlots(defaults.character)
+	local maxSkillSlots = defaults.class.maxSkillSlots
 	for className, slots in data.classProgress do
 		if typeof(className) ~= "string" or Enums.getValueByName(Enums.ClassKind, className) == nil then
 			data.classProgress[className] = nil
@@ -318,6 +350,11 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 
 	local defaultData = PlayerSaveSchema.getDefault(defaults)
 
+	-- an older save's characters become class records before anything
+	-- reads either field, and a class record's cosmetics the account's
+	migrateCharacters(data, repairs)
+	migrateClassCosmetics(data, repairs)
+
 	-- the balance was saved as "cash" until M33 (2026-10-06): an older save
 	-- carries it across under its new name, once. The profile is reconciled
 	-- against the defaults before it gets here, so `diamonds` already holds
@@ -334,9 +371,8 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 		table.insert(repairs, "diamonds reset")
 	end
 
-	-- characters before the active id: the id must name a kept character
-	validateCharacters(data, defaults, repairs)
-	validateActiveCharacterId(data, repairs)
+	validateClasses(data, defaults, repairs)
+	validateCosmetics(data, defaults, repairs)
 	validateCompletions(data, repairs)
 
 	if typeof(data.dailyReward) ~= "table" then
@@ -369,6 +405,8 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 		table.insert(repairs, "keys reset")
 	end
 	validateOwnedCosmetics(data, defaults, repairs)
+	-- after the progress: the active class must be an owned one
+	validateActiveClassKind(data, defaults, repairs)
 
 	-- unknown top-level keys are dropped so a renamed field cannot linger
 	-- forever (the pre-M55 ownedUnlocks and loadout go this way: only the

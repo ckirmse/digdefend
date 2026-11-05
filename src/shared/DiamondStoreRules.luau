@@ -146,4 +146,28 @@ function DiamondStoreRules.isOnSale(pack: PublishedPack): boolean
 	return pack.productId ~= 0
 end
 
+-- the pack to offer a player short of Diamonds: the smallest on-sale one
+-- that covers the shortfall, else the largest on sale (something is
+-- always offered while any pack is), nil when nothing is on sale or the
+-- player is not short at all
+function DiamondStoreRules.packForShortfall(published: { PublishedPack }, priceDiamonds: number, balance: number): PublishedPack?
+	local shortfall = priceDiamonds - balance
+	if shortfall <= 0 then
+		return nil
+	end
+	local largest: PublishedPack? = nil
+	for _, pack in published do
+		if not DiamondStoreRules.isOnSale(pack) then
+			continue
+		end
+		if pack.diamonds >= shortfall then
+			return pack
+		end
+		if not largest or pack.diamonds > largest.diamonds then
+			largest = pack
+		end
+	end
+	return largest
+end
+
 return DiamondStoreRules

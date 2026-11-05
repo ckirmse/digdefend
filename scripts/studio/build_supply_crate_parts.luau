@@ -56,5 +56,32 @@ for _, shot in SHOTS do
 	table.insert(made, shot.name)
 end
 
+-- the crate's sounds under SoundService.Sfx, wired to the device output
+-- (the designer's CrateOpen is kept; ClassUnlocked added 2026-11-04)
+local SoundNames = require(game.ReplicatedStorage.Shared.SoundNames)
+local SOUNDS = {
+	{ name = SoundNames.Sfx.CLASS_UNLOCKED, assetId = 86883509504250 },
+	{ name = SoundNames.Sfx.CLASS_TIER_UP, assetId = 17759873264 },
+}
+local sfx = game.SoundService:FindFirstChild("Sfx")
+local output = game.SoundService:FindFirstChildWhichIsA("AudioDeviceOutput")
+if sfx and output then
+	for _, sound in SOUNDS do
+		if sfx:FindFirstChild(sound.name) then
+			continue
+		end
+		local player = Instance.new("AudioPlayer")
+		player.Name = sound.name
+		player.Volume = 1
+		player.Asset = `rbxassetid://{sound.assetId}`
+		local wire = Instance.new("Wire")
+		wire.SourceInstance = player
+		wire.TargetInstance = output
+		wire.Parent = player
+		player.Parent = sfx
+		table.insert(made, sound.name)
+	end
+end
+
 ChangeHistoryService:SetWaypoint("Supply crate parts")
 return if #made == 0 then "supply crate camera parts already present" else "made " .. table.concat(made, ", ")

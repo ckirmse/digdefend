@@ -115,6 +115,10 @@ UiStyle.HUD_SLIDE_SEC = 0.9
 -- how much a HUD element swells (1 = none) when a flying icon lands on it
 UiStyle.HUD_BUMP_SCALE = 1.12
 UiStyle.BALANCE_FLASH_SEC = 0.6
+-- a purchase the player cannot afford: the balance flashes red this many
+-- times, each on for this long and off for as long again
+UiStyle.BALANCE_SHORT_FLASH_COUNT = 3
+UiStyle.BALANCE_SHORT_FLASH_SEC = 0.2
 
 -- the Camp Map (M33): a structure's colour by Enums.StructureHealthBand,
 -- the players' dots (each crewmate in their compass colour, the local
@@ -163,10 +167,25 @@ UiStyle.GACHA_PANEL_FADE_SEC = 0.5
 -- the 3D class card (designer, 2026-11-03): its rise out of the crate, a
 -- newly earned star's colour turning gold, and the star colours themselves
 UiStyle.GACHA_CARD_RISE_SEC = 0.8
+-- a maxed class's card sinking back for Keys, twice the rise's pace
+-- (designer, 2026-11-04)
+-- a cosmetic prize's size at PrizeStart as a share of its PrizeEnd size,
+-- grown over the rise (designer, 2026-11-04)
+UiStyle.GACHA_PRIZE_START_SCALE_SHARE = 0.2
+UiStyle.GACHA_CARD_SINK_SEC = 0.4
 -- the Key's rise out of the crate and one full turn about its upright
--- while it waits for the claim (designer, 2026-11-03)
+-- while it waits for the claim (designer, 2026-11-03); a cosmetic prize
+-- spins at the same pace, halved to 4 s a turn on 2026-11-04
 UiStyle.GACHA_KEY_RISE_SEC = 0.8
-UiStyle.GACHA_KEY_SPIN_SEC = 2
+UiStyle.GACHA_KEY_SPIN_SEC = 4
+-- the landed class card's idle (designer, 2026-11-04): a slow bob about
+-- CardEnd, its height as a share of the card's, with a slight tilt
+UiStyle.GACHA_CARD_FLOAT_PERIOD_SEC = 3.5
+UiStyle.GACHA_CARD_FLOAT_HEIGHT_SHARE = 0.06
+UiStyle.GACHA_CARD_FLOAT_TILT_DEGREES = 4
+-- the float's swing grows from nothing over this long, so the landed
+-- card eases into its drift instead of snapping to it
+UiStyle.GACHA_CARD_FLOAT_EASE_IN_SEC = 1.2
 UiStyle.GACHA_STAR_FILL_SEC = 0.5
 -- the beat between the card landing and its new star lighting (designer)
 UiStyle.GACHA_STAR_DELAY_SEC = 0.5

@@ -98,6 +98,24 @@ describe(
 )
 
 describe(
+	"GachaRules.drawForPrizeKey",
+	function()
+		it(
+			"turns a prize key back into its draw and refuses one outside the pool",
+			function()
+				local pool = makePool()
+				local classDraw = GachaRules.drawForPrizeKey(pool, "CLASS:" .. Enums.ClassKind.SNIPER)
+				expect(classDraw).toEqual({ kind = Enums.GachaResultKind.CLASS, classKind = Enums.ClassKind.SNIPER })
+				local cosmeticDraw = GachaRules.drawForPrizeKey(pool, "COSMETIC:LAMP")
+				expect(cosmeticDraw).toEqual({ kind = Enums.GachaResultKind.COSMETIC, cosmeticId = "LAMP" })
+				expect(GachaRules.drawForPrizeKey(pool, "KEYS")).toEqual({ kind = Enums.GachaResultKind.KEYS })
+				expect(GachaRules.drawForPrizeKey(pool, "COSMETIC:NOPE")).toBe(nil)
+			end
+		)
+	end
+)
+
+describe(
 	"GachaRules.formatOddsPercent",
 	function()
 		it(

@@ -5,7 +5,8 @@
 -- and the private CurrentPlayer folder only that player sees. Pure so the
 -- public/private split is unit tested.
 local Attributes = require(script.Parent.Attributes)
-local CharacterSchema = require(script.Parent.CharacterSchema)
+local ClassSchema = require(script.Parent.ClassSchema)
+local CosmeticLoadoutSchema = require(script.Parent.CosmeticLoadoutSchema)
 local Enums = require(script.Parent.Enums)
 local GachaRules = require(script.Parent.GachaRules)
 
@@ -17,11 +18,14 @@ export type Snapshot = {
 	isReady: boolean,
 	isAdmin: boolean?,
 	diamonds: number?,
-	-- the character the player brings (M55); nil only for a snapshot built
-	-- before the save loaded
-	activeCharacter: CharacterSchema.CharacterSave?,
-	-- the account's class progress (M70), so a character's open skill
-	-- slot count travels with it; nil before the save loaded
+	-- every class record (the Class Menu, 2026-11-04) and the class the
+	-- player brings; nil only for a snapshot built before the save loaded
+	classRecords: ClassSchema.Records?,
+	activeClassKind: number?,
+	-- the account's one cosmetic loadout (2026-11-04); nil before the save
+	cosmetics: CosmeticLoadoutSchema.Loadout?,
+	-- the account's class progress (M70), so a class's open skill slot
+	-- count can be read beside its record; nil before the save loaded
 	classProgress: GachaRules.Progress?,
 	maxSkillSlots: number?,
 	keys: number?,
@@ -31,22 +35,6 @@ export type Snapshot = {
 }
 
 type AttributeMap = { [string]: any }
-
--- the two attributes each gear row travels as, by Enums.GearSlot
-local GEAR_ATTRIBUTES_BY_SLOT: { [number]: { kind: string, stars: string } } = {
-	[Enums.GearSlot.WEAPON] = { kind = Attributes.CHARACTER_WEAPON_KIND, stars = Attributes.CHARACTER_WEAPON_STARS },
-	[Enums.GearSlot.POST] = { kind = Attributes.CHARACTER_POST_KIND, stars = Attributes.CHARACTER_POST_STARS },
-	[Enums.GearSlot.TOWER_1] = { kind = Attributes.CHARACTER_TOWER_1_KIND, stars = Attributes.CHARACTER_TOWER_1_STARS },
-	[Enums.GearSlot.TOWER_2] = { kind = Attributes.CHARACTER_TOWER_2_KIND, stars = Attributes.CHARACTER_TOWER_2_STARS },
-}
-
-function PlayerPublicSchema.getGearAttributes(gearSlot: number): (string?, string?)
-	local entry = GEAR_ATTRIBUTES_BY_SLOT[gearSlot]
-	if not entry then
-		return nil, nil
-	end
-	return entry.kind, entry.stars
-end
 
 -- public state every client sees for a player (one AllPlayers entry); balances
 -- and flags stay private by decision
@@ -58,36 +46,24 @@ function PlayerPublicSchema.buildPublicAttributes(snapshot: Snapshot): Attribute
 	}
 end
 
--- one character as attributes: on CurrentPlayer for the active one, and on
--- its own folder under CurrentPlayer.Characters for every one (M55). Kinds
--- travel as enum values, so the client never sees a save's key names;
--- nil writes blanks, so a cleared value still overwrites the old one. The
--- open skill slots are the account's gacha progress on the record's class
--- (M70), so two characters of one class open together
-function PlayerPublicSchema.buildCharacterAttributes(record: CharacterSchema.CharacterSave?, classProgress: GachaRules.Progress?, maxSkillSlots: number?): AttributeMap
-	local progress = classProgress or {}
-	local slotCount = maxSkillSlots or 0
-	local classKind = if record then (Enums.getValueByName(Enums.ClassKind, record.classKind) or 0) else 0
-	local attributes: AttributeMap = {
-		[Attributes.CHARACTER_ID] = if record then record.id else "",
-		[Attributes.CHARACTER_NAME] = if record then record.name else "",
-		[Attributes.CHARACTER_NIGHTS_SURVIVED] = if record then record.nightsSurvived else 0,
-		[Attributes.CHARACTER_CLASS_KIND] = classKind,
-		[Attributes.CHARACTER_SKILL_SLOTS_OPEN] = if record then GachaRules.openSkillSlots(progress, classKind, slotCount) else 0,
-		[Attributes.CHARACTER_SKILLS] = if record then CharacterSchema.encodeSkills(record.skills, slotCount) else "",
-		[Attributes.CHARACTER_COSMETICS] = if record then CharacterSchema.encodeCosmetics(record.cosmetics) else "",
+-- the class the player brings and every class record as one JSON string
+-- (ClassSchema codec), on CurrentPlayer: kinds travel as enum values, so
+-- the client never sees a save's key names, and nil writes blanks so a
+-- cleared value still overwrites the old one. The open skill slots are
+-- the account's gacha progress on each class, already replicated
+function PlayerPublicSchema.buildClassAttributes(records: ClassSchema.Records?, activeClassKind: number?, maxSkillSlots: number?): AttributeMap
+	return {
+		[Attributes.ACTIVE_CLASS_KIND] = activeClassKind or 0,
+		[Attributes.CLASS_RECORDS] = if records then ClassSchema.encodeRecords(records, maxSkillSlots or 0) else "",
 	}
-	for gearSlot, names in GEAR_ATTRIBUTES_BY_SLOT do
-		local kind, stars = 0, 0
-		if record then
-			local resolvedKind, resolvedStars = CharacterSchema.getGear(record, gearSlot)
-			kind = resolvedKind or 0
-			stars = resolvedStars
-		end
-		attributes[names.kind] = kind
-		attributes[names.stars] = stars
-	end
-	return attributes
+end
+
+-- the cosmetic loadout as one JSON string (CosmeticLoadoutSchema codec)
+-- on CurrentPlayer; nil writes blanks so a cleared value still overwrites
+function PlayerPublicSchema.buildCosmeticAttributes(cosmetics: CosmeticLoadoutSchema.Loadout?): AttributeMap
+	return {
+		[Attributes.COSMETICS] = if cosmetics then CosmeticLoadoutSchema.encode(cosmetics) else "",
+	}
 end
 
 -- the account's gacha state (M70): the Keys balance, the class progress
@@ -101,7 +77,7 @@ function PlayerPublicSchema.buildGachaAttributes(snapshot: Snapshot): AttributeM
 end
 
 -- private per-player state (CurrentPlayer attributes); marker-folder sets
--- (completions) and the character list are children, not attributes
+-- (completions) are children, not attributes
 function PlayerPublicSchema.buildCurrentPlayerAttributes(snapshot: Snapshot): AttributeMap
 	local attributes: AttributeMap = {
 		[Attributes.USER_ID] = snapshot.userId,
@@ -113,10 +89,21 @@ function PlayerPublicSchema.buildCurrentPlayerAttributes(snapshot: Snapshot): At
 	for name, value in PlayerPublicSchema.buildGachaAttributes(snapshot) do
 		attributes[name] = value
 	end
-	for name, value in PlayerPublicSchema.buildCharacterAttributes(snapshot.activeCharacter, snapshot.classProgress, snapshot.maxSkillSlots) do
+	for name, value in PlayerPublicSchema.buildClassAttributes(snapshot.classRecords, snapshot.activeClassKind, snapshot.maxSkillSlots) do
+		attributes[name] = value
+	end
+	for name, value in PlayerPublicSchema.buildCosmeticAttributes(snapshot.cosmetics) do
 		attributes[name] = value
 	end
 	return attributes
+end
+
+-- the Enums.ClassKind value a save's class name means, for the snapshot
+function PlayerPublicSchema.classKindOf(className: string?): number
+	if not className then
+		return 0
+	end
+	return Enums.getValueByName(Enums.ClassKind, className) or 0
 end
 
 return PlayerPublicSchema

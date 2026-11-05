@@ -28,7 +28,7 @@ local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local HandheldData = require("@game/ServerScriptService/GameData/Weapons/Handheld")
 local UpgradesData = require("@game/ServerScriptService/GameData/Weapons/Upgrades")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -207,7 +207,7 @@ function WeaponManager:fire(player: Player, origin: Vector3, direction: Vector3)
 	state.ammo -= 1
 
 	-- the class's handheld damage scales every shot (M64)
-	local damageScale: number = CharacterManager:getModifier(player, Enums.ClassModifier.HANDHELD_DAMAGE)
+	local damageScale: number = ClassManager:getModifier(player, Enums.ClassModifier.HANDHELD_DAMAGE)
 	local worldDistance = self:getWorldDistance(origin, unitDirection, stats.rangeStuds, true)
 	local cone = data.CONE
 	if cone then
@@ -284,7 +284,7 @@ function WeaponManager:fireSecondary(player: Player, origin: Vector3, direction:
 	end
 	state.secondaryReadyTime = now + secondary.COOLDOWN_SEC
 	self:replicate(player)
-	local damageScale: number = CharacterManager:getModifier(player, Enums.ClassModifier.HANDHELD_DAMAGE)
+	local damageScale: number = ClassManager:getModifier(player, Enums.ClassModifier.HANDHELD_DAMAGE)
 	local damage = secondary.DAMAGE * damageScale
 	local weaponKind = state.weaponKind
 	ProjectileManager:launch({
@@ -412,7 +412,7 @@ function WeaponManager:onPlayerReady(player: Player)
 		self:replicate(player)
 		return
 	end
-	local weaponKind = CharacterManager:getGearKind(player, Enums.GearSlot.WEAPON, HandheldData.DEFAULT_WEAPON)
+	local weaponKind = ClassManager:getGearKind(player, Enums.GearSlot.WEAPON, HandheldData.DEFAULT_WEAPON)
 	local data = self:getWeaponData(weaponKind)
 	if not data then
 		warn(`WeaponManager: no GameData/Weapons/Handheld entry for weapon {weaponKind}; using the default`)
@@ -444,7 +444,7 @@ function WeaponManager:applyClass(player: Player)
 	if not state then
 		return
 	end
-	local weaponKind = CharacterManager:getGearKind(player, Enums.GearSlot.WEAPON, HandheldData.DEFAULT_WEAPON)
+	local weaponKind = ClassManager:getGearKind(player, Enums.GearSlot.WEAPON, HandheldData.DEFAULT_WEAPON)
 	local data = self:getWeaponData(weaponKind)
 	if not data or weaponKind == state.weaponKind then
 		return
@@ -461,7 +461,7 @@ function WeaponManager:applyClass(player: Player)
 end
 
 function WeaponManager:init()
-	CharacterManager:subscribeClassChanged(
+	ClassManager:subscribeClassChanged(
 		function(player: Player, _classKind: number)
 			self:applyClass(player)
 		end

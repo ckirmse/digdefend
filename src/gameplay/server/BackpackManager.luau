@@ -14,7 +14,7 @@ local ClassRules = require("@game/ReplicatedStorage/Shared/ClassRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local BackpackData = require("@game/ServerScriptService/GameData/Mining/Backpack")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
@@ -43,7 +43,7 @@ function BackpackManager:getCapacity(player: Player): number
 	-- capacity through here, so the HUD's total follows
 	return ClassRules.scaleAmount(
 		BackpackRules.capacityForLevel(BackpackData.CAPACITY_BY_LEVEL, level),
-		CharacterManager:getModifier(player, Enums.ClassModifier.BACKPACK_CAPACITY)
+		ClassManager:getModifier(player, Enums.ClassModifier.BACKPACK_CAPACITY)
 	)
 end
 

@@ -55,7 +55,7 @@ export type ClientJetPackManager = typeof(setmetatable(
 
 local DOUBLE_TAP_SEC = 0.35
 local DEFAULT_CLIMB_SPEED = 22
-local WORN_MODEL_NAME = "WornJetPack"
+local WORN_MODEL_NAME = Constants.WORN_JET_PACK_MODEL
 
 local function isJumpInput(input: InputObject): boolean
 	return input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA

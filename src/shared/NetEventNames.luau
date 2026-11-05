@@ -7,29 +7,21 @@ local module
 
 module = {
 	TRY_DEV_TOOL = "TryDevTool",
-	-- the Character Select Menu (M37): pick the character to bring, buy the
-	-- next slot (Diamonds, or a Robux prompt), rename one (filtered). The
-	-- records themselves arrive as CurrentPlayer attributes and the
-	-- Characters folder; the notify is the buyer's sound and toast
-	TRY_SELECT_CHARACTER = "TrySelectCharacter",
-	TRY_BUY_CHARACTER_SLOT = "TryBuyCharacterSlot",
-	TRY_RENAME_CHARACTER = "TryRenameCharacter",
-	-- equips a cosmetic on a character's slot (an empty id clears it)
+	-- the cosmetics menu (M61; CosmeticManager): equips a skin on a slot
+	-- of the account's one loadout ({ slot, skinId }; an empty id clears
+	-- it)
 	TRY_SET_COSMETIC = "TrySetCosmetic",
-	NOTIFY_CHARACTER_SLOT_BOUGHT = "NotifyCharacterSlotBought",
-	-- the character sheet's rerolls (M37): one result per roll (new stars,
-	-- or one skill), which the player keeps or undoes with the price spent
-	-- either way. The result is held on the server until resolved
-	TRY_REROLL_GEAR = "TryRerollGear",
-	TRY_RESOLVE_GEAR_ROLL = "TryResolveGearRoll",
+	-- the Class Menu's perk rolls: one result per roll ({ classKind, slot
+	-- }), which the player keeps or undoes with the price spent either way.
+	-- The result is held on the server until resolved; the roll into an
+	-- empty slot is free and lands at once (isFinal on the offer)
 	TRY_REROLL_SKILL = "TryRerollSkill",
 	TRY_RESOLVE_SKILL_ROLL = "TryResolveSkillRoll",
-	NOTIFY_GEAR_ROLL_OFFER = "NotifyGearRollOffer",
 	NOTIFY_SKILL_ROLL_OFFER = "NotifySkillRollOffer",
 	-- the class gacha (M70, GachaManager in the lobby): one roll for
 	-- Diamonds, answered with what it turned into; the direct class buy for
 	-- a player restricted from paid random items; and equipping an owned
-	-- class on the active character (CharacterManager, ownership checked)
+	-- class (ClassManager, ownership checked)
 	TRY_ROLL_GACHA = "TryRollGacha",
 	TRY_BUY_CLASS = "TryBuyClass",
 	TRY_SELECT_CLASS = "TrySelectClass",
@@ -39,6 +31,11 @@ module = {
 	-- receipt granted it ({ diamonds }), for the sound
 	TRY_BUY_DIAMOND_PACK = "TryBuyDiamondPack",
 	NOTIFY_DIAMOND_PACK_BOUGHT = "NotifyDiamondPackBought",
+	-- to a player whose Diamonds purchase failed for want of Diamonds
+	-- ({ priceDiamonds, balance }; PlayerFeedbackManager:giveDiamondsShort):
+	-- the lobby client plays the fail, flashes the wallet, says so, and
+	-- asks for the smallest pack that covers it (designer, 2026-11-04)
+	NOTIFY_DIAMONDS_SHORT = "NotifyDiamondsShort",
 	-- helicopter pad parties (GDD "Helicopter Pads"); joining is by touch, not message
 	TRY_CREATE_PARTY = "TryCreateParty",
 	TRY_LEAVE_PARTY = "TryLeaveParty",

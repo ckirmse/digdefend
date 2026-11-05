@@ -17,6 +17,49 @@ local function makePacks()
 end
 
 describe(
+	"DiamondStoreRules.packForShortfall",
+	function()
+		local function makePublished()
+			return DiamondStoreRules.publish(makePacks(), {})
+		end
+
+		it(
+			"offers nothing when the player can afford the price",
+			function()
+				expect(DiamondStoreRules.packForShortfall(makePublished(), 100, 100)).toBe(nil)
+			end
+		)
+
+		it(
+			"offers the smallest on-sale pack that covers the shortfall",
+			function()
+				-- SMALL is not on sale, so a shortfall of 50 takes MEDIUM
+				local pack = DiamondStoreRules.packForShortfall(makePublished(), 150, 100)
+				expect(pack and pack.id).toBe("MEDIUM")
+				local pack2 = DiamondStoreRules.packForShortfall(makePublished(), 500, 100)
+				expect(pack2 and pack2.id).toBe("LARGE")
+			end
+		)
+
+		it(
+			"offers the largest on-sale pack when none covers the shortfall",
+			function()
+				local pack = DiamondStoreRules.packForShortfall(makePublished(), 5000, 0)
+				expect(pack and pack.id).toBe("LARGE")
+			end
+		)
+
+		it(
+			"offers nothing when no pack is on sale",
+			function()
+				local published = DiamondStoreRules.publish({ { id = "SMALL", diamonds = 100, productId = 0 } }, {})
+				expect(DiamondStoreRules.packForShortfall(published, 50, 0)).toBe(nil)
+			end
+		)
+	end
+)
+
+describe(
 	"DiamondStoreRules.validatePacks",
 	function()
 		it(

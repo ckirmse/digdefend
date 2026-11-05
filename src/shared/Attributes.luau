@@ -195,28 +195,20 @@ module = {
 	PAD_TIMER_END_TIME = "PadTimerEndTime",
 	-- CurrentPlayer (private)
 	DIAMONDS = "Diamonds",
-	-- the active character (M55), written by SplendidReplicationManager:
-	-- replicateCharacters from PlayerPublicSchema.buildCharacterAttributes;
-	-- the same set sits on each child of the CurrentPlayer.Characters folder
-	CHARACTER_ID = "CharacterId",
-	CHARACTER_NAME = "CharacterName",
-	CHARACTER_NIGHTS_SURVIVED = "CharacterNightsSurvived",
-	-- Enums.ClassKind value (M64)
-	CHARACTER_CLASS_KIND = "CharacterClassKind",
+	-- the class the player brings (Enums.ClassKind value) and every class
+	-- record as JSON (ClassSchema codec: class name to its skill rows),
+	-- written by SplendidReplicationManager:replicateClasses from
+	-- PlayerPublicSchema.buildClassAttributes (the Class Menu,
+	-- 2026-11-04; the character attributes and folder of M55 before)
+	ACTIVE_CLASS_KIND = "ActiveClassKind",
+	CLASS_RECORDS = "ClassRecords",
+	-- CurrentPlayer (private): the account's one cosmetic loadout as JSON
+	-- (CosmeticLoadoutSchema codec: slot key name to skin id), written by
+	-- replicateCosmetics (2026-11-04)
+	COSMETICS = "Cosmetics",
 	-- CurrentPlayer (private): the active class's MODIFIERS table as JSON
 	-- (ClassRules codec), for the prices the stands show (2026-10-22)
 	CLASS_MODIFIERS = "ClassModifiers",
-	CHARACTER_WEAPON_KIND = "CharacterWeaponKind",
-	CHARACTER_WEAPON_STARS = "CharacterWeaponStars",
-	CHARACTER_POST_KIND = "CharacterPostKind",
-	CHARACTER_POST_STARS = "CharacterPostStars",
-	CHARACTER_TOWER_1_KIND = "CharacterTower1Kind",
-	CHARACTER_TOWER_1_STARS = "CharacterTower1Stars",
-	CHARACTER_TOWER_2_KIND = "CharacterTower2Kind",
-	CHARACTER_TOWER_2_STARS = "CharacterTower2Stars",
-	-- how many skill slots the account's gacha progress has opened on the
-	-- character's class (M70; Nights Survived opened them before)
-	CHARACTER_SKILL_SLOTS_OPEN = "CharacterSkillSlotsOpen",
 	-- CurrentPlayer (private), the class gacha (M70): the Keys balance,
 	-- JSON of Enums.ClassKind key name to skill slots unlocked (an entry
 	-- means the class is owned), and a JSON list of owned cosmetic ids
@@ -234,33 +226,27 @@ module = {
 	-- GameMetadata: the Diamonds packs as JSON (DiamondStoreRules codec;
 	-- M40, 2026-11-03), republished when the Robux prices arrive
 	DIAMOND_STORE_CATALOGUE = "DiamondStoreCatalogue",
-	-- JSON array of { skillId, rarity } in slot order (CharacterSchema codec)
-	CHARACTER_SKILLS = "CharacterSkills",
-	-- JSON of Enums.CosmeticSlot key name to skin id (M61)
-	CHARACTER_COSMETICS = "CharacterCosmetics",
-	-- on the Characters folder: the id of the character the player brings
-	ACTIVE_CHARACTER_ID = "ActiveCharacterId",
-	-- GameMetadata: JSON of the slot pricing (CharacterRules codec), so the
-	-- lobby draws the next slot's card without asking the server
-	CHARACTER_SLOT_PRICING = "CharacterSlotPricing",
-	-- GameMetadata: JSON of the reroll prices, star bounds and bonus, and
-	-- the skill catalogue (CharacterRules codecs), so the sheet draws every
+	-- GameMetadata: JSON of the skill reroll pricing and the skill
+	-- catalogue (SkillRules codecs), so the Class Menu draws every perk
 	-- row and its odds without requiring GameData
-	CHARACTER_REROLL_PRICING = "CharacterRerollPricing",
-	CHARACTER_SKILL_CATALOGUE = "CharacterSkillCatalogue",
+	SKILL_REROLL_PRICING = "SkillRerollPricing",
+	SKILL_CATALOGUE = "SkillCatalogue",
+	-- GameMetadata: JSON of the class catalogue (ClassCatalogueRules
+	-- codec): each listed class's kit kinds and the words the Class Menu
+	-- shows for it and its items (2026-11-04)
+	CLASS_CATALOGUE = "ClassCatalogue",
 	-- GameMetadata: the Enums.ClassKind names of the classes whose kit is
 	-- not built yet, comma-joined, for the dev panel's dropdown (2026-10-23)
 	CLASS_UNBUILT_KINDS = "ClassUnbuiltKinds",
-	-- GameMetadata: JSON of every gear kind's base stats as label and value
-	-- rows (GearStatsRules codec), the stats page behind a gear card
-	-- (2026-10-13)
-	CHARACTER_GEAR_STATS = "CharacterGearStats",
 	-- on any GuiButton: the SoundNames.Sfx name it plays instead of the
 	-- button click, or "" to stay silent (ClientButtonSoundManager, 2026-10-13)
 	BUTTON_SOUND = "ButtonSound",
-	-- GameMetadata: JSON of the hat catalogue (CharacterRules codec), the
+	-- GameMetadata: JSON of the hat catalogue (SkillRules codec), the
 	-- cosmetics first pass of 2026-10-12
-	CHARACTER_HAT_CATALOGUE = "CharacterHatCatalogue",
+	HAT_CATALOGUE = "HatCatalogue",
+	-- GameMetadata: JSON of the cosmetics catalogue (CosmeticRules codec),
+	-- the skins made from the game's own templates (M61 first pass, 2026-11-04)
+	COSMETIC_CATALOGUE = "CosmeticCatalogue",
 	-- on a player's OwnHats folder: the factor a Humanoid scales a worn
 	-- accessory by for this avatar's build, so a menu avatar matches
 	HAT_SCALE = "HatScale",

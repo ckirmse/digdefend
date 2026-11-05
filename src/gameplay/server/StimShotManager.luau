@@ -19,7 +19,7 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local MiningRules = require("@game/ReplicatedStorage/Shared/MiningRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local StimShotData = require("@game/ServerScriptService/GameData/Gadgets/StimShot")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -49,7 +49,7 @@ local FEEDBACK_USED = "Stim Shot used. Back at dawn."
 local FEEDBACK_NOT_YET = "Not until the day starts."
 
 function StimShotManager:hasStimShot(player: Player): boolean
-	return CharacterManager:getGadgetKind(player) == Enums.GadgetKind.STIM_SHOT
+	return ClassManager:getGadgetKind(player) == Enums.GadgetKind.STIM_SHOT
 end
 
 function StimShotManager:isUsed(player: Player): boolean
@@ -159,7 +159,7 @@ function StimShotManager:init()
 			self:onDayStarted(day)
 		end
 	)
-	CharacterManager:subscribeClassChanged(
+	ClassManager:subscribeClassChanged(
 		function(player: Player, _classKind: number)
 			if GameController:isPlayerReady(player) then
 				self:applyGadget(player)

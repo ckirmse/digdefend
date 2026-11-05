@@ -24,7 +24,7 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local BinocularsData = require("@game/ServerScriptService/GameData/Gadgets/Binoculars")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
@@ -70,7 +70,7 @@ function BinocularsManager:getPlayerState(player: Player): PlayerState
 end
 
 function BinocularsManager:hasBinoculars(player: Player): boolean
-	return CharacterManager:getGadgetKind(player) == Enums.GadgetKind.BINOCULARS
+	return ClassManager:getGadgetKind(player) == Enums.GadgetKind.BINOCULARS
 end
 
 function BinocularsManager:getTag(player: Player): BinocularsRules.Tag?
@@ -213,7 +213,7 @@ function BinocularsManager:init()
 	-- the post HUD's hint shows the cooldown's share by the same number
 	SplendidReplicationManager:setGameMetadata(Attributes.BINOCULARS_COOLDOWN_SEC, BinocularsData.COOLDOWN_SEC)
 	GameController:registerPlaceManager(self)
-	CharacterManager:subscribeClassChanged(
+	ClassManager:subscribeClassChanged(
 		function(player: Player, _classKind: number)
 			if not self:hasBinoculars(player) then
 				self:clearTag(player)

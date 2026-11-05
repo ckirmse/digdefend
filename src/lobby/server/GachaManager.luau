@@ -6,7 +6,7 @@
 -- PlayerData's classProgress, keys, and ownedCosmetics, which this manager
 -- is the one writer of. A roll is answered with NotifyGachaResult for the
 -- reveal, and the balances reach the client through the SplendidGames
--- tree (replicateDiamonds, replicateGacha, and replicateCharacters when a
+-- tree (replicateDiamonds, replicateGacha, and replicateClasses when a
 -- skill slot opened, since the open count rides on every character).
 --
 -- A player PolicyService reports as restricted from paid random items
@@ -17,14 +17,16 @@
 local PolicyService = game:GetService("PolicyService")
 
 local HatsData = require("@game/ServerScriptService/GameData/Characters/Hats")
+local CosmeticCatalogueData = require("@game/ServerScriptService/GameData/Cosmetics/Catalogue")
 local ClassRosterData = require("@game/ServerScriptService/GameData/Classes/Roster")
 local GachaData = require("@game/ServerScriptService/GameData/Gacha/Gacha")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
+local CosmeticRules = require("@game/ReplicatedStorage/Shared/CosmeticRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local DevTools = require(script.Parent.Parent.Server.DevTools)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
@@ -64,14 +66,20 @@ local SET_RESTRICTED_ARGS_SHAPE = {
 	isRestricted = "boolean",
 }
 
+local ROLL_FORCED_ARGS_SHAPE = {
+	prizeKey = "string",
+}
+
 GachaManager.ROLL_FREE_COMMAND = "rollGachaFree"
+-- a free roll whose draw is the named prize (GachaRules.prizeKey), so a
+-- tester can see any reveal on demand (2026-11-04)
+GachaManager.ROLL_FORCED_COMMAND = "rollGachaForced"
 GachaManager.SET_KEYS_COMMAND = "setKeys"
 GachaManager.GRANT_CLASS_STEP_COMMAND = "grantClassStep"
 GachaManager.SET_RESTRICTED_COMMAND = "setPaidRandomRestricted"
 GachaManager.CLEAR_CLASS_PROGRESS_COMMAND = "clearClassProgress"
+GachaManager.CLEAR_COSMETICS_COMMAND = "clearCosmetics"
 
-local FEEDBACK_NOT_ENOUGH_DIAMONDS = "Not enough Diamonds for a roll"
-local FEEDBACK_NOT_ENOUGH_DIAMONDS_CLASS = "Not enough Diamonds for that class"
 local FEEDBACK_RESTRICTED = "Rolling is not available on this account"
 local FEEDBACK_NOT_RESTRICTED = "Classes are rolled on this account"
 local FEEDBACK_CLASS_OWNED = "You already own that class"
@@ -103,8 +111,8 @@ function GachaManager:getConfig(): GachaRules.Config
 	}
 end
 
--- every class but the free one and the post-launch ones, and every hat
--- in the catalogue (the other cosmetic slots join the pool in M61)
+-- every class but the free one and the post-launch ones, every hat, and
+-- every skin in the cosmetics catalogue (2026-11-04)
 function GachaManager:buildPool(): GachaRules.Pool
 	local excluded = table.clone(GachaData.EXCLUDED_KINDS)
 	for _, classKind in ClassRosterData.POST_LAUNCH_KINDS do
@@ -113,6 +121,9 @@ function GachaManager:buildPool(): GachaRules.Pool
 	local cosmeticIds = {}
 	for hatId in HatsData.BY_ID do
 		table.insert(cosmeticIds, hatId)
+	end
+	for cosmeticId in CosmeticCatalogueData.BY_ID do
+		table.insert(cosmeticIds, cosmeticId)
 	end
 	table.sort(cosmeticIds)
 	return {
@@ -157,7 +168,7 @@ function GachaManager:grant(player: Player, playerData: PlayerData.PlayerData, r
 	end
 	SplendidReplicationManager:replicateGacha(player)
 	if result.kind == Enums.GachaResultKind.CLASS or result.kind == Enums.GachaResultKind.SKILL_SLOT then
-		SplendidReplicationManager:replicateCharacters(player)
+		SplendidReplicationManager:replicateClasses(player)
 	end
 	playerData:saveNow()
 	NetManager:notifyClient(
@@ -177,8 +188,9 @@ function GachaManager:grant(player: Player, playerData: PlayerData.PlayerData, r
 end
 
 -- one roll: the price is spent first, so a player can never see a result
--- they did not pay for; a free roll is the dev tool's
-function GachaManager:roll(player: Player, isFree: boolean)
+-- they did not pay for; a free roll is the dev tool's, and a forced draw
+-- (the dev tool's dropdown) stands in for the random one
+function GachaManager:roll(player: Player, isFree: boolean, forcedDraw: GachaRules.Draw?)
 	local playerData = GameController:getPlayerData(player)
 	if not playerData then
 		return
@@ -187,14 +199,14 @@ function GachaManager:roll(player: Player, isFree: boolean)
 		PlayerFeedbackManager:give(player, FEEDBACK_RESTRICTED)
 		return
 	end
-	local draw = GachaRules.draw(self.random, self.pool)
+	local draw = forcedDraw or GachaRules.draw(self.random, self.pool)
 	if not draw then
 		warn("GachaManager: the pool is empty; nothing to roll")
 		return
 	end
 	if not isFree then
 		if not playerData:spendDiamonds(GachaData.ROLL_PRICE_DIAMONDS) then
-			PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_DIAMONDS)
+			PlayerFeedbackManager:giveDiamondsShort(player, GachaData.ROLL_PRICE_DIAMONDS, playerData:getDiamonds())
 			return
 		end
 		SplendidReplicationManager:replicateDiamonds(player)
@@ -224,7 +236,7 @@ function GachaManager:buyClass(player: Player, classKind: number)
 		return
 	end
 	if not playerData:spendDiamonds(GachaData.DIRECT_CLASS_PRICE_DIAMONDS) then
-		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_DIAMONDS_CLASS)
+		PlayerFeedbackManager:giveDiamondsShort(player, GachaData.DIRECT_CLASS_PRICE_DIAMONDS, playerData:getDiamonds())
 		return
 	end
 	SplendidReplicationManager:replicateDiamonds(player)
@@ -285,6 +297,22 @@ function GachaManager:registerDevCommands()
 		end
 	)
 	DevTools:registerPlaceCommand(
+		GachaManager.ROLL_FORCED_COMMAND,
+		function(player: Player, args: { [string]: any })
+			local isValid, err = Validate.isTableShape(args, ROLL_FORCED_ARGS_SHAPE)
+			if not isValid then
+				warn("GachaManager: rollGachaForced with invalid args:", err)
+				return
+			end
+			local draw = GachaRules.drawForPrizeKey(self.pool, args.prizeKey)
+			if not draw then
+				PlayerFeedbackManager:give(player, `No prize {args.prizeKey} in the gacha pool`)
+				return
+			end
+			self:roll(player, true, draw)
+		end
+	)
+	DevTools:registerPlaceCommand(
 		GachaManager.SET_KEYS_COMMAND,
 		function(player: Player, args: { [string]: any })
 			local isValid, err = Validate.isTableShape(args, SET_KEYS_ARGS_SHAPE)
@@ -323,9 +351,24 @@ function GachaManager:registerDevCommands()
 			end
 			playerData:resetClassProgress()
 			SplendidReplicationManager:replicateGacha(player)
-			CharacterManager:selectClass(player, Enums.ClassKind.RECRUIT)
+			ClassManager:selectClass(player, Enums.ClassKind.RECRUIT)
 			playerData:saveNow()
 			PlayerFeedbackManager:give(player, "Class progress cleared")
+		end
+	)
+	-- every owned cosmetic forgotten, so a cosmetic draw is new again
+	-- rather than converted to Keys (2026-11-04)
+	DevTools:registerPlaceCommand(
+		GachaManager.CLEAR_COSMETICS_COMMAND,
+		function(player: Player, _args: { [string]: any })
+			local playerData = GameController:getPlayerData(player)
+			if not playerData then
+				return
+			end
+			playerData:resetOwnedCosmetics()
+			SplendidReplicationManager:replicateGacha(player)
+			playerData:saveNow()
+			PlayerFeedbackManager:give(player, "Cosmetics cleared")
 		end
 	)
 	DevTools:registerPlaceCommand(
@@ -346,6 +389,12 @@ function GachaManager:registerDevCommands()
 end
 
 function GachaManager:init()
+	local catalogueProblems = CosmeticRules.validateCatalogue(CosmeticCatalogueData.BY_ID)
+	if #catalogueProblems > 0 then
+		error("GachaManager: GameData/Cosmetics/Catalogue is malformed: " .. table.concat(catalogueProblems, "; "))
+	end
+	-- the names and templates the reveal and the odds list draw skins by
+	SplendidReplicationManager:setGameMetadata(Attributes.COSMETIC_CATALOGUE, CosmeticRules.encodeCatalogue(CosmeticRules.publish(CosmeticCatalogueData.BY_ID)))
 	self.pool = self:buildPool()
 	if #self.pool.classKinds == 0 then
 		error("GachaManager: no class is in the gacha pool; check GameData/Gacha/Gacha.EXCLUDED_KINDS and the roster's POST_LAUNCH_KINDS")

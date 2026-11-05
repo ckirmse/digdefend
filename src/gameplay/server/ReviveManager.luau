@@ -41,7 +41,7 @@ local PartyRules = require("@game/ReplicatedStorage/Shared/PartyRules")
 local ReviveRules = require("@game/ReplicatedStorage/Shared/ReviveRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local RevivesData = require("@game/ServerScriptService/GameData/Run/Revives")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -298,7 +298,7 @@ end
 -- the class scales the base health (M64, 2026-10-19), rounded so the HP
 -- bar never shows a fraction
 function ReviveManager:getMaxHealth(player: Player): number
-	local healthScale: number = CharacterManager:getModifier(player, Enums.ClassModifier.MAX_HEALTH)
+	local healthScale: number = ClassManager:getModifier(player, Enums.ClassModifier.MAX_HEALTH)
 	return math.max(1, math.floor(RevivesData.PLAYER_MAX_HEALTH * healthScale + 0.5))
 end
 
@@ -1009,7 +1009,7 @@ function ReviveManager:fetchPrices()
 end
 
 function ReviveManager:init()
-	CharacterManager:subscribeClassChanged(
+	ClassManager:subscribeClassChanged(
 		function(player: Player, _classKind: number)
 			self:applyClass(player)
 		end

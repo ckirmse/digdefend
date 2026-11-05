@@ -195,13 +195,17 @@ local sfx = {
 	-- menus (designer, 2026-10-13): every menu button clicks
 	-- (ClientButtonSoundManager); a REROLL button plays its own sound
 	-- instead; the roll screen ticks on every image the NEW box flips to
-	-- and chimes when the result lands (ClientCharacterSheetManager)
+	-- and chimes when the result lands (ClientClassMenuManager)
 	BUTTON_CLICK = "ButtonClick",
 	REROLL = "Reroll",
 	REROLL_SPIN = "RerollSpin",
 	REROLL_REVEAL = "RerollReveal",
 	-- the Supply Crate's lid swinging open (ClientGachaMenuManager, designer 2026-11-03)
 	CRATE_OPEN = "CrateOpen",
+	-- a class card landing on a class the player did not own (designer, 2026-11-04)
+	CLASS_UNLOCKED = "ClassUnlocked",
+	-- an owned class's card lighting its new star (designer, 2026-11-04)
+	CLASS_TIER_UP = "ClassTierUp",
 }
 
 -- each weapon's sound set, by its Enums.WeaponKind key. A new weapon adds its
@@ -360,6 +364,8 @@ local lobbySfxNames: { string } = {
 	sfx.REROLL_SPIN,
 	sfx.REROLL_REVEAL,
 	sfx.CRATE_OPEN,
+	sfx.CLASS_UNLOCKED,
+	sfx.CLASS_TIER_UP,
 }
 local lobbyMusicNames: { string } = {
 	music.LOBBY,

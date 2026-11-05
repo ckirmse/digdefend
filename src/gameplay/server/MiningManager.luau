@@ -20,7 +20,7 @@ local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 local BackpackManager = require(script.Parent.BackpackManager)
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local MineManager = require(script.Parent.MineManager)
 local OrePickupManager = require(script.Parent.OrePickupManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
@@ -92,7 +92,7 @@ function MiningManager:handleHit(player: Player, depth: number, height: number, 
 	local now = workspace:GetServerTimeNow()
 	-- the class's mining speed shortens the cooldown as it does the
 	-- client's swing (2026-10-22)
-	if not MiningRules.canHit(self.lastHitTimeByPlayer[player], now, PickAxeData.HIT_COOLDOWN_SEC / CharacterManager:getModifier(player, Enums.ClassModifier.MINING_SPEED)) then
+	if not MiningRules.canHit(self.lastHitTimeByPlayer[player], now, PickAxeData.HIT_COOLDOWN_SEC / ClassManager:getModifier(player, Enums.ClassModifier.MINING_SPEED)) then
 		return
 	end
 	self.lastHitTimeByPlayer[player] = now
@@ -108,7 +108,7 @@ function MiningManager:handleHit(player: Player, depth: number, height: number, 
 	-- the class's mining power scales the pick axe's rung (M64)
 	local damage = ClassRules.scaleAmount(
 		MiningRules.damageForLevel(PickAxeData.DAMAGE_BY_LEVEL, ToolManager:getPickAxeLevel(player)),
-		CharacterManager:getModifier(player, Enums.ClassModifier.MINING_POWER)
+		ClassManager:getModifier(player, Enums.ClassModifier.MINING_POWER)
 	)
 	local isBroken, remainingHp = MineManager:applyDamage(depth, height, width, damage)
 	for _, handler in self.hitHandlers do
@@ -146,7 +146,7 @@ function MiningManager:awardOre(player: Player, definition: any, blockCenter: Ve
 	local amount = BackpackRules.yieldForBreak(definition.yield, definition.resource, playerCount, PartyScalingData.ORE_YIELD_MULTIPLIER_BY_PLAYER_COUNT)
 	-- the class's ore yield (the Prospector's 1.2, applied 2026-10-22),
 	-- rounded so a block never pays a fraction
-	local yieldScale: number = CharacterManager:getModifier(player, Enums.ClassModifier.ORE_YIELD)
+	local yieldScale: number = ClassManager:getModifier(player, Enums.ClassModifier.ORE_YIELD)
 	amount = math.floor(amount * yieldScale + 0.5)
 	local _, overflow = BackpackManager:add(player, definition.resource, amount, blockCenter)
 	if overflow > 0 then
@@ -168,7 +168,7 @@ end
 -- the swing interval this player's class gives them, on CurrentPlayer so
 -- their client swings at their pace; the GameMetadata copy is the base
 function MiningManager:publishHitInterval(player: Player)
-	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.PICK_AXE_HIT_INTERVAL_SEC, PickAxeData.HIT_INTERVAL_SEC / CharacterManager:getModifier(player, Enums.ClassModifier.MINING_SPEED))
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.PICK_AXE_HIT_INTERVAL_SEC, PickAxeData.HIT_INTERVAL_SEC / ClassManager:getModifier(player, Enums.ClassModifier.MINING_SPEED))
 end
 
 function MiningManager:onPlayerReady(player: Player)
@@ -185,7 +185,7 @@ function MiningManager:init()
 	SplendidReplicationManager:setGameMetadata(Attributes.PICK_AXE_HIT_INTERVAL_SEC, PickAxeData.HIT_INTERVAL_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.PICK_AXE_REACH_STUDS, PickAxeData.REACH_STUDS)
 	GameController:registerPlaceManager(self)
-	CharacterManager:subscribeClassChanged(
+	ClassManager:subscribeClassChanged(
 		function(player: Player, _classKind: number)
 			if GameController:isPlayerReady(player) then
 				self:publishHitInterval(player)

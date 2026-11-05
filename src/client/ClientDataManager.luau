@@ -7,10 +7,10 @@ local Players = game:GetService("Players")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
-local CharacterSchema = require("@game/ReplicatedStorage/Shared/CharacterSchema")
+local ClassSchema = require("@game/ReplicatedStorage/Shared/ClassSchema")
+local CosmeticLoadoutSchema = require("@game/ReplicatedStorage/Shared/CosmeticLoadoutSchema")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
-local PlayerPublicSchema = require("@game/ReplicatedStorage/Shared/PlayerPublicSchema")
 
 -- the ready wait never gives up; the number only marks the yield as intended
 local READY_WAIT_TIMEOUT_SEC = math.huge
@@ -46,28 +46,9 @@ export type PublicData = {
 	isDead: boolean,
 }
 
--- one character as the client sees it (M55), read from the CHARACTER_*
--- attributes on CurrentPlayer (the active one) or on a child of the
--- Characters folder (every one)
-export type GearData = {
-	kind: number,
-	stars: number,
-}
-
-export type CharacterData = {
-	id: string,
-	name: string,
-	-- Enums.ClassKind value (M64); 0 before the attribute lands
-	classKind: number,
-	nightsSurvived: number,
-	-- Enums.GearSlot value -> the kind's enum value and its stars
-	gear: { [number]: GearData },
-	skillSlotsOpen: number,
-	-- slot index as a string -> the skill in it
-	skills: { [string]: CharacterSchema.SkillSave },
-	-- Enums.CosmeticSlot key name -> skin id
-	cosmetics: { [string]: string },
-}
+-- one class record as the client sees it (the Class Menu, 2026-11-04):
+-- the skills in its slots
+export type ClassRecord = ClassSchema.ClassSave
 
 export type AllPlayersHandlers = {
 	onAdded: ((userId: number, data: PublicData) -> ())?,
@@ -88,7 +69,6 @@ export type ClientDataManager = typeof(setmetatable(
 		gameMetadata: Instance?,
 		allPlayers: Instance?,
 		currentPlayer: Instance?,
-		characters: Instance?,
 		completions: Instance?,
 	},
 	ClientDataManager
@@ -127,7 +107,6 @@ function ClientDataManager:awaitReady()
 	self.allPlayers = root:WaitForChild(Constants.ALL_PLAYERS_FOLDER)
 	local currentPlayer = root:WaitForChild(Constants.CURRENT_PLAYER_FOLDER)
 	self.currentPlayer = currentPlayer
-	self.characters = currentPlayer:WaitForChild(Constants.CHARACTERS_FOLDER)
 	self.completions = currentPlayer:WaitForChild(Constants.COMPLETIONS_FOLDER)
 end
 
@@ -178,66 +157,47 @@ function ClientDataManager:isPaidRandomItemsRestricted(): boolean
 	return self:getCurrentPlayerAttribute(Attributes.IS_PAID_RANDOM_ITEMS_RESTRICTED) == true
 end
 
-local function readCharacter(instance: Instance): CharacterData
-	local gear: { [number]: GearData } = {}
-	for _, gearSlot in Enums.getAllValues(Enums.GearSlot) do
-		local kindAttribute, starsAttribute = PlayerPublicSchema.getGearAttributes(gearSlot)
-		gear[gearSlot] = {
-			kind = (instance:GetAttribute(kindAttribute :: string) :: number?) or 0,
-			stars = (instance:GetAttribute(starsAttribute :: string) :: number?) or 0,
-		}
-	end
-	return {
-		id = (instance:GetAttribute(Attributes.CHARACTER_ID) :: string?) or "",
-		name = (instance:GetAttribute(Attributes.CHARACTER_NAME) :: string?) or "",
-		classKind = (instance:GetAttribute(Attributes.CHARACTER_CLASS_KIND) :: number?) or 0,
-		nightsSurvived = (instance:GetAttribute(Attributes.CHARACTER_NIGHTS_SURVIVED) :: number?) or 0,
-		gear = gear,
-		skillSlotsOpen = (instance:GetAttribute(Attributes.CHARACTER_SKILL_SLOTS_OPEN) :: number?) or 0,
-		skills = CharacterSchema.decodeSkills(instance:GetAttribute(Attributes.CHARACTER_SKILLS)),
-		cosmetics = CharacterSchema.decodeCosmetics(instance:GetAttribute(Attributes.CHARACTER_COSMETICS)),
+-- the class the player brings, as an Enums.ClassKind value; 0 before the
+-- attribute lands
+function ClientDataManager:getActiveClassKind(): number
+	return (self:getCurrentPlayerAttribute(Attributes.ACTIVE_CLASS_KIND) :: number?) or 0
+end
+
+-- every class record by class key name (a class never touched is absent)
+function ClientDataManager:getClassRecords(): ClassSchema.Records
+	return ClassSchema.decodeRecords(self:getCurrentPlayerAttribute(Attributes.CLASS_RECORDS))
+end
+
+-- one class's record, empty for a class never touched
+function ClientDataManager:getClassRecord(classKind: number): ClassRecord
+	local className = Enums.getName(Enums.ClassKind, classKind)
+	local record = if className then self:getClassRecords()[className] else nil
+	return record or { skills = {} }
+end
+
+-- the account's one cosmetic loadout (Enums.CosmeticSlot key name to
+-- skin id), worn with every class (2026-11-04)
+function ClientDataManager:getCosmetics(): CosmeticLoadoutSchema.Loadout
+	return CosmeticLoadoutSchema.decode(self:getCurrentPlayerAttribute(Attributes.COSMETICS))
+end
+
+function ClientDataManager:subscribeCosmetics(handler: () -> ()): Disconnect
+	return self:subscribeCurrentPlayerAttribute(Attributes.COSMETICS, handler)
+end
+
+-- any change to the class in play, a class record, or the class progress
+-- (the Class Menu redraws from all three)
+function ClientDataManager:subscribeClasses(handler: () -> ()): Disconnect
+	local watched: { [string]: boolean } = {
+		[Attributes.ACTIVE_CLASS_KIND] = true,
+		[Attributes.CLASS_RECORDS] = true,
+		[Attributes.CLASS_PROGRESS] = true,
 	}
-end
-
--- the character the player brings; nil before the tree is ready
-function ClientDataManager:getActiveCharacter(): CharacterData?
-	local currentPlayer = self.currentPlayer
-	if not currentPlayer then
-		return nil
-	end
-	return readCharacter(currentPlayer)
-end
-
-function ClientDataManager:getActiveCharacterId(): string
-	local characters = self.characters
-	if not characters then
-		return ""
-	end
-	return (characters:GetAttribute(Attributes.ACTIVE_CHARACTER_ID) :: string?) or ""
-end
-
--- every character, in no particular order (the folder has no slot order;
--- M37 sorts by name or keeps the server's list order as it decides)
-function ClientDataManager:getCharacters(): { CharacterData }
-	local list = {}
-	local characters = self.characters
-	if not characters then
-		return list
-	end
-	for _, child in characters:GetChildren() do
-		table.insert(list, readCharacter(child))
-	end
-	return list
-end
-
--- fires once per attribute the server writes, so a reroll that changes a
--- kind and its stars calls back twice; readers re-read the whole character
-function ClientDataManager:subscribeActiveCharacter(handler: (character: CharacterData) -> ()): Disconnect
 	local currentPlayer = self.currentPlayer :: Instance
 	local connection = currentPlayer.AttributeChanged:Connect(
 		function(attributeName: string)
-			if string.sub(attributeName, 1, #"Character") == "Character" then
-				handler(readCharacter(currentPlayer))
+			if watched[attributeName] then
+				handler()
 			end
 		end
 	)
@@ -346,57 +306,6 @@ local function subscribeMarkerFolder(folder: Instance, handlers: MarkerHandlers)
 	end
 end
 
--- any change to the character list or the active id: a character added, a
--- card's values, or the pick
-function ClientDataManager:subscribeCharacters(handler: () -> ()): Disconnect
-	local characters = self.characters :: Instance
-	local connections: { RBXScriptConnection } = {}
-	local function watch(child: Instance)
-		table.insert(
-			connections,
-			child.AttributeChanged:Connect(
-				function()
-					handler()
-				end
-			)
-		)
-	end
-	for _, child in characters:GetChildren() do
-		watch(child)
-	end
-	table.insert(
-		connections,
-		characters.ChildAdded:Connect(
-			function(child: Instance)
-				watch(child)
-				handler()
-			end
-		)
-	)
-	table.insert(
-		connections,
-		characters.ChildRemoved:Connect(
-			function()
-				handler()
-			end
-		)
-	)
-	table.insert(
-		connections,
-		characters.AttributeChanged:Connect(
-			function()
-				handler()
-			end
-		)
-	)
-	return function()
-		for _, connection in connections do
-			connection:Disconnect()
-		end
-		table.clear(connections)
-	end
-end
-
 function ClientDataManager:subscribeCompletions(handlers: MarkerHandlers): Disconnect
 	return subscribeMarkerFolder(self.completions :: Instance, handlers)
 end
@@ -454,7 +363,6 @@ function ClientDataManager.new(): ClientDataManager
 	self.gameMetadata = nil
 	self.allPlayers = nil
 	self.currentPlayer = nil
-	self.characters = nil
 	self.completions = nil
 	return self
 end

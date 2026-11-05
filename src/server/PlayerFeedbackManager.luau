@@ -23,6 +23,21 @@ function PlayerFeedbackManager:give(player: Player, message: string, displaySec:
 	)
 end
 
+-- a Diamonds purchase refused for want of Diamonds: not a line of text
+-- but its own event, so the lobby client can run the whole answer (the
+-- fail sound, the wallet flash, the message, and the pack prompt) from
+-- the price and the balance (designer, 2026-11-04)
+function PlayerFeedbackManager:giveDiamondsShort(player: Player, priceDiamonds: number, balance: number)
+	NetManager:notifyClient(
+		player,
+		NetEventNames.NOTIFY_DIAMONDS_SHORT,
+		{
+			priceDiamonds = priceDiamonds,
+			balance = balance,
+		}
+	)
+end
+
 function PlayerFeedbackManager.new(): PlayerFeedbackManager
 	local self = setmetatable({}, PlayerFeedbackManager) :: PlayerFeedbackManager
 	return self

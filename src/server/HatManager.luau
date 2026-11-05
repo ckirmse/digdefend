@@ -3,10 +3,10 @@
 -- Hats on characters (cosmetics first pass, 2026-10-12). At startup every
 -- hat in GameData/Characters/Hats is loaded from the catalogue once into
 -- ReplicatedStorage.GameAssets.Hats, so the server can put one on a
--- character and every client can draw one on a menu avatar. When a
--- player's active character has a hat equipped, their own hat comes off
+-- character and every client can draw one on a menu avatar. When the
+-- player's cosmetic loadout has a hat equipped, their own hat comes off
 -- and the equipped one goes on, in the lobby and in a run; with none
--- equipped they keep their own. CharacterManager owns the equip; this
+-- equipped they keep their own. CosmeticManager owns the equip; this
 -- manager only loads and dresses.
 local InsertService = game:GetService("InsertService")
 local Players = game:GetService("Players")
@@ -14,7 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local HatsData = require("@game/ServerScriptService/GameData/Characters/Hats")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
-local CharacterRules = require("@game/ReplicatedStorage/Shared/CharacterRules")
+local SkillRules = require("@game/ReplicatedStorage/Shared/SkillRules")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local Wearables = require("@game/ReplicatedStorage/Shared/Wearables")
@@ -37,8 +37,8 @@ local splendidReplicationManager: any
 
 local HELMET_SLOT_NAME = Enums.getName(Enums.CosmeticSlot, Enums.CosmeticSlot.HELMET) :: string
 
-function HatManager:getCatalogue(): CharacterRules.HatCatalogue
-	local catalogue: CharacterRules.HatCatalogue = {}
+function HatManager:getCatalogue(): SkillRules.HatCatalogue
+	local catalogue: SkillRules.HatCatalogue = {}
 	for id, entry in HatsData.BY_ID do
 		catalogue[id] = {
 			name = entry.NAME,
@@ -105,13 +105,13 @@ function HatManager:loadHats()
 	end
 end
 
--- the hat the player's active character has equipped, or nil for their own
+-- the hat the player's loadout wears, or nil for their own
 function HatManager:getEquippedHatId(player: Player): string?
 	local playerData = gameController:getPlayerData(player)
 	if not playerData then
 		return nil
 	end
-	local hatId = playerData:getActiveCharacter().cosmetics[HELMET_SLOT_NAME]
+	local hatId = playerData:getCosmetics()[HELMET_SLOT_NAME]
 	return if hatId and self:isHat(hatId) then hatId else nil
 end
 
@@ -191,7 +191,7 @@ function HatManager:dress(player: Player)
 	end
 end
 
--- CharacterManager calls this after a cosmetics change or a new pick
+-- CosmeticManager calls this after an equip
 function HatManager:refresh(player: Player)
 	self:dress(player)
 end
@@ -222,7 +222,7 @@ function HatManager:init(gameControllerIn: any, splendidReplicationManagerIn: an
 	gameController = gameControllerIn
 	splendidReplicationManager = splendidReplicationManagerIn
 	self:loadHats()
-	splendidReplicationManager:setGameMetadata(Attributes.CHARACTER_HAT_CATALOGUE, CharacterRules.encodeHatCatalogue(self:getCatalogue()))
+	splendidReplicationManager:setGameMetadata(Attributes.HAT_CATALOGUE, SkillRules.encodeHatCatalogue(self:getCatalogue()))
 	for _, player in Players:GetPlayers() do
 		self:watchPlayer(player)
 	end

@@ -17,7 +17,7 @@ local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
 local AutoTurretData = require("@game/ServerScriptService/GameData/Gadgets/AutoTurret")
 local RemoteChargeData = require("@game/ServerScriptService/GameData/Gadgets/RemoteCharge")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -72,7 +72,7 @@ function GadgetUpgradeManager:upgrade(player: Player)
 	if not GameController:isPlayerReady(player) then
 		return
 	end
-	local gadgetKind = CharacterManager:getGadgetKind(player)
+	local gadgetKind = ClassManager:getGadgetKind(player)
 	if not GadgetRules.isUpgradable(self.catalog, gadgetKind) then
 		PlayerFeedbackManager:give(player, FEEDBACK_NO_UPGRADE)
 		return
@@ -143,7 +143,7 @@ function GadgetUpgradeManager:init()
 	SplendidReplicationManager:setGameMetadata(Attributes.GADGET_UPGRADE_CATALOG, GadgetRules.encodeCatalog(self.catalog))
 	GameController:registerPlaceManager(self)
 	-- a dev-tool class change swaps the gadget, and the levels bought were the old one's
-	CharacterManager:subscribeClassChanged(
+	ClassManager:subscribeClassChanged(
 		function(player: Player, _classKind: number)
 			if self.levelByPlayer[player] then
 				self:setLevel(player, GadgetRules.STARTING_LEVEL)

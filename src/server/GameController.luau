@@ -10,7 +10,8 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local PlayerControlData = require("@game/ServerScriptService/GameData/Control/Player")
 local ProfileStore = require(script.Parent.Libs.ProfileStore)
-local CharacterManager = require(script.Parent.CharacterManager)
+local ClassManager = require(script.Parent.ClassManager)
+local CosmeticManager = require(script.Parent.CosmeticManager)
 local DevTools = require(script.Parent.DevTools)
 local HatManager = require(script.Parent.HatManager)
 local NetManager = require(script.Parent.NetManager)
@@ -340,16 +341,21 @@ function GameController:init()
 	self.splendidReplicationManager = SplendidReplicationManager
 	SplendidReplicationManager:init(self)
 
-	-- the record of truth for a player's characters is PlayerData; this
-	-- manager is the one writer, so every change is replicated (M55)
+	-- the record of truth for a player's classes is PlayerData; this
+	-- manager is the one writer, so every change is replicated (M55, the
+	-- Class Menu of 2026-11-04)
 	-- hats load from the catalogue before any player is Ready (M37, 2026-10-12)
 	self.hatManager = HatManager
 	HatManager:init(self, SplendidReplicationManager)
-	self.characterManager = CharacterManager
-	CharacterManager:init(self, SplendidReplicationManager, PurchaseManager, NetManager, HatManager)
+	self.classManager = ClassManager
+	ClassManager:init(self, SplendidReplicationManager, NetManager)
+	-- the account's one cosmetic loadout (2026-11-04); HatManager dresses
+	-- from it
+	self.cosmeticManager = CosmeticManager
+	CosmeticManager:init(self, SplendidReplicationManager, HatManager)
 
 	self.devTools = DevTools
-	DevTools:init(self, SplendidReplicationManager, CharacterManager)
+	DevTools:init(self, SplendidReplicationManager, ClassManager)
 
 	self.playerFeedbackManager = PlayerFeedbackManager
 
@@ -361,7 +367,8 @@ function GameController:init()
 	-- handle client messages are listed here, place managers register themselves
 	local handlerOwners: { any } = {
 		DevTools,
-		CharacterManager,
+		ClassManager,
+		CosmeticManager,
 	}
 	for _, manager in handlerOwners do
 		self:addNetHandlers(manager)

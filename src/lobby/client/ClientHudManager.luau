@@ -19,7 +19,8 @@ local utils = require("@game/ReplicatedStorage/Shared/utils")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
-local ClientCharacterMenuManager = require(script.Parent.ClientCharacterMenuManager)
+local ClientClassMenuManager = require(script.Parent.ClientClassMenuManager)
+local ClientLabelFlash = require(script.Parent.Parent.Client.ClientLabelFlash)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
 local ClientGuiFade = require(script.Parent.Parent.Client.ClientGuiFade)
 local ClientGachaMenuManager = require(script.Parent.ClientGachaMenuManager)
@@ -272,7 +273,7 @@ function ClientHudManager:init()
 		menuButtons,
 		Constants.HUD_CLASSES_BUTTON,
 		function()
-			ClientCharacterMenuManager:openMenu()
+			ClientClassMenuManager:openMenu()
 		end
 	)
 	-- the Store button opens the class gacha until the Store Menu lands
@@ -289,6 +290,14 @@ function ClientHudManager:init()
 	ClientGachaMenuManager:subscribeWalletsFaded(
 		function(isFaded, fadeSec)
 			self:setWalletsFaded(isFaded, fadeSec)
+		end
+	)
+	ClientDiamondStoreManager:subscribeDiamondsShort(
+		function()
+			local label = self.diamondLabel
+			if label then
+				ClientLabelFlash.flashRed(label)
+			end
 		end
 	)
 

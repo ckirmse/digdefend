@@ -29,7 +29,7 @@ local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local RemoteChargeData = require("@game/ServerScriptService/GameData/Gadgets/RemoteCharge")
-local CharacterManager = require(script.Parent.Parent.Server.CharacterManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -92,7 +92,7 @@ function RemoteChargeManager:getShadowFolder(): Folder
 end
 
 function RemoteChargeManager:hasRemoteCharge(player: Player): boolean
-	return CharacterManager:getGadgetKind(player) == Enums.GadgetKind.REMOTE_CHARGE
+	return ClassManager:getGadgetKind(player) == Enums.GadgetKind.REMOTE_CHARGE
 end
 
 -- seconds until the next mine is in hand; 0 when it is
@@ -278,7 +278,7 @@ function RemoteChargeManager:init()
 	-- the slot drains its sheet over the same length the server waits
 	SplendidReplicationManager:setGameMetadata(Attributes.REMOTE_CHARGE_COOLDOWN_SEC, RemoteChargeData.COOLDOWN_SEC)
 	GameController:registerPlaceManager(self)
-	CharacterManager:subscribeClassChanged(
+	ClassManager:subscribeClassChanged(
 		function(player: Player, _classKind: number)
 			if GameController:isPlayerReady(player) then
 				self:applyGadget(player)
