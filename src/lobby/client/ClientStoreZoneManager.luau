@@ -14,8 +14,10 @@ local RunService = game:GetService("RunService")
 
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
+local ClientClassMenuManager = require(script.Parent.ClientClassMenuManager)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
-local ClientSupplyCrateChoiceManager = require(script.Parent.ClientSupplyCrateChoiceManager)
+local ClientGachaMenuManager = require(script.Parent.ClientGachaMenuManager)
+local ClientGearMenuManager = require(script.Parent.ClientGearMenuManager)
 
 local ClientStoreZoneManager = {}
 ClientStoreZoneManager.__index = ClientStoreZoneManager
@@ -88,13 +90,26 @@ function ClientStoreZoneManager:init()
 	self:addZone(
 		Constants.LOBBY_SUPPLY_CRATE_STORE_FOLDER,
 		function()
-			ClientSupplyCrateChoiceManager:openMenu()
+			ClientGachaMenuManager:openMenu()
 		end
 	)
 	self:addZone(
 		Constants.LOBBY_DIAMOND_STORE_FOLDER,
 		function()
 			ClientDiamondStoreManager:openMenu()
+		end
+	)
+	-- the two selection stalls (designer, 2026-11-06)
+	self:addZone(
+		Constants.LOBBY_GEAR_SELECTION_FOLDER,
+		function()
+			ClientGearMenuManager:openMenu()
+		end
+	)
+	self:addZone(
+		Constants.LOBBY_CLASS_SELECTION_FOLDER,
+		function()
+			ClientClassMenuManager:openMenu()
 		end
 	)
 	if #self.zones == 0 then

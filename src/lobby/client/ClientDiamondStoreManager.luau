@@ -7,9 +7,10 @@
 -- and the HUD's Diamonds wallet. Everything drawn is the
 -- DiamondStoreCatalogue GameMetadata the server publishes (republished
 -- when the Robux prices arrive, so the cards redraw); the menu sends
--- only TryBuyDiamondPack, and the balance in the wallet is the Diamonds
--- attribute. The purchase itself is Roblox's prompt, raised by the
--- server; NotifyDiamondPackBought is only the cue for the sound.
+-- only TryBuyDiamondPack. The menu has no wallet of its own: its overlay
+-- keeps the HUD up, so the HUD's Diamonds wallet is the balance
+-- (designer, 2026-11-06). The purchase itself is Roblox's prompt, raised
+-- by the server; NotifyDiamondPackBought is only the cue for the sound.
 local Players = game:GetService("Players")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
@@ -32,7 +33,6 @@ type View = {
 	gui: ScreenGui,
 	dialog: GuiObject,
 	backButton: GuiButton,
-	diamondLabel: TextLabel,
 	packsPanel: GuiObject,
 	packTemplate: GuiObject,
 }
@@ -143,7 +143,14 @@ function ClientDiamondStoreManager:renderCard(view: View, pack: DiamondStoreRule
 				priceLabel.Text = UiStyle.ROBUX_GLYPH .. utils.formatWithCommas(pack.priceRobux)
 			end
 		end
-		buyButton.BackgroundColor3 = if isOnSale then UiStyle.ACCENT_COLOR else UiStyle.DISABLED_COLOR
+		-- the designer's button is a tinted slice plate (an ImageButton);
+		-- an older copy was a plain TextButton coloured by its background
+		local buttonColor = if isOnSale then UiStyle.ACCENT_COLOR else UiStyle.DISABLED_COLOR
+		if buyButton:IsA("ImageButton") then
+			buyButton.ImageColor3 = buttonColor
+		else
+			buyButton.BackgroundColor3 = buttonColor
+		end
 		buyButton.AutoButtonColor = isOnSale
 		buyButton.Activated:Connect(
 			function()
@@ -160,7 +167,6 @@ function ClientDiamondStoreManager:render()
 	if not view or not self.isOpen then
 		return
 	end
-	view.diamondLabel.Text = utils.formatWithCommas(ClientDataManager:getDiamonds())
 	clearCards(view.packsPanel, view.packTemplate)
 	local catalogue = self:getCatalogue()
 	if not catalogue then
@@ -217,11 +223,9 @@ function ClientDiamondStoreManager:findView(playerGui: PlayerGui): View?
 	end
 	local dialog = gui:FindFirstChild(Constants.MENU_DIALOG_FRAME)
 	local backButton = dialog and dialog:FindFirstChild(Constants.DIAMOND_STORE_BACK_BUTTON)
-	local wallet = dialog and dialog:FindFirstChild(Constants.DIAMOND_STORE_WALLET)
-	local diamondLabel = wallet and wallet:FindFirstChild(Constants.HUD_DIAMOND_AMOUNT_LABEL)
 	local packsPanel = dialog and dialog:FindFirstChild(Constants.DIAMOND_STORE_PACKS)
 	local packTemplate = packsPanel and packsPanel:FindFirstChild(Constants.DIAMOND_STORE_PACK_TEMPLATE)
-	if not dialog or not backButton or not diamondLabel or not packsPanel or not packTemplate then
+	if not dialog or not backButton or not packsPanel or not packTemplate then
 		warn(`ClientDiamondStoreManager: {Constants.DIAMOND_STORE_GUI_NAME} is missing parts; rerun build_diamond_store_gui`)
 		return nil
 	end
@@ -229,7 +233,6 @@ function ClientDiamondStoreManager:findView(playerGui: PlayerGui): View?
 		gui = gui,
 		dialog = dialog :: GuiObject,
 		backButton = backButton :: GuiButton,
-		diamondLabel = diamondLabel :: TextLabel,
 		packsPanel = packsPanel :: GuiObject,
 		packTemplate = packTemplate :: GuiObject,
 	}
@@ -263,15 +266,13 @@ function ClientDiamondStoreManager:init()
 		notifyClickOutside = function(_overlay)
 			self:closeMenu()
 		end,
+		-- the HUD's Diamonds wallet stays up as the menu's balance (designer, 2026-11-06)
+		doesKeepHud = function(_overlay)
+			return true
+		end,
 	}
 	self.overlay = overlay
 
-	ClientDataManager:subscribeCurrentPlayerAttribute(
-		Attributes.DIAMONDS,
-		function()
-			self:render()
-		end
-	)
 	-- the prices land after the first publish
 	ClientDataManager:subscribeGameMetadataAttribute(
 		Attributes.DIAMOND_STORE_CATALOGUE,

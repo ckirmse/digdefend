@@ -10,8 +10,10 @@
 -- HP bar, owner's display name). A placement carries no prompt: it is
 -- upgraded and sold from the Defense Table (2026-09-30). The sounds for a build and a sale
 -- arrive as notifies. Behaviour (M27) is drawn from attributes too: a
--- Tower's turret (every part but the Base) eases round to the yaw the
--- server publishes, a cone Tower shows its flame while IsAttacking, and a
+-- Tower's Barrel eases round about its Hinge attachment to the yaw and
+-- tilts to the pitch the server publishes, so it points along the shot
+-- (the Base and Body never move, artist 2026-11-06),
+-- a shot leaves its Fire attachment, a cone Tower shows its flame while IsAttacking, and a
 -- Spike Trap's spikes sit down, up, or dim by its TrapState. Nothing here
 -- decides anything.
 local CollectionService = game:GetService("CollectionService")
@@ -37,8 +39,10 @@ ClientPlacementManager.__index = ClientPlacementManager
 
 type TurretPart = {
 	part: BasePart,
-	-- the part's pose in the base's frame at yaw 0
+	-- the part's pose in the turret pivot's frame as the template rests
 	restOffset: CFrame,
+	-- the Barrel tilts with the pitch; a cone's flame stays level
+	isPitched: boolean,
 }
 
 type SpikePart = {
@@ -52,7 +56,15 @@ export type Tracked = {
 	billboard: BillboardGui?,
 	connections: { RBXScriptConnection },
 	turretParts: { TurretPart },
+	-- the frame the turret parts turn about: the Barrel's Hinge, upright
+	-- along the base's grid-aligned pose (the base pose itself without one)
+	turretPivot: CFrame?,
+	-- the yaw the resting template's Fire attachment already points at,
+	-- so the server's yaw is laid on as a turn from there
+	turretRestYawDegrees: number,
+	fireAttachment: Attachment?,
 	yawValue: NumberValue?,
+	pitchValue: NumberValue?,
 	flame: BasePart?,
 	spikes: { SpikePart },
 	-- only the ghost shows while the owner moves it; kept so a redraw mid-move
@@ -92,12 +104,13 @@ local PLACEHOLDER_HEIGHT_STUDS = 4
 -- the turret eases to a new yaw over this long
 local TURRET_TURN_SEC = 0.15
 local TURRET_BASE_PART = "Base"
-local TURRET_BARREL_PART = "Barrel"
 local YAW_VALUE_NAME = "TurretYaw"
--- a shot leaves this far above the base when there is no barrel
+local PITCH_VALUE_NAME = "TurretPitch"
+-- a shot leaves this far above the base when there is no Fire attachment
 local MUZZLE_HEIGHT_STUDS = 3
 local FLAME_NAME = "Flame"
 local FLAME_HEIGHT_STUDS = 2
+-- the flame sits this far above the base when there is no Fire attachment
 local FLAME_LIFT_STUDS = 2.6
 local FLAME_TRANSPARENCY = 0.45
 local FLAME_COLOR_BY_KIND: { [number]: Color3 } = {
@@ -324,13 +337,12 @@ function ClientPlacementManager:getTowerAttack(shadow: BasePart): number?
 	return if behavior then behavior.ATTACK else nil
 end
 
--- where a shot leaves: the end of the barrel, turned as it is now
+-- where a shot leaves: the Barrel's Fire attachment, turned as it is now
 function ClientPlacementManager:getMuzzlePosition(shadow: BasePart): Vector3
 	local tracked = self.trackedByShadow[shadow]
-	local body = if tracked then tracked.body else nil
-	local barrel = if body then body:FindFirstChild(TURRET_BARREL_PART) else nil
-	if barrel and barrel:IsA("BasePart") then
-		return barrel.Position + barrel.CFrame.LookVector * (barrel.Size.Z / 2)
+	local fireAttachment = if tracked then tracked.fireAttachment else nil
+	if fireAttachment and fireAttachment.Parent then
+		return fireAttachment.WorldPosition
 	end
 	return TowerRules.muzzlePosition(self:basePose(shadow), MUZZLE_HEIGHT_STUDS)
 end
@@ -359,11 +371,23 @@ function ClientPlacementManager:setInfoVisible(shadow: BasePart, isVisible: bool
 	end
 end
 
--- every turret part turned to the yaw about the base
-function ClientPlacementManager:applyYaw(tracked: Tracked, yawDegrees: number)
-	local pose = self:basePose(tracked.shadow) * CFrame.Angles(0, math.rad(yawDegrees), 0)
+-- every turret part turned about the pivot to the yaw, then the pitched
+-- ones tilted about the aim frame's side axis (through the Hinge, across
+-- the shot) before the rest pose's own yaw is undone, so the tilt is
+-- always across the barrel whatever way the template rests
+function ClientPlacementManager:applyAim(tracked: Tracked)
+	local pivot = tracked.turretPivot
+	local yawValue = tracked.yawValue
+	local pitchValue = tracked.pitchValue
+	if not pivot or not yawValue or not pitchValue then
+		return
+	end
+	local aimFrame = pivot * CFrame.Angles(0, math.rad(yawValue.Value), 0)
+	local restTurn = CFrame.Angles(0, -math.rad(tracked.turretRestYawDegrees), 0)
+	local levelPose = aimFrame * restTurn
+	local pitchedPose = aimFrame * CFrame.Angles(math.rad(pitchValue.Value), 0, 0) * restTurn
 	for _, turretPart in tracked.turretParts do
-		turretPart.part.CFrame = pose * turretPart.restOffset
+		turretPart.part.CFrame = (if turretPart.isPitched then pitchedPose else levelPose) * turretPart.restOffset
 	end
 end
 
@@ -376,6 +400,15 @@ function ClientPlacementManager:refreshYaw(tracked: Tracked)
 	local target = readNumber(tracked.shadow:GetAttribute(Attributes.PLACEMENT_YAW_DEGREES), 0)
 	local goal = yawValue.Value + TowerRules.yawDelta(yawValue.Value, target)
 	TweenService:Create(yawValue, TweenInfo.new(TURRET_TURN_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = goal }):Play()
+end
+
+function ClientPlacementManager:refreshPitch(tracked: Tracked)
+	local pitchValue = tracked.pitchValue
+	if not pitchValue then
+		return
+	end
+	local target = readNumber(tracked.shadow:GetAttribute(Attributes.PLACEMENT_PITCH_DEGREES), 0)
+	TweenService:Create(pitchValue, TweenInfo.new(TURRET_TURN_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = target }):Play()
 end
 
 function ClientPlacementManager:refreshFlame(tracked: Tracked)
@@ -403,14 +436,21 @@ function ClientPlacementManager:refreshSpikes(tracked: Tracked, isInstant: boole
 	end
 end
 
--- the turret: every part but the base, remembered at rest so any yaw is
--- one transform from the base; a cone kind also gets its flame, a part
--- along the barrel as long as the kind's range, hidden until it breathes.
--- The server's yaw is about the grid-aligned pose, so the rest offsets
--- are taken against the turned pose the body was drawn at: yaw 0 then
--- faces the grid whatever way the base was turned
+-- the turret: the Barrel alone, remembered at rest in the frame of its
+-- Hinge attachment (upright along the grid-aligned base pose, since the
+-- server's yaw is about that pose whatever way the body was drawn), so
+-- any yaw is one turn about the Hinge; the Base and Body never move. The
+-- resting Barrel already points its Fire attachment somewhere (the
+-- artist's models along their +X), so that yaw is measured once and the
+-- server's yaw laid on as a turn from it. A template without the Barrel
+-- and its attachments keeps the first build's turret: every part but the
+-- base, turned about the base. A cone kind also gets its flame, a part
+-- from the muzzle as long as the kind's range, hidden until it breathes.
 function ClientPlacementManager:bindTurret(tracked: Tracked, body: Model)
 	tracked.turretParts = {}
+	tracked.turretPivot = nil
+	tracked.turretRestYawDegrees = 0
+	tracked.fireAttachment = nil
 	local tower = self:getTowerData(tracked.shadow)
 	local behavior = if tower then tower.BEHAVIOR else nil
 	if not tower or not behavior or not behavior.HAS_TURRET then
@@ -418,14 +458,37 @@ function ClientPlacementManager:bindTurret(tracked: Tracked, body: Model)
 	end
 	local pose = self:basePose(tracked.shadow)
 	local drawnPose = self:modelPose(tracked.shadow)
-	for _, descendant in body:GetDescendants() do
-		if descendant:IsA("BasePart") and descendant.Name ~= TURRET_BASE_PART then
-			table.insert(tracked.turretParts, {
-				part = descendant,
-				restOffset = drawnPose:ToObjectSpace(descendant.CFrame),
-			})
+	local barrel = body:FindFirstChild(Constants.TOWER_BARREL_PART, true)
+	local hinge = if barrel then barrel:FindFirstChild(Constants.TOWER_HINGE_ATTACHMENT) else nil
+	local fire = if barrel then barrel:FindFirstChild(Constants.TOWER_FIRE_ATTACHMENT) else nil
+	local pivot: CFrame
+	-- where the flame starts, in the pivot's frame turned to the rest yaw
+	local flameOrigin: CFrame
+	if barrel and barrel:IsA("BasePart") and hinge and hinge:IsA("Attachment") and fire and fire:IsA("Attachment") then
+		pivot = CFrame.new(hinge.WorldPosition) * pose.Rotation
+		tracked.turretRestYawDegrees = TowerRules.yawDegreesToward(pivot, fire.WorldPosition)
+		tracked.fireAttachment = fire
+		table.insert(tracked.turretParts, {
+			part = barrel,
+			restOffset = pivot:ToObjectSpace(barrel.CFrame),
+			isPitched = true,
+		})
+		flameOrigin = pivot * CFrame.Angles(0, math.rad(tracked.turretRestYawDegrees), 0) * CFrame.new(0, pivot:PointToObjectSpace(fire.WorldPosition).Y, 0)
+	else
+		warn(string.format("ClientPlacementManager: Tower template %s has no Barrel with Hinge and Fire attachments; turning every part but the base", body.Name))
+		pivot = pose
+		for _, descendant in body:GetDescendants() do
+			if descendant:IsA("BasePart") and descendant.Name ~= TURRET_BASE_PART then
+				table.insert(tracked.turretParts, {
+					part = descendant,
+					restOffset = drawnPose:ToObjectSpace(descendant.CFrame),
+					isPitched = false,
+				})
+			end
 		end
+		flameOrigin = pose * CFrame.new(0, FLAME_LIFT_STUDS, 0)
 	end
+	tracked.turretPivot = pivot
 	if behavior.ATTACK == Enums.TowerAttack.CONE then
 		local level = readNumber(tracked.shadow:GetAttribute(Attributes.PLACEMENT_LEVEL), 1)
 		local stats = PlacementRules.towerStats(tower, level)
@@ -443,12 +506,13 @@ function ClientPlacementManager:bindTurret(tracked: Tracked, body: Model)
 		flame.Color = FLAME_COLOR_BY_KIND[readNumber(tracked.shadow:GetAttribute(Attributes.PLACEMENT_TYPE_KIND), 0)] or Color3.fromRGB(255, 255, 255)
 		flame.Transparency = 1
 		flame.Size = Vector3.new(width, FLAME_HEIGHT_STUDS, range)
-		flame.CFrame = pose * CFrame.new(0, FLAME_LIFT_STUDS, -range / 2)
+		flame.CFrame = flameOrigin * CFrame.new(0, 0, -range / 2)
 		flame.Parent = body
 		tracked.flame = flame
 		table.insert(tracked.turretParts, {
 			part = flame,
-			restOffset = pose:ToObjectSpace(flame.CFrame),
+			restOffset = pivot:ToObjectSpace(flame.CFrame),
+			isPitched = false,
 		})
 	end
 	local yawValue = Instance.new("NumberValue")
@@ -456,15 +520,22 @@ function ClientPlacementManager:bindTurret(tracked: Tracked, body: Model)
 	yawValue.Value = readNumber(tracked.shadow:GetAttribute(Attributes.PLACEMENT_YAW_DEGREES), 0)
 	yawValue.Parent = body
 	tracked.yawValue = yawValue
-	table.insert(
-		tracked.connections,
-		yawValue.Changed:Connect(
-			function()
-				self:applyYaw(tracked, yawValue.Value)
-			end
+	local pitchValue = Instance.new("NumberValue")
+	pitchValue.Name = PITCH_VALUE_NAME
+	pitchValue.Value = readNumber(tracked.shadow:GetAttribute(Attributes.PLACEMENT_PITCH_DEGREES), 0)
+	pitchValue.Parent = body
+	tracked.pitchValue = pitchValue
+	for _, value in { yawValue, pitchValue } do
+		table.insert(
+			tracked.connections,
+			value.Changed:Connect(
+				function()
+					self:applyAim(tracked)
+				end
+			)
 		)
-	)
-	self:applyYaw(tracked, yawValue.Value)
+	end
+	self:applyAim(tracked)
 	self:refreshFlame(tracked)
 end
 
@@ -498,6 +569,7 @@ function ClientPlacementManager:dress(tracked: Tracked)
 	tracked.body = body
 	tracked.flame = nil
 	tracked.yawValue = nil
+	tracked.pitchValue = nil
 	self:bindTurret(tracked, body)
 	applyBodyHidden(tracked)
 	self:bindSpikes(tracked, body)
@@ -526,7 +598,11 @@ function ClientPlacementManager:track(shadow: Instance)
 		billboard = nil,
 		connections = {},
 		turretParts = {},
+		turretPivot = nil,
+		turretRestYawDegrees = 0,
+		fireAttachment = nil,
 		yawValue = nil,
+		pitchValue = nil,
 		flame = nil,
 		isBodyHidden = false,
 		spikes = {},
@@ -562,6 +638,14 @@ function ClientPlacementManager:track(shadow: Instance)
 		shadow:GetAttributeChangedSignal(Attributes.PLACEMENT_YAW_DEGREES):Connect(
 			function()
 				self:refreshYaw(tracked)
+			end
+		)
+	)
+	table.insert(
+		tracked.connections,
+		shadow:GetAttributeChangedSignal(Attributes.PLACEMENT_PITCH_DEGREES):Connect(
+			function()
+				self:refreshPitch(tracked)
 			end
 		)
 	)

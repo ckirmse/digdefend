@@ -31,6 +31,7 @@ local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local utils = require("@game/ReplicatedStorage/Shared/utils")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
+local ClientGuiFade = require(script.Parent.Parent.Client.ClientGuiFade)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
@@ -431,48 +432,74 @@ function ClientClassMenuManager:renderPerkRows(view: View, classKind: number)
 	if activeRoll and activeRoll.classKind == classKind then
 		return
 	end
-	clearClones(view.perkRows, view.perkRowTemplate)
 	local pricing = self:getRerollPricing()
 	local record = ClientDataManager:getClassRecord(classKind)
 	local stars = self:starsOf(classKind) or 0
 	local slotCount = if pricing then pricing.maxSkillSlots else Constants.CLASS_INFO_STAR_COUNT
 	for slot = 1, slotCount do
-		local row = view.perkRowTemplate:Clone()
-		row.Name = string.format(PERK_ROW_NAME_FORMAT, slot)
-		row.LayoutOrder = slot
+		-- a row made once and updated in place: recloning it after a reel
+		-- landed drew the words once more from scratch, a visible flash
+		-- (2026-11-06)
+		local rowName = string.format(PERK_ROW_NAME_FORMAT, slot)
+		local found = view.perkRows:FindFirstChild(rowName)
+		local row: GuiObject
+		if found and found:IsA("GuiObject") then
+			row = found
+		else
+			row = view.perkRowTemplate:Clone()
+			row.Name = rowName
+			row.LayoutOrder = slot
+			row.Parent = view.perkRows
+		end
 		row.Visible = true
 		local isLocked = slot > stars
 		local rerollButton = row:FindFirstChild(Constants.PERK_ROW_REROLL_BUTTON)
 		setVisible(row, Constants.PERK_ROW_LOCK_ICON, isLocked)
 		setVisible(row, Constants.PERK_ROW_REQUIREMENT_LABEL, isLocked)
+		setVisible(row, Constants.PERK_ROW_KEEP_BUTTON, false)
+		setVisible(row, Constants.PERK_ROW_CANCEL_BUTTON, false)
 		if isLocked then
 			fillSkillText(skillTextOf(row), { name = "", nameColor = UiStyle.TEXT_COLOR, description = "" })
 			setLabel(row, Constants.PERK_ROW_REQUIREMENT_LABEL, UiStyle.formatTitle(string.format(UNLOCKED_AT_FORMAT, slot)))
 			if rerollButton and rerollButton:IsA("GuiObject") then
 				rerollButton.Visible = false
 			end
-			row.Parent = view.perkRows
 			continue
 		end
 		local skill = record.skills[tostring(slot)]
-		local isEmpty = skill == nil
 		fillSkillText(skillTextOf(row), self:reelEntryFor(if skill then skill.skillId else nil, if skill then skill.rarity else nil))
-		if rerollButton and rerollButton:IsA("GuiButton") then
-			rerollButton.Visible = pricing ~= nil
-			if pricing then
-				local price = SkillRules.skillRollPrice(pricing, isEmpty)
-				self:fillRerollButton(rerollButton, if isEmpty then ROLL_TEXT else REROLL_TEXT, price)
-				self:addCloneConnection(
-					rerollButton.Activated:Connect(
-						function()
-							self:requestRoll(classKind, slot, price)
-						end
-					)
-				)
-			end
-		end
-		row.Parent = view.perkRows
+		self:showRerollButton(row, classKind, slot, skill == nil)
 	end
+end
+
+-- an open row's Reroll button, worded and priced for the slot's state; a
+-- button a roll faded out comes back the same way. Called by the redraw
+-- and by a kept roll, since a roll that lands on the skill the slot
+-- already held changes no data and so brings no redraw (2026-11-06)
+function ClientClassMenuManager:showRerollButton(row: Instance, classKind: number, slot: number, isEmpty: boolean)
+	local rerollButton = row:FindFirstChild(Constants.PERK_ROW_REROLL_BUTTON)
+	if not rerollButton or not rerollButton:IsA("GuiButton") then
+		return
+	end
+	local pricing = self:getRerollPricing()
+	local wasHidden = not rerollButton.Visible
+	rerollButton.Visible = pricing ~= nil
+	rerollButton.Interactable = true
+	if wasHidden and rerollButton.Visible then
+		ClientGuiFade.fadeIn(rerollButton, REROLL_FADE_SEC)
+	end
+	if not pricing then
+		return
+	end
+	local price = SkillRules.skillRollPrice(pricing, isEmpty)
+	self:fillRerollButton(rerollButton, if isEmpty then ROLL_TEXT else REROLL_TEXT, price)
+	self:addCloneConnection(
+		rerollButton.Activated:Connect(
+			function()
+				self:requestRoll(classKind, slot, price)
+			end
+		)
+	)
 end
 
 -- a roll the menu already knows the price of: a short balance is handled
@@ -687,20 +714,10 @@ function ClientClassMenuManager:fadeOutRerollButton(row: Instance)
 		return
 	end
 	button.Interactable = false
-	local info = TweenInfo.new(REROLL_FADE_SEC)
-	if button:IsA("ImageButton") then
-		TweenService:Create(button, info, { ImageTransparency = 1 }):Play()
-	else
-		TweenService:Create(button, info, { BackgroundTransparency = 1 }):Play()
-	end
-	for _, child in button:GetChildren() do
-		if child:IsA("TextLabel") then
-			TweenService:Create(child, info, { TextTransparency = 1 }):Play()
-		elseif child:IsA("ImageLabel") then
-			TweenService:Create(child, info, { ImageTransparency = 1 }):Play()
-		end
-	end
-	task.delay(
+	-- the helper puts the authored transparencies back under the hidden
+	-- button, so the in-place redraw only has to show it again
+	ClientGuiFade.fadeOut(
+		button,
 		REROLL_FADE_SEC,
 		function()
 			button.Visible = false
@@ -806,7 +823,12 @@ function ClientClassMenuManager:resolveRoll(isTaken: boolean)
 	setVisible(roll.row, Constants.PERK_ROW_KEEP_BUTTON, false)
 	setVisible(roll.row, Constants.PERK_ROW_CANCEL_BUTTON, false)
 	ClientNetManager:fireServer(NetEventNames.TRY_RESOLVE_SKILL_ROLL, { isTaken = isTaken })
-	if not isTaken then
+	if isTaken then
+		-- the row already shows the result; its button comes back now, since
+		-- the data change (if the skill differs from the one held) redraws
+		-- the row in place without disturbing it
+		self:showRerollButton(roll.row, roll.classKind, roll.slot, false)
+	else
 		-- the server changes nothing on a cancel, so the row is put back here
 		self:render()
 	end

@@ -185,6 +185,24 @@ describe(
 			end
 		)
 		it(
+			"pitches from the hinge height toward a target and caps the tilt",
+			function()
+				local pose = CFrame.new(0, 0, 0)
+				-- level with the hinge: no pitch
+				expect(TowerRules.pitchDegreesToward(pose, 10, Vector3.new(0, 10, -10), 60)).toBeCloseTo(0, 5)
+				-- as far down as out: 45 degrees down, whatever the yaw
+				expect(TowerRules.pitchDegreesToward(pose, 10, Vector3.new(0, 0, -10), 60)).toBeCloseTo(-45, 5)
+				expect(TowerRules.pitchDegreesToward(pose, 10, Vector3.new(10, 0, 0), 60)).toBeCloseTo(-45, 5)
+				-- above the hinge: up
+				expect(TowerRules.pitchDegreesToward(pose, 10, Vector3.new(0, 20, -10), 60)).toBeCloseTo(45, 5)
+				-- at the tower's foot: capped
+				expect(TowerRules.pitchDegreesToward(pose, 10, Vector3.new(0, 0, -1), 60)).toBeCloseTo(-60, 5)
+				-- a tilted base measures in its own frame
+				local tilted = CFrame.Angles(0, 0, math.rad(90))
+				expect(TowerRules.pitchDegreesToward(tilted, 10, tilted:PointToWorldSpace(Vector3.new(0, 10, -10)), 60)).toBeCloseTo(0, 5)
+			end
+		)
+		it(
 			"measures the short way round",
 			function()
 				expect(TowerRules.yawDelta(170, -170)).toBeCloseTo(20, 5)

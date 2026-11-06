@@ -11,8 +11,9 @@
 -- only TryBuyCosmetic and TrySetCosmetic; a buy the Keys cannot cover is
 -- refused here first (the fail sound and a line) and never sent.
 -- NotifyCosmeticBought is the cue for the purchase sound; the redraw comes
--- from the attributes changing. Opened from the Supply Crate stall's
--- choice screen (ClientSupplyCrateChoiceManager).
+-- from the attributes changing. Opened from the crate menu's KEY STORE
+-- button (designer, 2026-11-06; the stall's choice screen for a day
+-- before that): Keys are the crate's change, so they are spent beside it.
 local Players = game:GetService("Players")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")

@@ -51,8 +51,15 @@ return {
 	-- the designer's brief (towers take at most half a wave)
 	-- selling returns this share of everything spent on the Tower
 	SELL_SHARE = 0.5,
-	-- a shot leaves the turret this far above the Tower's base pose
+	-- a shot leaves the turret this far above the Tower's base pose (the
+	-- origin the range is measured from)
 	MUZZLE_HEIGHT_STUDS = 3,
+	-- the Barrel's Hinge attachment stands this far above the base pose on
+	-- the artist's models (2026-11-06); the barrel's pitch toward a target
+	-- is measured from there, and capped either way at MAX_PITCH_DEGREES so
+	-- a monster at the tower's foot never folds the barrel straight down
+	HINGE_HEIGHT_STUDS = 11,
+	MAX_PITCH_DEGREES = 60,
 	BY_KIND = {
 		[Enums.TowerKind.SENTRY_GUN] = {
 			-- 50 (designer, 2026-10-23; 60 before)

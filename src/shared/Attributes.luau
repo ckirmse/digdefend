@@ -565,6 +565,9 @@ module = {
 	-- whether a cone Tower is breathing right now; a Spike Trap's
 	-- Enums.TrapState; and the Decoy's flag that enemy targeting reads
 	PLACEMENT_YAW_DEGREES = "PlacementYawDegrees",
+	-- the Barrel's pitch in degrees about its Hinge, positive up, so the
+	-- barrel points along the line of the shot (2026-11-06)
+	PLACEMENT_PITCH_DEGREES = "PlacementPitchDegrees",
 	PLACEMENT_IS_ATTACKING = "PlacementIsAttacking",
 	PLACEMENT_TRAP_STATE = "PlacementTrapState",
 	PLACEMENT_DRAWS_ATTACKS = "PlacementDrawsAttacks",

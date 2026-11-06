@@ -5,6 +5,10 @@
 -- standard in CLAUDE.md; fonts and colours come from Shared/UiStyle.
 -- ClientDiamondStoreManager clones PackTemplate once per pack and fills
 -- the amount, the banner, and the price; the template itself stays hidden.
+-- The designer's layout of 2026-11-06 is ported here: a black header band
+-- with the title, an X in the top-right corner in place of Back, no wallet
+-- of its own (the HUD's Diamonds wallet stays up as the balance), and BUY
+-- on the slice plate the Key Store's buttons use.
 local StarterGui = game:GetService("StarterGui")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
@@ -23,11 +27,21 @@ end
 local MENU_DISPLAY_ORDER = 5
 local DIALOG_ASPECT = 1.9
 local DIALOG_MAX_SIZE = Vector2.new(1140, 600)
+-- the dialog sits a little under centre, leaving the HUD's wallets clear
+-- above it, and lets a hint of the world through (designer, 2026-11-06)
+local DIALOG_POSITION_Y = 0.55
+local DIALOG_TRANSPARENCY = 0.1
 -- a card is taller than wide; four sit in a row with gaps, each this share
--- of the row's width (4 x 0.22 + 3 gaps of 0.02 = 0.94 of the row)
-local CARD_ASPECT = 0.72
-local CARD_WIDTH_SHARE = 0.22
+-- of the row's width (4 x 0.24 + 3 gaps of 0.02 = 1.02 of the row, so the
+-- outer cards tuck in by the row's own margin; designer, 2026-11-06)
+local CARD_ASPECT = 0.61
+local CARD_WIDTH_SHARE = 0.24
 local CARD_GAP_SHARE = 0.02
+-- the Key Store's slice plate for a wide button
+local WIDE_PLATE_SLICE = Rect.new(136, 207, 292, 291)
+local HEADER_HEIGHT_SHARE = 0.12
+local CLOSE_BUTTON_MAX_PX = 56
+local BLACK = Color3.new(0, 0, 0)
 
 local function addCorner(parent, radiusPx)
 	local corner = Instance.new("UICorner")
@@ -76,44 +90,24 @@ local function makeLabel(name, text, font, color, maxPx)
 	return label
 end
 
-local function makeButton(name, text, color, maxPx)
-	local button = Instance.new("TextButton")
+-- a button on the designer's slice plate, tinted by ImageColor3, its word
+-- a TextLabel child (Constants.EQUIP_BUTTON_LABEL names it), as in the
+-- Key Store; the manager tints the plate grey for a pack not on sale
+local function makePlateButton(name, text, color, slice, maxPx)
+	local button = Instance.new("ImageButton")
 	button.Name = name
 	button.BackgroundColor3 = color
+	button.BackgroundTransparency = 1
 	button.BorderSizePixel = 0
-	button.Text = UiStyle.formatTitle(text)
-	button.TextColor3 = UiStyle.TEXT_COLOR
-	button.TextScaled = true
-	button.FontFace = UiStyle.TITLE_FONT
+	button.Image = Icons.UI.PANEL_BACKING
+	button.ScaleType = Enum.ScaleType.Slice
+	button.SliceCenter = slice
+	button.ImageColor3 = color
 	button.AutoButtonColor = true
-	addTextSizeBounds(button, 1, maxPx)
-	addCorner(button)
-	return button
-end
-
--- a wallet: an icon then the amount, the HUD wallet's look
-local function makeWallet(name, amountName, icon)
-	local wallet = Instance.new("Frame")
-	wallet.Name = name
-	wallet.BackgroundColor3 = UiStyle.BACKGROUND_COLOR
-	wallet.BorderSizePixel = 0
-	addCorner(wallet)
-	local walletIcon = Instance.new("ImageLabel")
-	walletIcon.Name = Constants.HUD_BALANCE_ICON
-	walletIcon.AnchorPoint = Vector2.new(0, 0.5)
-	walletIcon.Position = UDim2.fromScale(0.05, 0.5)
-	walletIcon.Size = UDim2.fromScale(0.22, 0.76)
-	addAspect(walletIcon, 1)
-	walletIcon.BackgroundTransparency = 1
-	walletIcon.Image = icon
-	walletIcon.Parent = wallet
-	local amount = makeLabel(amountName, "0", UiStyle.TITLE_FONT, UiStyle.TEXT_COLOR, 34)
-	amount.AnchorPoint = Vector2.new(0, 0.5)
-	amount.Position = UDim2.fromScale(0.32, 0.5)
-	amount.Size = UDim2.fromScale(0.64, 0.76)
-	amount.TextXAlignment = Enum.TextXAlignment.Left
-	amount.Parent = wallet
-	return wallet
+	local label = makeLabel(Constants.EQUIP_BUTTON_LABEL, UiStyle.formatTitle(text), UiStyle.TITLE_FONT, UiStyle.TEXT_COLOR, maxPx)
+	label.TextTruncate = Enum.TextTruncate.None
+	label.Parent = button
+	return button, label
 end
 
 local gui = Instance.new("ScreenGui")
@@ -126,42 +120,75 @@ gui.Enabled = false
 local dialog = Instance.new("Frame")
 dialog.Name = Constants.MENU_DIALOG_FRAME
 dialog.AnchorPoint = Vector2.new(0.5, 0.5)
-dialog.Position = UDim2.fromScale(0.5, 0.5)
+dialog.Position = UDim2.fromScale(0.5, DIALOG_POSITION_Y)
 dialog.Size = UDim2.fromScale(0.84, 0.78)
 addAspect(dialog, DIALOG_ASPECT)
 addMaxSize(dialog, DIALOG_MAX_SIZE)
 dialog.BackgroundColor3 = UiStyle.PANEL_COLOR
+dialog.BackgroundTransparency = DIALOG_TRANSPARENCY
 dialog.BorderSizePixel = 0
 dialog.Parent = gui
 addCorner(dialog)
 
--- header: Back on the left, the title in the middle, the wallet on the right
-local backButton = makeButton(Constants.DIAMOND_STORE_BACK_BUTTON, "Back", UiStyle.NEGATIVE_COLOR, 32)
-backButton.AnchorPoint = Vector2.new(0, 0)
-backButton.Position = UDim2.fromScale(0.03, 0.05)
-backButton.Size = UDim2.fromScale(0.14, 0.11)
-addTouchTarget(backButton, Vector2.new(200, 56))
-backButton.Parent = dialog
+-- the header band across the top with the title centred in it
+local header = Instance.new("Frame")
+header.Name = "Header"
+header.Position = UDim2.fromScale(0, 0)
+header.Size = UDim2.fromScale(1, HEADER_HEIGHT_SHARE)
+header.BackgroundColor3 = BLACK
+header.BorderSizePixel = 0
+header.Parent = dialog
+addCorner(header)
 
 local title = makeLabel("Title", UiStyle.formatTitle("Diamonds"), UiStyle.TITLE_FONT, UiStyle.TEXT_COLOR, 48)
-title.AnchorPoint = Vector2.new(0.5, 0)
-title.Position = UDim2.fromScale(0.5, 0.05)
-title.Size = UDim2.fromScale(0.4, 0.11)
-title.Parent = dialog
+title.AnchorPoint = Vector2.new(0.5, 0.5)
+title.Position = UDim2.fromScale(0.5, 0.5)
+title.Size = UDim2.fromScale(0.95, 0.9)
+title.Parent = header
 
-local diamondWallet = makeWallet(Constants.DIAMOND_STORE_WALLET, Constants.HUD_DIAMOND_AMOUNT_LABEL, Icons.UI.DIAMONDS)
-diamondWallet.AnchorPoint = Vector2.new(1, 0)
-diamondWallet.Position = UDim2.fromScale(0.97, 0.05)
-diamondWallet.Size = UDim2.fromScale(0.15, 0.11)
-addMaxSize(diamondWallet, Vector2.new(180, 56))
-diamondWallet.Parent = dialog
+-- the X in the top-right corner: a square button on a red plate picture
+-- over a dark backing, drawn above the header band
+local backButton = Instance.new("TextButton")
+backButton.Name = Constants.DIAMOND_STORE_BACK_BUTTON
+backButton.AnchorPoint = Vector2.new(1, 0)
+backButton.Position = UDim2.fromScale(0.98, 0.01)
+backButton.Size = UDim2.fromScale(0.1, 0.1)
+backButton.BackgroundColor3 = UiStyle.EMPTY_SLOT_COLOR
+backButton.BorderSizePixel = 0
+backButton.ZIndex = 2
+backButton.Text = ""
+backButton.TextColor3 = UiStyle.TEXT_COLOR
+backButton.TextScaled = true
+backButton.FontFace = UiStyle.TITLE_FONT
+backButton.AutoButtonColor = true
+addTextSizeBounds(backButton, 1, 26)
+addCorner(backButton)
+addAspect(backButton, 1)
+addTouchTarget(backButton, Vector2.new(CLOSE_BUTTON_MAX_PX, CLOSE_BUTTON_MAX_PX))
+backButton.Parent = dialog
+
+local backBackground = Instance.new("ImageLabel")
+backBackground.Name = "Background"
+backBackground.Position = UDim2.fromScale(0, 0)
+backBackground.Size = UDim2.fromScale(1, 1)
+backBackground.BackgroundTransparency = 1
+backBackground.Image = Icons.UI.PANEL_BACKING
+backBackground.ImageColor3 = UiStyle.TOGGLE_OFF_COLOR
+backBackground.Parent = backButton
+
+local backLabel = makeLabel(Constants.EQUIP_BUTTON_LABEL, "X", UiStyle.TITLE_FONT, UiStyle.TEXT_COLOR, 26)
+backLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+backLabel.Position = UDim2.fromScale(0.5, 0.5)
+backLabel.Size = UDim2.fromScale(0.8, 0.8)
+backLabel.ZIndex = 2
+backLabel.Parent = backButton
 
 -- the packs: one card each in a centred row, smallest to largest
 local packs = Instance.new("Frame")
 packs.Name = Constants.DIAMOND_STORE_PACKS
 packs.AnchorPoint = Vector2.new(0.5, 1)
 packs.Position = UDim2.fromScale(0.5, 0.95)
-packs.Size = UDim2.fromScale(0.94, 0.72)
+packs.Size = UDim2.fromScale(0.94, 0.8)
 packs.BackgroundTransparency = 1
 packs.Parent = dialog
 
@@ -178,7 +205,7 @@ packsLayout.Parent = packs
 local card = Instance.new("Frame")
 card.Name = Constants.DIAMOND_STORE_PACK_TEMPLATE
 card.Size = UDim2.fromScale(CARD_WIDTH_SHARE, 0)
-card.BackgroundColor3 = UiStyle.BACKGROUND_COLOR
+card.BackgroundColor3 = BLACK
 card.BorderSizePixel = 0
 card.Visible = false
 card.Parent = packs
@@ -223,18 +250,20 @@ amount.Position = UDim2.fromScale(0.5, 0.59)
 amount.Size = UDim2.fromScale(0.86, 0.12)
 amount.Parent = card
 
--- BUY carries the Robux price (glyph then number) in a black tab inside
--- the button; the manager only changes the number
-local buyButton = makeButton(Constants.DIAMOND_STORE_PACK_BUY_BUTTON, "Buy", UiStyle.ACCENT_COLOR, 28)
+-- BUY on the left of the plate and the Robux price (glyph then number) in
+-- a dark tab on the right; the manager only changes the number
+local buyButton, buyLabel = makePlateButton(Constants.DIAMOND_STORE_PACK_BUY_BUTTON, "Buy", UiStyle.ACCENT_COLOR, WIDE_PLATE_SLICE, 28)
 buyButton.AnchorPoint = Vector2.new(0.5, 1)
 buyButton.Position = UDim2.fromScale(0.5, 0.95)
 buyButton.Size = UDim2.fromScale(0.86, 0.17)
 addTouchTarget(buyButton, Vector2.new(260, 72))
-buyButton.TextXAlignment = Enum.TextXAlignment.Left
 buyButton.Parent = card
 local buyPadding = Instance.new("UIPadding")
 buyPadding.PaddingLeft = UDim.new(0.08, 0)
 buyPadding.Parent = buyButton
+buyLabel.AnchorPoint = Vector2.new(0, 0.5)
+buyLabel.Position = UDim2.fromScale(0, 0.5)
+buyLabel.Size = UDim2.fromScale(0.3, 0.8)
 
 local price = makeLabel(Constants.DIAMOND_STORE_PACK_PRICE_LABEL, UiStyle.ROBUX_GLYPH .. "99", UiStyle.TITLE_FONT, UiStyle.TEXT_COLOR, 26)
 price.AnchorPoint = Vector2.new(1, 0.5)

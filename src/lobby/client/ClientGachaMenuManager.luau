@@ -6,9 +6,12 @@
 -- crate on the left two thirds of the screen and the panel on the right
 -- third: an X close in the corner, the odds list (or, for a player
 -- restricted from paid random items, the classes to buy outright), and
--- OPEN CRATE with its Diamonds price; the balances are the HUD's. OPEN CRATE sends TryRollGacha and at once pans the camera to
--- CameraOpenSequence while every other character and the stall's ring
--- fade away; TAP CRATE TO OPEN then fades in along the bottom. A tap on
+-- OPEN CRATE with its Diamonds price; the balances are the HUD's. The
+-- player's own body and the stall's ring fade as the menu opens and come
+-- back as it closes (the ring with the purchase until 2026-11-06). OPEN
+-- CRATE sends TryRollGacha and at once pans the camera to
+-- CameraOpenSequence while every other character fades away; TAP CRATE
+-- TO OPEN then fades in along the bottom. A tap on
 -- the crate (a ray from the camera through the input) swings the lid up
 -- to LidOpen, lights the attachment's light and emitter, tilts the
 -- camera to CameraOpen, and flies the prize card out of the crate: for a
@@ -50,6 +53,8 @@ local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
+local ClientKeyStoreManager = require(script.Parent.ClientKeyStoreManager)
+local ClientPadBillboardManager = require(script.Parent.ClientPadBillboardManager)
 
 local ClientGachaMenuManager = {}
 ClientGachaMenuManager.__index = ClientGachaMenuManager
@@ -63,6 +68,9 @@ type View = {
 	classRowTemplate: GuiObject,
 	rollButton: TextButton,
 	rollPriceLabel: TextLabel,
+	-- the designer's KEY STORE plate under OPEN CRATE (2026-11-06); an
+	-- older copy of the gui has none
+	keyStoreButton: GuiButton?,
 	tapHint: TextLabel,
 	-- the headline's picture backing and the words inside it
 	revealTitle: ImageLabel,
@@ -140,8 +148,9 @@ export type ClientGachaMenuManager = typeof(setmetatable(
 		-- a step of the sequence started after this one cancels it
 		sequenceSerial: number,
 		faded: { Faded },
-		-- the player's own body, faded for as long as the menu is up: the
-		-- menu shot is fixed and the body can stand right in it
+		-- the player's own body and the stall's ring, faded for as long as
+		-- the menu is up: the menu shot is fixed and the body can stand
+		-- right in it, and the ring clutters the crate (designer, 2026-11-06)
 		fadedSelf: { Faded },
 		cameraTween: Tween?,
 		-- where the camera was before the menu took it
@@ -511,10 +520,10 @@ local function fadeBack(faded: { Faded }, isInstant: boolean?)
 	table.clear(faded)
 end
 
--- what fades round the crate: every other player's character, the
--- stall salespeople (the LOBBY_NPC rigs), and the ring the stall stands
--- on; the authored transparencies are kept so the fade back is exact
-function ClientGachaMenuManager:collectFadeTargets(crate: Crate): { Instance }
+-- what fades round the crate at the purchase: every other player's
+-- character and the stall salespeople (the LOBBY_NPC rigs); the authored
+-- transparencies are kept so the fade back is exact
+function ClientGachaMenuManager:collectFadeTargets(_crate: Crate): { Instance }
 	local roots: { Instance } = {}
 	for _, player in Players:GetPlayers() do
 		if player ~= Players.LocalPlayer and player.Character then
@@ -523,9 +532,6 @@ function ClientGachaMenuManager:collectFadeTargets(crate: Crate): { Instance }
 	end
 	for _, rig in CollectionService:GetTagged(Tags.LOBBY_NPC) do
 		table.insert(roots, rig)
-	end
-	if crate.ring then
-		table.insert(roots, crate.ring)
 	end
 	local targets: { Instance } = {}
 	for _, root in roots do
@@ -544,14 +550,23 @@ function ClientGachaMenuManager:fadeWorld(crate: Crate, isFaded: boolean, isInst
 	fadeBack(self.faded, isInstant)
 end
 
+-- the player's own body and the stall's ring, out while the menu is up
 function ClientGachaMenuManager:fadeSelf(isFaded: boolean, isInstant: boolean?)
 	if isFaded then
-		local character = Players.LocalPlayer.Character
-		if #self.fadedSelf == 0 and character then
-			local targets = {}
-			collectVisualParts(character, targets)
-			fadeOut(targets, self.fadedSelf)
+		if #self.fadedSelf > 0 then
+			return
 		end
+		local targets = {}
+		local character = Players.LocalPlayer.Character
+		if character then
+			collectVisualParts(character, targets)
+		end
+		local crate: Crate? = self.crate
+		local ring = if crate then crate.ring else nil
+		if ring then
+			collectVisualParts(ring, targets)
+		end
+		fadeOut(targets, self.fadedSelf)
 		return
 	end
 	fadeBack(self.fadedSelf, isInstant)
@@ -1440,6 +1455,18 @@ function ClientGachaMenuManager:openMenu()
 		self:tweenCamera(crate.cameraMenu, CAMERA_TWEEN_INFO)
 		self:fadeSelf(true)
 	end
+	-- the pad signs would float over the shot (designer, 2026-11-06)
+	ClientPadBillboardManager:setBillboardsFadedByMenu(true, UiStyle.GACHA_WORLD_FADE_SEC)
+end
+
+-- KEY STORE hands over to the Key Store menu: this menu closes first,
+-- since the overlay manager allows one at a time (designer, 2026-11-06)
+function ClientGachaMenuManager:openKeyStore()
+	if self.stage ~= Stage.MENU then
+		return
+	end
+	self:closeMenu()
+	ClientKeyStoreManager:openMenu()
 end
 
 function ClientGachaMenuManager:closeMenu()
@@ -1450,6 +1477,7 @@ function ClientGachaMenuManager:closeMenu()
 	self.isOpen = false
 	self:resetSequence()
 	self:fadeSelf(false, true)
+	ClientPadBillboardManager:setBillboardsFadedByMenu(false, 0)
 	view.gui.Enabled = false
 	self:restoreCamera()
 	local overlay = self.overlay
@@ -1578,6 +1606,7 @@ function ClientGachaMenuManager:findView(playerGui: PlayerGui): View?
 	local rollButton = dialog and dialog:FindFirstChild(Constants.GACHA_ROLL_BUTTON)
 	-- the price sits on a tab inside the button, so the search descends
 	local rollPriceLabel = rollButton and rollButton:FindFirstChild(Constants.GACHA_ROLL_PRICE_LABEL, true)
+	local keyStoreButton = dialog and dialog:FindFirstChild(Constants.GACHA_KEY_STORE_BUTTON)
 	local tapHint = gui:FindFirstChild(Constants.GACHA_TAP_HINT)
 	local revealTitle = gui:FindFirstChild(Constants.GACHA_REVEAL_TITLE)
 	local revealText = revealTitle and revealTitle:FindFirstChild(Constants.GACHA_REVEAL_TEXT)
@@ -1618,6 +1647,7 @@ function ClientGachaMenuManager:findView(playerGui: PlayerGui): View?
 		classRowTemplate = classRowTemplate :: GuiObject,
 		rollButton = rollButton :: TextButton,
 		rollPriceLabel = rollPriceLabel :: TextLabel,
+		keyStoreButton = if keyStoreButton and keyStoreButton:IsA("GuiButton") then keyStoreButton else nil,
 		tapHint = tapHint :: TextLabel,
 		revealTitle = revealTitle :: ImageLabel,
 		revealText = revealText :: TextLabel,
@@ -1667,6 +1697,14 @@ function ClientGachaMenuManager:init()
 			self:requestRoll()
 		end
 	)
+	local keyStoreButton = view.keyStoreButton
+	if keyStoreButton then
+		keyStoreButton.Activated:Connect(
+			function()
+				self:openKeyStore()
+			end
+		)
+	end
 	view.claimButton.Activated:Connect(
 		function()
 			if self.stage == Stage.CLAIM then
@@ -1691,6 +1729,7 @@ function ClientGachaMenuManager:init()
 			self.isOpen = false
 			self:resetSequence()
 			self:fadeSelf(false, true)
+			ClientPadBillboardManager:setBillboardsFadedByMenu(false, 0)
 			view.gui.Enabled = false
 			self:restoreCamera()
 		end,

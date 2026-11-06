@@ -233,6 +233,12 @@ Constants.CAMP_DEFENSIVE_ZONES_FOLDER = "DefensiveZones"
 -- Enums.TrapKind key, each a Model whose pivot is the centre of its base
 -- (scripts/studio/build_tower_templates.luau, build_trap_templates.luau)
 Constants.TOWER_TEMPLATES_FOLDER = "Towers"
+-- a Tower template (artist, 2026-11-06) is a Base and a Body that never
+-- move once placed and one Barrel that turns about its Hinge attachment
+-- and fires from its Fire attachment, both children of the Barrel
+Constants.TOWER_BARREL_PART = "Barrel"
+Constants.TOWER_HINGE_ATTACHMENT = "Hinge"
+Constants.TOWER_FIRE_ATTACHMENT = "Fire"
 Constants.TRAP_TEMPLATES_FOLDER = "Traps"
 -- Monster puppets under GameAssets (M29), one per monster kind key: a
 -- Humanoid-free rig the client moves by its anchored root, plus a one-part
@@ -876,6 +882,8 @@ Constants.GACHA_CLASS_ROW_PROGRESS_LABEL = "Progress"
 Constants.GACHA_CLASS_ROW_BUY_BUTTON = "BuyButton"
 Constants.GACHA_ROLL_BUTTON = "RollButton"
 Constants.GACHA_ROLL_PRICE_LABEL = "Price"
+-- the designer's KEY STORE plate under OPEN CRATE (2026-11-06): closes the crate menu and opens the Key Store
+Constants.GACHA_KEY_STORE_BUTTON = "KeyStoreButton"
 Constants.GACHA_TAP_HINT = "TapHint"
 -- the headline along the top once a class card has landed (designer,
 -- 2026-11-03): NEW CLASS UNLOCKED! or CLASS TIER INCREASED!
@@ -897,22 +905,15 @@ Constants.GACHA_BUTTON_TEXT_LABEL = "TextLabel"
 -- the top, and a BUY button carrying the Robux price
 Constants.DIAMOND_STORE_GUI_NAME = "DiamondStore"
 Constants.DIAMOND_STORE_BACK_BUTTON = "BackButton"
-Constants.DIAMOND_STORE_WALLET = "DiamondWallet"
 Constants.DIAMOND_STORE_PACKS = "Packs"
 Constants.DIAMOND_STORE_PACK_TEMPLATE = "PackTemplate"
 Constants.DIAMOND_STORE_PACK_ICON = "Icon"
 Constants.DIAMOND_STORE_PACK_AMOUNT_LABEL = "Amount"
 Constants.DIAMOND_STORE_PACK_BANNER = "Banner"
 Constants.DIAMOND_STORE_PACK_BANNER_LABEL = "Text"
-Constants.DIAMOND_STORE_PACK_BUY_BUTTON = "BuyButton"
+-- the designer's plate button, copied from the Key Store (2026-11-06)
+Constants.DIAMOND_STORE_PACK_BUY_BUTTON = "EquipButton"
 Constants.DIAMOND_STORE_PACK_PRICE_LABEL = "Price"
--- the Supply Crate stall's first screen (designer, 2026-11-05;
--- scripts/studio/build_supply_crate_choice_gui.luau): Back and two plates,
--- OPEN SUPPLY CRATES into the crate menu and KEY STORE into the Key Store
-Constants.SUPPLY_CRATE_CHOICE_GUI_NAME = "SupplyCrateChoice"
-Constants.SUPPLY_CRATE_CHOICE_BACK_BUTTON = "BackButton"
-Constants.SUPPLY_CRATE_CHOICE_CRATES_BUTTON = "CratesButton"
-Constants.SUPPLY_CRATE_CHOICE_KEY_STORE_BUTTON = "KeyStoreButton"
 -- the Key Store menu (M61; scripts/studio/build_key_store_gui.luau): Back,
 -- the Keys wallet, the scrolling grid of every cosmetic (cloned from the
 -- hidden item template, its picture and name) on the left, and on the
@@ -940,6 +941,30 @@ Constants.KEY_STORE_EQUIP_BUTTON = "EquipButton"
 Constants.LOBBY_SUPPLY_CRATE_STORE_FOLDER = "SupplyCrateStore"
 Constants.LOBBY_DIAMOND_STORE_FOLDER = "DiamondStore"
 Constants.STORE_MENU_TOUCH_PART = "MenuTouchPart"
+-- the lobby's two selection stalls (designer, 2026-11-06), each a Folder in
+-- Workspace with the same MenuTouchPart: the Gear Locker and the Class Menu
+Constants.LOBBY_GEAR_SELECTION_FOLDER = "GearSelection"
+Constants.LOBBY_CLASS_SELECTION_FOLDER = "ClassSelection"
+
+-- the Gear Locker menu (M61, 2026-11-06; scripts/studio/build_gear_menu_gui.luau):
+-- the X, the avatar viewport wearing the loadout, and one row per slot the
+-- locker shows (pick axes, jet packs; designer 2026-11-06), each a fixed
+-- icon-and-name header beside a sideways-scrolling strip of the slot's
+-- cards cloned from the hidden template (picture, name, an EQUIPPED tag, a
+-- lock on one not owned)
+Constants.GEAR_MENU_GUI_NAME = "GearMenu"
+Constants.GEAR_MENU_BACK_BUTTON = "BackButton"
+Constants.GEAR_MENU_AVATAR = "Avatar"
+Constants.GEAR_MENU_ROWS = "Rows"
+Constants.GEAR_MENU_ROW_TEMPLATE = "RowTemplate"
+Constants.GEAR_MENU_ROW_ICON = "Icon"
+Constants.GEAR_MENU_ROW_NAME_LABEL = "Name"
+Constants.GEAR_MENU_ROW_ITEM_LIST = "ItemList"
+Constants.GEAR_MENU_ITEM_TEMPLATE = "ItemTemplate"
+Constants.GEAR_MENU_ITEM_ICON = "Icon"
+Constants.GEAR_MENU_ITEM_NAME_LABEL = "Name"
+Constants.GEAR_MENU_ITEM_EQUIPPED_LABEL = "Equipped"
+Constants.GEAR_MENU_ITEM_LOCK_ICON = "LockIcon"
 -- the Supply Crate stall's crate (designer's model, 2026-11-03): the
 -- Crate part with the Attachment holding the light and the emitter, the
 -- Lid, and the two invisible reference poses the lid tweens between;

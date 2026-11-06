@@ -89,6 +89,33 @@ function ClientPadBillboardManager:setBillboardsVisible(isVisible: boolean)
 	end
 end
 
+-- the crate menu fades every billboard out over fadeSec and has it back
+-- at once when it closes (designer, 2026-11-06); the fade only ever moves
+-- the designer's transparencies, which ClientGuiFade puts back under the
+-- disabled gui, so the instant return is just enabling it
+function ClientPadBillboardManager:setBillboardsFadedByMenu(isFaded: boolean, fadeSec: number)
+	for _, view in self.views do
+		view.isHiddenByMenu = isFaded
+		if not isFaded then
+			view.gui.Enabled = not view.isFaded
+			continue
+		end
+		if not view.gui.Enabled then
+			continue
+		end
+		ClientGuiFade.fadeOut(
+			view.gui,
+			fadeSec,
+			function()
+				-- the menu closed mid-fade: the sign is already back
+				if view.isHiddenByMenu then
+					view.gui.Enabled = false
+				end
+			end
+		)
+	end
+end
+
 -- the host's display name, read from the lobby's player list; the host is
 -- always in this place while they configure
 local function hostDisplayName(model: Model): string

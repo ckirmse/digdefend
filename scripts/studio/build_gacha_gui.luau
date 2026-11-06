@@ -314,6 +314,47 @@ rollPadding.PaddingLeft = UDim.new(0.06, 0)
 rollPadding.Parent = rollButton
 addPriceTab(rollButton, Constants.GACHA_ROLL_PRICE_LABEL, 0.4)
 
+-- KEY STORE above OPEN CRATE (designer, 2026-11-06): a clear button over
+-- a grey slice plate with the Keys icon on the left and the word in black;
+-- the manager closes this menu and opens the Key Store on a tap
+local keyStoreButton = makeButton(Constants.GACHA_KEY_STORE_BUTTON, "Open Crate", UiStyle.POSITIVE_COLOR, 32)
+keyStoreButton.BackgroundTransparency = 1
+keyStoreButton.AnchorPoint = Vector2.new(0.5, 1)
+keyStoreButton.Position = UDim2.fromScale(0.5, 0.82)
+keyStoreButton.Size = UDim2.fromScale(0.92, 0.1)
+addTouchTarget(keyStoreButton, Vector2.new(480, 112))
+keyStoreButton.Parent = dialog
+local keyStorePlate = Instance.new("ImageLabel")
+keyStorePlate.Name = "Background"
+keyStorePlate.Size = UDim2.fromScale(1, 1)
+keyStorePlate.BackgroundTransparency = 1
+keyStorePlate.Image = Icons.UI.PANEL_BACKING
+keyStorePlate.ImageColor3 = Color3.fromRGB(124, 124, 124)
+keyStorePlate.ScaleType = Enum.ScaleType.Slice
+keyStorePlate.SliceCenter = Rect.new(238, 207, 284, 278)
+keyStorePlate.Parent = keyStoreButton
+local keyStoreWord = Instance.new("TextLabel")
+keyStoreWord.Name = "TextLabel"
+keyStoreWord.AnchorPoint = Vector2.new(0.5, 0.5)
+keyStoreWord.Position = UDim2.fromScale(0.5, 0.5)
+keyStoreWord.Size = UDim2.fromScale(0.7, 0.8)
+keyStoreWord.BackgroundTransparency = 1
+keyStoreWord.Text = UiStyle.formatTitle("Key Store")
+keyStoreWord.TextColor3 = Color3.new(0, 0, 0)
+keyStoreWord.TextScaled = true
+keyStoreWord.FontFace = UiStyle.TITLE_FONT
+keyStoreWord.Parent = keyStoreButton
+local keyStoreIcon = Instance.new("ImageLabel")
+keyStoreIcon.Name = "Icon"
+keyStoreIcon.Position = UDim2.fromScale(0.04, 0.1)
+keyStoreIcon.Size = UDim2.fromScale(0.2, 0.8)
+keyStoreIcon.BackgroundTransparency = 1
+keyStoreIcon.Image = Icons.UI.KEYS
+keyStoreIcon.ScaleType = Enum.ScaleType.Fit
+keyStoreIcon.ZIndex = 2
+addAspect(keyStoreIcon, 1)
+keyStoreIcon.Parent = keyStoreButton
+
 -- outside the panel: the tap line along the bottom while the camera
 -- holds the crate, hidden until then
 local tapHint = makeLabel(Constants.GACHA_TAP_HINT, UiStyle.formatTitle("Tap crate to open"), UiStyle.TITLE_FONT, UiStyle.TEXT_COLOR, 48)

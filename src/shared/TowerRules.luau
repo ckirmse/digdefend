@@ -133,6 +133,19 @@ function TowerRules.directionFromYaw(basePose: CFrame, yawDegrees: number): Vect
 	return basePose:VectorToWorldSpace((CFrame.Angles(0, math.rad(yawDegrees), 0) * CFrame.new(0, 0, -1)).Position)
 end
 
+-- the barrel's pitch in degrees about its hinge, positive up, that points
+-- it from the hinge (hingeHeightStuds above the base pose) at a world
+-- position, capped either way so a target at the tower's foot never
+-- folds the barrel straight down
+function TowerRules.pitchDegreesToward(basePose: CFrame, hingeHeightStuds: number, targetPosition: Vector3, maxPitchDegrees: number): number
+	local localPosition = basePose:PointToObjectSpace(targetPosition) - Vector3.new(0, hingeHeightStuds, 0)
+	local horizontal = math.sqrt(localPosition.X * localPosition.X + localPosition.Z * localPosition.Z)
+	if horizontal < 1e-6 and math.abs(localPosition.Y) < 1e-6 then
+		return 0
+	end
+	return math.clamp(math.deg(math.atan2(localPosition.Y, horizontal)), -maxPitchDegrees, maxPitchDegrees)
+end
+
 function TowerRules.muzzlePosition(basePose: CFrame, muzzleHeightStuds: number): Vector3
 	return basePose:PointToWorldSpace(Vector3.new(0, muzzleHeightStuds, 0))
 end

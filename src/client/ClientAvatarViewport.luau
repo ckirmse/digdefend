@@ -354,7 +354,9 @@ function ClientAvatarViewport:fill(viewport: ViewportFrame, options: Options?)
 	local camera = Instance.new("Camera")
 	camera.FieldOfView = AVATAR_FOV
 	local lookAt = boundsCFrame.Position
-	camera.CFrame = CFrame.lookAt(lookAt + Vector3.new(0, 0, boundsSize.Y * AVATAR_DISTANCE_FACTOR), lookAt)
+	-- a character's front is its -Z, so the camera stands on that side and
+	-- the model faces it at angle 0
+	camera.CFrame = CFrame.lookAt(lookAt - Vector3.new(0, 0, boundsSize.Y * AVATAR_DISTANCE_FACTOR), lookAt)
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
 	viewport.ImageColor3 = if settings.isDimmed then DIMMED_COLOR else Color3.new(1, 1, 1)

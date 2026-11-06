@@ -35,6 +35,7 @@ TowerBehaviorManager.__index = TowerBehaviorManager
 type TowerState = {
 	yawDegrees: number,
 	publishedYawDegrees: number,
+	publishedPitchDegrees: number,
 	lastFireTime: number?,
 	-- a cone: breathing until activeUntil, then resting until restUntil
 	activeUntil: number,
@@ -59,6 +60,7 @@ function TowerBehaviorManager:getState(id: string): TowerState
 		state = {
 			yawDegrees = 0,
 			publishedYawDegrees = 0,
+			publishedPitchDegrees = 0,
 			lastFireTime = nil,
 			activeUntil = 0,
 			restUntil = 0,
@@ -70,13 +72,19 @@ function TowerBehaviorManager:getState(id: string): TowerState
 	return state
 end
 
--- the turret snaps to face the target here; the client eases it over
+-- the turret snaps to face the target here, yaw about the base and
+-- pitch about the Barrel's Hinge; the client eases both over
 function TowerBehaviorManager:face(placement: PlacementManager.Placement, state: TowerState, targetPosition: Vector3)
 	state.yawDegrees = TowerRules.yawDegreesToward(placement.cframe, targetPosition)
 	local rounded = math.floor(state.yawDegrees + 0.5)
 	if rounded ~= state.publishedYawDegrees then
 		state.publishedYawDegrees = rounded
 		placement.shadow:SetAttribute(Attributes.PLACEMENT_YAW_DEGREES, rounded)
+	end
+	local pitch = math.floor(TowerRules.pitchDegreesToward(placement.cframe, TowersData.HINGE_HEIGHT_STUDS, targetPosition, TowersData.MAX_PITCH_DEGREES) + 0.5)
+	if pitch ~= state.publishedPitchDegrees then
+		state.publishedPitchDegrees = pitch
+		placement.shadow:SetAttribute(Attributes.PLACEMENT_PITCH_DEGREES, pitch)
 	end
 end
 
