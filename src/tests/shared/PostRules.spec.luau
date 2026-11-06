@@ -263,15 +263,97 @@ describe(
 	"PostRules frames",
 	function()
 		it(
-			"turns the base about the Spawn's X axis, positive to the right",
+			"stands a post upright at a position, facing a forward's flat direction",
 			function()
-				-- a Spawn whose X points up and +Z forward: +Y is the gunner's
-				-- right (look x up), so a 90 degree turn brings +Z round to +Y
-				local spawn = CFrame.new(10, 0, 10) * CFrame.fromMatrix(Vector3.zero, Vector3.new(0, 1, 0), Vector3.new(0, 0, 1))
-				local turned = PostRules.baseFrame(spawn, 90)
+				local stand = PostRules.standFrame(Vector3.new(10, 0, 10), Vector3.new(-3, 2, 0))
+				expectVectorClose(stand.Position, Vector3.new(10, 0, 10))
+				expectVectorClose(stand.YVector, Vector3.new(0, 1, 0))
+				expectVectorClose(stand.LookVector, Vector3.new(-1, 0, 0))
+				-- a forward pointing straight up carries no facing
+				expectVectorClose(PostRules.standFrame(Vector3.zero, Vector3.yAxis).LookVector, Vector3.new(0, 0, -1))
+			end
+		)
+
+		it(
+			"turns the stand about its up, positive to the right",
+			function()
+				-- looking down -Z with Y up, the gunner's right is +X, so a 90
+				-- degree turn brings the look round to +X
+				local stand = CFrame.new(10, 0, 10)
+				local turned = PostRules.baseFrame(stand, 90)
 				expectVectorClose(turned.Position, Vector3.new(10, 0, 10))
-				expectVectorClose(turned.XVector, spawn.XVector)
-				expectVectorClose(turned.ZVector, spawn.YVector)
+				expectVectorClose(turned.YVector, stand.YVector)
+				expectVectorClose(turned.LookVector, Vector3.new(1, 0, 0))
+			end
+		)
+
+		it(
+			"turns a placed weapon's parts about its centre to the post's facing, the Spawn left alone",
+			function()
+				-- the artists' mesh base: the Spawn's X points along the ground,
+				-- the turret centre sits under the gun, and the barrel is
+				-- world +X as authored; the post faces world -X
+				local model = Instance.new("Model")
+				local spawn = Instance.new("Part")
+				spawn.Name = "Spawn"
+				spawn.CFrame = CFrame.new(0, 1, 0) * CFrame.Angles(0, math.rad(90), 0)
+				spawn.Parent = model
+				model.PrimaryPart = spawn
+				local centre = Instance.new("Part")
+				centre.Name = "TurretBaseCenter"
+				centre.CFrame = CFrame.new(0, 1, 0)
+				centre.Parent = spawn
+				local gun = Instance.new("Part")
+				gun.Name = "Gun"
+				gun.CFrame = CFrame.new(0, 3, 0)
+				gun.Parent = model
+				local muzzle = Instance.new("Attachment")
+				muzzle.Name = "MuzzleAttachment"
+				muzzle.Position = Vector3.new(5, 0, 0)
+				muzzle.Parent = gun
+				local camera = Instance.new("Part")
+				camera.Name = "CameraLocation"
+				camera.CFrame = CFrame.new(-2, 4, 0)
+				camera.Parent = model
+				local feet = Instance.new("Part")
+				feet.Name = "CharacterSpawn"
+				feet.CFrame = CFrame.new(-3, 1, 0)
+				feet.Parent = model
+
+				-- placed Spawn on Spawn, exactly, the post part turned about its up
+				local postSpawn = CFrame.new(50, 0, 50) * CFrame.Angles(0, math.rad(37), 0)
+				model:PivotTo(postSpawn)
+				expectVectorClose(spawn.CFrame.XVector, postSpawn.XVector)
+				expectVectorClose(spawn.Position, postSpawn.Position)
+
+				-- the weapon's own stand: at the centre, the barrel's way as placed
+				local weaponStand = PostRules.weaponStandFrame(model)
+				expect(weaponStand).never.toBeNil()
+				assert(weaponStand)
+				expectVectorClose(weaponStand.Position, centre.Position)
+				expectVectorClose(weaponStand.YVector, Vector3.new(0, 1, 0))
+				local placedBarrel = gun.CFrame:VectorToWorldSpace(Vector3.new(1, 0, 0))
+				expectVectorClose(weaponStand.LookVector, placedBarrel)
+
+				-- the post's stand faces world -X at the same centre; a rig measured
+				-- on the weapon's stand and drawn on the post's turns the gun there
+				local postStand = PostRules.standFrame(centre.Position, Vector3.new(-1, 0, 0))
+				local rig = PostRules.measureRig(model, weaponStand)
+				expect(rig).never.toBeNil()
+				assert(rig)
+				local gunFrame = PostRules.gunFrame(PostRules.baseFrame(postStand, 0), rig, 0)
+				expectVectorClose(PostRules.barrelDirection(gunFrame, rig), Vector3.new(-1, 0, 0))
+				-- the gun sits 2 studs over the centre as authored, the muzzle 5 on
+				expectVectorClose(PostRules.muzzlePosition(gunFrame, rig), centre.Position + Vector3.new(0, 2, 0) + Vector3.new(-1, 0, 0) * 5)
+				-- the gunner's feet behind it, and a positive pitch lifts it
+				expectVectorClose(PostRules.characterFrame(postStand, rig).Position, centre.Position - Vector3.new(-1, 0, 0) * 3)
+				local lifted = PostRules.gunFrame(PostRules.baseFrame(postStand, 0), rig, 90)
+				expectVectorClose(PostRules.barrelDirection(lifted, rig), Vector3.new(0, 1, 0))
+				-- a turning part keeps its distance from the centre at any yaw
+				local feetOffset = weaponStand:ToObjectSpace(feet.CFrame)
+				local turnedFeet = PostRules.baseFrame(postStand, 90) * feetOffset
+				expect((turnedFeet.Position - centre.Position).Magnitude).toBeCloseTo((feet.Position - centre.Position).Magnitude, 3)
+				model:Destroy()
 			end
 		)
 
@@ -512,19 +594,23 @@ describe(
 		)
 
 		it(
-			"finds the yaw and pitch that point a Spawn's barrel at a target",
+			"finds the yaw and pitch that point a stand's barrel at a target",
 			function()
-				-- a Spawn standing with X up and +Z out: a target straight out
-				-- is yaw 0, one to the Spawn's +Y is yaw 90, one above is pitch up
-				local spawn = CFrame.fromMatrix(Vector3.zero, Vector3.yAxis, Vector3.xAxis, Vector3.zAxis)
-				local yaw, pitch = PostRules.aimAnglesToward(spawn, spawn:PointToWorldSpace(Vector3.new(0, 0, 20)))
+				-- a stand looking down world -Z: a target straight out is yaw
+				-- 0, one to the gunner's right (+X) is yaw 90, one above is
+				-- pitch up
+				local stand = CFrame.lookAt(Vector3.new(5, 0, 5), Vector3.new(5, 0, 0))
+				local yaw, pitch = PostRules.aimAnglesToward(stand, stand:PointToWorldSpace(Vector3.new(0, 0, -20)))
 				expect(yaw).toBeCloseTo(0, 4)
 				expect(pitch).toBeCloseTo(0, 4)
-				yaw, pitch = PostRules.aimAnglesToward(spawn, spawn:PointToWorldSpace(Vector3.new(0, 20, 0)))
+				yaw, pitch = PostRules.aimAnglesToward(stand, stand:PointToWorldSpace(Vector3.new(20, 0, 0)))
 				expect(yaw).toBeCloseTo(90, 4)
-				yaw, pitch = PostRules.aimAnglesToward(spawn, spawn:PointToWorldSpace(Vector3.new(20, 0, 20)))
+				yaw, pitch = PostRules.aimAnglesToward(stand, stand:PointToWorldSpace(Vector3.new(0, 20, -20)))
 				expect(yaw).toBeCloseTo(0, 4)
 				expect(pitch).toBeCloseTo(45, 4)
+				-- the yaw baseFrame turns by points the barrel the same way
+				local turned = PostRules.baseFrame(stand, 90)
+				expectVectorClose(turned.LookVector, stand.XVector)
 			end
 		)
 

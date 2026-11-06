@@ -172,13 +172,13 @@ export type Offer = {
 -- from the template so every frame is a few CFrame multiplies. The Spawn
 -- cylinder is the pivot: its X axis is up and its +Z faces out of the camp
 export type Rig = {
-	-- the gun at pitch 0, relative to the Spawn
+	-- the gun at pitch 0, relative to the stand frame
 	gunOffset: CFrame,
 	-- the camera relative to the gun (it tilts with it)
 	cameraOffset: CFrame,
 	-- the muzzle relative to the gun
 	muzzleOffset: Vector3,
-	-- the gunner's feet relative to the Spawn (turns, never tilts)
+	-- the gunner's feet relative to the stand (turns, never tilts)
 	characterOffset: CFrame,
 	-- gun-local: which way the barrel points, and the axis a positive pitch
 	-- turns about (barrel × up, so positive lifts the barrel)
@@ -311,14 +311,13 @@ function PostRules.angleToDegrees(muzzle: Vector3, unitDirection: Vector3, point
 end
 
 -- the yaw and pitch that point the barrel at a world position from a
--- Spawn: the Spawn's X is up and its +Z faces out of the camp at yaw 0,
--- and baseFrame turns the base about X by -yaw, so the barrel at a yaw
--- lies along (sin yaw, cos yaw) in the Spawn's (Y, Z)
-function PostRules.aimAnglesToward(spawnCFrame: CFrame, targetPosition: Vector3): (number, number)
-	local localPosition = spawnCFrame:PointToObjectSpace(targetPosition)
-	local flat = math.sqrt(localPosition.Y * localPosition.Y + localPosition.Z * localPosition.Z)
-	local yaw = if flat > 1e-6 then math.deg(math.atan2(localPosition.Y, localPosition.Z)) else 0
-	local pitch = math.deg(math.atan2(localPosition.X, flat))
+-- stand frame (Y up, -Z the barrel's way at yaw 0, X the gunner's right),
+-- so the barrel at a yaw lies along (sin yaw, -cos yaw) in the stand's (X, Z)
+function PostRules.aimAnglesToward(standCFrame: CFrame, targetPosition: Vector3): (number, number)
+	local localPosition = standCFrame:PointToObjectSpace(targetPosition)
+	local flat = math.sqrt(localPosition.X * localPosition.X + localPosition.Z * localPosition.Z)
+	local yaw = if flat > 1e-6 then math.deg(math.atan2(localPosition.X, -localPosition.Z)) else 0
+	local pitch = math.deg(math.atan2(localPosition.Y, flat))
 	return PostRules.wrapDegrees(yaw), pitch
 end
 
@@ -522,11 +521,42 @@ function PostRules.dominantAxis(vector: Vector3): Vector3?
 	return best
 end
 
--- the Spawn turned about its own X (up) by the yaw; positive is to the
--- right as the gunner sees it (clockwise from above), so a mouse moved
--- right adds yaw
-function PostRules.baseFrame(spawnCFrame: CFrame, yawDegrees: number): CFrame
-	return spawnCFrame * CFrame.Angles(-math.rad(yawDegrees), 0, 0)
+-- Every frame below is relative to a stand frame: Y up, -Z the way the
+-- barrel points at yaw 0, X the gunner's right (the lookAt convention),
+-- at the weapon's turn centre (its TurretBaseCenter). The weapon's Spawn
+-- is placed exactly on the post's Spawn and never moves again (designer,
+-- 2026-11-05); every other part turns about the centre. A rig's offsets
+-- are measured against the weapon's own stand (the world's up and its
+-- barrel as placed), and drawn against the post's stand (the world's up
+-- and the facing the server picks, away from the Refinery), so yaw 0 is
+-- that facing whichever way the template was authored. Neither stand
+-- reads a part's axes, so a Spawn may be any part turned any way.
+
+-- where the aim turns: the TurretBaseCenter, else the Spawn
+function PostRules.turnCentre(model: Model): Vector3?
+	local centre = model:FindFirstChild(Constants.POST_WEAPON_TURRET_CENTER_PART, true)
+	if centre and centre:IsA("BasePart") then
+		return centre.Position
+	end
+	local spawn = model.PrimaryPart
+	return if spawn then spawn.Position else nil
+end
+
+-- the stand at a position, the world's up, facing the forward's flat
+-- direction (world -Z when the forward has none)
+function PostRules.standFrame(position: Vector3, forward: Vector3): CFrame
+	local flat = Vector3.new(forward.X, 0, forward.Z)
+	if flat.Magnitude < 0.01 then
+		flat = -Vector3.zAxis
+	end
+	return CFrame.lookAt(position, position + flat.Unit, Vector3.yAxis)
+end
+
+-- the stand turned about its up by the yaw; positive is to the right as
+-- the gunner sees it (clockwise from above), so a mouse moved right adds
+-- yaw
+function PostRules.baseFrame(standCFrame: CFrame, yawDegrees: number): CFrame
+	return standCFrame * CFrame.Angles(0, -math.rad(yawDegrees), 0)
 end
 
 function PostRules.gunFrame(baseFrame: CFrame, rig: Rig, pitchDegrees: number): CFrame
@@ -551,20 +581,54 @@ function PostRules.characterFrame(baseFrame: CFrame, rig: Rig): CFrame
 	return baseFrame * rig.characterOffset
 end
 
--- reads a weapon model's parts into a Rig; nil (with the reason) when the
--- model is missing one of the parts the contract names
-function PostRules.measureRig(model: Model): (Rig?, string?)
-	local spawn = model.PrimaryPart
-	if not spawn then
-		return nil, "no PrimaryPart (the Spawn cylinder)"
-	end
+-- the gun (the part the muzzle attachment sits on), its muzzle, and the
+-- barrel in the gun's own space: the gun's axis the muzzle lies furthest
+-- along once the up is taken out, since an attachment sitting a little
+-- above or beside the bore must not skew the aim
+local function findBarrel(model: Model, worldUp: Vector3): (BasePart?, Attachment?, Vector3?, string?)
 	local muzzle = model:FindFirstChild(Constants.POST_WEAPON_MUZZLE_ATTACHMENT, true)
 	if not muzzle or not muzzle:IsA("Attachment") then
-		return nil, `no {Constants.POST_WEAPON_MUZZLE_ATTACHMENT} attachment`
+		return nil, nil, nil, `no {Constants.POST_WEAPON_MUZZLE_ATTACHMENT} attachment`
 	end
 	local gun = muzzle.Parent
 	if not gun or not gun:IsA("BasePart") then
-		return nil, `{Constants.POST_WEAPON_MUZZLE_ATTACHMENT} is not under a part`
+		return nil, nil, nil, `{Constants.POST_WEAPON_MUZZLE_ATTACHMENT} is not under a part`
+	end
+	local up = gun.CFrame:VectorToObjectSpace(worldUp)
+	local toMuzzle = muzzle.Position
+	local barrel = PostRules.dominantAxis(toMuzzle - up * toMuzzle:Dot(up))
+	if not barrel then
+		return nil, nil, nil, `{Constants.POST_WEAPON_MUZZLE_ATTACHMENT} sits on the gun's centre`
+	end
+	return gun, muzzle, barrel, nil
+end
+
+-- the stand frame a weapon model stands in as placed: the world's up,
+-- the barrel's way, at its turn centre; nil (with the reason) when the
+-- model lacks the parts
+function PostRules.weaponStandFrame(model: Model): (CFrame?, string?)
+	local centre = PostRules.turnCentre(model)
+	if not centre then
+		return nil, "no PrimaryPart (the Spawn)"
+	end
+	local gun, _, barrel, reason = findBarrel(model, Vector3.yAxis)
+	if not gun or not barrel then
+		return nil, reason
+	end
+	local forward = gun.CFrame:VectorToWorldSpace(barrel)
+	if math.abs(forward.Y) > 0.99 then
+		return nil, "the barrel points straight up or down"
+	end
+	return PostRules.standFrame(centre, forward), nil
+end
+
+-- reads a weapon model's parts into a Rig against the stand it is placed
+-- in; nil (with the reason) when the model is missing one of the parts
+-- the contract names
+function PostRules.measureRig(model: Model, standCFrame: CFrame): (Rig?, string?)
+	local gun, muzzle, barrel, reason = findBarrel(model, standCFrame.YVector)
+	if not gun or not muzzle or not barrel then
+		return nil, reason
 	end
 	local camera = model:FindFirstChild(Constants.POST_WEAPON_CAMERA_PART)
 	if not camera or not camera:IsA("BasePart") then
@@ -574,21 +638,12 @@ function PostRules.measureRig(model: Model): (Rig?, string?)
 	if not characterSpawn or not characterSpawn:IsA("BasePart") then
 		return nil, `no {Constants.POST_WEAPON_CHARACTER_SPAWN_PART} part`
 	end
-	-- the barrel is the gun's own axis the muzzle lies furthest along: an
-	-- attachment sitting a little above or beside the bore must not skew
-	-- the aim, so the direction snaps to that axis rather than pointing at
-	-- the attachment itself
-	local up = (gun.CFrame:VectorToObjectSpace(spawn.CFrame.XVector))
-	local toMuzzle = muzzle.Position
-	local barrel = PostRules.dominantAxis(toMuzzle - up * toMuzzle:Dot(up))
-	if not barrel then
-		return nil, `{Constants.POST_WEAPON_MUZZLE_ATTACHMENT} sits on the gun's centre`
-	end
+	local up = gun.CFrame:VectorToObjectSpace(standCFrame.YVector)
 	return {
-		gunOffset = spawn.CFrame:ToObjectSpace(gun.CFrame),
+		gunOffset = standCFrame:ToObjectSpace(gun.CFrame),
 		cameraOffset = gun.CFrame:ToObjectSpace(camera.CFrame),
-		muzzleOffset = toMuzzle,
-		characterOffset = spawn.CFrame:ToObjectSpace(characterSpawn.CFrame),
+		muzzleOffset = muzzle.Position,
+		characterOffset = standCFrame:ToObjectSpace(characterSpawn.CFrame),
 		barrel = barrel,
 		pitchAxis = barrel:Cross(up).Unit,
 	}, nil

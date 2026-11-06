@@ -87,6 +87,10 @@ type Post = {
 	aimedId: string?,
 	weaponModel: Model?,
 	rig: PostRules.Rig?,
+	-- the stand the weapon was placed in (PostRules.standFrame of the
+	-- post's Spawn): every aim frame is built on it, never on the weapon's
+	-- own Spawn, whose axes are the artists' to turn
+	standCFrame: CFrame?,
 	yawDegrees: number,
 	pitchDegrees: number,
 	lastAimTime: number?,
@@ -465,6 +469,25 @@ function PostManager:configurePrompt(prompt: ProximityPrompt, actionText: string
 	prompt.Enabled = true
 end
 
+-- puts a weapon model's Spawn exactly on the post's Spawn (the base
+-- mesh, which never moves again) and stamps the post's stand on the
+-- model: at the weapon's turn centre, the barrel facing away from the
+-- Refinery at yaw 0 (the posts ring it, the monsters come from beyond),
+-- so every client turns the parts about the same up. The stand is
+-- returned for the post's own aim frames
+function PostManager:placeWeaponModel(model: Model, spawn: BasePart): CFrame
+	model:PivotTo(spawn.CFrame)
+	local centre = PostRules.turnCentre(model) or spawn.Position
+	local camp = MapManager:getCamp()
+	local refinery = if camp then camp:FindFirstChild(Constants.CAMP_REFINERY_MODEL) else nil
+	local forward = if refinery and refinery:IsA("Model") then centre - refinery:GetPivot().Position else spawn.CFrame.LookVector
+	local stand = PostRules.standFrame(centre, forward)
+	model:SetAttribute(Attributes.POST_WEAPON_STAND_CFRAME, stand)
+	-- the weapon brings its own base, the same mesh: two would z-fight
+	spawn.Transparency = 1
+	return stand
+end
+
 function PostManager:spawnWeapon(post: Post)
 	local slotModel = self:findSlotModel(post.index)
 	local spawn = if slotModel then slotModel:FindFirstChild(Constants.POST_SPAWN_PART) else nil
@@ -478,14 +501,18 @@ function PostManager:spawnWeapon(post: Post)
 	local model = template:Clone()
 	model.Name = string.format(WEAPON_MODEL_FORMAT, post.index)
 	anchorModel(model)
-	model:PivotTo(spawn.CFrame)
-	-- the weapon brings its own base, the same cylinder: two would z-fight
-	spawn.Transparency = 1
-	local rig, reason = PostRules.measureRig(model)
+	local stand = self:placeWeaponModel(model, spawn)
+	-- offsets against the weapon's own stand as placed, drawn on the post's
+	local weaponStand, reason = PostRules.weaponStandFrame(model)
+	local rig: PostRules.Rig? = nil
+	if weaponStand then
+		rig, reason = PostRules.measureRig(model, weaponStand)
+	end
 	if not rig then
 		warn(`PostManager: {template:GetFullName()}: {reason}; the weapon cannot be aimed`)
 	end
 	post.rig = rig
+	post.standCFrame = stand
 	post.yawDegrees = 0
 	post.pitchDegrees = 0
 	post.heat = 0
@@ -613,7 +640,8 @@ function PostManager:mount(player: Player, post: Post)
 	local character = player.Character
 	local rig = post.rig
 	local weaponModel = post.weaponModel
-	if not character or not rig or not weaponModel or not weaponModel.PrimaryPart then
+	local stand = post.standCFrame
+	if not character or not rig or not weaponModel or not stand then
 		return
 	end
 	post.gunner = player
@@ -622,7 +650,7 @@ function PostManager:mount(player: Player, post: Post)
 	-- on the post is what they use now (a hotkey at the post once put the
 	-- rifle back in hand beside the post gun, 2026-09-29)
 	ToolManager:setToolsLocked(player, true)
-	character:PivotTo(PostRules.characterFrame(PostRules.baseFrame(weaponModel.PrimaryPart.CFrame, post.yawDegrees), rig))
+	character:PivotTo(PostRules.characterFrame(PostRules.baseFrame(stand, post.yawDegrees), rig))
 	self:createIkControls(post, player)
 	self:replicatePost(post)
 	self:replicatePlayer(player)
@@ -635,10 +663,11 @@ end
 function PostManager:getLookRay(post: Post): (Vector3?, Vector3?)
 	local rig = post.rig
 	local weaponModel = post.weaponModel
-	if not rig or not weaponModel or not weaponModel.PrimaryPart then
+	local stand = post.standCFrame
+	if not rig or not weaponModel or not stand then
 		return nil, nil
 	end
-	local gunFrame = PostRules.gunFrame(PostRules.baseFrame(weaponModel.PrimaryPart.CFrame, post.yawDegrees), rig, post.pitchDegrees)
+	local gunFrame = PostRules.gunFrame(PostRules.baseFrame(stand, post.yawDegrees), rig, post.pitchDegrees)
 	local cameraFrame = PostRules.cameraFrame(gunFrame, rig)
 	return cameraFrame.Position, cameraFrame.LookVector
 end
@@ -647,10 +676,11 @@ end
 function PostManager:getAim(post: Post): (Vector3?, Vector3?)
 	local rig = post.rig
 	local weaponModel = post.weaponModel
-	if not rig or not weaponModel or not weaponModel.PrimaryPart then
+	local stand = post.standCFrame
+	if not rig or not weaponModel or not stand then
 		return nil, nil
 	end
-	local gunFrame = PostRules.gunFrame(PostRules.baseFrame(weaponModel.PrimaryPart.CFrame, post.yawDegrees), rig, post.pitchDegrees)
+	local gunFrame = PostRules.gunFrame(PostRules.baseFrame(stand, post.yawDegrees), rig, post.pitchDegrees)
 	return PostRules.muzzlePosition(gunFrame, rig), PostRules.barrelDirection(gunFrame, rig)
 end
 
@@ -1297,7 +1327,8 @@ function PostManager:stepUnmanned(post: Post, data: PostRules.KindData, now: num
 	local stats = self:getStats(post)
 	local weaponModel = post.weaponModel
 	local muzzle, direction = self:getAim(post)
-	if not owner or not stats or not weaponModel or not weaponModel.PrimaryPart or not muzzle or not direction then
+	local stand = post.standCFrame
+	if not owner or not stats or not weaponModel or not stand or not muzzle or not direction then
 		return
 	end
 	local target = TowerRules.pickTarget(muzzle, stats.rangeStuds, Enums.TargetPriority.CLOSEST, DamageableManager:getTargets(), ANY_TARGET_BEHAVIOR)
@@ -1307,7 +1338,7 @@ function PostManager:stepUnmanned(post: Post, data: PostRules.KindData, now: num
 	-- the yaw from the base (the gun turns about it), the pitch from the
 	-- muzzle, where the shot leaves; the muzzle moves with the pitch, so
 	-- each Heartbeat's step from the last muzzle settles on the target
-	local wantedYaw = PostRules.aimAnglesToward(weaponModel.PrimaryPart.CFrame, target.position)
+	local wantedYaw = PostRules.aimAnglesToward(stand, target.position)
 	local wantedPitch = PostRules.pitchDegreesToward(muzzle, target.position)
 	post.yawDegrees = PostRules.stepYawToward(post.yawDegrees, wantedYaw, stats.turnSpeedDegreesPerSec, deltaSec)
 	local maxPitchStep = PostRules.maxYawStep(stats.turnSpeedDegreesPerSec, deltaSec)
@@ -1455,6 +1486,7 @@ function PostManager:applyClass(player: Player)
 		post.weaponModel = nil
 	end
 	post.rig = nil
+	post.standCFrame = nil
 	post.weaponKind = weaponKind
 	self:spawnWeapon(post)
 	self:renderSign(post)
@@ -1484,6 +1516,7 @@ function PostManager:release(player: Player)
 	post.owner = nil
 	post.gunner = nil
 	post.rig = nil
+	post.standCFrame = nil
 	post.locksById = {}
 	for _, connection in post.promptConnections do
 		connection:Disconnect()
@@ -1561,6 +1594,7 @@ function PostManager:bindPostModels()
 				weaponKind = PostWeaponsData.DEFAULT_POST_WEAPON,
 				weaponModel = nil,
 				rig = nil,
+				standCFrame = nil,
 				yawDegrees = 0,
 				pitchDegrees = 0,
 				lastAimTime = nil,
@@ -1587,8 +1621,7 @@ function PostManager:bindPostModels()
 		self:renderSign(post)
 		local spawn = if slot.model then slot.model:FindFirstChild(Constants.POST_SPAWN_PART) else nil
 		if post.weaponModel and spawn and spawn:IsA("BasePart") then
-			post.weaponModel:PivotTo(spawn.CFrame)
-			spawn.Transparency = 1
+			post.standCFrame = self:placeWeaponModel(post.weaponModel, spawn)
 		end
 		self:replicatePost(post)
 	end

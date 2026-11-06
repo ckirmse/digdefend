@@ -79,7 +79,7 @@ type WeaponView = {
 	gun: BasePart,
 	muzzle: Attachment?,
 	rig: PostRules.Rig,
-	-- the Spawn as the server placed it (yaw 0), read once
+	-- the stand the server placed the weapon in (yaw 0), read once
 	baseCFrame: CFrame,
 	shownYaw: number,
 	shownPitch: number,
@@ -96,6 +96,9 @@ type WeaponView = {
 	-- base, but the gun's own pitch has to be carried to them by hand
 	-- (seen 2026-10-19: they floated level while the gun looked down)
 	gunChildOffsets: { [BasePart]: CFrame },
+	-- every other part but the Spawn, against the weapon's own stand: they
+	-- turn with the yaw and never tilt
+	turningOffsets: { [BasePart]: CFrame },
 	-- a kind with a chambered projectile (the Fault Line Drill, 2026-10-22):
 	-- the model's seat part and the projectile copy shown on it while the
 	-- post is loaded, parented out of the world while it reloads
@@ -419,9 +422,23 @@ function ClientPostManager:bindWeapon(model: Instance)
 	-- with StreamingEnabled the Model can arrive before its parts
 	local spawn = model:WaitForChild(Constants.POST_SPAWN_PART, 10)
 	local promptPart = model:WaitForChild(Constants.POST_WEAPON_PROMPT_PART, 10)
-	local rig, reason = PostRules.measureRig(model)
-	if not rig or not spawn or not spawn:IsA("BasePart") then
-		warn(`ClientPostManager: {model:GetFullName()}: {reason or "no Spawn"}; not drawn`)
+	if not spawn or not spawn:IsA("BasePart") then
+		warn(`ClientPostManager: {model:GetFullName()}: no Spawn; not drawn`)
+		return
+	end
+	-- the stand the server stamped (the facing at yaw 0, about the turn
+	-- centre): the parts are measured against the weapon's own stand as
+	-- the server placed it (its parts never move on the server, so they
+	-- arrive at yaw 0) and drawn turned to the post's
+	local stampedStand = model:GetAttribute(Attributes.POST_WEAPON_STAND_CFRAME)
+	local weaponStand, reason = PostRules.weaponStandFrame(model)
+	local stand = if typeof(stampedStand) == "CFrame" then stampedStand else weaponStand
+	local rig: PostRules.Rig? = nil
+	if weaponStand and stand then
+		rig, reason = PostRules.measureRig(model, weaponStand)
+	end
+	if not rig or not weaponStand or not stand then
+		warn(`ClientPostManager: {model:GetFullName()}: {reason}; not drawn`)
 		return
 	end
 	local muzzle = model:FindFirstChild(Constants.POST_WEAPON_MUZZLE_ATTACHMENT, true)
@@ -435,7 +452,7 @@ function ClientPostManager:bindWeapon(model: Instance)
 		gun = gun,
 		muzzle = if muzzle and muzzle:IsA("Attachment") then muzzle else nil,
 		rig = rig,
-		baseCFrame = spawn.CFrame,
+		baseCFrame = stand,
 		shownYaw = readNumber(model:GetAttribute(Attributes.POST_WEAPON_YAW_DEGREES), 0),
 		shownPitch = readNumber(model:GetAttribute(Attributes.POST_WEAPON_PITCH_DEGREES), 0),
 		prompt = nil,
@@ -446,6 +463,7 @@ function ClientPostManager:bindWeapon(model: Instance)
 		barrelAngleDegrees = 0,
 		barrelSpinShare = 0,
 		gunChildOffsets = {},
+		turningOffsets = {},
 		chamber = nil,
 		chambered = nil,
 		chamberedOffsets = nil,
@@ -468,6 +486,13 @@ function ClientPostManager:bindWeapon(model: Instance)
 	for _, descendant in gun:GetDescendants() do
 		if descendant:IsA("BasePart") and descendant ~= barrel then
 			view.gunChildOffsets[descendant] = gun.CFrame:ToObjectSpace(descendant.CFrame)
+		end
+	end
+	-- everything but the Spawn turns with the yaw: the turret centre, the
+	-- handles, the prompt, the camera spot, the gunner's spot
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") and descendant ~= spawn and descendant ~= gun and descendant ~= barrel and not descendant:IsDescendantOf(gun) then
+			view.turningOffsets[descendant] = weaponStand:ToObjectSpace(descendant.CFrame)
 		end
 	end
 	self.viewsByModel[model] = view
@@ -521,7 +546,9 @@ end
 
 function ClientPostManager:applyView(view: WeaponView)
 	local base = PostRules.baseFrame(view.baseCFrame, view.shownYaw)
-	view.model:PivotTo(base)
+	for part, offset in view.turningOffsets do
+		part.CFrame = base * offset
+	end
 	view.gun.CFrame = PostRules.gunFrame(base, view.rig, view.shownPitch)
 	for part, offset in view.gunChildOffsets do
 		part.CFrame = view.gun.CFrame * offset
