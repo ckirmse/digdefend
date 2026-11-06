@@ -206,6 +206,8 @@ local sfx = {
 	CLASS_UNLOCKED = "ClassUnlocked",
 	-- an owned class's card lighting its new star (designer, 2026-11-04)
 	CLASS_TIER_UP = "ClassTierUp",
+	-- the class in play changing, in the Class Menu (designer, 2026-11-05)
+	CLASS_EQUIPPED = "ClassEquipped",
 }
 
 -- each weapon's sound set, by its Enums.WeaponKind key. A new weapon adds its
@@ -366,6 +368,7 @@ local lobbySfxNames: { string } = {
 	sfx.CRATE_OPEN,
 	sfx.CLASS_UNLOCKED,
 	sfx.CLASS_TIER_UP,
+	sfx.CLASS_EQUIPPED,
 }
 local lobbyMusicNames: { string } = {
 	music.LOBBY,

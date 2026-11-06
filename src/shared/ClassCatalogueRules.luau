@@ -166,4 +166,38 @@ function ClassCatalogueRules.findEntry(catalogue: Catalogue, kind: number): Entr
 	return nil
 end
 
+-- the Class Menu's list order (designer, 2026-11-05): the class in play
+-- first, then the owned classes, then the locked ones, each group in the
+-- catalogue's own order. Taken once when the menu opens, so an equip
+-- never reshuffles the list under the player's finger
+function ClassCatalogueRules.sortForMenu(catalogue: Catalogue, activeKind: number?, isOwnedByKind: { [number]: boolean }): Catalogue
+	local function rankOf(entry: Entry): number
+		if entry.kind == activeKind then
+			return 1
+		end
+		if isOwnedByKind[entry.kind] then
+			return 2
+		end
+		return 3
+	end
+	local indexByEntry: { [Entry]: number } = {}
+	local sorted: Catalogue = {}
+	for index, entry in catalogue do
+		indexByEntry[entry] = index
+		table.insert(sorted, entry)
+	end
+	table.sort(
+		sorted,
+		function(left, right)
+			local leftRank = rankOf(left)
+			local rightRank = rankOf(right)
+			if leftRank ~= rightRank then
+				return leftRank < rightRank
+			end
+			return indexByEntry[left] < indexByEntry[right]
+		end
+	)
+	return sorted
+end
+
 return ClassCatalogueRules

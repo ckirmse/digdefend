@@ -56,6 +56,29 @@ describe(
 		)
 
 		it(
+			"sorts the menu's list as the class in play, the owned, then the locked, keeping the catalogue order within each",
+			function()
+				local catalogue = {
+					{ kind = 1 },
+					{ kind = 2 },
+					{ kind = 3 },
+					{ kind = 4 },
+					{ kind = 5 },
+				}
+				local sorted = ClassCatalogueRules.sortForMenu(catalogue :: any, 4, { [1] = true, [4] = true, [5] = true })
+				local kinds = {}
+				for _, entry in sorted do
+					table.insert(kinds, entry.kind)
+				end
+				expect(kinds).toEqual({ 4, 1, 5, 2, 3 })
+				expect(#catalogue).toBe(5)
+				expect(catalogue[1].kind).toBe(1)
+				local noActive = ClassCatalogueRules.sortForMenu(catalogue :: any, nil, {})
+				expect(noActive[1].kind).toBe(1)
+			end
+		)
+
+		it(
 			"round-trips through JSON and rejects garbage",
 			function()
 				local catalogue = ClassCatalogueRules.publish(ROSTER, DESCRIPTIONS, { Enums.ClassKind.RECRUIT, Enums.ClassKind.GUNNER })

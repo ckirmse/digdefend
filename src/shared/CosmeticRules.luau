@@ -21,6 +21,8 @@ export type Entry = {
 	TEMPLATE: string,
 	-- a dial on the crate reveal's fitted size, 1 for the pose's own
 	REVEAL_SCALE: number?,
+	-- what the Key Store asks (KeyStoreRules validates it; M61)
+	PRICE_KEYS: number?,
 }
 
 export type Catalogue = { [string]: Entry }

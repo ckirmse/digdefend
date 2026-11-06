@@ -111,8 +111,9 @@ function GachaManager:getConfig(): GachaRules.Config
 	}
 end
 
--- every class but the free one and the post-launch ones, every hat, and
--- every skin in the cosmetics catalogue (2026-11-04)
+-- every launch class, the Recruit included since 2026-11-05 (it is always
+-- owned, so its card only ever opens a perk slot or pays Keys), every hat,
+-- and every skin in the cosmetics catalogue (2026-11-04)
 function GachaManager:buildPool(): GachaRules.Pool
 	local excluded = table.clone(GachaData.EXCLUDED_KINDS)
 	for _, classKind in ClassRosterData.POST_LAUNCH_KINDS do

@@ -31,6 +31,11 @@ module = {
 	-- receipt granted it ({ diamonds }), for the sound
 	TRY_BUY_DIAMOND_PACK = "TryBuyDiamondPack",
 	NOTIFY_DIAMOND_PACK_BOUGHT = "NotifyDiamondPackBought",
+	-- the Key Store (M61, KeyStoreManager in the lobby): buy one cosmetic
+	-- for Keys ({ cosmeticId }); to the buyer once it is theirs
+	-- ({ cosmeticId }), for the sound
+	TRY_BUY_COSMETIC = "TryBuyCosmetic",
+	NOTIFY_COSMETIC_BOUGHT = "NotifyCosmeticBought",
 	-- to a player whose Diamonds purchase failed for want of Diamonds
 	-- ({ priceDiamonds, balance }; PlayerFeedbackManager:giveDiamondsShort):
 	-- the lobby client plays the fail, flashes the wallet, says so, and

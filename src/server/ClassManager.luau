@@ -71,7 +71,6 @@ local RESOLVE_SKILL_ROLL_SHAPE = {
 local FEEDBACK_ROLL_PENDING = "Keep or undo the roll on screen first"
 local FEEDBACK_SLOT_LOCKED = "That perk slot is still locked"
 local FEEDBACK_CLASS_LOCKED = "You do not own that class yet"
-local FEEDBACK_CLASS_SELECTED = "%s equipped"
 
 function ClassManager:getNetHandlers()
 	return {
@@ -189,7 +188,8 @@ function ClassManager:selectClass(player: Player, classKind: number)
 	if playerData then
 		playerData:saveNow()
 	end
-	PlayerFeedbackManager:give(player, string.format(FEEDBACK_CLASS_SELECTED, Enums.getPublicName(Enums.ClassKind, classKind)))
+	-- no feedback line: the menu's EQUIPPED CLASS box is the word
+	-- (designer, 2026-11-05)
 end
 
 -- puts a class in play with no ownership check (the dev dropdown)

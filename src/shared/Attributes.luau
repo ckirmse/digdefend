@@ -226,6 +226,9 @@ module = {
 	-- GameMetadata: the Diamonds packs as JSON (DiamondStoreRules codec;
 	-- M40, 2026-11-03), republished when the Robux prices arrive
 	DIAMOND_STORE_CATALOGUE = "DiamondStoreCatalogue",
+	-- GameMetadata: everything Keys buy as JSON (KeyStoreRules codec; M61,
+	-- 2026-11-05): every skin and hat with its slot, price, and picture
+	KEY_STORE_CATALOGUE = "KeyStoreCatalogue",
 	-- GameMetadata: JSON of the skill reroll pricing and the skill
 	-- catalogue (SkillRules codecs), so the Class Menu draws every perk
 	-- row and its odds without requiring GameData
@@ -489,6 +492,9 @@ module = {
 	POST_WEAPON_MANNED_USER_ID = "PostWeaponMannedUserId",
 	POST_WEAPON_YAW_DEGREES = "PostWeaponYawDegrees",
 	POST_WEAPON_PITCH_DEGREES = "PostWeaponPitchDegrees",
+	-- the stand frame (PostRules.standFrame) the server placed the weapon
+	-- in: the yaw turns about its up, whatever the template's own axes
+	POST_WEAPON_STAND_CFRAME = "PostWeaponStandCFrame",
 	-- the heat (0 to 1) as of PostWeaponHeatTime (server time), and whether
 	-- the gun is locked until cool; clients cool the shown heat locally
 	POST_WEAPON_HEAT = "PostWeaponHeat",

@@ -3,8 +3,8 @@
 -- The lobby's store stalls open their menus by walking in (designer,
 -- 2026-11-03): each stall Folder in Workspace holds a MenuTouchPart, an
 -- invisible non-colliding volume, and stepping into it opens that stall's
--- menu, the Supply Crate stall the class gacha and the Diamond stall the
--- Diamond Store. The check is the local root's position against each
+-- menu, the Supply Crate stall its choice screen (the crate or the Key
+-- Store, designer 2026-11-05) and the Diamond stall the Diamond Store. The check is the local root's position against each
 -- part's box every Heartbeat rather than Touched, which fires again on
 -- every step and never says reliably when the player left; a menu opens
 -- once per entry and not again until the player has walked out. Nothing
@@ -15,7 +15,7 @@ local RunService = game:GetService("RunService")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
-local ClientGachaMenuManager = require(script.Parent.ClientGachaMenuManager)
+local ClientSupplyCrateChoiceManager = require(script.Parent.ClientSupplyCrateChoiceManager)
 
 local ClientStoreZoneManager = {}
 ClientStoreZoneManager.__index = ClientStoreZoneManager
@@ -88,7 +88,7 @@ function ClientStoreZoneManager:init()
 	self:addZone(
 		Constants.LOBBY_SUPPLY_CRATE_STORE_FOLDER,
 		function()
-			ClientGachaMenuManager:openMenu()
+			ClientSupplyCrateChoiceManager:openMenu()
 		end
 	)
 	self:addZone(

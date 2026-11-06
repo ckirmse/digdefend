@@ -8,13 +8,17 @@
 -- panel for the selected class: its name, its three stars (one gold per
 -- gacha tier earned), its icon, one sentence, the four kit slots (a tap
 -- opens the item's tooltip), the three perk rows (locked ones name the
--- stars needed; open ones roll the way the old skill rows did, the first
--- roll into an empty slot free), ODDS, and EQUIP. Everything drawn is
+-- stars needed; open ones roll in place: the row's words scroll through
+-- the catalogue like a slot reel and stop on the result, then KEEP or X,
+-- the first roll into an empty slot free and final), ODDS, and EQUIP.
+-- Everything drawn is
 -- replicated already (the class catalogue, skill catalogue, and reroll
 -- pricing as GameMetadata; the class records, class in play, and class
 -- progress on CurrentPlayer); the menu sends TrySelectClass,
 -- TryRerollSkill, and TryResolveSkillRoll.
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local ClassCatalogueRules = require("@game/ReplicatedStorage/Shared/ClassCatalogueRules")
@@ -27,12 +31,12 @@ local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local utils = require("@game/ReplicatedStorage/Shared/utils")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
-local ClientLabelFlash = require(script.Parent.Parent.Client.ClientLabelFlash)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
+local ClientGachaMenuManager = require(script.Parent.ClientGachaMenuManager)
 
 local ClientClassMenuManager = {}
 ClientClassMenuManager.__index = ClientClassMenuManager
@@ -41,7 +45,8 @@ type View = {
 	gui: ScreenGui,
 	dialog: GuiObject,
 	backButton: GuiButton,
-	diamondLabel: TextLabel,
+	equippedIcon: ImageLabel,
+	equippedTitle: TextLabel,
 	classList: GuiObject,
 	classButtonTemplate: GuiButton,
 	nameLabel: TextLabel,
@@ -53,13 +58,8 @@ type View = {
 	perkRows: GuiObject,
 	perkRowTemplate: GuiObject,
 	oddsButton: GuiButton,
-	equipButton: TextButton,
-	offerDialog: GuiObject,
-	offerTitle: TextLabel,
-	currentBox: GuiObject,
-	newBox: GuiObject,
-	offerKeep: GuiButton,
-	offerUndo: GuiButton,
+	equipButton: GuiButton,
+	supplyCrateButton: GuiButton,
 	infoDialog: GuiObject,
 	infoTitle: TextLabel,
 	infoPicture: ImageLabel,
@@ -69,13 +69,22 @@ type View = {
 	infoClose: GuiButton,
 }
 
--- what one side of the roll screen shows
-type BoxContent = {
-	icon: string,
-	spinText: string,
+-- one entry of a perk row's words: a skill, or the empty slot
+type ReelEntry = {
 	name: string,
-	detail: string,
-	rarity: number?,
+	nameColor: Color3,
+	description: string,
+}
+
+-- the roll in flight on one perk row
+type ActiveRoll = {
+	classKind: number,
+	slot: number,
+	row: Instance,
+	-- a free roll into an empty slot landed on the server already: the
+	-- reel is show and no Keep or X follows
+	isFinal: boolean,
+	isLanded: boolean,
 }
 
 type InfoRow = {
@@ -102,14 +111,25 @@ export type ClientClassMenuManager = typeof(setmetatable(
 		isOpen: boolean,
 		-- the class the info panel shows; the class in play when the menu opens
 		selectedClassKind: number,
-		-- a roll screen's connections and the parts hidden under it; a new
-		-- roll or a close bumps the generation so a flip in flight stops
+		-- the list's order, fixed when the menu opens (the class in play,
+		-- the owned, the locked) so an equip never reshuffles it
+		listCatalogue: ClassCatalogueRules.Catalogue?,
+		-- the roll in flight; a new roll or a close bumps the generation so
+		-- a reel still turning stops, and its connections go with it
+		activeRoll: ActiveRoll?,
 		rollGeneration: number,
-		offerConnections: { RBXScriptConnection },
-		hiddenForRoll: { GuiObject },
+		rollConnections: { RBXScriptConnection },
 		-- the connections of the cloned buttons, dropped on every redraw
 		cloneConnections: { RBXScriptConnection },
 		listPaddingTopScale: number?,
+		listGapScale: number?,
+		-- the class the EQUIPPED CLASS box last showed, nil on opening so
+		-- the first draw never flashes; a counter drops a fade a newer
+		-- flash outran
+		equippedShownKind: number?,
+		equippedFlashGeneration: number,
+		-- the class in play as last seen, so a change plays the equip sound
+		knownActiveClassKind: number?,
 	},
 	ClientClassMenuManager
 ))
@@ -123,25 +143,43 @@ local KIT_SLOTS: { KitSlot } = {
 
 local EMPTY_PERK_TEXT = "Empty slot"
 local EMPTY_PERK_DESCRIPTION = "Roll a perk"
-local LOCKED_PERK_TEXT = "Locked"
+-- a locked perk row reads only this line, "UNLOCKED AT 2 [star]"
+-- (designer, 2026-11-05)
+local UNLOCKED_AT_FORMAT = "Unlocked at %d " .. utf8.char(0x2605)
 local ROLL_TEXT = "Roll"
 local REROLL_TEXT = "Reroll"
 local FREE_TEXT = "Free"
 local EQUIP_TEXT = "Equip"
 local EQUIPPED_TEXT = "Equipped"
 local LOCKED_CLASS_TEXT = "Locked"
+-- the designer's black word on the Equip plate
+local EQUIP_WORD_COLOR = Color3.new(0, 0, 0)
+-- the EQUIPPED CLASS box's name turns green when the class in play changes,
+-- holds, then fades back to white (designer, 2026-11-05)
+local EQUIPPED_FLASH_HOLD_SEC = 3
+local EQUIPPED_FLASH_FADE_SEC = 0.5
+local ODDS_TEXT = "Reroll odds"
+-- the Odds plate on an owned class with no star yet: no slot is open to
+-- roll, so the plate sends the player to the Supply Crates instead
+-- (designer, 2026-11-05)
+local STAR_UP_TEXT = "Draw a duplicate from Supply Crates to increase star rating"
 local ODDS_TITLE = "Perk odds"
 local ODDS_NOTE = "Every perk roll draws one skill from the catalogue; each rarity's share is its skills over the whole."
 local ODDS_ROUNDING_NOTE = " Shares are rounded, so they may not add to exactly 100%."
-local PERK_OFFER_TITLE = "New roll: perk %d"
 local LOCKED_CLASS_FEEDBACK = "Open Supply Crates to unlock this class"
 local LOCKED_CLASS_FEEDBACK_SEC = 3
--- the NEW box flips through candidates quickly, then slows to a stop on the
--- result: each step waits longer than the last
-local SPIN_FIRST_STEP_SEC = 0.05
-local SPIN_STEP_GROWTH = 1.18
-local SPIN_LAST_STEP_SEC = 0.45
--- the reveal of the name and buttons after the flip stops
+-- the reel (designer, 2026-11-05, after Lucky Squares' strip but vertical
+-- and words only): the rolled row's SkillText clips a column of entries,
+-- the skill it had first and the result last, scrolled up fast and slowing
+-- to a stop over REEL_SPIN_SEC
+local REEL_CANDIDATE_COUNT = 10
+local REEL_SPIN_SEC = 2.4
+local REEL_TWEEN_INFO = TweenInfo.new(REEL_SPIN_SEC, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+local REEL_FRAME_NAME = "Reel"
+local PERK_ROW_NAME_FORMAT = "Perk%d"
+-- the Reroll button fades out once the purchase has gone through
+local REROLL_FADE_SEC = 0.3
+-- the beat between the reel stopping and KEEP and X appearing
 local SPIN_REVEAL_DELAY_SEC = 0.35
 -- a locked class button's icon and name
 local LOCKED_ICON_COLOR = Color3.fromRGB(90, 90, 90)
@@ -181,19 +219,14 @@ local function setVisible(parent: Instance, name: string, isVisible: boolean)
 	end
 end
 
-local function fillBox(box: GuiObject, content: BoxContent)
-	local icon = box:FindFirstChild(Constants.OFFER_BOX_ICON)
-	local spin = box:FindFirstChild(Constants.OFFER_BOX_SPIN_LABEL)
-	if icon and icon:IsA("ImageLabel") then
-		icon.Image = content.icon
-		icon.Visible = content.icon ~= ""
-	end
-	if spin and spin:IsA("TextLabel") then
-		spin.Text = UiStyle.formatTitle(content.spinText)
-		spin.Visible = content.icon == ""
-	end
-	setLabel(box, Constants.OFFER_BOX_NAME_LABEL, content.name, rarityColor(content.rarity))
-	setLabel(box, Constants.OFFER_BOX_DETAIL_LABEL, content.detail)
+-- the frame a perk row's words live in (the row itself for an older copy)
+local function skillTextOf(row: Instance): Instance
+	return row:FindFirstChild(Constants.PERK_ROW_SKILL_TEXT) or row
+end
+
+local function fillSkillText(skillText: Instance, entry: ReelEntry)
+	setLabel(skillText, Constants.PERK_ROW_NAME_LABEL, entry.name, entry.nameColor)
+	setLabel(skillText, Constants.PERK_ROW_DESCRIPTION_LABEL, entry.description)
 end
 
 function ClientClassMenuManager:getCatalogue(): ClassCatalogueRules.Catalogue
@@ -284,8 +317,9 @@ function ClientClassMenuManager:dropCloneConnections()
 	table.clear(self.cloneConnections)
 end
 
--- the left column: one button per listed class, the selected one
--- outlined, a locked one greyed under its lock
+-- the left column: one button per listed class (a locked one greyed under
+-- its lock); the class in play is named in the EQUIPPED CLASS box under
+-- the list, never marked on its button (designer, 2026-11-05)
 function ClientClassMenuManager:renderClassList(view: View, catalogue: ClassCatalogueRules.Catalogue)
 	clearClones(view.classList, view.classButtonTemplate)
 	for order, entry in catalogue do
@@ -301,10 +335,6 @@ function ClientClassMenuManager:renderClassList(view: View, catalogue: ClassCata
 		end
 		setLabel(button, Constants.CLASS_BUTTON_NAME_LABEL, UiStyle.formatTitle(Enums.getPublicName(Enums.ClassKind, entry.kind) or "?"), if isOwned then UiStyle.TEXT_COLOR else LOCKED_NAME_COLOR)
 		setVisible(button, Constants.CLASS_BUTTON_LOCK_ICON, not isOwned)
-		local stroke = button:FindFirstChild(Constants.CLASS_BUTTON_SELECTED_STROKE)
-		if stroke and stroke:IsA("UIStroke") then
-			stroke.Enabled = entry.kind == self.selectedClassKind
-		end
 		self:addCloneConnection(
 			button.Activated:Connect(
 				function()
@@ -341,6 +371,11 @@ function ClientClassMenuManager:fitListCanvas(view: View)
 		padding.PaddingTop = UDim.new(0, paddingPx)
 		padding.PaddingBottom = UDim.new(0, paddingPx)
 	end
+	-- the gap between rows is a scale of the canvas too, so it is pinned
+	-- the same way (one button per row made the feedback plain, 2026-11-05)
+	local authoredGap: number = self.listGapScale or layout.Padding.Scale
+	self.listGapScale = authoredGap
+	layout.Padding = UDim.new(0, authoredGap * windowHeight)
 	list.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y + paddingPx * 2)
 end
 
@@ -390,32 +425,29 @@ end
 -- Nth tier), an open empty slot rolls free, a filled one rerolls for
 -- Diamonds
 function ClientClassMenuManager:renderPerkRows(view: View, classKind: number)
+	-- a reel turning on this class's rows is left alone; the resolve
+	-- redraws them
+	local activeRoll = self.activeRoll
+	if activeRoll and activeRoll.classKind == classKind then
+		return
+	end
 	clearClones(view.perkRows, view.perkRowTemplate)
 	local pricing = self:getRerollPricing()
-	local catalogue = self:getSkillCatalogue()
 	local record = ClientDataManager:getClassRecord(classKind)
 	local stars = self:starsOf(classKind) or 0
 	local slotCount = if pricing then pricing.maxSkillSlots else Constants.CLASS_INFO_STAR_COUNT
 	for slot = 1, slotCount do
 		local row = view.perkRowTemplate:Clone()
-		row.Name = "Perk" .. tostring(slot)
+		row.Name = string.format(PERK_ROW_NAME_FORMAT, slot)
 		row.LayoutOrder = slot
 		row.Visible = true
-		local badge = row:FindFirstChild(Constants.PERK_ROW_BADGE)
-		if badge then
-			setLabel(badge, Constants.PERK_ROW_BADGE_LABEL, tostring(slot))
-		end
 		local isLocked = slot > stars
 		local rerollButton = row:FindFirstChild(Constants.PERK_ROW_REROLL_BUTTON)
 		setVisible(row, Constants.PERK_ROW_LOCK_ICON, isLocked)
 		setVisible(row, Constants.PERK_ROW_REQUIREMENT_LABEL, isLocked)
-		setVisible(row, Constants.PERK_ROW_REQUIREMENT_STAR, isLocked)
 		if isLocked then
-			setLabel(row, Constants.PERK_ROW_NAME_LABEL, UiStyle.formatTitle(LOCKED_PERK_TEXT), UiStyle.TEXT_MUTED_COLOR)
-			setLabel(row, Constants.PERK_ROW_DESCRIPTION_LABEL, "")
-			-- the star and the word REQUIRED are authored on the row, so it
-			-- reads "2 [star] REQUIRED" with only the number set here
-			setLabel(row, Constants.PERK_ROW_REQUIREMENT_LABEL, string.format("%d", slot))
+			fillSkillText(skillTextOf(row), { name = "", nameColor = UiStyle.TEXT_COLOR, description = "" })
+			setLabel(row, Constants.PERK_ROW_REQUIREMENT_LABEL, UiStyle.formatTitle(string.format(UNLOCKED_AT_FORMAT, slot)))
 			if rerollButton and rerollButton:IsA("GuiObject") then
 				rerollButton.Visible = false
 			end
@@ -424,14 +456,7 @@ function ClientClassMenuManager:renderPerkRows(view: View, classKind: number)
 		end
 		local skill = record.skills[tostring(slot)]
 		local isEmpty = skill == nil
-		if skill then
-			setLabel(row, Constants.PERK_ROW_NAME_LABEL, skillTitle(catalogue[skill.skillId], skill.skillId, skill.rarity), rarityColor(skill.rarity))
-			local entry = catalogue[skill.skillId]
-			setLabel(row, Constants.PERK_ROW_DESCRIPTION_LABEL, if entry then entry.description else "")
-		else
-			setLabel(row, Constants.PERK_ROW_NAME_LABEL, UiStyle.formatTitle(EMPTY_PERK_TEXT), UiStyle.TEXT_MUTED_COLOR)
-			setLabel(row, Constants.PERK_ROW_DESCRIPTION_LABEL, EMPTY_PERK_DESCRIPTION)
-		end
+		fillSkillText(skillTextOf(row), self:reelEntryFor(if skill then skill.skillId else nil, if skill then skill.rarity else nil))
 		if rerollButton and rerollButton:IsA("GuiButton") then
 			rerollButton.Visible = pricing ~= nil
 			if pricing then
@@ -465,6 +490,53 @@ function ClientClassMenuManager:requestRoll(classKind: number, slot: number, pri
 	})
 end
 
+-- a row's words for a skill, or for the empty slot
+function ClientClassMenuManager:reelEntryFor(skillId: string?, rarity: number?): ReelEntry
+	if not skillId then
+		return {
+			name = UiStyle.formatTitle(EMPTY_PERK_TEXT),
+			nameColor = UiStyle.TEXT_MUTED_COLOR,
+			description = EMPTY_PERK_DESCRIPTION,
+		}
+	end
+	local entry = self:getSkillCatalogue()[skillId]
+	return {
+		name = skillTitle(entry, skillId, rarity or 0),
+		nameColor = rarityColor(rarity),
+		description = if entry then entry.description else "",
+	}
+end
+
+-- the box's name goes green at once, holds, then eases back to white; a
+-- newer flash during the hold wins through the generation
+function ClientClassMenuManager:flashEquippedTitle(view: View)
+	self.equippedFlashGeneration += 1
+	local generation = self.equippedFlashGeneration
+	view.equippedTitle.TextColor3 = UiStyle.POSITIVE_COLOR
+	task.delay(
+		EQUIPPED_FLASH_HOLD_SEC,
+		function()
+			if generation ~= self.equippedFlashGeneration or not self.isOpen then
+				return
+			end
+			TweenService:Create(view.equippedTitle, TweenInfo.new(EQUIPPED_FLASH_FADE_SEC), { TextColor3 = UiStyle.TEXT_COLOR }):Play()
+		end
+	)
+end
+
+-- the EQUIPPED CLASS box under the list: the class in play, whatever the
+-- panel is looking at. render runs on every class-data change, so an
+-- equip moves it at once, flashing the name green
+function ClientClassMenuManager:renderEquippedClass(view: View)
+	local activeKind = ClientDataManager:getActiveClassKind()
+	view.equippedIcon.Image = Icons.CLASS_KIND[activeKind] or Icons.PLACEHOLDER
+	view.equippedTitle.Text = UiStyle.formatTitle(Enums.getPublicName(Enums.ClassKind, activeKind) or "?")
+	if self.equippedShownKind ~= nil and self.equippedShownKind ~= activeKind then
+		self:flashEquippedTitle(view)
+	end
+	self.equippedShownKind = activeKind
+end
+
 -- the right column for the selected class
 function ClientClassMenuManager:renderInfo(view: View, entry: ClassCatalogueRules.Entry)
 	local classKind = entry.kind
@@ -472,7 +544,7 @@ function ClientClassMenuManager:renderInfo(view: View, entry: ClassCatalogueRule
 	local isOwned = stars ~= nil
 	view.nameLabel.Text = UiStyle.formatTitle(Enums.getPublicName(Enums.ClassKind, classKind) or "?")
 	for index, star in view.stars do
-		star.TextColor3 = if index <= (stars or 0) then UiStyle.CLASS_CARD_STAR_GOLD_COLOR else UiStyle.CLASS_CARD_STAR_DARK_COLOR
+		star.TextColor3 = if index <= (stars or 0) then UiStyle.CLASS_CARD_STAR_GOLD_COLOR else UiStyle.CLASS_MENU_STAR_DARK_COLOR
 	end
 	view.icon.Image = Icons.CLASS_KIND[classKind] or Icons.PLACEHOLDER
 	view.descriptionLabel.Text = entry.description
@@ -481,9 +553,59 @@ function ClientClassMenuManager:renderInfo(view: View, entry: ClassCatalogueRule
 
 	local isActive = classKind == ClientDataManager:getActiveClassKind()
 	local word = if isActive then EQUIPPED_TEXT elseif isOwned then EQUIP_TEXT else LOCKED_CLASS_TEXT
-	view.equipButton.Text = UiStyle.formatTitle(word)
-	view.equipButton.BackgroundColor3 = if isOwned and not isActive then UiStyle.POSITIVE_COLOR else UiStyle.DISABLED_COLOR
+	-- the word lives on the button's TextLabel child; the colour is the
+	-- plate's tint on the designer's ImageButton. On the class in play the
+	-- plate goes clear and the word takes its green (designer, 2026-11-05)
+	local wordColor = if isActive then UiStyle.POSITIVE_COLOR else EQUIP_WORD_COLOR
+	setLabel(view.equipButton, Constants.EQUIP_BUTTON_LABEL, UiStyle.formatTitle(word), wordColor)
+	local color = if isOwned and not isActive then UiStyle.POSITIVE_COLOR else UiStyle.DISABLED_COLOR
+	if view.equipButton:IsA("ImageButton") then
+		view.equipButton.ImageColor3 = color
+		view.equipButton.ImageTransparency = if isActive then 1 else 0
+	else
+		view.equipButton.BackgroundColor3 = color
+		view.equipButton.BackgroundTransparency = if isActive then 1 else 0
+	end
 	view.equipButton.AutoButtonColor = isOwned and not isActive
+
+	-- a locked class shows the one Supply Crate plate where Odds and Equip
+	-- stand; an owned class with no star has its Odds plate send the
+	-- player there too (designer, 2026-11-05)
+	view.supplyCrateButton.Visible = not isOwned
+	view.oddsButton.Visible = isOwned
+	view.equipButton.Visible = isOwned
+	local isStarUp = self:isOddsStarUp(classKind)
+	local oddsText = if isStarUp then STAR_UP_TEXT else ODDS_TEXT
+	setLabel(view.oddsButton, Constants.EQUIP_BUTTON_LABEL, UiStyle.formatTitle(oddsText))
+	local oddsColor = if isStarUp then UiStyle.SUPPLY_CRATE_BUTTON_COLOR else UiStyle.ODDS_BUTTON_COLOR
+	if view.oddsButton:IsA("ImageButton") then
+		view.oddsButton.ImageColor3 = oddsColor
+	else
+		view.oddsButton.BackgroundColor3 = oddsColor
+	end
+end
+
+-- an owned class with no star has no slot open, so its Odds plate is a
+-- road to the Supply Crates until the first star
+function ClientClassMenuManager:isOddsStarUp(classKind: number): boolean
+	local stars = self:starsOf(classKind)
+	return stars ~= nil and stars <= 0
+end
+
+-- the Supply Crate plate, and the Odds plate in its star-up state: this
+-- menu closes and the Supply Crate stall's menu opens in its place (one
+-- overlay at a time, so the close must come first)
+function ClientClassMenuManager:openSupplyCrates()
+	self:closeMenu()
+	ClientGachaMenuManager:openMenu()
+end
+
+function ClientClassMenuManager:onOddsActivated()
+	if self:isOddsStarUp(self.selectedClassKind) then
+		self:openSupplyCrates()
+	else
+		self:showOdds()
+	end
 end
 
 function ClientClassMenuManager:render()
@@ -491,7 +613,6 @@ function ClientClassMenuManager:render()
 	if not view or not self.isOpen then
 		return
 	end
-	view.diamondLabel.Text = utils.formatWithCommas(ClientDataManager:getDiamonds())
 	local catalogue = self:getCatalogue()
 	if #catalogue == 0 then
 		warn("ClientClassMenuManager: no class catalogue in GameMetadata yet")
@@ -500,8 +621,19 @@ function ClientClassMenuManager:render()
 	local entry = ClassCatalogueRules.findEntry(catalogue, self.selectedClassKind) or catalogue[1]
 	self.selectedClassKind = entry.kind
 	self:dropCloneConnections()
-	self:renderClassList(view, catalogue)
+	self:renderClassList(view, self.listCatalogue or catalogue)
+	self:renderEquippedClass(view)
 	self:renderInfo(view, entry)
+end
+
+-- the list order for this opening of the menu
+function ClientClassMenuManager:buildListCatalogue(): ClassCatalogueRules.Catalogue
+	local catalogue = self:getCatalogue()
+	local isOwnedByKind: { [number]: boolean } = {}
+	for _, entry in catalogue do
+		isOwnedByKind[entry.kind] = self:isOwned(entry.kind)
+	end
+	return ClassCatalogueRules.sortForMenu(catalogue, ClientDataManager:getActiveClassKind(), isOwnedByKind)
 end
 
 -- a class button tapped: the info panel follows, owned or not
@@ -527,148 +659,245 @@ function ClientClassMenuManager:requestEquip()
 	ClientNetManager:fireServer(NetEventNames.TRY_SELECT_CLASS, { classKind = classKind })
 end
 
-function ClientClassMenuManager:clearOffer()
-	local view = self.view
-	if not view then
-		return
-	end
+-- forgets the roll in flight: the reel stops where it is and its
+-- connections go; the caller redraws the rows
+function ClientClassMenuManager:clearRoll()
 	self.rollGeneration += 1
-	for _, connection in self.offerConnections do
+	self.activeRoll = nil
+	for _, connection in self.rollConnections do
 		connection:Disconnect()
 	end
-	table.clear(self.offerConnections)
-	view.offerDialog.Visible = false
-	for _, part in self.hiddenForRoll do
-		part.Visible = true
-	end
-	table.clear(self.hiddenForRoll)
+	table.clear(self.rollConnections)
 end
 
--- everything on the dialog but the roll screen goes away while it shows
-function ClientClassMenuManager:hideMenuForRoll(view: View)
-	for _, child in view.dialog:GetChildren() do
-		if child:IsA("GuiObject") and child ~= view.offerDialog and child.Visible then
-			child.Visible = false
-			table.insert(self.hiddenForRoll, child)
-		end
+-- a roll left mid-way (Back, another overlay): a pending offer goes back
+-- to the server as not taken, so the slot keeps what it had
+function ClientClassMenuManager:abandonRoll()
+	local roll = self.activeRoll
+	self:clearRoll()
+	if roll and not roll.isFinal then
+		ClientNetManager:fireServer(NetEventNames.TRY_RESOLVE_SKILL_ROLL, { isTaken = false })
 	end
 end
 
--- the roll screen: CURRENT on the left, NEW on the right. The NEW box
--- flips through `candidates`, slowing to a stop on `result`; then Keep
--- and Undo appear. `onUndo` nil means the roll already landed (the free
--- first roll), so only Keep shows
-function ClientClassMenuManager:showRoll(title: string, current: BoxContent, candidates: { BoxContent }, result: BoxContent, onKeep: () -> (), onUndo: (() -> ())?)
-	local view = self.view
-	if not view then
+-- the purchase went through: the Reroll button fades out of the row
+function ClientClassMenuManager:fadeOutRerollButton(row: Instance)
+	local button = row:FindFirstChild(Constants.PERK_ROW_REROLL_BUTTON)
+	if not button or not button:IsA("GuiButton") then
 		return
 	end
-	self:clearOffer()
-	self:closeInfo()
-	local generation = self.rollGeneration
-	view.offerTitle.Text = UiStyle.formatTitle(title)
-	fillBox(view.currentBox, current)
-	fillBox(view.newBox, result)
-	view.offerKeep.Visible = false
-	view.offerUndo.Visible = false
-	self:hideMenuForRoll(view)
-	view.offerDialog.Visible = true
-
-	table.insert(
-		self.offerConnections,
-		view.offerKeep.Activated:Connect(
-			function()
-				self:clearOffer()
-				onKeep()
-			end
-		)
-	)
-	table.insert(
-		self.offerConnections,
-		view.offerUndo.Activated:Connect(
-			function()
-				self:clearOffer()
-				if onUndo then
-					onUndo()
-				end
-			end
-		)
-	)
-
-	task.spawn(
+	button.Interactable = false
+	local info = TweenInfo.new(REROLL_FADE_SEC)
+	if button:IsA("ImageButton") then
+		TweenService:Create(button, info, { ImageTransparency = 1 }):Play()
+	else
+		TweenService:Create(button, info, { BackgroundTransparency = 1 }):Play()
+	end
+	for _, child in button:GetChildren() do
+		if child:IsA("TextLabel") then
+			TweenService:Create(child, info, { TextTransparency = 1 }):Play()
+		elseif child:IsA("ImageLabel") then
+			TweenService:Create(child, info, { ImageTransparency = 1 }):Play()
+		end
+	end
+	task.delay(
+		REROLL_FADE_SEC,
 		function()
-			-- flip through the candidates, each step a little slower, and
-			-- land on the result; a cleared screen (new roll, Back) stops it
-			local step = SPIN_FIRST_STEP_SEC
-			local index = 0
-			while step < SPIN_LAST_STEP_SEC do
-				if self.rollGeneration ~= generation then
-					return
-				end
-				index = index % #candidates + 1
-				fillBox(view.newBox, candidates[index])
-				ClientSoundManager:playSfx(SoundNames.Sfx.REROLL_SPIN)
-				task.wait(step)
-				step *= SPIN_STEP_GROWTH
-			end
-			if self.rollGeneration ~= generation then
-				return
-			end
-			fillBox(view.newBox, result)
-			ClientSoundManager:playSfx(SoundNames.Sfx.REROLL_REVEAL)
-			task.wait(SPIN_REVEAL_DELAY_SEC)
-			if self.rollGeneration ~= generation then
-				return
-			end
-			view.offerKeep.Visible = true
-			view.offerUndo.Visible = onUndo ~= nil
+			button.Visible = false
 		end
 	)
 end
 
-function ClientClassMenuManager:onSkillRollOffer(payload: any)
-	if not self.isOpen or typeof(payload) ~= "table" or typeof(payload.offer) ~= "table" or typeof(payload.slot) ~= "number" then
+-- the reel: a column of entries built from clones of the row's own two
+-- labels, the skill it had first, a shuffled handful of the catalogue,
+-- and the result last, scrolled up through the clipping SkillText frame
+-- with a tween that starts fast and eases to a stop on the last entry.
+-- The row's own labels hide under it and come back showing the result
+function ClientClassMenuManager:spinReel(row: Instance, start: ReelEntry, result: ReelEntry, generation: number, onLanded: () -> ())
+	local skillText = skillTextOf(row)
+	local nameLabel = skillText:FindFirstChild(Constants.PERK_ROW_NAME_LABEL)
+	local descriptionLabel = skillText:FindFirstChild(Constants.PERK_ROW_DESCRIPTION_LABEL)
+	if not skillText:IsA("GuiObject") or not nameLabel or not descriptionLabel or not nameLabel:IsA("GuiObject") or not descriptionLabel:IsA("GuiObject") then
+		fillSkillText(skillText, result)
+		onLanded()
 		return
 	end
-	local classKind = if typeof(payload.classKind) == "number" then payload.classKind else self.selectedClassKind
-	local record = ClientDataManager:getClassRecord(classKind)
 	local catalogue = self:getSkillCatalogue()
-	-- skills have no icons yet: the name itself flips in the icon area
-	local function boxFor(skillId: string?, rarity: number?): BoxContent
-		local entry = if skillId then catalogue[skillId] else nil
-		local name = if entry then entry.name else (skillId or EMPTY_PERK_TEXT)
-		return {
-			icon = "",
-			spinText = name,
-			name = if skillId then skillTitle(entry, skillId, rarity or 0) else UiStyle.formatTitle(EMPTY_PERK_TEXT),
-			detail = if entry then entry.description else "",
-			rarity = if skillId then rarity else nil,
-		}
-	end
-	local ids = {}
+	local ids: { string } = {}
 	for id in catalogue do
 		table.insert(ids, id)
 	end
 	table.sort(ids)
-	local candidates = {}
-	for _, id in ids do
-		table.insert(candidates, boxFor(id, catalogue[id].rarity))
+	Random.new():Shuffle(ids)
+	local entries: { ReelEntry } = { start }
+	for index = 1, math.min(REEL_CANDIDATE_COUNT, #ids) do
+		local id = ids[index]
+		table.insert(entries, self:reelEntryFor(id, catalogue[id].rarity))
 	end
-	local current = record.skills[tostring(payload.slot)]
-	local offer = payload.offer
-	local isFinal = payload.isFinal == true
-	self:showRoll(
-		string.format(PERK_OFFER_TITLE, payload.slot),
-		boxFor(if current then current.skillId else nil, if current then current.rarity else nil),
-		candidates,
-		boxFor(offer.skillId, offer.rarity),
+	table.insert(entries, result)
+	local count = #entries
+
+	skillText.ClipsDescendants = true
+	local reel = Instance.new("Frame")
+	reel.Name = REEL_FRAME_NAME
+	reel.BackgroundTransparency = 1
+	reel.BorderSizePixel = 0
+	reel.Size = UDim2.fromScale(1, count)
+	reel.Position = UDim2.fromScale(0, 0)
+	for index, entry in entries do
+		local cell = Instance.new("Frame")
+		cell.Name = "Entry" .. tostring(index)
+		cell.BackgroundTransparency = 1
+		cell.BorderSizePixel = 0
+		cell.Size = UDim2.fromScale(1, 1 / count)
+		cell.Position = UDim2.fromScale(0, (index - 1) / count)
+		local name = nameLabel:Clone()
+		name.Visible = true
+		name.Parent = cell
+		local description = descriptionLabel:Clone()
+		description.Visible = true
+		description.Parent = cell
+		fillSkillText(cell, entry)
+		cell.Parent = reel
+	end
+	nameLabel.Visible = false
+	descriptionLabel.Visible = false
+	reel.Parent = skillText
+
+	-- a tick as each entry passes the window
+	local lastIndex = 1
+	local ticking: RBXScriptConnection
+	ticking = RunService.Heartbeat:Connect(
 		function()
-			if not isFinal then
-				ClientNetManager:fireServer(NetEventNames.TRY_RESOLVE_SKILL_ROLL, { isTaken = true })
+			local index = math.floor(-reel.Position.Y.Scale + 0.5) + 1
+			if index ~= lastIndex then
+				lastIndex = index
+				ClientSoundManager:playSfx(SoundNames.Sfx.REROLL_SPIN)
 			end
-		end,
-		if isFinal then nil else function()
+		end
+	)
+	table.insert(self.rollConnections, ticking)
+	local tween = TweenService:Create(reel, REEL_TWEEN_INFO, { Position = UDim2.fromScale(0, -(count - 1)) })
+	tween.Completed:Connect(
+		function()
+			ticking:Disconnect()
+			if self.rollGeneration ~= generation then
+				return
+			end
+			fillSkillText(skillText, result)
+			nameLabel.Visible = true
+			descriptionLabel.Visible = true
+			reel:Destroy()
+			ClientSoundManager:playSfx(SoundNames.Sfx.REROLL_REVEAL)
+			onLanded()
+		end
+	)
+	tween:Play()
+end
+
+-- KEEP takes the offer, X gives it back; either way the server's answer
+-- (or its silence on a cancel) is what the rows are redrawn from
+function ClientClassMenuManager:resolveRoll(isTaken: boolean)
+	local roll = self.activeRoll
+	if not roll or not roll.isLanded or roll.isFinal then
+		return
+	end
+	self:clearRoll()
+	setVisible(roll.row, Constants.PERK_ROW_KEEP_BUTTON, false)
+	setVisible(roll.row, Constants.PERK_ROW_CANCEL_BUTTON, false)
+	ClientNetManager:fireServer(NetEventNames.TRY_RESOLVE_SKILL_ROLL, { isTaken = isTaken })
+	if not isTaken then
+		-- the server changes nothing on a cancel, so the row is put back here
+		self:render()
+	end
+end
+
+-- the server's offer for a slot, in place on its row: the Reroll button
+-- fades, the words reel to the result, then KEEP and X appear (none for
+-- the free first roll, which the server has already landed and replicated,
+-- so its row reels from the empty slot to what the redraw already shows)
+function ClientClassMenuManager:onSkillRollOffer(payload: any)
+	if not self.isOpen or typeof(payload) ~= "table" or typeof(payload.offer) ~= "table" or typeof(payload.slot) ~= "number" then
+		return
+	end
+	local view = self.view
+	if not view then
+		return
+	end
+	local classKind = if typeof(payload.classKind) == "number" then payload.classKind else self.selectedClassKind
+	local slot: number = payload.slot
+	local isFinal = payload.isFinal == true
+	local row = view.perkRows:FindFirstChild(string.format(PERK_ROW_NAME_FORMAT, slot))
+	if classKind ~= self.selectedClassKind or not row then
+		-- the panel moved on under the request: an open offer is handed back
+		if not isFinal then
 			ClientNetManager:fireServer(NetEventNames.TRY_RESOLVE_SKILL_ROLL, { isTaken = false })
+		end
+		return
+	end
+	self:clearRoll()
+	self:closeInfo()
+	local generation = self.rollGeneration
+	local record = ClientDataManager:getClassRecord(classKind)
+	local current = if isFinal then nil else record.skills[tostring(slot)]
+	local start = self:reelEntryFor(if current then current.skillId else nil, if current then current.rarity else nil)
+	local result = self:reelEntryFor(payload.offer.skillId, payload.offer.rarity)
+	self.activeRoll = {
+		classKind = classKind,
+		slot = slot,
+		row = row,
+		isFinal = isFinal,
+		isLanded = false,
+	}
+	self:fadeOutRerollButton(row)
+	local keep = row:FindFirstChild(Constants.PERK_ROW_KEEP_BUTTON)
+	local cancel = row:FindFirstChild(Constants.PERK_ROW_CANCEL_BUTTON)
+	if keep and keep:IsA("GuiButton") then
+		table.insert(
+			self.rollConnections,
+			keep.Activated:Connect(
+				function()
+					self:resolveRoll(true)
+				end
+			)
+		)
+	end
+	if cancel and cancel:IsA("GuiButton") then
+		table.insert(
+			self.rollConnections,
+			cancel.Activated:Connect(
+				function()
+					self:resolveRoll(false)
+				end
+			)
+		)
+	end
+	self:spinReel(
+		row,
+		start,
+		result,
+		generation,
+		function()
+			local roll = self.activeRoll
+			if not roll or self.rollGeneration ~= generation then
+				return
+			end
+			roll.isLanded = true
+			if isFinal then
+				self:clearRoll()
+				self:render()
+				return
+			end
+			task.delay(
+				SPIN_REVEAL_DELAY_SEC,
+				function()
+					if self.rollGeneration ~= generation then
+						return
+					end
+					setVisible(row, Constants.PERK_ROW_KEEP_BUTTON, true)
+					setVisible(row, Constants.PERK_ROW_CANCEL_BUTTON, true)
+				end
+			)
 		end
 	)
 end
@@ -683,8 +912,11 @@ function ClientClassMenuManager:openMenu()
 		return
 	end
 	self.isOpen = true
-	-- the panel opens on the class in play
+	-- the panel opens on the class in play, which also heads the list
 	self.selectedClassKind = ClientDataManager:getActiveClassKind()
+	self.listCatalogue = self:buildListCatalogue()
+	self.equippedShownKind = nil
+	self.equippedFlashGeneration += 1
 	view.gui.Enabled = true
 	self:closeInfo()
 	self:render()
@@ -696,9 +928,12 @@ function ClientClassMenuManager:closeMenu()
 	if not view or not self.isOpen then
 		return
 	end
-	self:clearOffer()
+	self:abandonRoll()
 	self:closeInfo()
 	self.isOpen = false
+	self.listCatalogue = nil
+	self.equippedFlashGeneration += 1
+	view.equippedTitle.TextColor3 = UiStyle.TEXT_COLOR
 	view.gui.Enabled = false
 	self:dropCloneConnections()
 	local overlay = self.overlay
@@ -725,13 +960,16 @@ function ClientClassMenuManager:findView(playerGui: PlayerGui): View?
 	end
 	local dialog = find(gui, Constants.MENU_DIALOG_FRAME)
 	local backButton = find(dialog, Constants.CLASS_MENU_BACK_BUTTON)
-	local wallet = find(dialog, Constants.CLASS_MENU_WALLET)
-	local diamondLabel = find(wallet, Constants.HUD_DIAMOND_AMOUNT_LABEL)
-	local classList = find(dialog, Constants.CLASS_MENU_CLASS_LIST)
+	local equippedClass = find(dialog, Constants.CLASS_MENU_EQUIPPED_CLASS)
+	local equippedIcon = find(equippedClass, Constants.EQUIPPED_CLASS_ICON)
+	local equippedTitle = find(equippedClass, Constants.EQUIPPED_CLASS_TITLE)
+	local classListFrame = find(dialog, Constants.CLASS_MENU_CLASS_LIST_FRAME)
+	local classList = find(classListFrame, Constants.CLASS_MENU_CLASS_LIST)
 	local classButtonTemplate = find(classList, Constants.CLASS_MENU_CLASS_BUTTON_TEMPLATE)
 	local infoPanel = find(dialog, Constants.CLASS_MENU_INFO_PANEL)
-	local nameLabel = find(infoPanel, Constants.CLASS_INFO_NAME_LABEL)
-	local starsFrame = find(infoPanel, Constants.CLASS_INFO_STARS)
+	local header = find(infoPanel, Constants.CLASS_INFO_HEADER)
+	local nameLabel = find(header, Constants.CLASS_INFO_NAME_LABEL)
+	local starsFrame = find(header, Constants.CLASS_INFO_STARS)
 	local stars: { TextLabel } = {}
 	for index = 1, Constants.CLASS_INFO_STAR_COUNT do
 		local star = find(starsFrame, string.format(Constants.CLASS_INFO_STAR_NAME_FORMAT, index))
@@ -739,20 +977,16 @@ function ClientClassMenuManager:findView(playerGui: PlayerGui): View?
 			table.insert(stars, star)
 		end
 	end
-	local icon = find(infoPanel, Constants.CLASS_INFO_ICON)
-	local descriptionLabel = find(infoPanel, Constants.CLASS_INFO_DESCRIPTION_LABEL)
+	local icon = find(header, Constants.CLASS_INFO_ICON)
+	local descriptionFrame = find(infoPanel, Constants.CLASS_INFO_DESCRIPTION_FRAME)
+	local descriptionLabel = find(descriptionFrame, Constants.CLASS_INFO_DESCRIPTION_LABEL)
 	local kitRow = find(infoPanel, Constants.CLASS_INFO_KIT_ROW)
 	local kitSlotTemplate = find(kitRow, Constants.CLASS_INFO_KIT_SLOT_TEMPLATE)
 	local perkRows = find(infoPanel, Constants.CLASS_INFO_PERK_ROWS)
 	local perkRowTemplate = find(perkRows, Constants.CLASS_INFO_PERK_ROW_TEMPLATE)
 	local oddsButton = find(infoPanel, Constants.CLASS_INFO_ODDS_BUTTON)
 	local equipButton = find(infoPanel, Constants.CLASS_INFO_EQUIP_BUTTON)
-	local offerDialog = find(dialog, Constants.CLASS_MENU_OFFER_DIALOG)
-	local offerTitle = find(offerDialog, Constants.OFFER_DIALOG_TITLE)
-	local currentBox = find(offerDialog, Constants.OFFER_CURRENT_BOX)
-	local newBox = find(offerDialog, Constants.OFFER_NEW_BOX)
-	local offerKeep = find(offerDialog, Constants.OFFER_KEEP_BUTTON)
-	local offerUndo = find(offerDialog, Constants.OFFER_UNDO_BUTTON)
+	local supplyCrateButton = find(infoPanel, Constants.CLASS_INFO_SUPPLY_CRATE_BUTTON)
 	local infoDialog = find(dialog, Constants.CLASS_MENU_INFO_DIALOG)
 	local infoTitle = find(infoDialog, Constants.INFO_DIALOG_TITLE)
 	local infoPicture = find(infoDialog, Constants.INFO_DIALOG_PICTURE)
@@ -768,7 +1002,8 @@ function ClientClassMenuManager:findView(playerGui: PlayerGui): View?
 		gui = gui,
 		dialog = dialog :: GuiObject,
 		backButton = backButton :: GuiButton,
-		diamondLabel = diamondLabel :: TextLabel,
+		equippedIcon = equippedIcon :: ImageLabel,
+		equippedTitle = equippedTitle :: TextLabel,
 		classList = classList :: GuiObject,
 		classButtonTemplate = classButtonTemplate :: GuiButton,
 		nameLabel = nameLabel :: TextLabel,
@@ -780,13 +1015,8 @@ function ClientClassMenuManager:findView(playerGui: PlayerGui): View?
 		perkRows = perkRows :: GuiObject,
 		perkRowTemplate = perkRowTemplate :: GuiObject,
 		oddsButton = oddsButton :: GuiButton,
-		equipButton = equipButton :: TextButton,
-		offerDialog = offerDialog :: GuiObject,
-		offerTitle = offerTitle :: TextLabel,
-		currentBox = currentBox :: GuiObject,
-		newBox = newBox :: GuiObject,
-		offerKeep = offerKeep :: GuiButton,
-		offerUndo = offerUndo :: GuiButton,
+		equipButton = equipButton :: GuiButton,
+		supplyCrateButton = supplyCrateButton :: GuiButton,
 		infoDialog = infoDialog :: GuiObject,
 		infoTitle = infoTitle :: TextLabel,
 		infoPicture = infoPicture :: ImageLabel,
@@ -808,7 +1038,6 @@ function ClientClassMenuManager:init()
 	view.kitSlotTemplate.Visible = false
 	view.perkRowTemplate.Visible = false
 	view.infoRowTemplate.Visible = false
-	view.offerDialog.Visible = false
 	view.infoDialog.Visible = false
 	view.gui.Enabled = false
 
@@ -824,7 +1053,12 @@ function ClientClassMenuManager:init()
 	)
 	view.oddsButton.Activated:Connect(
 		function()
-			self:showOdds()
+			self:onOddsActivated()
+		end
+	)
+	view.supplyCrateButton.Activated:Connect(
+		function()
+			self:openSupplyCrates()
 		end
 	)
 	view.infoClose.Activated:Connect(
@@ -854,7 +1088,7 @@ function ClientClassMenuManager:init()
 			return view.dialog
 		end,
 		notifyForceEnd = function(_overlay)
-			self:clearOffer()
+			self:abandonRoll()
 			self:closeInfo()
 			self.isOpen = false
 			view.gui.Enabled = false
@@ -863,31 +1097,30 @@ function ClientClassMenuManager:init()
 		notifyClickOutside = function(_overlay)
 			self:closeMenu()
 		end,
+		-- the HUD's wallets stay on screen under the clear backdrop: the
+		-- menu shows no balance of its own (designer, 2026-11-05)
+		doesKeepHud = function(_overlay)
+			return true
+		end,
 	}
 	self.overlay = overlay
 
+	-- a change of the class in play chimes, menu open or not (the dev
+	-- dropdown too); the first value seen is only remembered
+	self.knownActiveClassKind = ClientDataManager:getActiveClassKind()
 	ClientDataManager:subscribeClasses(
 		function()
+			local activeKind = ClientDataManager:getActiveClassKind()
+			if self.knownActiveClassKind ~= nil and activeKind ~= nil and activeKind ~= self.knownActiveClassKind then
+				ClientSoundManager:playSfx(SoundNames.Sfx.CLASS_EQUIPPED)
+			end
+			self.knownActiveClassKind = activeKind
 			self:render()
 		end
 	)
-	ClientDataManager:subscribeCurrentPlayerAttribute(
-		Attributes.DIAMONDS,
-		function()
-			local currentView = self.view
-			if currentView and self.isOpen then
-				currentView.diamondLabel.Text = utils.formatWithCommas(ClientDataManager:getDiamonds())
-			end
-		end
-	)
-	ClientDiamondStoreManager:subscribeDiamondsShort(
-		function()
-			local currentView = self.view
-			if currentView and self.isOpen then
-				ClientLabelFlash.flashRed(currentView.diamondLabel)
-			end
-		end
-	)
+	-- the Diamonds balance a roll spends is the HUD's wallet, left on
+	-- screen under the clear backdrop (designer, 2026-11-05; the menu had
+	-- its own wallet before), and a shortfall flashes it through the HUD
 	ClientNetManager:registerHandler(
 		NetEventNames.NOTIFY_SKILL_ROLL_OFFER,
 		function(payload: any)
@@ -902,11 +1135,16 @@ function ClientClassMenuManager.new(): ClientClassMenuManager
 	self.overlay = nil
 	self.isOpen = false
 	self.selectedClassKind = 0
+	self.activeRoll = nil
 	self.rollGeneration = 0
-	self.offerConnections = {}
-	self.hiddenForRoll = {}
+	self.rollConnections = {}
 	self.cloneConnections = {}
 	self.listPaddingTopScale = nil
+	self.listGapScale = nil
+	self.listCatalogue = nil
+	self.equippedShownKind = nil
+	self.equippedFlashGeneration = 0
+	self.knownActiveClassKind = nil
 	return self
 end
 

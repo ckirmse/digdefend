@@ -1,14 +1,14 @@
 --!strict
 
 -- The class gacha (GDD "Class Unlock System", M70, designed 2026-11-02):
--- the one loot box, rolled with Diamonds, whose pool holds every bought
--- launch class, every cosmetic in the catalogue, and Keys. A class result
+-- the one loot box, rolled with Diamonds, whose pool holds every
+-- launch class, the free Recruit included since 2026-11-05, every cosmetic in the catalogue, and Keys. A class result
 -- steps that class forward (the class itself, then skill slots 1 to 3, in
 -- order) and pays Keys once the class is complete; a duplicate cosmetic
 -- pays Keys too. Classes and skill slots come only from the gacha; Keys
 -- buy cosmetics by name (M61). Every number here is a placeholder until
 -- the economy is tuned against the Diamonds earn rate ("Earning Diamonds").
-local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+-- (A class kind in EXCLUDED_KINDS brings the shared Enums require back.)
 
 return {
 	-- what one roll costs
@@ -36,8 +36,8 @@ return {
 	-- (decided 2026-11-02), the class arriving with no skill slots as a
 	-- rolled one does. Their skill slots are the parked part of M56
 	DIRECT_CLASS_PRICE_DIAMONDS = 400,
-	-- classes never in the pool: the free one every player starts with
-	EXCLUDED_KINDS = {
-		Enums.ClassKind.RECRUIT,
-	},
+	-- classes never in the pool. The Recruit was here until 2026-11-05: a
+	-- free player could then never open their own class's perk slots, so
+	-- its card is drawn like any other owned class (a tier up at once)
+	EXCLUDED_KINDS = {},
 }

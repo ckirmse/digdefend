@@ -119,10 +119,12 @@ Icons.WEAPON_KIND = {
 -- the designer's class pictures (2026-11-04): the gacha's 3D class card;
 -- a class without one keeps the card's authored placeholder
 Icons.CLASS_KIND = {
+	-- the first Prospector picture, handed to the Recruit on 2026-11-05
+	[Enums.ClassKind.RECRUIT] = "rbxassetid://103204546509022",
 	[Enums.ClassKind.SNIPER] = "rbxassetid://105683326705463",
 	[Enums.ClassKind.RANGER] = "rbxassetid://84456092602659",
 	[Enums.ClassKind.PYRO] = "rbxassetid://129584863380176",
-	[Enums.ClassKind.PROSPECTOR] = "rbxassetid://103204546509022",
+	[Enums.ClassKind.PROSPECTOR] = "rbxassetid://137127089618818",
 	[Enums.ClassKind.GUNNER] = "rbxassetid://137376924445466",
 	[Enums.ClassKind.DEMOLITIONIST] = "rbxassetid://114125041037006",
 	[Enums.ClassKind.AIR_DEFENSE] = "rbxassetid://110014529125871",
@@ -150,6 +152,14 @@ Icons.COSMETIC_SLOT = {
 Icons.COSMETIC_DEFAULT_SKIN = {
 	[Enums.CosmeticSlot.PICK_AXE] = "rbxassetid://140057314922013",
 	[Enums.CosmeticSlot.JET_PACK] = "rbxassetid://74237324800322",
+}
+
+-- the Key Store's picture of each skin by catalogue id (M61, 2026-11-05):
+-- the placeholder skins reuse the renders above until their art lands; a
+-- skin with no entry shows the placeholder. Hats take Roblox's thumbnail
+Icons.COSMETIC_SKIN = {
+	TEST_PICK_AXE = Icons.COSMETIC_DEFAULT_SKIN[Enums.CosmeticSlot.PICK_AXE],
+	TEST_JET_PACK = Icons.COSMETIC_DEFAULT_SKIN[Enums.CosmeticSlot.JET_PACK],
 }
 
 Icons.UI = {
@@ -191,9 +201,11 @@ Icons.UI = {
 	-- Diamonds, the lobby currency (M33): the lobby HUD wallet and the
 	-- Results Menu row; the art the in-run Diamond had before it was retired
 	DIAMONDS = "rbxassetid://101719152234191",
-	-- Keys, the gacha's third currency (M70): the lock marker's art stands
-	-- in until a key is drawn
-	KEYS = "rbxassetid://134742178329103",
+	-- Keys, the gacha's third currency (M70): the designer's key (2026-11-05)
+	KEYS = "rbxassetid://122757851945939",
+	-- the padlock over a locked class or perk row in the Class Menu
+	-- (the Missile Launcher's lock marker stood in before, 2026-11-05)
+	LOCK = "rbxassetid://87535225906474",
 }
 
 function Icons.isPlaceholder(id: string?): boolean

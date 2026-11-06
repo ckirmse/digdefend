@@ -24,6 +24,7 @@ local ClientLabelFlash = require(script.Parent.Parent.Client.ClientLabelFlash)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
 local ClientGuiFade = require(script.Parent.Parent.Client.ClientGuiFade)
 local ClientGachaMenuManager = require(script.Parent.ClientGachaMenuManager)
+local ClientSupplyCrateChoiceManager = require(script.Parent.ClientSupplyCrateChoiceManager)
 
 local ClientHudManager = {}
 ClientHudManager.__index = ClientHudManager
@@ -276,13 +277,13 @@ function ClientHudManager:init()
 			ClientClassMenuManager:openMenu()
 		end
 	)
-	-- the Store button opens the class gacha until the Store Menu lands
-	-- (M40), which will hold the gacha as one of its sections
+	-- the Store button opens the Supply Crate stall's choice screen, the
+	-- crate or the Key Store (designer, 2026-11-05; the crate alone before)
 	self:wireButton(
 		menuButtons,
 		Constants.HUD_STORE_BUTTON,
 		function()
-			ClientGachaMenuManager:openMenu()
+			ClientSupplyCrateChoiceManager:openMenu()
 		end
 	)
 

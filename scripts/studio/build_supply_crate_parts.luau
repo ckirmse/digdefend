@@ -57,11 +57,13 @@ for _, shot in SHOTS do
 end
 
 -- the crate's sounds under SoundService.Sfx, wired to the device output
--- (the designer's CrateOpen is kept; ClassUnlocked added 2026-11-04)
+-- (the designer's CrateOpen is kept; ClassUnlocked added 2026-11-04, the
+-- Class Menu's ClassEquipped 2026-11-05)
 local SoundNames = require(game.ReplicatedStorage.Shared.SoundNames)
 local SOUNDS = {
 	{ name = SoundNames.Sfx.CLASS_UNLOCKED, assetId = 86883509504250 },
 	{ name = SoundNames.Sfx.CLASS_TIER_UP, assetId = 17759873264 },
+	{ name = SoundNames.Sfx.CLASS_EQUIPPED, assetId = 101311942583961 },
 }
 local sfx = game.SoundService:FindFirstChild("Sfx")
 local output = game.SoundService:FindFirstChildWhichIsA("AudioDeviceOutput")

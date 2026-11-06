@@ -48,6 +48,9 @@ UiStyle.TOOL_SLOT_COLOR = Color3.fromRGB(0, 0, 0)
 UiStyle.TOOL_SLOT_SELECTED_COLOR = Color3.fromRGB(124, 124, 124)
 -- the character sheet's REROLL ODDS button: a quiet grey so it never reads as a buy (designer, 2026-10-13)
 UiStyle.ODDS_BUTTON_COLOR = Color3.fromRGB(124, 124, 124)
+-- the Class Menu's Supply Crate plate, and the Odds plate while it sends
+-- the player there (designer, 2026-11-05)
+UiStyle.SUPPLY_CRATE_BUTTON_COLOR = Color3.fromRGB(245, 200, 80)
 -- every HP bar runs HP_FULL_COLOR to HP_EMPTY_COLOR as the thing weakens
 UiStyle.HP_FULL_COLOR = Color3.fromRGB(90, 200, 110)
 -- the Ore Scanner (2026-10-22): the sweep's sphere, and the highlight
@@ -191,6 +194,9 @@ UiStyle.GACHA_STAR_FILL_SEC = 0.5
 UiStyle.GACHA_STAR_DELAY_SEC = 0.5
 UiStyle.CLASS_CARD_STAR_GOLD_COLOR = Color3.fromRGB(239, 184, 56)
 UiStyle.CLASS_CARD_STAR_DARK_COLOR = Color3.fromRGB(17, 17, 17)
+-- the Class Menu's unfilled star, on the header's black box (designer,
+-- 2026-11-05); the 3D card keeps its own dark
+UiStyle.CLASS_MENU_STAR_DARK_COLOR = Color3.fromRGB(27, 42, 53)
 -- the gap between the HUD's Diamonds and Keys wallets when both show, as
 -- a share of the screen width
 UiStyle.HUD_WALLET_GAP_SCALE = 0.01

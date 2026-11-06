@@ -7,12 +7,14 @@
 -- once a save can hold it. Only the designer's Hard Hat since 2026-10-13
 -- (the seven Roblox-made placeholder hats were cut); the studio's own
 -- hats join when their art lands, and a UGC creator's item is never
--- handed out (decided 2026-10-12).
+-- handed out (decided 2026-10-12). PRICE_KEYS is what the Key Store asks
+-- (M61, 2026-11-05; a placeholder); the Hard Hat is owned by every
+-- account, so its price is never paid.
 return {
 	-- worn by every character until the player picks another (designer,
 	-- 2026-10-12); a save with no hat is repaired to this one
 	DEFAULT_HAT_ID = "HARD_HAT",
 	BY_ID = {
-		HARD_HAT = { ASSET_ID = 118940168191934, NAME = "Hard Hat" },
+		HARD_HAT = { ASSET_ID = 118940168191934, NAME = "Hard Hat", PRICE_KEYS = 10 },
 	},
 }

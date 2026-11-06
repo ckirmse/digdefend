@@ -4,6 +4,7 @@
 -- ServerScriptService/Server/main; this script wires the lobby's own managers.
 local DiamondStoreManager = require(script.Parent.DiamondStoreManager)
 local GachaManager = require(script.Parent.GachaManager)
+local KeyStoreManager = require(script.Parent.KeyStoreManager)
 local LobbyCharacterManager = require(script.Parent.LobbyCharacterManager)
 local LobbyMapManager = require(script.Parent.LobbyMapManager)
 local PartyManager = require(script.Parent.PartyManager)
@@ -20,4 +21,6 @@ PartyManager:init()
 -- the class gacha (M70): rolls, the restricted player's direct buy, and
 -- the dev commands behind the Gacha dev panel
 GachaManager:init()
+-- the stall's second menu: Keys buy cosmetics by name (M61)
+KeyStoreManager:init()
 DiamondStoreManager:init()

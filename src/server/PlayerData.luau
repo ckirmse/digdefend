@@ -321,6 +321,12 @@ function PlayerData:getOwnedCosmetics(): { [string]: boolean }
 	return self.ownedCosmetics
 end
 
+-- a cosmetic bought in the Key Store (M61); the gacha writes the same set
+-- through GachaRules.applyResult
+function PlayerData:addOwnedCosmetic(cosmeticId: string)
+	self.ownedCosmetics[cosmeticId] = true
+end
+
 -- back to a new account's cosmetics (the default hat alone), for the dev
 -- tool; a character still wearing a cleared skin keeps it, since what is
 -- worn is never checked against what is owned

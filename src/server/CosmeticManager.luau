@@ -51,7 +51,9 @@ end
 
 -- equips a skin on a cosmetic slot; "" clears the slot. A hat slot takes
 -- a catalogue hat or the own-hat marker; any other slot a skin the
--- cosmetics catalogue lists for it
+-- cosmetics catalogue lists for it. A catalogue item must also be owned
+-- (the gacha's and the Key Store's ownedCosmetics set; M61, 2026-11-05):
+-- the stock art and the own-hat marker are everyone's
 function CosmeticManager:setCosmetic(player: Player, slot: number, skinId: string): boolean
 	local playerData = self:getPlayerData(player)
 	if not playerData then
@@ -70,6 +72,11 @@ function CosmeticManager:setCosmetic(player: Player, slot: number, skinId: strin
 		end
 		if not isKnown then
 			warn(`CosmeticManager: {player.Name} equipped unknown skin {skinId} on {slotName}`)
+			return false
+		end
+		local isEveryones = skinId == CosmeticLoadoutSchema.OWN_HAT_ID or skinId == CosmeticLoadoutSchema.DEFAULT_SKIN_ID
+		if not isEveryones and not playerData:getOwnedCosmetics()[skinId] then
+			warn(`CosmeticManager: {player.Name} equipped unowned skin {skinId} on {slotName}`)
 			return false
 		end
 	end

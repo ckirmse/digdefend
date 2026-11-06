@@ -391,6 +391,9 @@ Constants.POST_WEAPON_MUZZLE_ATTACHMENT = "MuzzleAttachment"
 -- the post fires (the Minigun's barrel cluster, 2026-10-19); a template
 -- without one has nothing that spins
 Constants.POST_WEAPON_BARREL_PART = "Barrel"
+-- the part the aim turns about (under the Spawn, which never moves); a
+-- template without one turns about its Spawn
+Constants.POST_WEAPON_TURRET_CENTER_PART = "TurretBaseCenter"
 -- projectile models under GameAssets (a rocket): one part with a
 -- TailAttachment; the nose is the far end from it. The trail is authored
 -- as ParticleEmitters (and lights) under the attachment; a bare attachment
@@ -783,27 +786,41 @@ Constants.HELICOPTER_TAIL_ROTOR_PART = "BackBlades"
 -- APPEARANCE under it; on the right the info panel for the selected class
 Constants.CLASS_MENU_GUI_NAME = "ClassMenu"
 Constants.CLASS_MENU_BACK_BUTTON = "BackButton"
-Constants.CLASS_MENU_WALLET = "DiamondWallet"
+-- the menu has no wallet of its own since 2026-11-05: its backdrop is
+-- clear and the HUD's balances stay on screen under it
+-- the class list column: a frame holding the title band (TitleFrame with
+-- its Title label) over the scrolling list of the same name (designer,
+-- 2026-11-05)
+Constants.CLASS_MENU_CLASS_LIST_FRAME = "ClassList"
 Constants.CLASS_MENU_CLASS_LIST = "ClassList"
-Constants.CLASS_MENU_CLASS_LIST_TITLE = "ClassListTitle"
+Constants.CLASS_MENU_TITLE_FRAME = "TitleFrame"
+Constants.CLASS_MENU_TITLE_LABEL = "Title"
 Constants.CLASS_MENU_CLASS_BUTTON_TEMPLATE = "ClassButtonTemplate"
 Constants.CLASS_BUTTON_ICON = "Icon"
 Constants.CLASS_BUTTON_NAME_LABEL = "NameLabel"
 Constants.CLASS_BUTTON_LOCK_ICON = "LockIcon"
-Constants.CLASS_BUTTON_SELECTED_STROKE = "SelectedStroke"
--- the info panel: the class name, three stars (Star1 to Star3, gold for
--- each tier earned, dark otherwise, as on the gacha card), the class
--- icon, one sentence, the four kit slots (Post Weapon, Weapon, Tower,
+-- the EQUIPPED CLASS box under the list: the icon and name of the class
+-- in play (designer, 2026-11-05; a stroke and an EQUIPPED word on the
+-- list button for a few hours that day)
+Constants.CLASS_MENU_EQUIPPED_CLASS = "EquippedClass"
+Constants.EQUIPPED_CLASS_ICON = "Icon"
+Constants.EQUIPPED_CLASS_TITLE = "Title"
+-- the info panel: the ClassHeader frame (the class name, three stars
+-- (Star1 to Star3, gold for each tier earned, dark otherwise, as on the
+-- gacha card), and the class icon), the Description frame with its one
+-- sentence (both frames the designer's, 2026-11-05), the four kit slots (Post Weapon, Weapon, Tower,
 -- Gadget, cloned from the template; a tap opens the item's tooltip in
 -- the info dialog), the three perk rows (cloned from the template; a
 -- locked one reads "N [star] REQUIRED" with a lock, an open one rolls
 -- like the old skill rows), the ODDS button, and EQUIP
 Constants.CLASS_MENU_INFO_PANEL = "InfoPanel"
+Constants.CLASS_INFO_HEADER = "ClassHeader"
 Constants.CLASS_INFO_NAME_LABEL = "NameLabel"
 Constants.CLASS_INFO_STARS = "Stars"
 Constants.CLASS_INFO_STAR_NAME_FORMAT = "Star%d"
 Constants.CLASS_INFO_STAR_COUNT = 3
 Constants.CLASS_INFO_ICON = "Icon"
+Constants.CLASS_INFO_DESCRIPTION_FRAME = "Description"
 Constants.CLASS_INFO_DESCRIPTION_LABEL = "DescriptionLabel"
 -- the LOADOUT and SKILLS headings over the two columns (designer's
 -- layout, 2026-11-04)
@@ -817,17 +834,29 @@ Constants.KIT_SLOT_LABEL = "SlotLabel"
 Constants.KIT_SLOT_ITEM_LABEL = "ItemLabel"
 Constants.CLASS_INFO_PERK_ROWS = "PerkRows"
 Constants.CLASS_INFO_PERK_ROW_TEMPLATE = "PerkRowTemplate"
-Constants.PERK_ROW_BADGE = "Badge"
-Constants.PERK_ROW_BADGE_LABEL = "Number"
+-- the row's words sit in the SkillText frame (designer, 2026-11-05), which
+-- clips the reel of entries a reroll scrolls through like a slot machine
+Constants.PERK_ROW_SKILL_TEXT = "SkillText"
 Constants.PERK_ROW_NAME_LABEL = "NameLabel"
 Constants.PERK_ROW_DESCRIPTION_LABEL = "DescriptionLabel"
 Constants.PERK_ROW_REROLL_BUTTON = "RerollButton"
+-- shown once the reel lands: KEEP takes the new skill, X puts the old
+-- one back (designer, 2026-11-05; the roll screen's Keep and Undo before)
+Constants.PERK_ROW_KEEP_BUTTON = "KeepButton"
+Constants.PERK_ROW_CANCEL_BUTTON = "CancelButton"
 Constants.PERK_ROW_LOCK_ICON = "LockIcon"
+-- the locked row's one line, "UNLOCKED AT 2 [star]" (designer, 2026-11-05;
+-- a number and an authored "[star] REQUIRED" label before)
 Constants.PERK_ROW_REQUIREMENT_LABEL = "RequirementLabel"
-Constants.PERK_ROW_REQUIREMENT_STAR = "RequirementStar"
 Constants.CLASS_INFO_ODDS_BUTTON = "OddsButton"
+-- an ImageButton on the designer's plate since 2026-11-05; its word is
+-- the TextLabel child
 Constants.CLASS_INFO_EQUIP_BUTTON = "EquipButton"
-Constants.CLASS_MENU_OFFER_DIALOG = "OfferDialog"
+-- the designer's plate over the Odds and Equip spots on a locked class,
+-- sending the player to the Supply Crates (2026-11-05)
+Constants.CLASS_INFO_SUPPLY_CRATE_BUTTON = "SupplyCrateButton"
+-- the word label on the Equip, Odds, and Supply Crate plates
+Constants.EQUIP_BUTTON_LABEL = "TextLabel"
 Constants.CLASS_MENU_INFO_DIALOG = "InfoDialog"
 -- the class gacha menu (M70; scripts/studio/build_gacha_gui.luau; the 3D
 -- crate opening since 2026-11-03): a panel on the right third of the
@@ -877,6 +906,34 @@ Constants.DIAMOND_STORE_PACK_BANNER = "Banner"
 Constants.DIAMOND_STORE_PACK_BANNER_LABEL = "Text"
 Constants.DIAMOND_STORE_PACK_BUY_BUTTON = "BuyButton"
 Constants.DIAMOND_STORE_PACK_PRICE_LABEL = "Price"
+-- the Supply Crate stall's first screen (designer, 2026-11-05;
+-- scripts/studio/build_supply_crate_choice_gui.luau): Back and two plates,
+-- OPEN SUPPLY CRATES into the crate menu and KEY STORE into the Key Store
+Constants.SUPPLY_CRATE_CHOICE_GUI_NAME = "SupplyCrateChoice"
+Constants.SUPPLY_CRATE_CHOICE_BACK_BUTTON = "BackButton"
+Constants.SUPPLY_CRATE_CHOICE_CRATES_BUTTON = "CratesButton"
+Constants.SUPPLY_CRATE_CHOICE_KEY_STORE_BUTTON = "KeyStoreButton"
+-- the Key Store menu (M61; scripts/studio/build_key_store_gui.luau): Back,
+-- the Keys wallet, the scrolling grid of every cosmetic (cloned from the
+-- hidden item template, its picture and name) on the left, and on the
+-- right the info panel with the picked item's picture, name, slot, and
+-- BUY with the Keys price, which reads EQUIP once the item is owned
+Constants.KEY_STORE_GUI_NAME = "KeyStore"
+Constants.KEY_STORE_BACK_BUTTON = "BackButton"
+Constants.KEY_STORE_WALLET = "KeysWallet"
+Constants.KEY_STORE_ITEM_LIST = "ItemList"
+Constants.KEY_STORE_ITEM_TEMPLATE = "ItemTemplate"
+Constants.KEY_STORE_ITEM_ICON = "Icon"
+Constants.KEY_STORE_ITEM_NAME_LABEL = "Name"
+Constants.KEY_STORE_ITEM_OWNED_LABEL = "Owned"
+Constants.KEY_STORE_INFO_PANEL = "InfoPanel"
+Constants.KEY_STORE_INFO_ICON = "Icon"
+Constants.KEY_STORE_INFO_NAME_LABEL = "Name"
+Constants.KEY_STORE_INFO_SLOT_LABEL = "Slot"
+Constants.KEY_STORE_INFO_HINT_LABEL = "Hint"
+Constants.KEY_STORE_BUY_BUTTON = "BuyButton"
+Constants.KEY_STORE_BUY_PRICE_LABEL = "Price"
+Constants.KEY_STORE_EQUIP_BUTTON = "EquipButton"
 -- the lobby's two store stalls (designer, 2026-11-03): a Folder each in
 -- Workspace, with a MenuTouchPart whose volume opens that stall's menu
 -- when the player walks into it (ClientStoreZoneManager)
@@ -931,26 +988,14 @@ Constants.CLASS_CARD_EFFECT_ATTACHMENT = "Effect"
 -- the designer's attachment on the card's own part whose emitters burst
 -- when the card is a class newly unlocked (2026-11-04)
 Constants.CLASS_CARD_BURST_ATTACHMENT = "Attachment"
--- a reroll button's parts (the perk rows): the word, the price, its icon
+-- a perk row button's parts: the word (Reroll, Keep, and Cancel alike),
+-- the price, its icon
 Constants.REROLL_BUTTON_LABEL = "Label"
 Constants.REROLL_BUTTON_PRICE_LABEL = "PriceLabel"
 Constants.REROLL_BUTTON_PRICE_ICON = "PriceIcon"
 -- the cosmetic slots a class loadout shows, in order (designer,
 -- 2026-10-13: only these three until the other slots have skins)
 Constants.CLASS_COSMETIC_SLOTS = { Enums.CosmeticSlot.PICK_AXE, Enums.CosmeticSlot.JET_PACK, Enums.CosmeticSlot.HELMET }
--- the roll screen (designer, 2026-10-12): CURRENT and NEW boxes side by
--- side, the NEW box's icon flipping until it stops on the result, then its
--- name and rarity appear with Keep and Undo under the boxes
-Constants.OFFER_DIALOG_TITLE = "Title"
-Constants.OFFER_CURRENT_BOX = "CurrentBox"
-Constants.OFFER_NEW_BOX = "NewBox"
-Constants.OFFER_BOX_HEADER = "Header"
-Constants.OFFER_BOX_ICON = "Icon"
-Constants.OFFER_BOX_SPIN_LABEL = "SpinLabel"
-Constants.OFFER_BOX_NAME_LABEL = "NameLabel"
-Constants.OFFER_BOX_DETAIL_LABEL = "DetailLabel"
-Constants.OFFER_KEEP_BUTTON = "KeepButton"
-Constants.OFFER_UNDO_BUTTON = "UndoButton"
 -- the info dialog over the menu (2026-10-13): a reroll's odds by rarity
 -- (the ODDS button) or a kit item's tooltip (tapping its slot)
 Constants.INFO_DIALOG_TITLE = "Title"
