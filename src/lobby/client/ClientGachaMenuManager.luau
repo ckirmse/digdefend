@@ -217,9 +217,9 @@ local HEADLINE_KEYS = "+%d keys"
 local HEADLINE_MAXED = "Class already maxed out"
 local HEADLINE_COSMETIC = "%s unlocked!"
 local HEADLINE_COSMETIC_OWNED = "You already own %s"
--- a cosmetic's rarity beside its name on the odds list and the reveal
--- (designer, 2026-11-09): "Rare Test Pick Axe"
-local RARITY_NAME_FORMAT = "%s %s"
+-- a cosmetic's rarity after its name on the odds list and the reveal
+-- (designer, 2026-11-09): "Test Pick Axe (Rare)"
+local RARITY_NAME_FORMAT = "%s (%s)"
 -- the button under the card: CLAIM, or EXCHANGE FOR KEYS under a maxed class
 local CLAIM_TEXT = "Claim"
 local SELL_TEXT = "Exchange for keys"
@@ -266,7 +266,7 @@ function ClientGachaMenuManager:cosmeticRarity(cosmeticId: string): number?
 	return if entry then entry.rarity else nil
 end
 
--- the name with its rarity in front, and the rarity's colour; the plain
+-- the name with its rarity after it, and the rarity's colour; the plain
 -- name and nil for a cosmetic with no known rarity
 function ClientGachaMenuManager:cosmeticNameWithRarity(cosmeticId: string): (string, Color3?)
 	local name = self:cosmeticName(cosmeticId)
@@ -275,7 +275,7 @@ function ClientGachaMenuManager:cosmeticNameWithRarity(cosmeticId: string): (str
 	if not rarity or not rarityName then
 		return name, nil
 	end
-	return string.format(RARITY_NAME_FORMAT, rarityName, name), UiStyle.RARITY_COLORS[rarity]
+	return string.format(RARITY_NAME_FORMAT, name, rarityName), UiStyle.RARITY_COLORS[rarity]
 end
 
 function ClientGachaMenuManager:findCosmeticEntry(cosmeticId: string): CosmeticRules.PublishedEntry?
