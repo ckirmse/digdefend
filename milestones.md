@@ -41,9 +41,6 @@ Takes in M35 and M36 (folded 2026-10-26: both were written when the store sold w
 
 2026-10-27: only Deadman's Canyon ships at launch. Frostbite Pass (M42) and Random events (M45) moved to post launch.
 
-**M41 — Map system** (mostly done, 2026-10-26)
-Built across M17 to M33: `MapManager` clones the run's map from `ServerStorage/Maps` by `Enums.Map`, the mine and wave registries pick each map's data, and join data carries the map and difficulty. Left: each map's data lists the Traps its runs offer (decided 2026-10-12; every Trap on every map until then), to be done with M42 (post launch).
-
 **M43 — Difficulty tiers for Deadman's Canyon** (one map at launch, 2026-10-27)
 Hard and Nightmare tuning for Deadman's Canyon; Frostbite Pass's tiers come with M42. Difficulty unlock chain verified end to end.
 
@@ -95,7 +92,7 @@ Moved here 2026-10-26: Contracts ship after launch, combined with the season pas
 The four designed classes whose kits are not built, listed in the roster's `POST_LAUNCH_KINDS` and `UNBUILT_KINDS` (the dev dropdown reads them NOT IMPLEMENTED). Each is a pass like the launch ones (GDD "Classes" has the kit per class): the Engineer's Mine Layer post, Mortar Tower, and Build Tablet; the Hauler's Saw Gun, Rock Slide, and Ore Cart; the Electrician's Tesla Arc, Tesla Coil, and Storm Rod; the Medic's Magnet Gun, Repair Tower, and Medkit. The Mine Layer, Tesla Arc, Saw Gun, and Magnet Gun posts exist in `Posts/PostWeapons` as data with placeholder behaviour from M65; the four towers and four gadgets are unbuilt. A good fit for the season pass's class track (M60).
 
 **M42 — Frostbite Pass** (moved to post launch 2026-10-27)
-Second camp with more exposure and its own mine and wave data (its mine and wave data already exist from M17 and M30 and stay maintained beside Deadman's Canyon's). Weather placeholder. Brings the per-map Trap list left over from M41 and Frostbite Pass's Hard and Nightmare tuning from M43.
+Second camp with more exposure and its own mine and wave data (its mine and wave data already exist from M17 and M30 and stay maintained beside Deadman's Canyon's). Weather placeholder. Brings the per-map Trap list (every Trap on every map until then; M41, the map system itself, was built across M17 to M33 and removed from the list on 2026-11-09 since one map ships) and Frostbite Pass's Hard and Nightmare tuning from M43.
 
 **M45 — Random events** (moved to post launch 2026-10-27)
 Mid-run random events framework and a first few events. Needs the empty "Random Events" section filled first. M60's weekly modifier builds on it.
