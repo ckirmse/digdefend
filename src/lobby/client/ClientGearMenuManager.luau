@@ -129,11 +129,12 @@ function ClientGearMenuManager:renderAvatar(view: View)
 	})
 end
 
-function ClientGearMenuManager:renderCards(row: Instance, slot: number, catalogue: { KeyStoreRules.Entry })
+-- fills the row's strip and returns the worn card, for the row's header
+function ClientGearMenuManager:renderCards(row: Instance, slot: number, catalogue: { KeyStoreRules.Entry }): GearLockerRules.Card?
 	local itemList = row:FindFirstChild(Constants.GEAR_MENU_ROW_ITEM_LIST)
 	local itemTemplate = itemList and itemList:FindFirstChild(Constants.GEAR_MENU_ITEM_TEMPLATE)
 	if not itemList or not itemList:IsA("GuiObject") or not itemTemplate or not itemTemplate:IsA("GuiButton") then
-		return
+		return nil
 	end
 	clearClones(itemList, itemTemplate)
 	local stockIconId = Icons.COSMETIC_DEFAULT_SKIN[slot] or Icons.PLACEHOLDER
@@ -144,7 +145,11 @@ function ClientGearMenuManager:renderCards(row: Instance, slot: number, catalogu
 		slot,
 		stockIconId
 	)
+	local equippedCard: GearLockerRules.Card? = nil
 	for order, card in cards do
+		if card.isEquipped then
+			equippedCard = card
+		end
 		local button = itemTemplate:Clone()
 		button.Name = card.id
 		button.LayoutOrder = order
@@ -168,10 +173,13 @@ function ClientGearMenuManager:renderCards(row: Instance, slot: number, catalogu
 		)
 		button.Parent = itemList
 	end
+	return equippedCard
 end
 
--- one row per locker slot: the header's icon is the slot's stock art and
--- its word the slot's name, then the slot's cards in the strip beside it
+-- one row per locker slot: the header's icon is the worn item's picture
+-- (designer, 2026-11-09; the slot's stock art before, and still the
+-- stand-in when nothing is marked worn) and its word the slot's name, then
+-- the slot's cards in the strip beside it
 function ClientGearMenuManager:renderRows(view: View, catalogue: { KeyStoreRules.Entry })
 	clearClones(view.rows, view.rowTemplate)
 	for order, slot in GearLockerRules.LOCKER_SLOTS do
@@ -179,9 +187,10 @@ function ClientGearMenuManager:renderRows(view: View, catalogue: { KeyStoreRules
 		row.Name = Enums.getName(Enums.CosmeticSlot, slot) or tostring(slot)
 		row.LayoutOrder = order
 		row.Visible = true
-		setImage(row, Constants.GEAR_MENU_ROW_ICON, Icons.COSMETIC_DEFAULT_SKIN[slot] or Icons.PLACEHOLDER)
 		setLabel(row, Constants.GEAR_MENU_ROW_NAME_LABEL, UiStyle.formatTitle(string.format(ROW_NAME_FORMAT, Enums.getPublicName(Enums.CosmeticSlot, slot) or "?")))
-		self:renderCards(row, slot, catalogue)
+		local equippedCard = self:renderCards(row, slot, catalogue)
+		local headerIconId = if equippedCard then equippedCard.iconId else Icons.COSMETIC_DEFAULT_SKIN[slot] or Icons.PLACEHOLDER
+		setImage(row, Constants.GEAR_MENU_ROW_ICON, headerIconId)
 		row.Parent = view.rows
 	end
 end

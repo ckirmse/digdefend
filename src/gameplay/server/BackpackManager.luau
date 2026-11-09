@@ -30,6 +30,7 @@ type BackpackState = {
 export type BackpackManager = typeof(setmetatable(
 	{} :: {
 		stateByPlayer: { [Player]: BackpackState },
+		changedHandlers: { (player: Player) -> () },
 	},
 	BackpackManager
 ))
@@ -84,6 +85,20 @@ function BackpackManager:replicate(player: Player)
 		local attribute = BackpackRules.attributeForResource(resource) :: string
 		SplendidReplicationManager:setCurrentPlayerAttribute(player, attribute, state.contents[resource] or 0)
 	end
+	for _, handler in self.changedHandlers do
+		handler(player)
+	end
+end
+
+-- told after every change the client is told of (the Long Haul's full
+-- backpack speed follows it, M56)
+function BackpackManager:subscribeChanged(handler: (player: Player) -> ())
+	table.insert(self.changedHandlers, handler)
+end
+
+function BackpackManager:isFull(player: Player): boolean
+	local state = self.stateByPlayer[player]
+	return state ~= nil and BackpackRules.getTotal(state.contents) >= self:getCapacity(player)
 end
 
 -- adds what fits and tells the player where it came from, so the icon can fly
@@ -160,6 +175,7 @@ end
 function BackpackManager.new(): BackpackManager
 	local self = setmetatable({}, BackpackManager) :: BackpackManager
 	self.stateByPlayer = {}
+	self.changedHandlers = {}
 	return self
 end
 

@@ -74,6 +74,72 @@ end
 -- name; a legacy hat with no attachment hangs from the top of the head by
 -- its AttachmentPoint. `scale` is the Humanoid's build factor (1 for a
 -- copy that was already worn)
+-- the rig's attachment an accessory's handle attachment meets: the one
+-- of the same name on a body part, never on another accessory's handle
+local function findRigAttachment(character: Model, name: string): Attachment?
+	for _, descendant in character:GetDescendants() do
+		if descendant:IsA("Attachment") and descendant.Name == name then
+			local parent = descendant.Parent
+			if parent and parent:IsA("BasePart") and not parent.Parent:IsA("Accessory") then
+				return descendant
+			end
+		end
+	end
+	return nil
+end
+
+-- seats an accessory already in the rig on the body part its handle
+-- attachment names (a legacy hat with none hangs from the top of the
+-- head by its AttachmentPoint) and welds it there; false when the rig has
+-- nothing to hang it from. A copied character's accessories arrive with
+-- no joints, so without this they keep the animated frame they were
+-- copied in (a mask a stud off the face, 2026-11-09)
+function Wearables.seatAccessory(character: Model, accessory: Accessory): boolean
+	local handle = accessory:FindFirstChild(Constants.TOOL_HANDLE_PART)
+	if not handle or not handle:IsA("BasePart") then
+		return false
+	end
+	local handleAttachment = handle:FindFirstChildOfClass("Attachment")
+	local rigAttachment = if handleAttachment then findRigAttachment(character, handleAttachment.Name) else nil
+	local anchor: BasePart? = nil
+	if handleAttachment and rigAttachment and rigAttachment.Parent and rigAttachment.Parent:IsA("BasePart") then
+		anchor = rigAttachment.Parent
+		handle.CFrame = rigAttachment.WorldCFrame * handleAttachment.CFrame:Inverse()
+	else
+		local head = character:FindFirstChild("Head")
+		if not head or not head:IsA("BasePart") then
+			return false
+		end
+		anchor = head
+		handle.CFrame = head.CFrame * CFrame.new(0, head.Size.Y / 2, 0) * accessory.AttachmentPoint:Inverse()
+	end
+	for _, child in handle:GetChildren() do
+		if child:IsA("Weld") or child:IsA("WeldConstraint") or child:IsA("Motor6D") then
+			child:Destroy()
+		end
+	end
+	local weld = Instance.new("Weld")
+	weld.Part0 = anchor
+	weld.Part1 = handle
+	weld.C0 = (anchor :: BasePart).CFrame:Inverse() * handle.CFrame
+	weld.Parent = handle
+	return true
+end
+
+-- whether an accessory's handle is joined to anything
+function Wearables.isAccessoryJointed(accessory: Accessory): boolean
+	local handle = accessory:FindFirstChild(Constants.TOOL_HANDLE_PART)
+	if not handle then
+		return false
+	end
+	for _, child in handle:GetChildren() do
+		if (child:IsA("Weld") or child:IsA("WeldConstraint") or child:IsA("Motor6D")) and child.Part0 and child.Part1 then
+			return true
+		end
+	end
+	return false
+end
+
 function Wearables.wearAccessory(character: Model, template: Accessory, scale: number?): Accessory?
 	local templateHandle = template:FindFirstChild(Constants.TOOL_HANDLE_PART)
 	if not templateHandle or not templateHandle:IsA("BasePart") then
@@ -86,25 +152,9 @@ function Wearables.wearAccessory(character: Model, template: Accessory, scale: n
 	handle.CanCollide = false
 	handle.CanQuery = false
 	handle.Massless = true
-	local handleAttachment = handle:FindFirstChildOfClass("Attachment")
-	local rigAttachment = if handleAttachment then character:FindFirstChild(handleAttachment.Name, true) else nil
-	local anchor: BasePart? = nil
-	if handleAttachment and rigAttachment and rigAttachment:IsA("Attachment") and rigAttachment.Parent and rigAttachment.Parent:IsA("BasePart") then
-		anchor = rigAttachment.Parent
-		handle.CFrame = rigAttachment.WorldCFrame * handleAttachment.CFrame:Inverse()
-	else
-		local head = character:FindFirstChild("Head")
-		if not head or not head:IsA("BasePart") then
-			return nil
-		end
-		anchor = head
-		handle.CFrame = head.CFrame * CFrame.new(0, head.Size.Y / 2, 0) * accessory.AttachmentPoint:Inverse()
+	if not Wearables.seatAccessory(character, accessory) then
+		return nil
 	end
-	local weld = Instance.new("Weld")
-	weld.Part0 = anchor
-	weld.Part1 = handle
-	weld.C0 = (anchor :: BasePart).CFrame:Inverse() * handle.CFrame
-	weld.Parent = handle
 	accessory.Parent = character
 	return accessory
 end

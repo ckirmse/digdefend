@@ -23,6 +23,7 @@ local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
+local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local BackpackManager = require(script.Parent.BackpackManager)
 local MapManager = require(script.Parent.MapManager)
 local MineManager = require(script.Parent.MineManager)
@@ -42,7 +43,10 @@ export type RefineryManager = typeof(setmetatable(
 	{} :: {
 		balancesByPlayer: { [Player]: Balances },
 		uraniumTotal: number,
-		isBusy: boolean,
+		-- the players whose refine is grinding right now: the Refinery
+		-- takes any number at once, one refine per player (2026-11-09; one
+		-- refine at a time for the whole crew before)
+		refiningPlayers: { [Player]: boolean },
 		uraniumChangedHandlers: { () -> () },
 		-- every payout, with what it paid (the run report, M34)
 		creditedHandlers: { (player: Player, refined: { [number]: number }) -> () },
@@ -215,8 +219,8 @@ function RefineryManager:refine(player: Player)
 	if not GameController:isPlayerReady(player) then
 		return
 	end
-	if self.isBusy then
-		PlayerFeedbackManager:give(player, "The Refinery is busy")
+	if self.refiningPlayers[player] then
+		PlayerFeedbackManager:give(player, "Your ore is still refining")
 		return
 	end
 	local contents = BackpackManager:getContents(player)
@@ -226,19 +230,22 @@ function RefineryManager:refine(player: Player)
 	end
 	local ore = BackpackManager:takeAll(player)
 	local refined = RefineryRules.convert(ore, RefineryData.RATE_BY_RAW)
-	self.isBusy = true
+	self.refiningPlayers[player] = true
+	-- the Quick Refiner rides the class modifier axis (M56)
+	local durationScale: number = ClassManager:getModifier(player, Enums.ClassModifier.REFINE_DURATION)
+	local durationSec = RefineryData.REFINE_DURATION_SEC * durationScale
 	-- to everyone, naming the player: the crew sees the ore go in and the
 	-- bars come out; only that player's own client plays the sounds and
 	-- moves a HUD (2026-10-05)
 	NetManager:notifyAllClients(NetEventNames.NOTIFY_REFINE_STARTED, {
 		userId = player.UserId,
 		ore = toEntries(ore),
-		durationSec = RefineryData.REFINE_DURATION_SEC,
+		durationSec = durationSec,
 	})
 	task.delay(
-		RefineryData.REFINE_DURATION_SEC,
+		durationSec,
 		function()
-			self.isBusy = false
+			self.refiningPlayers[player] = nil
 			self:credit(player, refined)
 			if player.Parent == Players then
 				NetManager:notifyAllClients(NetEventNames.NOTIFY_REFINE_COMPLETED, {
@@ -263,20 +270,19 @@ function RefineryManager:isPlayerAtRefinery(player: Player): boolean
 end
 
 -- the automatic refine: the first Ready player found inside the ring with
--- ore in the backpack is refined; the machine is busy for the grind, and
--- anyone else inside waits for the next poll
+-- ore in the backpack is refined; every eligible player inside starts
+-- at once, each waiting only on their own grind
 function RefineryManager:pollRefinery()
-	if self.isBusy or not self.refineryPosition then
+	if not self.refineryPosition then
 		return
 	end
 	for _, player in Players:GetPlayers() do
-		if not GameController:isPlayerReady(player) or not self:isPlayerAtRefinery(player) then
+		if self.refiningPlayers[player] or not GameController:isPlayerReady(player) or not self:isPlayerAtRefinery(player) then
 			continue
 		end
 		local contents = BackpackManager:getContents(player)
 		if contents and next(contents) ~= nil then
 			self:refine(player)
-			return
 		end
 	end
 end
@@ -360,7 +366,7 @@ function RefineryManager.new(): RefineryManager
 	local self = setmetatable({}, RefineryManager) :: RefineryManager
 	self.balancesByPlayer = {}
 	self.uraniumTotal = 0
-	self.isBusy = false
+	self.refiningPlayers = {}
 	self.uraniumChangedHandlers = {}
 	self.creditedHandlers = {}
 	self.spentHandlers = {}

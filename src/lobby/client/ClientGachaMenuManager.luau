@@ -84,6 +84,11 @@ type View = {
 	claimButton: GuiButton,
 }
 
+type CardLight = {
+	light: Light,
+	brightness: number,
+}
+
 -- the designer's crate and the stall's shots, read once
 type Crate = {
 	model: Model,
@@ -93,6 +98,10 @@ type Crate = {
 	lidOpenCFrame: CFrame,
 	emitters: { ParticleEmitter },
 	lights: { Light },
+	-- the designer's lights under CardEnd (a spotlight on the landed
+	-- card), each with its authored brightness: off at rest, faded up
+	-- with the card's rise, faded down at the claim (designer, 2026-11-09)
+	cardLights: { CardLight },
 	ring: BasePart?,
 	cameraMenu: CFrame,
 	cameraSequence: CFrame,
@@ -156,6 +165,8 @@ export type ClientGachaMenuManager = typeof(setmetatable(
 		-- where the camera was before the menu took it
 		savedCameraCFrame: CFrame?,
 		pulseTween: Tween?,
+		-- the CardEnd lights' fade in flight, cancelled by the next
+		cardLightTweens: { Tween },
 		-- told when the HUD wallets should fade for the reveal and come
 		-- back after the claim (the HUD listens; it requires this module)
 		walletsFadedSubscribers: { (isFaded: boolean, fadeSec: number) -> () },
@@ -632,6 +643,40 @@ function ClientGachaMenuManager:setCrateEffects(crate: Crate, isOn: boolean)
 	end
 end
 
+-- the CardEnd lights: up from dark over the card's rise, or down to
+-- dark and off; an instant off for the reset
+function ClientGachaMenuManager:setCardLights(crate: Crate, isOn: boolean, isInstant: boolean?)
+	for _, tween in self.cardLightTweens do
+		tween:Cancel()
+	end
+	self.cardLightTweens = {}
+	for _, cardLight in crate.cardLights do
+		local light = cardLight.light
+		if isInstant then
+			light.Brightness = if isOn then cardLight.brightness else 0
+			light.Enabled = isOn
+			continue
+		end
+		if isOn then
+			light.Brightness = 0
+			light.Enabled = true
+		end
+		local info = if isOn then CARD_RISE_TWEEN_INFO else FADE_TWEEN_INFO
+		local tween = TweenService:Create(light, info, { Brightness = if isOn then cardLight.brightness else 0 })
+		if not isOn then
+			tween.Completed:Connect(
+				function(playbackState)
+					if playbackState == Enum.PlaybackState.Completed then
+						light.Enabled = false
+					end
+				end
+			)
+		end
+		table.insert(self.cardLightTweens, tween)
+		tween:Play()
+	end
+end
+
 -- a closing lid keeps the crate's light and sparks until it is down
 -- (designer, 2026-11-04); a lid opened again before then cancels the
 -- close, so its tween never completes and the light stays
@@ -907,6 +952,7 @@ function ClientGachaMenuManager:flyClassCard(view: View, crate: Crate, payload: 
 			)
 		end
 	)
+	self:setCardLights(crate, true)
 	rise:Play()
 end
 
@@ -1132,8 +1178,10 @@ function ClientGachaMenuManager:sellCard()
 	view.claimButton.Visible = false
 	setButtonText(view.claimButton, UiStyle.formatTitle(CLAIM_TEXT))
 	self:setHeadlineShown(view, false)
-	-- the Keys rise as the card sinks, the lid open and the light on
+	-- the Keys rise as the card sinks, the lid open and the light on;
+	-- the card's own spotlight goes down with it
 	self:stopCardFloat()
+	self:setCardLights(crate, false)
 	self:revealKeys(view, crate, payload)
 	if not card or not cardStart or not cardEnd then
 		self:destroyClassCard()
@@ -1310,6 +1358,7 @@ function ClientGachaMenuManager:returnToMenu()
 	self:setTapHintShown(view, false)
 	self:setHeadlineShown(view, false)
 	self:notifyWalletsFaded(false, UiStyle.GACHA_WORLD_FADE_SEC)
+	self:setCardLights(crate, false)
 	self:tweenLid(crate, false)
 	self:fadeWorld(crate, false)
 	self.stage = Stage.PANNING
@@ -1429,6 +1478,7 @@ function ClientGachaMenuManager:resetSequence()
 	end
 	if crate then
 		self:setCrateEffects(crate, false)
+		self:setCardLights(crate, false, true)
 		crate.lid.CFrame = crate.lidClosedCFrame
 		self:fadeWorld(crate, false, true)
 	end
@@ -1537,6 +1587,17 @@ function ClientGachaMenuManager:findCrate(): Crate?
 	if not cardStart or not cardStart:IsA("BasePart") or not cardEnd or not cardEnd:IsA("BasePart") then
 		warn(`ClientGachaMenuManager: {model:GetFullName()} has no {Constants.SUPPLY_CRATE_CARD_START} and {Constants.SUPPLY_CRATE_CARD_END}; the 2D card stands in for a class`)
 	end
+	-- the authored brightness is the lit value; the light waits dark
+	local cardLights: { CardLight } = {}
+	if cardEnd then
+		for _, descendant in cardEnd:GetDescendants() do
+			if descendant:IsA("Light") then
+				table.insert(cardLights, { light = descendant, brightness = descendant.Brightness })
+				descendant.Brightness = 0
+				descendant.Enabled = false
+			end
+		end
+	end
 	local keyStart = model:FindFirstChild(Constants.SUPPLY_CRATE_KEY_START)
 	local keyEnd = model:FindFirstChild(Constants.SUPPLY_CRATE_KEY_END)
 	if not keyStart or not keyStart:IsA("BasePart") or not keyEnd or not keyEnd:IsA("BasePart") then
@@ -1555,6 +1616,7 @@ function ClientGachaMenuManager:findCrate(): Crate?
 		lidOpenCFrame = lidOpen.CFrame,
 		emitters = emitters,
 		lights = lights,
+		cardLights = cardLights,
 		ring = if ring and ring:IsA("BasePart") then ring else nil,
 		cameraMenu = cameraMenu.CFrame,
 		cameraSequence = cameraSequence.CFrame,
@@ -1795,6 +1857,7 @@ function ClientGachaMenuManager.new(): ClientGachaMenuManager
 	self.keyClone = nil
 	self.keySpinConnection = nil
 	self.cardFloatConnection = nil
+	self.cardLightTweens = {}
 	self.prizeClone = nil
 	self.prizeSpinConnection = nil
 	self.prizeSinkStep = nil

@@ -558,7 +558,9 @@ function ClientStructureManager:readTuning()
 		local value = ClientDataManager:getGameMetadata(key)
 		return if typeof(value) == "number" then value else default
 	end
-	self.hitIntervalSec = read(Attributes.HAMMER_HIT_INTERVAL_SEC, DEFAULT_HIT_INTERVAL_SEC)
+	-- the player's own interval (the Quick Fix, M56) over the base
+	local ownInterval = ClientDataManager:getCurrentPlayerAttribute(Attributes.HAMMER_HIT_INTERVAL_SEC)
+	self.hitIntervalSec = if typeof(ownInterval) == "number" then ownInterval else read(Attributes.HAMMER_HIT_INTERVAL_SEC, DEFAULT_HIT_INTERVAL_SEC)
 	self.reachStuds = read(Attributes.HAMMER_REACH_STUDS, DEFAULT_REACH_STUDS)
 	self.repairChunkHp = read(Attributes.REPAIR_CHUNK_HP, DEFAULT_REPAIR_CHUNK_HP)
 	self.repairChunkIron = read(Attributes.REPAIR_CHUNK_IRON, DEFAULT_REPAIR_CHUNK_IRON)
@@ -784,6 +786,12 @@ function ClientStructureManager:init()
 			end
 		)
 	end
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.HAMMER_HIT_INTERVAL_SEC,
+		function()
+			self:readTuning()
+		end
+	)
 
 	-- the same look as the mining target, so Repair Mode reads as the same verb
 	local highlight = Instance.new("Highlight")

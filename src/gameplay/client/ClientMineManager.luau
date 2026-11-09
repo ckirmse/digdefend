@@ -336,27 +336,37 @@ end
 -- Buried rock counts: the Geiger Counter is how a crew finds uranium it
 -- cannot see (it replaced the hum of 2026-09-25 on 2026-09-30)
 function ClientMineManager:getNearestUraniumDistance(position: Vector3, maxStuds: number): number?
+	local distance = self:findNearestUranium(position, maxStuds)
+	return distance
+end
+
+-- the nearest uranium rock within reach: how far, and where its block
+-- stands (the Uranium Seeker reads the height, M56); nil for none
+function ClientMineManager:findNearestUranium(position: Vector3, maxStuds: number): (number?, Vector3?)
 	local grid = self.grid
 	local space = self.space
 	local header = self.header
 	if not grid or not space or not header then
-		return nil
+		return nil, nil
 	end
 	local width = grid.width
 	local height = grid.height
 	local blockSize = header.blockSize
 	local nearest: number? = nil
+	local nearestPosition: Vector3? = nil
 	for cellIndex in self.uraniumCells do
 		local zeroBased = cellIndex - 1
 		local cellWidth = zeroBased % width
 		local cellHeight = (zeroBased // width) % height
 		local cellDepth = zeroBased // (width * height)
-		local distance = GeigerRules.distanceToBlock(position, MineSpace.cellToWorld(space, cellDepth, cellHeight, cellWidth), blockSize)
+		local blockPosition = MineSpace.cellToWorld(space, cellDepth, cellHeight, cellWidth)
+		local distance = GeigerRules.distanceToBlock(position, blockPosition, blockSize)
 		if distance <= maxStuds and (not nearest or distance < nearest) then
 			nearest = distance
+			nearestPosition = blockPosition
 		end
 	end
-	return nearest
+	return nearest, nearestPosition
 end
 
 -- Spectate Mode (M32) points the mine at the player being watched: while

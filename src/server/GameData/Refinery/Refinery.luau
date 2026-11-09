@@ -12,8 +12,8 @@ return {
 	},
 	-- the machine is busy while it grinds; the client flies the ore in, then
 	-- spins the grinder with its sound until the payout flies out at this
-	-- time (4 s since 2026-10-09, from 2)
-	REFINE_DURATION_SEC = 4,
+	-- time (2 s since 2026-11-09; 4 s from 2026-10-09, 2 s before that)
+	REFINE_DURATION_SEC = 2,
 	-- refining is automatic (decided 2026-10-01, replacing the prompt): a
 	-- player who steps inside this radius of the Refinery with ore in the
 	-- backpack is refined on the spot. The server checks every POLL_SEC;

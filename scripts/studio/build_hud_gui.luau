@@ -133,8 +133,12 @@ menuLayout.SortOrder = Enum.SortOrder.LayoutOrder
 menuLayout.Parent = menuButtons
 
 local menuButtonNames = {
-	{ name = "StoreButton", text = "Store" },
-	{ name = "ClassesButton", text = "Classes" },
+	-- the designer's words of 2026-11-09; the Class button's icon is set
+	-- by ClientHudManager to the equipped class, the Gear button's picture
+	-- is the designer's own art, kept from the live instance
+	{ name = "StoreButton", text = "Supply Crates", iconId = Icons.UI.SUPPLY_CRATE },
+	{ name = "ClassButton", text = "Class Selection", iconId = Icons.PLACEHOLDER },
+	{ name = "GearButton", text = "Gear Selection", iconId = Icons.PLACEHOLDER },
 }
 for order, entry in menuButtonNames do
 	local button = Instance.new("TextButton")
@@ -158,6 +162,24 @@ for order, entry in menuButtonNames do
 	padding.PaddingTop = UDim.new(0.15, 0)
 	padding.PaddingBottom = UDim.new(0.15, 0)
 	padding.Parent = button
+	if entry.iconId then
+		-- the picture sits on the left, the word in the space to its right
+		-- (the Store button's Supply Crate, 2026-11-09). The designer has
+		-- since restyled these buttons in the Explorer (a Background plate
+		-- and a TextLabel child); port that here before any rebuild
+		local icon = Instance.new("ImageLabel")
+		icon.Name = "Icon"
+		icon.AnchorPoint = Vector2.new(0, 0.5)
+		icon.Position = UDim2.fromScale(0.06, 0.5)
+		icon.Size = UDim2.fromScale(0.7, 0.7)
+		icon.BackgroundTransparency = 1
+		icon.BorderSizePixel = 0
+		icon.Image = entry.iconId
+		icon.ScaleType = Enum.ScaleType.Fit
+		icon.ZIndex = 2
+		addAspect(icon, 1)
+		icon.Parent = button
+	end
 end
 
 -- the jet pack fuel bar and touch button (the pack flies in the lobby as in

@@ -11,6 +11,7 @@ local ClassSchema = require("@game/ReplicatedStorage/Shared/ClassSchema")
 local CosmeticLoadoutSchema = require("@game/ReplicatedStorage/Shared/CosmeticLoadoutSchema")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
+local SkillEffectRules = require("@game/ReplicatedStorage/Shared/SkillEffectRules")
 
 -- the ready wait never gives up; the number only marks the yield as intended
 local READY_WAIT_TIMEOUT_SEC = math.huge
@@ -173,6 +174,15 @@ function ClientDataManager:getClassRecord(classKind: number): ClassRecord
 	local className = Enums.getName(Enums.ClassKind, classKind)
 	local record = if className then self:getClassRecords()[className] else nil
 	return record or { skills = {} }
+end
+
+-- the skill ids the class in play holds, slot order (M56)
+function ClientDataManager:getActiveSkillIds(): { string }
+	return SkillEffectRules.skillIdsOf(self:getClassRecord(self:getActiveClassKind()))
+end
+
+function ClientDataManager:hasSkill(skillId: string): boolean
+	return table.find(self:getActiveSkillIds(), skillId) ~= nil
 end
 
 -- the account's one cosmetic loadout (Enums.CosmeticSlot key name to

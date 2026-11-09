@@ -63,7 +63,10 @@ local DRAG_TURNS_PER_FRAME_WIDTH = 1.0
 -- the camera stands this far in front of the model, framed on its
 -- bounding box, with the field of view narrow enough to fill the card
 local AVATAR_FOV = 30
-local AVATAR_DISTANCE_FACTOR = 2.0
+-- the camera stands this many body heights back; the figure's drawn size
+-- goes as the inverse, so the 2.0 of the first build was divided by 0.9
+-- to draw it a tenth smaller in the same frame (designer, 2026-11-09)
+local AVATAR_DISTANCE_FACTOR = 2.0 / 0.9
 local DIMMED_COLOR = Color3.fromRGB(70, 70, 70)
 -- the pick axe held in the right hand: the model's haft runs along its
 -- own Y, so it is turned to stand up out of the grip and lean forward
@@ -345,6 +348,15 @@ function ClientAvatarViewport:fill(viewport: ViewportFrame, options: Options?)
 	local model = template:Clone()
 	model:PivotTo(CFrame.new(0, 0, 0))
 	restPose(model)
+	-- the copy's own accessories come with no joints, so they kept the
+	-- frame the character was animated in when it was copied (a mask a
+	-- stud off the face after walking into the stall, 2026-11-09): each
+	-- is seated on its attachment now that the body is at rest
+	for _, child in model:GetChildren() do
+		if child:IsA("Accessory") and not Wearables.isAccessoryJointed(child) then
+			Wearables.seatAccessory(model, child)
+		end
+	end
 	applyCosmetics(model, settings.cosmetics)
 	local boundsCFrame, boundsSize = model:GetBoundingBox()
 	local startAngle = settings.startAngle or 0

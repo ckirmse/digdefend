@@ -52,6 +52,7 @@ local DefenseTableManager = require(script.Parent.DefenseTableManager)
 local MapManager = require(script.Parent.MapManager)
 local RefineryManager = require(script.Parent.RefineryManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
+local SkillManager = require(script.Parent.SkillManager)
 local StructureManager = require(script.Parent.StructureManager)
 local ToolManager = require(script.Parent.ToolManager)
 
@@ -202,6 +203,21 @@ end
 -- every Ready crewmate's kinds, each once, in join order (designer,
 -- 2026-10-29: anyone builds any Tower the crew brought, one bar entry per
 -- kind however many brought it); the default tower when nobody brought one
+-- the Foreman's and the Scrap Saver's discounts, on the class modifier
+-- axis, by what is being bought (M56); the menus price by the same table
+function PlacementManager:getKindCostScale(player: Player, placementKind: number): number
+	local classModifier = if placementKind == Enums.PlacementKind.TOWER then Enums.ClassModifier.TOWER_COST else Enums.ClassModifier.TRAP_COST
+	return ClassManager:getModifier(player, classModifier)
+end
+
+-- a Tower's max HP with the Reinforced on it, once for the crew (M56)
+function PlacementManager:scaleTowerMaxHp(placementKind: number, maxHp: number): number
+	if placementKind ~= Enums.PlacementKind.TOWER then
+		return maxHp
+	end
+	return math.floor(maxHp * SkillManager:crewMultiplierFor("REINFORCED", "TOWER_MAX_HP_MULTIPLIER") + 0.5)
+end
+
 function PlacementManager:resolveTowerLoadout(): { number }
 	local kinds = {}
 	for _, player in Players:GetPlayers() do
@@ -232,16 +248,25 @@ function PlacementManager:countActiveTowers(): number
 	return count
 end
 
+-- the camp's Tower limit: the catalogue's, raised by the Field Engineer
+-- once for the crew (M56)
+function PlacementManager:getTowerAllowance(): number
+	local extra = if SkillManager:crewHas("FIELD_ENGINEER") then SkillManager:param("FIELD_ENGINEER", "EXTRA_TOWERS", 0) else 0
+	return self.catalog.maxActiveTowersCamp + extra
+end
+
 function PlacementManager:replicatePlayer(player: Player)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.TOWER_LOADOUT, PlacementRules.encodeTowerLoadout(self:resolveTowerLoadout()))
 end
 
 -- the one crew list goes to every Ready player: on a join, a leave, a
--- class change, or a dev override
+-- class change, a skill change, or a dev override; the allowance can move
+-- with the same events
 function PlacementManager:replicateLoadouts()
 	for _, player in GameController:getReadyPlayers() do
 		self:replicatePlayer(player)
 	end
+	SplendidReplicationManager:setGameMetadata(Attributes.ACTIVE_TOWER_ALLOWANCE, self:getTowerAllowance())
 end
 
 function PlacementManager:replicateTowerCount()
@@ -348,7 +373,7 @@ function PlacementManager:spawn(player: Player, placementKind: number, typeKind:
 	shadow.CanTouch = false
 	-- the shadow sits on the top face; its centre is half its height up
 	shadow.CFrame = cframe * CFrame.new(0, SHADOW_HEIGHT_STUDS / 2, 0)
-	local maxHp = PlacementRules.maxHpFor(self.catalog, placementKind, typeKind, PlacementRules.STARTING_LEVEL)
+	local maxHp = self:scaleTowerMaxHp(placementKind, PlacementRules.maxHpFor(self.catalog, placementKind, typeKind, PlacementRules.STARTING_LEVEL))
 	local placement: Placement = {
 		id = id,
 		placementKind = placementKind,
@@ -420,7 +445,7 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 			PlayerFeedbackManager:give(player, FEEDBACK_NOT_IN_LOADOUT)
 			return
 		end
-		local allowance = self.catalog.maxActiveTowersCamp
+		local allowance = self:getTowerAllowance()
 		if self:countActiveTowers() >= allowance then
 			PlayerFeedbackManager:give(player, string.format(FEEDBACK_TOWER_LIMIT_FORMAT, allowance))
 			return
@@ -435,7 +460,7 @@ function PlacementManager:build(player: Player, placementKind: number, typeKind:
 	-- traps since 2026-10-22; two until then) on every build, the first
 	-- tower of the run included (designer, that evening: a pricing dial
 	-- applies to every tier); the menus show the same scaled price
-	local price = ClassRules.scaleAmount(PlacementRules.buildPrice(self.catalog, placementKind, typeKind), ClassManager:getModifier(player, Enums.ClassModifier.DEFENSE_COST))
+	local price = ClassRules.scaleAmount(PlacementRules.buildPrice(self.catalog, placementKind, typeKind), ClassManager:getModifier(player, Enums.ClassModifier.DEFENSE_COST) * self:getKindCostScale(player, placementKind))
 	if isDevBuild then
 		price = 0
 	elseif not PlacementRules.canAfford(RefineryManager:getIronBars(player), price) or not RefineryManager:spendIronBars(player, price) then
@@ -528,13 +553,13 @@ function PlacementManager:upgrade(player: Player, id: string)
 		return
 	end
 	-- the class's defense dial scales an upgrade as it does a build (2026-10-22)
-	local price = ClassRules.scaleAmount(offer.price, ClassManager:getModifier(player, Enums.ClassModifier.DEFENSE_COST))
+	local price = ClassRules.scaleAmount(offer.price, ClassManager:getModifier(player, Enums.ClassModifier.DEFENSE_COST) * self:getKindCostScale(player, Enums.PlacementKind.TOWER))
 	if not PlacementRules.canAfford(RefineryManager:getIronBars(player), price) or not RefineryManager:spendIronBars(player, price) then
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_IRON)
 		return
 	end
 	placement.level = offer.level
-	local newMaxHp = PlacementRules.towerStats(tower, placement.level).MAX_HP
+	local newMaxHp = self:scaleTowerMaxHp(Enums.PlacementKind.TOWER, PlacementRules.towerStats(tower, placement.level).MAX_HP)
 	placement.hp = PlacementRules.hpAfterUpgrade(placement.hp, placement.maxHp, newMaxHp)
 	placement.maxHp = newMaxHp
 	self:replicatePlacement(placement)
@@ -576,7 +601,9 @@ function PlacementManager:repairPlacement(player: Player, id: string)
 		return
 	end
 	local now = workspace:GetServerTimeNow()
-	if not StructureRules.canSwing(self.lastSwingTimeByPlayer[player], now, StructuresData.HAMMER_HIT_COOLDOWN_SEC) then
+	-- the Quick Fix shortens the swing on the class modifier axis (M56)
+	local swingScale: number = ClassManager:getModifier(player, Enums.ClassModifier.HAMMER_SWING_SPEED)
+	if not StructureRules.canSwing(self.lastSwingTimeByPlayer[player], now, StructuresData.HAMMER_HIT_COOLDOWN_SEC / swingScale) then
 		return
 	end
 	-- a placement repairs at the first tier's chunk whatever its level; the
@@ -776,6 +803,11 @@ function PlacementManager:init()
 	-- the dev dropdown's class change swaps that player's towers on every bar
 	ClassManager:subscribeClassChanged(
 		function(_player: Player, _classKind: number)
+			self:replicateLoadouts()
+		end
+	)
+	ClassManager:subscribeSkillsChanged(
+		function(_player: Player)
 			self:replicateLoadouts()
 		end
 	)

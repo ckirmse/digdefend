@@ -293,6 +293,16 @@ function MineManager:applyDamage(depth: number, height: number, width: number, a
 	return false, definition.hp - damage
 end
 
+-- the damage a cell has taken so far; 0 for an untouched or unknown one
+-- (the Rich Seam's first swing at a whole gold rock, M56)
+function MineManager:getDamageAt(depth: number, height: number, width: number): number
+	local grid = self:getGrid()
+	if not grid then
+		return 0
+	end
+	return self.damageByCell[MineGenerator.cellIndex(grid, depth, height, width)] or 0
+end
+
 -- turns a breakable cell to air outright (a dynamite blast); returns false
 -- for air, bedrock, and out-of-range cells
 function MineManager:clearCell(depth: number, height: number, width: number): boolean

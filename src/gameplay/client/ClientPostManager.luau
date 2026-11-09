@@ -37,6 +37,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
+local ClassRules = require("@game/ReplicatedStorage/Shared/ClassRules")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local Icons = require("@game/ReplicatedStorage/Shared/Icons")
@@ -352,8 +353,24 @@ function ClientPostManager:readStats()
 		self.kindData = nil
 		return
 	end
-	self.stats = PostRules.statsFor(catalog, kind, self:getOwnUpgrades())
-	self.kindData = catalog.kinds[kind]
+	local stats = PostRules.statsFor(catalog, kind, self:getOwnUpgrades())
+	local kindData = catalog.kinds[kind]
+	if stats then
+		-- the skills on the class modifier axis, as the server's getStats
+		-- applies them (M56): the Quick Hands on the turn, the Cool Barrel on
+		-- the reload and the cool, so the aim and the heat are predicted right
+		local modifiers = ClassRules.decodeModifiers(ClientDataManager:getCurrentPlayerAttribute(Attributes.CLASS_MODIFIERS))
+		stats.turnSpeedDegreesPerSec *= modifiers[Enums.ClassModifier.POST_TURN_SPEED] or 1
+		local reloadScale = modifiers[Enums.ClassModifier.POST_RELOAD] or 1
+		if stats.reloadSec then
+			stats.reloadSec *= reloadScale
+		end
+		if kindData and kindData.HEAT then
+			stats.coolSec = (stats.coolSec or kindData.HEAT.COOL_SEC) * reloadScale
+		end
+	end
+	self.stats = stats
+	self.kindData = kindData
 end
 
 -- the sign's Claim Post prompt: only for a player without a post, on a
@@ -1774,6 +1791,12 @@ function ClientPostManager:init()
 		end
 	)
 	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.CLASS_MODIFIERS,
+		function()
+			self:readStats()
+		end
+	)
+	ClientDataManager:subscribeCurrentPlayerAttribute(
 		Attributes.POST_INDEX,
 		function()
 			self:renderPrompts()
@@ -1822,7 +1845,10 @@ function ClientPostManager:init()
 		end,
 		getIntervalSec = function(): number
 			local stats = self.stats
-			return if stats then stats.fireIntervalSec else 1
+			-- the Last Stand's multiple paces the trigger as it does the server (M56)
+			local fireRate = ClientDataManager:getCurrentPlayerAttribute(Attributes.FIRE_RATE_MULTIPLIER)
+			local rate = if typeof(fireRate) == "number" and fireRate > 0 then fireRate else 1
+			return if stats then stats.fireIntervalSec / rate else 1
 		end,
 		swing = function(isFreshPress: boolean): boolean
 			return self:fire(isFreshPress)

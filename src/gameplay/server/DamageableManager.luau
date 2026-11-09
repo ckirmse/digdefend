@@ -23,8 +23,10 @@ local RunService = game:GetService("RunService")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local StatusRules = require("@game/ReplicatedStorage/Shared/StatusRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
+local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
 local WeaponRules = require("@game/ReplicatedStorage/Shared/WeaponRules")
 local RunPauseManager = require(script.Parent.RunPauseManager)
+local SkillManager = require(script.Parent.SkillManager)
 
 local DamageableManager = {}
 DamageableManager.__index = DamageableManager
@@ -93,6 +95,8 @@ type Damageable = {
 export type DamageableManager = typeof(setmetatable(
 	{} :: {
 		damageableById: { [string]: Damageable },
+		-- a Chain Reaction's share is being dealt: those hits never chain on
+		isChaining: boolean,
 		-- a tagged body's scale on every hit (setDamageTakenMultiplier)
 		damageTakenMultiplierById: { [string]: number },
 		-- every id in registration order (ids only ever grow, so this is
@@ -404,9 +408,24 @@ function DamageableManager:damage(id: string, amount: number, attacker: Player?)
 		end
 		return damageable.hp
 	end
+	local killPosition = damageable.cframe.Position
 	self:unregister(id)
 	if damageable.onDestroyed then
 		damageable.onDestroyed(attacker)
+	end
+	-- the Chain Reaction (M56): a holder's killing blow deals a share of
+	-- its damage to every body around the kill; a kill that share causes
+	-- never chains again
+	if attacker and not self.isChaining and SkillManager:has(attacker, "CHAIN_REACTION") then
+		local share = SkillManager:param("CHAIN_REACTION", "DAMAGE_SHARE", 0)
+		local radius = SkillManager:param("CHAIN_REACTION", "RADIUS_STUDS", 0)
+		if share > 0 and radius > 0 then
+			self.isChaining = true
+			for _, nearId in PostRules.findSplashHits(killPosition, radius, self:getHitBoxes()) do
+				self:damage(nearId, amount * share, attacker)
+			end
+			self.isChaining = false
+		end
 	end
 	return 0
 end
@@ -490,6 +509,7 @@ end
 function DamageableManager.new(): DamageableManager
 	local self = setmetatable({}, DamageableManager) :: DamageableManager
 	self.damageableById = {}
+	self.isChaining = false
 	self.damageTakenMultiplierById = {}
 	self.orderedIds = {}
 	self.isOrderDirty = false

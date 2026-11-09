@@ -35,6 +35,7 @@ local RunService = game:GetService("RunService")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local SkillEffectRules = require("@game/ReplicatedStorage/Shared/SkillEffectRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local FaultLineRules = require("@game/ReplicatedStorage/Shared/FaultLineRules")
 local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
@@ -58,6 +59,7 @@ local ProjectileManager = require(script.Parent.ProjectileManager)
 local RefineryManager = require(script.Parent.RefineryManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
 local RunPauseManager = require(script.Parent.RunPauseManager)
+local SkillManager = require(script.Parent.SkillManager)
 local StructureManager = require(script.Parent.StructureManager)
 local ToolManager = require(script.Parent.ToolManager)
 local WeaponManager = require(script.Parent.WeaponManager)
@@ -287,9 +289,30 @@ function PostManager:getStats(post: Post): PostRules.Stats?
 	if stats and owner then
 		-- the owner's class scales the post's damage on top of its Iron
 		-- upgrades (M64); the stats table is fresh per call, so this never
-		-- compounds
+		-- compounds. The skills ride the same axis (M56): the Post
+		-- Powerhouse on damage, the Quick Hands on the turn, the Cool
+		-- Barrel on the reload and the cool; the Night Owl and the
+		-- Headhunter are rules answered here
 		local damageScale: number = ClassManager:getModifier(owner, Enums.ClassModifier.POST_DAMAGE)
+		if SkillManager:isNight() then
+			damageScale *= SkillManager:multiplierFor(owner, "NIGHT_OWL", "NIGHT_DAMAGE_MULTIPLIER")
+		end
 		stats.damage *= damageScale
+		local turnScale: number = ClassManager:getModifier(owner, Enums.ClassModifier.POST_TURN_SPEED)
+		stats.turnSpeedDegreesPerSec *= turnScale
+		local reloadScale: number = ClassManager:getModifier(owner, Enums.ClassModifier.POST_RELOAD)
+		if stats.reloadSec then
+			stats.reloadSec *= reloadScale
+		end
+		local data = self:getWeaponData(post.weaponKind)
+		if data and data.HEAT then
+			stats.coolSec = (stats.coolSec or data.HEAT.COOL_SEC) * reloadScale
+		end
+		stats.headshotMultiplier = SkillEffectRules.headshotMultiplier(
+			stats.headshotMultiplier,
+			SkillManager:has(owner, "HEADHUNTER"),
+			SkillManager:param("HEADHUNTER", "HEADSHOT_MULTIPLIER", 1)
+		)
 	end
 	return stats
 end
@@ -1240,7 +1263,9 @@ end
 -- 1 for every kind without one): a released charge fires at any point,
 -- and fire() scales the shot by it (2026-10-19)
 function PostManager:tryBeginShot(post: Post, data: PostRules.KindData, stats: PostRules.Stats, now: number): (boolean, number)
-	if not WeaponRules.canFire(post.lastFireTime, now, stats.fireCooldownSec) then
+	-- the Last Stand's multiple shortens the owner's cooldown (M56)
+	local fireRate = if post.owner then SkillManager:getFireRateMultiplier(post.owner) else 1
+	if not WeaponRules.canFire(post.lastFireTime, now, stats.fireCooldownSec / fireRate) then
 		return false, 0
 	end
 	-- a reloading gun is empty; an overheated one waits for cool

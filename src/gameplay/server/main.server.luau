@@ -59,6 +59,7 @@ local RunReportDevTools = require(script.Parent.RunReportDevTools)
 local RunReportManager = require(script.Parent.RunReportManager)
 local RunRecordManager = require(script.Parent.RunRecordManager)
 local RunStatsManager = require(script.Parent.RunStatsManager)
+local SkillManager = require(script.Parent.SkillManager)
 local StructureDevTools = require(script.Parent.StructureDevTools)
 local StructureManager = require(script.Parent.StructureManager)
 local ToolManager = require(script.Parent.ToolManager)
@@ -367,6 +368,9 @@ ReviveManager:subscribeTeamRevived(
 		RescueManager:cancel()
 	end
 )
+-- the skills in the run (M56): after every manager it hands a number to
+-- or asks a question of; it subscribes to the run's start itself
+SkillManager:init(RunCycleManager, RefineryManager, BackpackManager, BootsManager, JetPackManager, ReviveManager, MapManager, RunManager)
 -- Diamonds earned in the run: it listens for each dawn
 DiamondTapManager:init()
 RunManager:subscribeRunStarted(

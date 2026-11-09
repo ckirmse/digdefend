@@ -18,6 +18,8 @@ local JetPackRules = require("@game/ReplicatedStorage/Shared/JetPackRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local JetPackData = require("@game/ServerScriptService/GameData/Mining/JetPack")
+local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local ClassManager = require(script.Parent.ClassManager)
 local GameController = require(script.Parent.GameController)
 local SpatialSoundManager = require(script.Parent.SpatialSoundManager)
 local SplendidReplicationManager = require(script.Parent.SplendidReplicationManager)
@@ -37,6 +39,9 @@ type PackState = {
 export type JetPackManager = typeof(setmetatable(
 	{} :: {
 		stateByPlayer: { [Player]: PackState },
+		-- the skills' multiple on the fuel a burning second drains (the
+		-- Deep Lungs at night, M56); the gameplay SkillManager sets it
+		drainScaleProvider: ((player: Player) -> number)?,
 	},
 	JetPackManager
 ))
@@ -52,7 +57,13 @@ function JetPackManager:getLevel(player: Player): number
 end
 
 function JetPackManager:getMaxFuelSec(player: Player): number
-	return JetPackRules.maxFuelForLevel(JetPackData.BASE_FUEL_SEC, JetPackData.FUEL_PER_LEVEL_SEC, self:getLevel(player))
+	-- the Rocket Science's bigger tank rides the class modifier axis (M56)
+	local fuelScale: number = ClassManager:getModifier(player, Enums.ClassModifier.JET_PACK_FUEL)
+	return JetPackRules.maxFuelForLevel(JetPackData.BASE_FUEL_SEC, JetPackData.FUEL_PER_LEVEL_SEC, self:getLevel(player)) * fuelScale
+end
+
+function JetPackManager:setDrainScaleProvider(provider: ((player: Player) -> number)?)
+	self.drainScaleProvider = provider
 end
 
 function JetPackManager:isBurning(player: Player): boolean
@@ -130,7 +141,11 @@ function JetPackManager:step(deltaSec: number)
 	local now = workspace:GetServerTimeNow()
 	for player, state in self.stateByPlayer do
 		local tank = state.tank
-		local fuel, isCutOut, isLocked = JetPackRules.step(tank, deltaSec, self:getMaxFuelSec(player), JetPackData.REFILL_RATE)
+		-- a burning second drains less for a skill that says so; a refill is
+		-- never scaled
+		local provider = self.drainScaleProvider
+		local stepSec = if tank.isBurning and provider then deltaSec * provider(player) else deltaSec
+		local fuel, isCutOut, isLocked = JetPackRules.step(tank, stepSec, self:getMaxFuelSec(player), JetPackData.REFILL_RATE)
 		tank.fuelSec = fuel
 		local wasLocked = tank.isLocked
 		tank.isLocked = isLocked
@@ -207,6 +222,7 @@ end
 function JetPackManager.new(): JetPackManager
 	local self = setmetatable({}, JetPackManager) :: JetPackManager
 	self.stateByPlayer = {}
+	self.drainScaleProvider = nil
 	return self
 end
 

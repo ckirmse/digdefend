@@ -31,6 +31,7 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local ClassRules = require("@game/ReplicatedStorage/Shared/ClassRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local SkillEffectRules = require("@game/ReplicatedStorage/Shared/SkillEffectRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PlacementRules = require("@game/ReplicatedStorage/Shared/PlacementRules")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
@@ -48,6 +49,7 @@ local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local MapManager = require(script.Parent.MapManager)
 local RefineryManager = require(script.Parent.RefineryManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
+local SkillManager = require(script.Parent.SkillManager)
 local ToolManager = require(script.Parent.ToolManager)
 
 local StructureManager = {}
@@ -260,7 +262,12 @@ function StructureManager:getTier(structure: Structure): number
 end
 
 function StructureManager:getMaxHp(structure: Structure): number
-	return StructureRules.maxHp(self:getKindData(structure.kind), self:getTier(structure))
+	local maxHp = StructureRules.maxHp(self:getKindData(structure.kind), self:getTier(structure))
+	-- the Sturdy Walls, once for the crew (M56)
+	if structure.kind == Enums.StructureKind.WALL or structure.kind == Enums.StructureKind.GATE then
+		maxHp = math.floor(maxHp * SkillManager:crewMultiplierFor("STURDY_WALLS", "WALL_MAX_HP_MULTIPLIER") + 0.5)
+	end
+	return maxHp
 end
 
 -- Iron the next tier costs the crew that is here (the dawn count, as the
@@ -286,6 +293,15 @@ function StructureManager:findTemplate(templateName: string): Model?
 	local folder = if gameAssets then gameAssets:FindFirstChild(Constants.STRUCTURE_TEMPLATES_FOLDER) else nil
 	local template = if folder then folder:FindFirstChild(templateName) else nil
 	if template and template:IsA("Model") then
+		-- the clone is pivoted onto the marker, so a PrimaryPart outside
+		-- the model (seen 2026-11-09: POST_1 pointing at the Refinery
+		-- template's base) lands every copy far from its slot and turned;
+		-- the template's own pivot is what the designer sets
+		local primaryPart = template.PrimaryPart
+		if primaryPart and not primaryPart:IsDescendantOf(template) and not self.warnedTemplates[templateName] then
+			self.warnedTemplates[templateName] = true
+			warn(`StructureManager: {template:GetFullName()} has its PrimaryPart outside the model ({primaryPart:GetFullName()}); clear it and set the model's pivot, or every copy lands away from its slot`)
+		end
 		return template
 	end
 	if not self.warnedTemplates[templateName] then
@@ -509,6 +525,10 @@ function StructureManager:damageStructure(id: string, amount: number, attackerKi
 	if not structure or amount <= 0 or structure.hp <= 0 then
 		return
 	end
+	-- the Fortress, once for the crew (M56)
+	if structure.kind == Enums.StructureKind.REFINERY then
+		amount *= SkillManager:crewMultiplierFor("FORTRESS", "REFINERY_DAMAGE_MULTIPLIER")
+	end
 	local applied = math.min(amount, structure.hp)
 	structure.hp = math.max(0, structure.hp - amount)
 	local isNewlyDestroyed = structure.hp <= 0 and not structure.isDestroyed
@@ -548,7 +568,9 @@ function StructureManager:handleRepair(player: Player, id: string)
 		return
 	end
 	local now = workspace:GetServerTimeNow()
-	if not StructureRules.canSwing(self.lastSwingTimeByPlayer[player], now, StructuresData.HAMMER_HIT_COOLDOWN_SEC) then
+	-- the Quick Fix shortens the swing on the class modifier axis (M56)
+	local swingScale: number = ClassManager:getModifier(player, Enums.ClassModifier.HAMMER_SWING_SPEED)
+	if not StructureRules.canSwing(self.lastSwingTimeByPlayer[player], now, StructuresData.HAMMER_HIT_COOLDOWN_SEC / swingScale) then
 		return
 	end
 	-- the class scales the chunk a swing gains and the Iron it costs (M64)
@@ -568,7 +590,9 @@ function StructureManager:handleRepair(player: Player, id: string)
 	for _, handler in self.structureRepairedHandlers do
 		handler(player, id, gained, cost)
 	end
-	if structure.isDestroyed and StructureRules.isRebuilt(structure.hp, self:getMaxHp(structure), StructuresData.REBUILD_STAND_SHARE) then
+	-- the Master Builder's swing stands rubble back up at any HP (M56)
+	local standShare = if SkillManager:has(player, "MASTER_BUILDER") then SkillManager:param("MASTER_BUILDER", "REBUILD_STAND_SHARE", StructuresData.REBUILD_STAND_SHARE) else StructuresData.REBUILD_STAND_SHARE
+	if structure.isDestroyed and StructureRules.isRebuilt(structure.hp, self:getMaxHp(structure), standShare) then
 		structure.isDestroyed = false
 		self:syncModel(structure)
 		print(`[StructureManager] {player.Name} rebuilt {structure.id}`)
@@ -601,7 +625,10 @@ function StructureManager:donate(player: Player)
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_ENOUGH_IRON)
 		return
 	end
-	self.fortificationPool += amount
+	-- the Generous donor's Iron counts for more (M56)
+	local credited = SkillEffectRules.donationCredit(amount, SkillManager:multiplierFor(player, "GENEROUS", "DONATION_MULTIPLIER"), nextTierCost - self.fortificationPool)
+	isFilled = isFilled or self.fortificationPool + credited >= nextTierCost
+	self.fortificationPool += credited
 	NetManager:notifyClient(player, NetEventNames.NOTIFY_FORTIFICATION_DONATED, { amount = amount })
 	if isFilled then
 		local nextTier = self.fortificationTier + 1

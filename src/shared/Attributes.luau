@@ -413,6 +413,13 @@ module = {
 	WEAPON_RELOAD_END_TIME = "WeaponReloadEndTime",
 	WEAPON_MAGAZINE_SIZE = "WeaponMagazineSize",
 	WEAPON_FIRE_INTERVAL_SEC = "WeaponFireIntervalSec",
+	-- CurrentPlayer: a multiple on every weapon's fire rate for this player
+	-- right now (Last Stand below a quarter health, M56); 1 or absent
+	-- otherwise. The clients pace their own trigger by it
+	FIRE_RATE_MULTIPLIER = "FireRateMultiplier",
+	-- GameMetadata: the camp's Tower limit as it stands, the catalogue's
+	-- plus the Field Engineer's (M56); the Defense Table shows it
+	ACTIVE_TOWER_ALLOWANCE = "ActiveTowerAllowance",
 	WEAPON_RANGE_STUDS = "WeaponRangeStuds",
 	-- server time the second trigger (a grenade) is ready again; 0 when ready
 	WEAPON_SECONDARY_READY_TIME = "WeaponSecondaryReadyTime",

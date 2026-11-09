@@ -114,6 +114,29 @@ icon.ScaleType = Enum.ScaleType.Fit
 icon.ZIndex = 2
 icon.Parent = dial
 
+-- the Uranium Seeker's arrow (M56): beside the dial on the right, up or
+-- down to the nearest uranium; ClientGeigerCounterManager shows it only
+-- for a holder once the second ring is lit
+local direction = Instance.new("TextLabel")
+direction.Name = "Direction"
+direction.AnchorPoint = Vector2.new(0, 0.5)
+direction.Position = UDim2.fromScale(1.06, 0.5)
+direction.Size = UDim2.fromScale(0.45, 0.45)
+direction.SizeConstraint = Enum.SizeConstraint.RelativeYY
+direction.BackgroundTransparency = 1
+direction.BorderSizePixel = 0
+direction.Text = "▲"
+direction.TextColor3 = UiStyle.POSITIVE_COLOR
+direction.TextScaled = true
+direction.FontFace = UiStyle.TITLE_FONT
+direction.Visible = false
+direction.ZIndex = 2
+local directionTextSize = Instance.new("UITextSizeConstraint")
+directionTextSize.MinTextSize = 1
+directionTextSize.MaxTextSize = 48
+directionTextSize.Parent = direction
+direction.Parent = dial
+
 gui.Parent = StarterGui
 ChangeHistoryService:SetWaypoint("After GeigerCounter gui")
 print("build_geiger_counter_gui: built " .. gui:GetFullName())

@@ -8,6 +8,7 @@
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local BackpackRules = require("@game/ReplicatedStorage/Shared/BackpackRules")
 local ClassRules = require("@game/ReplicatedStorage/Shared/ClassRules")
+local RockRules = require("@game/ReplicatedStorage/Shared/RockRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local MineGenerator = require("@game/ReplicatedStorage/Shared/MineGenerator")
 local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
@@ -24,6 +25,7 @@ local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local MineManager = require(script.Parent.MineManager)
 local OrePickupManager = require(script.Parent.OrePickupManager)
 local RunCycleManager = require(script.Parent.RunCycleManager)
+local SkillManager = require(script.Parent.SkillManager)
 local ToolManager = require(script.Parent.ToolManager)
 
 local MiningManager = {}
@@ -31,6 +33,8 @@ MiningManager.__index = MiningManager
 
 export type MiningManager = typeof(setmetatable(
 	{} :: {
+		-- the Clean Break's roll (M56)
+		random: Random,
 		lastHitTimeByPlayer: { [Player]: number },
 		-- every swing that landed: the rock it hit and whether it broke
 		-- (the run report, M34)
@@ -110,6 +114,18 @@ function MiningManager:handleHit(player: Player, depth: number, height: number, 
 		MiningRules.damageForLevel(PickAxeData.DAMAGE_BY_LEVEL, ToolManager:getPickAxeLevel(player)),
 		ClassManager:getModifier(player, Enums.ClassModifier.MINING_POWER)
 	)
+	-- the skills on a swing (M56): the Hardened Pick hits uranium harder,
+	-- the Rich Seam's first swing at a whole gold rock is worth extra
+	-- hits, and the Clean Break breaks the rock outright now and then
+	if RockRules.isUraniumRock(rock) then
+		damage *= SkillManager:multiplierFor(player, "HARDENED_PICK", "URANIUM_DAMAGE_MULTIPLIER")
+	end
+	if definition.resource == Enums.RawResource.GOLD_ORE and SkillManager:has(player, "RICH_SEAM") and MineManager:getDamageAt(depth, height, width) == 0 then
+		damage += damage * SkillManager:param("RICH_SEAM", "GOLD_FIRST_HIT_BONUS_HITS", 0)
+	end
+	if SkillManager:has(player, "CLEAN_BREAK") and self.random:NextNumber() < SkillManager:param("CLEAN_BREAK", "ONE_SWING_BREAK_CHANCE", 0) then
+		damage = definition.hp
+	end
 	local isBroken, remainingHp = MineManager:applyDamage(depth, height, width, damage)
 	for _, handler in self.hitHandlers do
 		handler(player, depth, height, width, rock, isBroken)
@@ -122,7 +138,9 @@ function MiningManager:handleHit(player: Player, depth: number, height: number, 
 			rock = rock,
 			breakerUserId = player.UserId,
 		})
-		self:awardOre(player, definition, blockCenter)
+		-- the Mother Lode counts every rock, resource or not
+		local isMotherLode = SkillManager:countBreak(player)
+		self:awardOre(player, definition, blockCenter, isMotherLode)
 	else
 		NetManager:notifyAllClients(NetEventNames.NOTIFY_ROCK_DAMAGED, {
 			depth = depth,
@@ -137,7 +155,7 @@ end
 -- the ore inside a broken resource rock goes to the breaker; what does not
 -- fit lands on the ground (GDD "Collecting Ore"). Party size is the current
 -- Ready count until M28 samples it at dawn.
-function MiningManager:awardOre(player: Player, definition: any, blockCenter: Vector3)
+function MiningManager:awardOre(player: Player, definition: any, blockCenter: Vector3, isMotherLode: boolean?)
 	if definition.kind ~= Enums.RockKind.RESOURCE or not definition.resource or not definition.yield then
 		return
 	end
@@ -148,6 +166,9 @@ function MiningManager:awardOre(player: Player, definition: any, blockCenter: Ve
 	-- rounded so a block never pays a fraction
 	local yieldScale: number = ClassManager:getModifier(player, Enums.ClassModifier.ORE_YIELD)
 	amount = math.floor(amount * yieldScale + 0.5)
+	if isMotherLode then
+		amount *= SkillManager:param("MOTHER_LODE", "ORE_MULTIPLIER", 1)
+	end
 	local _, overflow = BackpackManager:add(player, definition.resource, amount, blockCenter)
 	if overflow > 0 then
 		OrePickupManager:drop(blockCenter, definition.resource, overflow)
@@ -192,12 +213,21 @@ function MiningManager:init()
 			end
 		end
 	)
+	-- the Steady Swing lands or leaves (M56)
+	ClassManager:subscribeSkillsChanged(
+		function(player: Player)
+			if GameController:isPlayerReady(player) then
+				self:publishHitInterval(player)
+			end
+		end
+	)
 end
 
 function MiningManager.new(): MiningManager
 	local self = setmetatable({}, MiningManager) :: MiningManager
 	self.lastHitTimeByPlayer = {}
 	self.hitHandlers = {}
+	self.random = Random.new()
 	return self
 end
 

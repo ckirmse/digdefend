@@ -14,6 +14,7 @@
 local Players = game:GetService("Players")
 
 local RerollsData = require("@game/ServerScriptService/GameData/Characters/Rerolls")
+local SkillEffectsData = require("@game/ServerScriptService/GameData/Characters/SkillEffects")
 local SkillsData = require("@game/ServerScriptService/GameData/Characters/Skills")
 local ClassDescriptionsData = require("@game/ServerScriptService/GameData/Classes/Descriptions")
 local ClassRosterData = require("@game/ServerScriptService/GameData/Classes/Roster")
@@ -27,6 +28,7 @@ local ClassSchema = require("@game/ReplicatedStorage/Shared/ClassSchema")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local SkillEffectRules = require("@game/ReplicatedStorage/Shared/SkillEffectRules")
 local SkillRules = require("@game/ReplicatedStorage/Shared/SkillRules")
 local PlayerData = require(script.Parent.PlayerData)
 local PlayerFeedbackManager = require(script.Parent.PlayerFeedbackManager)
@@ -46,6 +48,9 @@ export type ClassManager = typeof(setmetatable(
 	{} :: {
 		pendingSkillRollByPlayer: { [Player]: PendingSkillRoll },
 		classChangedCallbacks: { (player: Player, classKind: number) -> () },
+		-- told when a skill lands in or leaves a slot of the class in play
+		-- (a class change is told through classChangedCallbacks)
+		skillsChangedCallbacks: { (player: Player) -> () },
 		random: Random,
 	},
 	ClassManager
@@ -130,10 +135,34 @@ function ClassManager:getClassData(player: Player): ClassRules.ClassData?
 	return ClassRosterData.BY_KIND[self:getClassKind(player)]
 end
 
--- a class modifier (1.0 when the class does not set it or the player is
--- not Ready), so a system reads one number and never the roster
+-- the skill ids the class in play holds, slot order; none before Ready
+function ClassManager:getSkillIds(player: Player): { string }
+	return SkillEffectRules.skillIdsOf(self:getRecord(player))
+end
+
+-- the class's modifiers with the held skills' multiplied in (M56,
+-- 2026-11-09): the one table every system and menu prices by
+function ClassManager:getModifiers(player: Player): { [number]: number }
+	local classData = self:getClassData(player)
+	return SkillEffectRules.combineModifiers(if classData then classData.MODIFIERS else {}, self:getSkillIds(player), SkillEffectsData.BY_ID)
+end
+
+-- a class modifier with the skills on it (1.0 when nothing sets it or the
+-- player is not Ready), so a system reads one number and never the
+-- roster or the skills
 function ClassManager:getModifier(player: Player, classModifier: number): number
-	return ClassRules.modifier(self:getClassData(player), classModifier)
+	local scale = self:getModifiers(player)[classModifier]
+	return if scale ~= nil then scale else ClassRules.DEFAULT_MODIFIER
+end
+
+function ClassManager:subscribeSkillsChanged(callback: (player: Player) -> ())
+	table.insert(self.skillsChangedCallbacks, callback)
+end
+
+function ClassManager:notifySkillsChanged(player: Player)
+	for _, callback in self.skillsChangedCallbacks do
+		callback(player)
+	end
 end
 
 -- the kind the class's kit puts in a gear slot; the system's own default
@@ -227,6 +256,17 @@ function ClassManager:checkRoster()
 	end
 	if not ClassRosterData.BY_KIND[ClassRosterData.DEFAULT_CLASS] then
 		error("ClassManager: the roster has no row for its DEFAULT_CLASS")
+	end
+	-- every effect names a skill, and every modifier it rides is a real one
+	for skillId, effect in SkillEffectsData.BY_ID do
+		if not SkillsData.BY_ID[skillId] then
+			error(`ClassManager: SkillEffects names {skillId}, which Skills does not list`)
+		end
+		for classModifier in effect.MODIFIERS or {} do
+			if not Enums.isValidValue(Enums.ClassModifier, classModifier) then
+				error(`ClassManager: SkillEffects.{skillId} rides an unknown ClassModifier {classModifier}`)
+			end
+		end
 	end
 end
 
@@ -355,7 +395,14 @@ end
 
 function ClassManager:replicate(player: Player)
 	splendidReplicationManager:replicateClasses(player)
-	splendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.CLASS_MODIFIERS, ClassRules.encodeModifiers(self:getClassData(player)))
+	self:replicateModifiers(player)
+end
+
+-- the combined modifiers alone: published at Ready by the gameplay
+-- SkillManager (before 2026-11-09 the table only reached a client after a
+-- class change, so a menu priced by the roster's defaults until then)
+function ClassManager:replicateModifiers(player: Player)
+	splendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.CLASS_MODIFIERS, ClassRules.encodeModifierTable(self:getModifiers(player)))
 end
 
 -- puts a skill in an open slot of a class; nil skillId empties the slot
@@ -376,6 +423,9 @@ function ClassManager:setSkill(player: Player, classKind: number?, slot: number,
 	if skillId == nil then
 		record.skills[tostring(slot)] = nil
 		self:replicate(player)
+		if kind == self:getClassKind(player) then
+			self:notifySkillsChanged(player)
+		end
 		return true
 	end
 	if defaults.validSkillIds[skillId] ~= true or not Enums.isValidValue(Enums.Rarity, rarity) then
@@ -386,6 +436,9 @@ function ClassManager:setSkill(player: Player, classKind: number?, slot: number,
 		rarity = rarity :: number,
 	}
 	self:replicate(player)
+	if kind == self:getClassKind(player) then
+		self:notifySkillsChanged(player)
+	end
 	return true
 end
 
@@ -417,6 +470,7 @@ function ClassManager.new(): ClassManager
 	local self = setmetatable({}, ClassManager) :: ClassManager
 	self.pendingSkillRollByPlayer = {}
 	self.classChangedCallbacks = {}
+	self.skillsChangedCallbacks = {}
 	self.random = Random.new()
 	return self
 end

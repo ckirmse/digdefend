@@ -2,12 +2,17 @@
 
 -- The Refinery on this client (GDD "Refining Ore"): the balance rows in the
 -- gameplay HUD and the payout sequence. On NotifyRefineStarted ore icons fly
--- from the player's hands into the Funnel's Entrance attachment; as the
--- first one lands the grinder spikes spin and the grind loop plays 3D from
--- the Funnel (on every client, whoever refines) until NotifyRefineCompleted,
--- when refined icons fly from the Funnel's Exit attachment to the player
--- and the HUD row bumps and updates as each one lands. Numbers come from
--- the CurrentPlayer and GameMetadata attributes RefineryManager writes.
+-- from the player's hands into the Refinery's side for that ore (the
+-- artist's IronGoldOreTarget on the left, UraniumOreTarget on the right,
+-- 2026-11-09; the Funnel's Entrance attachment on an older model); as the
+-- first gold or iron ore lands the machine enters its refining state (the
+-- grinder spikes spin, the grind loop plays 3D, the SmokeParticle emits,
+-- the RefiningGlow shows and its light pulses) on every client, whoever
+-- refines, until NotifyRefineCompleted, when refined icons fly from the
+-- same side to the player and the HUD row bumps and updates as each one
+-- lands. The uranium tube's fill grows with the crew's share of the
+-- uranium target. Numbers come from the CurrentPlayer and GameMetadata
+-- attributes RefineryManager writes.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
@@ -56,7 +61,17 @@ export type ClientRefineryManager = typeof(setmetatable(
 		spinConnection: RBXScriptConnection?,
 		grindPlayer: AudioPlayer?,
 		grindUntil: number?,
+		-- the players whose gold or iron refine is grinding now: the
+		-- Refinery takes the whole crew at once (2026-11-09), so the
+		-- machine stops only when the last of them is paid out
+		grindingUserIds: { [number]: boolean },
 		hasWarnedNoSpikes: boolean,
+		-- the artist's refining state: whether it is shown, and the
+		-- RefiningLight's pulse while it is
+		isRefiningShown: boolean,
+		refiningLightPulse: Tween?,
+		-- the uranium tube fill's growth in flight
+		tubeFillTween: Tween?,
 		-- the uranium row's green pulse while the quota is met and the
 		-- rescue not yet called (designer, 2026-10-27)
 		uraniumPulse: Tween?,
@@ -104,6 +119,8 @@ local RING_SEGMENTS = 48
 local RING_THICKNESS_STUDS = 0.5
 local RING_HEIGHT_STUDS = 0.1
 local RING_LIFT_STUDS = 0.15
+-- how far above and below a ring point the ground is looked for
+local RING_GROUND_PROBE_STUDS = 20
 -- the ring shows only while the player carries ore to refine (decided
 -- 2026-10-02): it fades in as the first ore lands in the backpack and
 -- fades out once the Refinery has pulled the last of it
@@ -142,6 +159,39 @@ local GRIND_SILENT_STUDS = 25
 -- own length is the safety stop should that message never arrive
 local GRIND_GRACE_SEC = 2
 local URANIUM_FORMAT = "%d / %d"
+-- the artist's refining state (2026-11-09): the RefiningLight rises from
+-- dark to its working brightness, then pulses down to the lower one and
+-- back, one beat a second; the RefiningGlow part shows with it
+local REFINING_LIGHT_BRIGHTNESS = 10
+local REFINING_LIGHT_PULSE_BRIGHTNESS = 5
+local REFINING_LIGHT_PULSE_SEC = 0.5
+local REFINING_LIGHT_FADE_SEC = 0.4
+-- the uranium tube's fill is this tall on Y when the crew holds the whole
+-- uranium target, a hair when it holds none (a part never scales from
+-- zero); X and Z keep the artist's size, and the part stays centred on
+-- TubeFillPlacement, whose lower half is buried in the base, so the top
+-- rises with the share
+local TUBE_FILL_FULL_SIZE_Y = 12
+local TUBE_FILL_EMPTY_SIZE_Y = 0.001
+local TUBE_FILL_TWEEN_SEC = 0.6
+local URANIUM_GLOW_BRIGHTNESS = 2
+-- which side of the Refinery each resource goes in and comes out
+local ORE_TARGET_BY_RAW: { [number]: string } = {
+	[Enums.RawResource.IRON_ORE] = Constants.REFINERY_IRON_GOLD_ORE_TARGET_ATTACHMENT,
+	[Enums.RawResource.GOLD_ORE] = Constants.REFINERY_IRON_GOLD_ORE_TARGET_ATTACHMENT,
+	[Enums.RawResource.URANIUM_ORE] = Constants.REFINERY_URANIUM_ORE_TARGET_ATTACHMENT,
+}
+local ORE_TARGET_BY_REFINED: { [number]: string } = {
+	[Enums.RefinedResource.IRON_BAR] = Constants.REFINERY_IRON_GOLD_ORE_TARGET_ATTACHMENT,
+	[Enums.RefinedResource.GOLD_BAR] = Constants.REFINERY_IRON_GOLD_ORE_TARGET_ATTACHMENT,
+	[Enums.RefinedResource.URANIUM] = Constants.REFINERY_URANIUM_ORE_TARGET_ATTACHMENT,
+}
+-- the ores whose refine runs the grinder and the refining state; uranium
+-- only drops into its tube (artist, 2026-11-09)
+local GRINDER_RAW_RESOURCES: { [number]: boolean } = {
+	[Enums.RawResource.IRON_ORE] = true,
+	[Enums.RawResource.GOLD_ORE] = true,
+}
 
 local function readNumber(value: any): number
 	return if typeof(value) == "number" then value else 0
@@ -149,6 +199,15 @@ end
 
 local function iconCount(amount: number): number
 	return math.clamp(amount, 1, MAX_ICONS_PER_RESOURCE)
+end
+
+local function hasGrinderOre(entries: { { resource: number, amount: number } }): boolean
+	for _, entry in entries do
+		if GRINDER_RAW_RESOURCES[entry.resource] then
+			return true
+		end
+	end
+	return false
 end
 
 function ClientRefineryManager:renderRow(resource: number)
@@ -293,18 +352,160 @@ function ClientRefineryManager:funnelAttachmentPosition(attachmentName: string):
 	return self:refineryHopperPosition()
 end
 
--- where ore is tipped in
-function ClientRefineryManager:refineryEntrancePosition(): Vector3?
-	return self:funnelAttachmentPosition(Constants.REFINERY_ENTRANCE_ATTACHMENT)
+-- a named part anywhere in the Refinery model; nil without either
+function ClientRefineryManager:findRefineryPart(name: string): BasePart?
+	local refinery = self:refineryModel()
+	local part = if refinery then refinery:FindFirstChild(name, true) else nil
+	if part and part:IsA("BasePart") then
+		return part
+	end
+	return nil
 end
 
--- where bars come out
-function ClientRefineryManager:refineryExitPosition(): Vector3?
-	return self:funnelAttachmentPosition(Constants.REFINERY_EXIT_ATTACHMENT)
+-- a named attachment anywhere in the Refinery model (the artist's sit on
+-- the body mesh); nil without either
+function ClientRefineryManager:findRefineryAttachment(name: string): Attachment?
+	local refinery = self:refineryModel()
+	local attachment = if refinery then refinery:FindFirstChild(name, true) else nil
+	if attachment and attachment:IsA("Attachment") then
+		return attachment
+	end
+	return nil
 end
 
--- the grinder rollers, in the order Constants lists them; nil (with one
--- warning) when the model lacks any of them
+-- one of the artist's ore targets in the world; an older model's Funnel
+-- attachment, then the hopper top, stand in
+function ClientRefineryManager:oreTargetPosition(targetName: string, funnelAttachmentName: string): Vector3?
+	local attachment = self:findRefineryAttachment(targetName)
+	if attachment then
+		return attachment.WorldPosition
+	end
+	return self:funnelAttachmentPosition(funnelAttachmentName)
+end
+
+-- where this ore is tipped in: gold and iron on the left side, uranium on
+-- the right
+function ClientRefineryManager:refineryEntrancePosition(resource: number): Vector3?
+	local targetName = ORE_TARGET_BY_RAW[resource] or Constants.REFINERY_IRON_GOLD_ORE_TARGET_ATTACHMENT
+	return self:oreTargetPosition(targetName, Constants.REFINERY_ENTRANCE_ATTACHMENT)
+end
+
+-- where this bar comes out: the side its ore went in
+function ClientRefineryManager:refineryExitPosition(resource: number): Vector3?
+	local targetName = ORE_TARGET_BY_REFINED[resource] or Constants.REFINERY_IRON_GOLD_ORE_TARGET_ATTACHMENT
+	return self:oreTargetPosition(targetName, Constants.REFINERY_EXIT_ATTACHMENT)
+end
+
+-- the artist's refining state on the model: the SmokeParticle emitters
+-- run, the RefiningGlow shows, and its RefiningLight rises from dark then
+-- pulses; off, everything goes dark and still. An instant change is the
+-- idle state put on a freshly streamed model, whose authored values are
+-- the working ones
+function ClientRefineryManager:setRefiningShown(isShown: boolean, isInstant: boolean?)
+	self.isRefiningShown = isShown
+	local pulse = self.refiningLightPulse
+	if pulse then
+		pulse:Cancel()
+		self.refiningLightPulse = nil
+	end
+	local smoke = self:findRefineryAttachment(Constants.REFINERY_SMOKE_ATTACHMENT)
+	if smoke then
+		for _, child in smoke:GetChildren() do
+			if child:IsA("ParticleEmitter") then
+				child.Enabled = isShown
+			elseif child:IsA("Sound") and isShown and not isInstant then
+				-- the designer's one-shot beside the emitter plays from the
+				-- top each time the smoke starts (2026-11-09)
+				child.TimePosition = 0
+				child:Play()
+			end
+		end
+	end
+	local glow = self:findRefineryPart(Constants.REFINERY_REFINING_GLOW_PART)
+	if not glow then
+		return
+	end
+	local transparency = if isShown then 0 else 1
+	local brightness = if isShown then REFINING_LIGHT_BRIGHTNESS else 0
+	local light = glow:FindFirstChild(Constants.REFINERY_REFINING_LIGHT)
+	if isInstant then
+		glow.Transparency = transparency
+		if light and light:IsA("Light") then
+			light.Brightness = brightness
+		end
+		return
+	end
+	local fadeInfo = TweenInfo.new(REFINING_LIGHT_FADE_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(glow, fadeInfo, { Transparency = transparency }):Play()
+	if not light or not light:IsA("Light") then
+		return
+	end
+	local rise = TweenService:Create(light, fadeInfo, { Brightness = brightness })
+	if isShown then
+		rise.Completed:Connect(
+			function(playbackState)
+				if playbackState ~= Enum.PlaybackState.Completed or not self.isRefiningShown then
+					return
+				end
+				local pulseInfo = TweenInfo.new(REFINING_LIGHT_PULSE_SEC, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+				local nextPulse = TweenService:Create(light, pulseInfo, { Brightness = REFINING_LIGHT_PULSE_BRIGHTNESS })
+				self.refiningLightPulse = nextPulse
+				nextPulse:Play()
+			end
+		)
+	end
+	rise:Play()
+end
+
+-- the uranium tube's fill from the crew's share of the uranium target:
+-- invisible and a hair tall at none, grown on Y to TUBE_FILL_FULL_SIZE_Y
+-- at the whole target, its UraniumGlow lit once there is any (artist,
+-- 2026-11-09). Instant for a freshly streamed model, eased as a refine
+-- adds to the total
+function ClientRefineryManager:renderTubeFill(isInstant: boolean)
+	local fill = self:findRefineryPart(Constants.REFINERY_TUBE_FILL_PART)
+	if not fill then
+		return
+	end
+	local total = readNumber(ClientDataManager:getGameMetadata(Attributes.URANIUM_TOTAL))
+	local target = readNumber(ClientDataManager:getGameMetadata(Attributes.URANIUM_TARGET))
+	local share = if target > 0 then math.clamp(total / target, 0, 1) else 0
+	local sizeY = if share > 0 then math.max(TUBE_FILL_EMPTY_SIZE_Y, TUBE_FILL_FULL_SIZE_Y * share) else TUBE_FILL_EMPTY_SIZE_Y
+	local size = Vector3.new(fill.Size.X, sizeY, fill.Size.Z)
+	local transparency = if share > 0 then 0 else 1
+	local brightness = if share > 0 then URANIUM_GLOW_BRIGHTNESS else 0
+	local placement = self:findRefineryAttachment(Constants.REFINERY_TUBE_FILL_PLACEMENT_ATTACHMENT)
+	if placement then
+		fill.CFrame = placement.WorldCFrame
+	end
+	local light = fill:FindFirstChild(Constants.REFINERY_URANIUM_GLOW_LIGHT)
+	local growth = self.tubeFillTween
+	if growth then
+		growth:Cancel()
+		self.tubeFillTween = nil
+	end
+	if isInstant then
+		fill.Size = size
+		fill.Transparency = transparency
+		if light and light:IsA("Light") then
+			light.Brightness = brightness
+		end
+		return
+	end
+	-- visible from the first stud, so the growth is seen
+	fill.Transparency = transparency
+	local info = TweenInfo.new(TUBE_FILL_TWEEN_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local tween = TweenService:Create(fill, info, { Size = size })
+	self.tubeFillTween = tween
+	tween:Play()
+	if light and light:IsA("Light") then
+		TweenService:Create(light, info, { Brightness = brightness }):Play()
+	end
+end
+
+-- the grinder rollers the model has, in the order Constants lists them
+-- (the artist's model keeps one, 2026-11-09); nil (with one warning) when
+-- it has none
 function ClientRefineryManager:findSpikes(): { BasePart }?
 	local refinery = self:refineryModel()
 	if not refinery then
@@ -313,14 +514,16 @@ function ClientRefineryManager:findSpikes(): { BasePart }?
 	local spikes: { BasePart } = {}
 	for _, name in Constants.REFINERY_SPIKE_PARTS do
 		local part = refinery:FindFirstChild(name)
-		if not part or not part:IsA("BasePart") then
-			if not self.hasWarnedNoSpikes then
-				self.hasWarnedNoSpikes = true
-				warn(string.format("ClientRefineryManager: the Refinery model has no %s part; the grinder will not spin", name))
-			end
-			return nil
+		if part and part:IsA("BasePart") then
+			table.insert(spikes, part)
 		end
-		table.insert(spikes, part)
+	end
+	if #spikes == 0 then
+		if not self.hasWarnedNoSpikes then
+			self.hasWarnedNoSpikes = true
+			warn("ClientRefineryManager: the Refinery model has no Spikes part; the grinder will not spin")
+		end
+		return nil
 	end
 	return spikes
 end
@@ -349,6 +552,10 @@ end
 -- the rollers stop and the grind loop goes quiet together, so the sound
 -- never outlives the motion
 function ClientRefineryManager:stopGrinding()
+	self.grindingUserIds = {}
+	if self.isRefiningShown then
+		self:setRefiningShown(false)
+	end
 	if self.spinConnection then
 		self.spinConnection:Disconnect()
 		self.spinConnection = nil
@@ -381,27 +588,42 @@ function ClientRefineryManager:startGrinding(durationSec: number)
 			self:stepSpin(deltaSec)
 		end
 	)
-	local refinery = self:refineryModel()
-	local funnel = if refinery then refinery:FindFirstChild(Constants.REFINERY_FUNNEL_PART) else nil
-	if funnel and funnel:IsA("BasePart") then
-		self.grindPlayer = ClientSoundManager:attachLoop(funnel, SoundNames.Sfx.REFINERY_GRIND, GRIND_FULL_VOLUME_STUDS, GRIND_SILENT_STUDS)
+	self:setRefiningShown(true)
+	-- the loop plays from the grinder: the artist's glow under it, or an
+	-- older model's Funnel
+	local source = self:findRefineryPart(Constants.REFINERY_REFINING_GLOW_PART) or self:findRefineryPart(Constants.REFINERY_FUNNEL_PART)
+	if source then
+		self.grindPlayer = ClientSoundManager:attachLoop(source, SoundNames.Sfx.REFINERY_GRIND, GRIND_FULL_VOLUME_STUDS, GRIND_SILENT_STUDS)
 	end
 end
 
--- the grinder starts as the first ore icon lands in the Funnel; with no
--- flight to wait on (either end missing) it starts at once
-function ClientRefineryManager:startGrindingOnFirstLanding(durationSec: number, isFlying: boolean): (() -> ())?
-	if not isFlying then
-		self:startGrinding(durationSec)
-		return nil
-	end
+-- the machine starts as the first ore icon lands, once per refine; a
+-- refine of uranium alone never runs the grinder. The caller calls it at
+-- once when nothing flew
+function ClientRefineryManager:startGrindingOnFirstLanding(payload: { [string]: any }): () -> ()
 	local hasStarted = false
+	local isGrinding = hasGrinderOre(payload.ore)
+	if isGrinding then
+		self.grindingUserIds[payload.userId] = true
+	end
 	return function()
 		if hasStarted then
 			return
 		end
 		hasStarted = true
-		self:startGrinding(durationSec)
+		if isGrinding then
+			self:startGrinding(payload.durationSec)
+		end
+	end
+end
+
+-- a refine is paid out: the machine stops once no other player's is
+-- still grinding (the safety stop in stepSpin covers a completion that
+-- never arrives)
+function ClientRefineryManager:stopGrindingIfIdle(userId: number)
+	self.grindingUserIds[userId] = nil
+	if next(self.grindingUserIds) == nil then
+		self:stopGrinding()
 	end
 end
 
@@ -410,18 +632,22 @@ end
 -- Either end may be streamed out for a watcher far away, and then there is
 -- nothing to show. Returns whether anything flew, so the caller knows
 -- whether a landing is coming
-function ClientRefineryManager:flyForCrewmate(entries: { { resource: number, amount: number } }, imageByResource: { [number]: string }, colorByResource: { [number]: Color3 }, from: Vector3?, to: Vector3?, onLanded: (() -> ())?): boolean
-	if not from or not to then
-		return false
-	end
+function ClientRefineryManager:flyForCrewmate(entries: { { resource: number, amount: number } }, imageByResource: { [number]: string }, colorByResource: { [number]: Color3 }, fromFor: (resource: number) -> Vector3?, toFor: (resource: number) -> Vector3?, onLanded: (() -> ())?): boolean
+	local hasFlown = false
 	local delaySec = 0
 	for _, entry in entries do
+		local from = fromFor(entry.resource)
+		local to = toFor(entry.resource)
+		if not from or not to then
+			continue
+		end
+		hasFlown = true
 		for _ = 1, iconCount(entry.amount) do
 			ClientIconFlightManager:flyWorld(imageByResource[entry.resource], colorByResource[entry.resource] or UiStyle.TEXT_MUTED_COLOR, from, to, delaySec, onLanded)
 			delaySec += ICON_STAGGER_SEC
 		end
 	end
-	return true
+	return hasFlown
 end
 
 -- where a player is (this one when no user id is given), a little above
@@ -443,20 +669,32 @@ function ClientRefineryManager:onRefineStarted(payload: any)
 		warn("ClientRefineryManager: malformed NotifyRefineStarted")
 		return
 	end
-	-- the grinder turns for everyone, whoever is refining, once the first
-	-- ore reaches the Funnel
+	-- the machine starts for everyone, whoever is refining, once the first
+	-- ore reaches it
+	local onFirstLanded = self:startGrindingOnFirstLanding(payload)
 	if payload.userId ~= Players.LocalPlayer.UserId then
 		local from = self:characterPosition(payload.userId)
-		local to = self:refineryEntrancePosition()
-		local onLanded = self:startGrindingOnFirstLanding(payload.durationSec, from ~= nil and to ~= nil)
-		self:flyForCrewmate(payload.ore, Icons.RAW_RESOURCE, COLOR_BY_RAW, from, to, onLanded)
+		local hasFlown = self:flyForCrewmate(
+			payload.ore,
+			Icons.RAW_RESOURCE,
+			COLOR_BY_RAW,
+			function()
+				return from
+			end,
+			function(resource: number)
+				return self:refineryEntrancePosition(resource)
+			end,
+			onFirstLanded
+		)
+		if not hasFlown then
+			onFirstLanded()
+		end
 		return
 	end
-	-- the ore leaves the player's hands and drops into the Funnel's mouth,
-	-- in the world, so the camera can turn away without stranding it
+	-- the ore leaves the player's hands and drops into the Refinery's side
+	-- for it, in the world, so the camera can turn away without stranding it
 	local from = self:characterPosition()
-	local to = self:refineryEntrancePosition()
-	local onFirstLanded = self:startGrindingOnFirstLanding(payload.durationSec, from ~= nil and to ~= nil)
+	local hasFlown = false
 	-- the backpack attributes are already empty; keep showing what was in it
 	-- and count down as each icon leaves
 	local totalOre = 0
@@ -468,6 +706,7 @@ function ClientRefineryManager:onRefineStarted(payload: any)
 	ClientBackpackManager:holdTotal(totalOre, totalIcons)
 	local delaySec = 0
 	for _, entry in payload.ore do
+		local to = self:refineryEntrancePosition(entry.resource)
 		local color = COLOR_BY_RAW[entry.resource] or UiStyle.TEXT_MUTED_COLOR
 		local imageId = Icons.RAW_RESOURCE[entry.resource]
 		local count = iconCount(entry.amount)
@@ -483,6 +722,7 @@ function ClientRefineryManager:onRefineStarted(payload: any)
 				end
 			)
 			if from and to then
+				hasFlown = true
 				ClientIconFlightManager:flyWorld(
 					imageId,
 					color,
@@ -492,14 +732,15 @@ function ClientRefineryManager:onRefineStarted(payload: any)
 					function()
 						-- each ore pops as it is sucked into the machine
 						ClientSoundManager:playSfx(SoundNames.Sfx.ORE_PICKUP)
-						if onFirstLanded then
-							onFirstLanded()
-						end
+						onFirstLanded()
 					end
 				)
 			end
 			delaySec += ICON_STAGGER_SEC
 		end
+	end
+	if not hasFlown then
+		onFirstLanded()
 	end
 end
 
@@ -509,16 +750,27 @@ function ClientRefineryManager:onRefineCompleted(payload: any)
 		warn("ClientRefineryManager: malformed NotifyRefineCompleted")
 		return
 	end
-	-- the bars are out: the machine falls quiet and still
-	self:stopGrinding()
+	-- the bars are out: the machine falls quiet and still once nobody
+	-- else's ore is in it
+	self:stopGrindingIfIdle(payload.userId)
 	if payload.userId ~= Players.LocalPlayer.UserId then
-		self:flyForCrewmate(payload.refined, Icons.REFINED_RESOURCE, COLOR_BY_REFINED, self:refineryExitPosition(), self:characterPosition(payload.userId))
+		local to = self:characterPosition(payload.userId)
+		self:flyForCrewmate(
+			payload.refined,
+			Icons.REFINED_RESOURCE,
+			COLOR_BY_REFINED,
+			function(resource: number)
+				return self:refineryExitPosition(resource)
+			end,
+			function()
+				return to
+			end
+		)
 		return
 	end
 	ClientSoundManager:playSfx(SoundNames.Sfx.REFINERY_PAYOUT)
-	-- the bars come out of the Funnel's exit and reach the player in the
-	-- world; the HUD row bumps as each one arrives
-	local from = self:refineryExitPosition()
+	-- the bars come out of the side their ore went in and reach the player
+	-- in the world; the HUD row bumps as each one arrives
 	local to = self:characterPosition()
 	local delaySec = 0
 	for _, entry in payload.refined do
@@ -527,6 +779,7 @@ function ClientRefineryManager:onRefineCompleted(payload: any)
 		if not target then
 			continue
 		end
+		local from = self:refineryExitPosition(resource)
 		local color = COLOR_BY_REFINED[resource] or UiStyle.TEXT_COLOR
 		local imageId = Icons.REFINED_RESOURCE[resource]
 		local count = iconCount(entry.amount)
@@ -582,6 +835,26 @@ function ClientRefineryManager:findHud()
 	end
 end
 
+-- the ground height under a point of the ring, found by looking straight
+-- down past the Refinery and the characters; nil over a hole. The model's
+-- bounding box was the ground before 2026-11-09, but the artist's model
+-- stands sunk into the path and its tube fill is authored half buried, so
+-- the box reaches well under the ground
+function ClientRefineryManager:groundYAt(refinery: Model, location: Vector3): number?
+	local excluded: { Instance } = { refinery }
+	for _, player in Players:GetPlayers() do
+		if player.Character then
+			table.insert(excluded, player.Character)
+		end
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = excluded
+	local origin = location + Vector3.new(0, RING_GROUND_PROBE_STUDS, 0)
+	local result = workspace:Raycast(origin, Vector3.new(0, -2 * RING_GROUND_PROBE_STUDS, 0), params)
+	return if result then result.Position.Y else nil
+end
+
 -- the refining ring on the ground around the Refinery (2026-10-01): a
 -- circle of flat segments at the radius the server published, drawn once
 -- the camp's Refinery streams in, redrawn for a new camp
@@ -600,8 +873,8 @@ function ClientRefineryManager:drawRing()
 		return
 	end
 	local boundsCFrame, boundsSize = refinery:GetBoundingBox()
-	local groundY = boundsCFrame.Position.Y - boundsSize.Y / 2
-	local centre = CFrame.new(boundsCFrame.Position.X, groundY + RING_LIFT_STUDS, boundsCFrame.Position.Z)
+	local fallbackGroundY = boundsCFrame.Position.Y - boundsSize.Y / 2
+	local centre = CFrame.new(boundsCFrame.Position.X, 0, boundsCFrame.Position.Z)
 	local ring = Instance.new("Model")
 	ring.Name = RING_NAME
 	local segmentLength = 2 * math.pi * radius / RING_SEGMENTS + RING_THICKNESS_STUDS
@@ -618,8 +891,11 @@ function ClientRefineryManager:drawRing()
 		segment.Color = RING_COLOR
 		segment.Transparency = 1
 		segment.Size = Vector3.new(segmentLength, RING_HEIGHT_STUDS, RING_THICKNESS_STUDS)
-		-- each segment sits on the circle, turned to run along it
-		segment.CFrame = centre * CFrame.Angles(0, -angle, 0) * CFrame.new(0, 0, -radius)
+		-- each segment sits on the circle, turned to run along it, at the
+		-- ground found under it
+		local flat = centre * CFrame.Angles(0, -angle, 0) * CFrame.new(0, 0, -radius)
+		local groundY = self:groundYAt(refinery, flat.Position) or fallbackGroundY
+		segment.CFrame = flat + Vector3.new(0, groundY + RING_LIFT_STUDS, 0)
 		segment.Parent = ring
 	end
 	ring.Parent = refinery
@@ -665,6 +941,10 @@ function ClientRefineryManager:watchRefinery()
 		return
 	end
 	self:drawRing()
+	-- the artist authored the model in its working state; a fresh one
+	-- starts idle, with the tube at the crew's share
+	self:setRefiningShown(false, true)
+	self:renderTubeFill(true)
 	refinery.AncestryChanged:Connect(
 		function()
 			if not refinery:IsDescendantOf(workspace) then
@@ -748,6 +1028,14 @@ function ClientRefineryManager:init()
 			end
 		)
 	end
+	for _, key in { Attributes.URANIUM_TOTAL, Attributes.URANIUM_TARGET } do
+		ClientDataManager:subscribeGameMetadataAttribute(
+			key,
+			function()
+				self:renderTubeFill(false)
+			end
+		)
+	end
 	for _, resource in Enums.getAllValues(Enums.RefinedResource) do
 		self:onValueChanged(resource)
 	end
@@ -776,7 +1064,11 @@ function ClientRefineryManager.new(): ClientRefineryManager
 	self.spinConnection = nil
 	self.grindPlayer = nil
 	self.grindUntil = nil
+	self.grindingUserIds = {}
 	self.hasWarnedNoSpikes = false
+	self.isRefiningShown = false
+	self.refiningLightPulse = nil
+	self.tubeFillTween = nil
 	self.uraniumPulse = nil
 	return self
 end

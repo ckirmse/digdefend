@@ -268,7 +268,11 @@ function ClientDefenseTableManager:getBuildPrice(placementKind: number, typeKind
 	if not catalog then
 		return 0
 	end
-	return ClassRules.scaleByModifiers(PlacementRules.buildPrice(catalog, placementKind, typeKind), ClassRules.decodeModifiers(ClientDataManager:getCurrentPlayerAttribute(Attributes.CLASS_MODIFIERS)), Enums.ClassModifier.DEFENSE_COST)
+	-- the defense dial and the kind's own discount (the Foreman, the Scrap
+	-- Saver; M56), as PlacementManager charges
+	local modifiers = ClassRules.decodeModifiers(ClientDataManager:getCurrentPlayerAttribute(Attributes.CLASS_MODIFIERS))
+	local kindModifier = if placementKind == Enums.PlacementKind.TOWER then Enums.ClassModifier.TOWER_COST else Enums.ClassModifier.TRAP_COST
+	return ClassRules.scaleAmount(PlacementRules.buildPrice(catalog, placementKind, typeKind), (modifiers[Enums.ClassModifier.DEFENSE_COST] or 1) * (modifiers[kindModifier] or 1))
 end
 
 function ClientDefenseTableManager:getLoadout(): { number }
@@ -439,7 +443,8 @@ function ClientDefenseTableManager:renderTowerCount()
 	end
 	-- the camp's Towers are one shared pool, whoever built them (2026-10-29)
 	local count = readNumber(ClientDataManager:getGameMetadata(Attributes.ACTIVE_TOWER_COUNT), 0)
-	local allowance = catalog.maxActiveTowersCamp
+	-- the limit as it stands (the Field Engineer, M56), the catalogue's before it lands
+	local allowance = readNumber(ClientDataManager:getGameMetadata(Attributes.ACTIVE_TOWER_ALLOWANCE), catalog.maxActiveTowersCamp)
 	label.Text = string.format(TOWER_COUNT_FORMAT, count, allowance)
 	label.TextColor3 = if count >= allowance then UiStyle.NEGATIVE_COLOR else UiStyle.TEXT_COLOR
 end
@@ -1850,12 +1855,14 @@ function ClientDefenseTableManager:init()
 			self:renderAffordability()
 		end
 	)
-	ClientDataManager:subscribeGameMetadataAttribute(
-		Attributes.ACTIVE_TOWER_COUNT,
-		function()
-			self:renderTowerCount()
-		end
-	)
+	for _, key in { Attributes.ACTIVE_TOWER_COUNT, Attributes.ACTIVE_TOWER_ALLOWANCE } do
+		ClientDataManager:subscribeGameMetadataAttribute(
+			key,
+			function()
+				self:renderTowerCount()
+			end
+		)
+	end
 	-- a placement appearing or going can free or take the ghost's cells,
 	-- and changes the rings of reach on show
 	ClientPlacementManager:subscribeChanged(

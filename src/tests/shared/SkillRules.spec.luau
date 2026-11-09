@@ -15,9 +15,9 @@ local PRICING = {
 }
 
 local CATALOGUE = {
-	GOLD_DIGGER = { family = Enums.SkillFamily.DIGGING, rarity = Enums.Rarity.COMMON, name = "Gold Digger", description = "Gold" },
-	STEADY_SWING = { family = Enums.SkillFamily.DIGGING, rarity = Enums.Rarity.RARE, name = "Steady Swing", description = "Swing" },
-	BIG_BANG = { family = Enums.SkillFamily.DEMOLITION, rarity = Enums.Rarity.LEGENDARY, name = "Big Bang", description = "Bang" },
+	GOLD_DIGGER = { family = Enums.SkillFamily.MINING, rarity = Enums.Rarity.COMMON, name = "Gold Digger", description = "Gold" },
+	STEADY_SWING = { family = Enums.SkillFamily.MINING, rarity = Enums.Rarity.RARE, name = "Steady Swing", description = "Swing" },
+	BIG_BANG = { family = Enums.SkillFamily.MINING, rarity = Enums.Rarity.LEGENDARY, name = "Big Bang", description = "Bang" },
 }
 
 describe(

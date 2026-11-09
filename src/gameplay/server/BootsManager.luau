@@ -26,6 +26,10 @@ export type BootsManager = typeof(setmetatable(
 		levelByPlayer: { [Player]: number },
 		-- a timed multiple on the walk speed (the Stim Shot, 2026-10-19)
 		boostByPlayer: { [Player]: SpeedBoost },
+		-- the skills' multiple on the walk speed right now (the Long Haul's
+		-- full backpack, the Night Shift's camp at night; M56), asked on
+		-- every apply; SkillManager sets it and calls apply when it changes
+		speedScaleProvider: ((player: Player) -> number)?,
 	},
 	BootsManager
 ))
@@ -43,7 +47,13 @@ function BootsManager:getWalkSpeed(player: Player): number
 	local speedScale: number = ClassManager:getModifier(player, Enums.ClassModifier.MOVE_SPEED)
 	local boost = self.boostByPlayer[player]
 	local boostScale = if boost and workspace:GetServerTimeNow() < boost.endTime then boost.multiplier else 1
-	return speeds[level] * speedScale * boostScale
+	local provider = self.speedScaleProvider
+	local skillScale = if provider then provider(player) else 1
+	return speeds[level] * speedScale * boostScale * skillScale
+end
+
+function BootsManager:setSpeedScaleProvider(provider: ((player: Player) -> number)?)
+	self.speedScaleProvider = provider
 end
 
 -- a timed multiple on the walk speed, applied now and taken off when its
@@ -124,6 +134,7 @@ function BootsManager.new(): BootsManager
 	local self = setmetatable({}, BootsManager) :: BootsManager
 	self.levelByPlayer = {}
 	self.boostByPlayer = {}
+	self.speedScaleProvider = nil
 	return self
 end
 

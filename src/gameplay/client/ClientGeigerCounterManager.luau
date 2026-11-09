@@ -31,6 +31,8 @@ export type ClientGeigerCounterManager = typeof(setmetatable(
 		-- inner ring first
 		rings: { GuiObject },
 		litRingCount: number,
+		-- the Uranium Seeker's arrow beside the dial, where the GUI has one
+		directionLabel: TextLabel?,
 		stopScanning: (() -> ())?,
 	},
 	ClientGeigerCounterManager
@@ -38,6 +40,13 @@ export type ClientGeigerCounterManager = typeof(setmetatable(
 
 -- GeigerCounterLevel at or above this is owning the counter
 local OWNED_LEVEL = 2
+-- the Uranium Seeker (M56): the arrow shows from this many lit rings, and
+-- only when the uranium is clearly above or below (a level rock shows none)
+local SEEKER_SKILL_ID = "URANIUM_SEEKER"
+local SEEKER_FROM_RING_COUNT = 2
+local SEEKER_LEVEL_STUDS = 2
+local SEEKER_UP_TEXT = "▲"
+local SEEKER_DOWN_TEXT = "▼"
 -- the server publishes the real numbers (GameData/Mining/GeigerCounter)
 local DEFAULT_RING_STUDS = { 20, 13, 8 }
 local DEFAULT_SCAN_INTERVAL_SEC = 0.2
@@ -81,9 +90,35 @@ function ClientGeigerCounterManager:findGui()
 		ring.Visible = false
 		table.insert(rings, ring)
 	end
+	local directionLabel = dial:FindFirstChild(Constants.GEIGER_COUNTER_DIRECTION_LABEL)
+	if directionLabel and directionLabel:IsA("TextLabel") then
+		directionLabel.Visible = false
+		self.directionLabel = directionLabel
+	end
 	gui.Enabled = false
 	self.gui = gui
 	self.rings = rings
+end
+
+-- the Uranium Seeker's arrow: up or down to the nearest uranium once the
+-- second ring is lit, for a holder; hidden otherwise
+function ClientGeigerCounterManager:renderDirection(litRingCount: number, playerPosition: Vector3?, uraniumPosition: Vector3?)
+	local label = self.directionLabel
+	if not label then
+		return
+	end
+	local isShown = false
+	if litRingCount >= SEEKER_FROM_RING_COUNT and playerPosition and uraniumPosition and ClientDataManager:hasSkill(SEEKER_SKILL_ID) then
+		local rise = uraniumPosition.Y - playerPosition.Y
+		if rise > SEEKER_LEVEL_STUDS then
+			label.Text = SEEKER_UP_TEXT
+			isShown = true
+		elseif rise < -SEEKER_LEVEL_STUDS then
+			label.Text = SEEKER_DOWN_TEXT
+			isShown = true
+		end
+	end
+	label.Visible = isShown
 end
 
 function ClientGeigerCounterManager:setLitRingCount(count: number)
@@ -110,16 +145,19 @@ function ClientGeigerCounterManager:scan()
 	local position = ClientMineManager:getPlayerPosition()
 	if not position or rangeStuds <= 0 then
 		self:setLitRingCount(0)
+		self:renderDirection(0, nil, nil)
 		return
 	end
 	local ringStuds = GeigerRules.decodeRingStuds(ClientDataManager:getCurrentPlayerAttribute(Attributes.GEIGER_COUNTER_RING_STUDS)) or DEFAULT_RING_STUDS
-	local distance = ClientMineManager:getNearestUraniumDistance(position, rangeStuds)
+	local distance, uraniumPosition = ClientMineManager:findNearestUranium(position, rangeStuds)
 	-- uranium ore lying on the ground counts too (designer, 2026-10-08)
 	local pickupDistance = ClientOrePickupManager:getNearestResourceDistance(Enums.RawResource.URANIUM_ORE, position, rangeStuds)
 	if pickupDistance and (not distance or pickupDistance < distance) then
 		distance = pickupDistance
 	end
-	self:setLitRingCount(GeigerRules.litRingCount(distance, ringStuds))
+	local litRingCount = GeigerRules.litRingCount(distance, ringStuds)
+	self:setLitRingCount(litRingCount)
+	self:renderDirection(litRingCount, position, uraniumPosition)
 end
 
 -- the dial is drawn, and the mine scanned, only while it is shown
@@ -143,6 +181,7 @@ function ClientGeigerCounterManager:refreshShown()
 		self.stopScanning()
 		self.stopScanning = nil
 		self:setLitRingCount(0)
+		self:renderDirection(0, nil, nil)
 	end
 end
 
@@ -167,6 +206,7 @@ function ClientGeigerCounterManager.new(): ClientGeigerCounterManager
 	self.gui = nil
 	self.rings = {}
 	self.litRingCount = 0
+	self.directionLabel = nil
 	self.stopScanning = nil
 	return self
 end

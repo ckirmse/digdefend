@@ -22,6 +22,7 @@ local Players = game:GetService("Players")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local SkillEffectRules = require("@game/ReplicatedStorage/Shared/SkillEffectRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
@@ -37,6 +38,7 @@ local DamageableManager = require(script.Parent.DamageableManager)
 local MapManager = require(script.Parent.MapManager)
 local ProjectileManager = require(script.Parent.ProjectileManager)
 local RefineryManager = require(script.Parent.RefineryManager)
+local SkillManager = require(script.Parent.SkillManager)
 local ToolManager = require(script.Parent.ToolManager)
 
 local WeaponManager = {}
@@ -85,10 +87,22 @@ function WeaponManager:getWeaponData(weaponKind: number): WeaponRules.WeaponData
 	return HandheldData.BY_KIND[weaponKind]
 end
 
--- the weapon's numbers after this player's upgrades
+-- the weapon's numbers after this player's upgrades, the Big Clip's
+-- magazine on top (the class modifier axis, M56)
 function WeaponManager:getStats(player: Player): WeaponRules.Stats?
 	local state = self.stateByPlayer[player]
-	return if state then WeaponRules.statsFor(self.catalog, state.weaponKind, state.upgrades) else nil
+	local stats = if state then WeaponRules.statsFor(self.catalog, state.weaponKind, state.upgrades) else nil
+	if stats then
+		local magazineScale: number = ClassManager:getModifier(player, Enums.ClassModifier.WEAPON_MAGAZINE)
+		stats.magazineSize = math.max(1, math.floor(stats.magazineSize * magazineScale + 0.5))
+	end
+	return stats
+end
+
+-- the multiple the skills put on this player's shots right now: the
+-- Night Owl at night (the Gunslinger rides the class axis instead)
+function WeaponManager:getSkillDamageScale(player: Player): number
+	return if SkillManager:isNight() then SkillManager:multiplierFor(player, "NIGHT_OWL", "NIGHT_DAMAGE_MULTIPLIER") else 1
 end
 
 function WeaponManager:replicate(player: Player)
@@ -122,11 +136,14 @@ function WeaponManager:startReloadIfNeeded(player: Player)
 	if not WeaponRules.canReload(state.ammo, stats.magazineSize, state.reloadEndTime, now) then
 		return
 	end
-	local reloadEndTime = now + data.RELOAD_SEC
+	-- the Fast Reload rides the class modifier axis (M56)
+	local reloadScale: number = ClassManager:getModifier(player, Enums.ClassModifier.WEAPON_RELOAD)
+	local reloadSec = data.RELOAD_SEC * reloadScale
+	local reloadEndTime = now + reloadSec
 	state.reloadEndTime = reloadEndTime
 	self:replicate(player)
 	task.delay(
-		data.RELOAD_SEC,
+		reloadSec,
 		function()
 			local current = self.stateByPlayer[player]
 			if current ~= state or state.reloadEndTime ~= reloadEndTime then
@@ -191,7 +208,8 @@ function WeaponManager:fire(player: Player, origin: Vector3, direction: Vector3)
 		return
 	end
 	local now = workspace:GetServerTimeNow()
-	if WeaponRules.isReloading(state.reloadEndTime, now) or not WeaponRules.canFire(state.lastFireTime, now, data.FIRE_COOLDOWN_SEC) then
+	-- the Last Stand's multiple shortens the cooldown (M56)
+	if WeaponRules.isReloading(state.reloadEndTime, now) or not WeaponRules.canFire(state.lastFireTime, now, data.FIRE_COOLDOWN_SEC / SkillManager:getFireRateMultiplier(player)) then
 		return
 	end
 	if state.ammo <= 0 then
@@ -206,8 +224,8 @@ function WeaponManager:fire(player: Player, origin: Vector3, direction: Vector3)
 	state.lastFireTime = now
 	state.ammo -= 1
 
-	-- the class's handheld damage scales every shot (M64)
-	local damageScale: number = ClassManager:getModifier(player, Enums.ClassModifier.HANDHELD_DAMAGE)
+	-- the class's handheld damage scales every shot (M64), the skills' on top
+	local damageScale: number = ClassManager:getModifier(player, Enums.ClassModifier.HANDHELD_DAMAGE) * self:getSkillDamageScale(player)
 	local worldDistance = self:getWorldDistance(origin, unitDirection, stats.rangeStuds, true)
 	local cone = data.CONE
 	if cone then
@@ -236,7 +254,12 @@ function WeaponManager:fire(player: Player, origin: Vector3, direction: Vector3)
 			-- a hit in the head zone does the kind's headshot multiple (2026-10-19)
 			-- a kind with a multiple of 1 (the Assault Rifle) has no headshot at
 			-- all: no bonus and no callout
-			local headshotMultiplier = data.HEADSHOT_MULTIPLIER or HandheldData.HEADSHOT_MULTIPLIER
+			-- the Headhunter gives a weapon with no headshot of its own one (M56)
+			local headshotMultiplier = SkillEffectRules.headshotMultiplier(
+				data.HEADSHOT_MULTIPLIER or HandheldData.HEADSHOT_MULTIPLIER,
+				SkillManager:has(player, "HEADHUNTER"),
+				SkillManager:param("HEADHUNTER", "HEADSHOT_MULTIPLIER", 1)
+			)
 			local target = DamageableManager:getTarget(hitId)
 			if headshotMultiplier > 1 and target and WeaponRules.isHeadshot(origin + unitDirection * hitDistance, target.cframe, target.size, WeaponRules.HEAD_SHARE) then
 				isHeadshot = true
@@ -284,7 +307,7 @@ function WeaponManager:fireSecondary(player: Player, origin: Vector3, direction:
 	end
 	state.secondaryReadyTime = now + secondary.COOLDOWN_SEC
 	self:replicate(player)
-	local damageScale: number = ClassManager:getModifier(player, Enums.ClassModifier.HANDHELD_DAMAGE)
+	local damageScale: number = ClassManager:getModifier(player, Enums.ClassModifier.HANDHELD_DAMAGE) * self:getSkillDamageScale(player)
 	local damage = secondary.DAMAGE * damageScale
 	local weaponKind = state.weaponKind
 	ProjectileManager:launch({
@@ -450,7 +473,8 @@ function WeaponManager:applyClass(player: Player)
 		return
 	end
 	state.weaponKind = weaponKind
-	state.ammo = data.MAGAZINE_SIZE
+	local stats = self:getStats(player)
+	state.ammo = if stats then stats.magazineSize else data.MAGAZINE_SIZE
 	state.reloadEndTime = 0
 	state.lastFireTime = nil
 	state.secondaryReadyTime = 0
@@ -464,6 +488,12 @@ function WeaponManager:init()
 	ClassManager:subscribeClassChanged(
 		function(player: Player, _classKind: number)
 			self:applyClass(player)
+		end
+	)
+	-- the Big Clip lands or leaves (M56): the magazine the client shows
+	ClassManager:subscribeSkillsChanged(
+		function(player: Player)
+			self:replicate(player)
 		end
 	)
 	local kinds: { [number]: WeaponRules.WeaponData } = {}

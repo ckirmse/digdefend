@@ -749,6 +749,22 @@ module = {
 		-- pick and the rock tripling together). 13 and 14 were a pick axe
 		-- and a backpack discount for an afternoon the same day
 		MINING_SPEED = 13,
+		-- the skill dials (M56, 2026-11-09): a skill's MODIFIERS entry
+		-- multiplies the class's on the same axis, so a system still reads
+		-- one number through ClassManager:getModifier. Each is 1.0 unless a
+		-- skill sets it; none is a class stat
+		JET_PACK_FUEL = 14,
+		REFINE_DURATION = 15,
+		WEAPON_RELOAD = 16,
+		WEAPON_MAGAZINE = 17,
+		POST_TURN_SPEED = 18,
+		-- a post's reload and its cool time together
+		POST_RELOAD = 19,
+		-- the Hammer's swing interval (REPAIR_SPEED is the HP a swing adds)
+		HAMMER_SWING_SPEED = 20,
+		-- on top of DEFENSE_COST, for towers alone and traps alone
+		TOWER_COST = 21,
+		TRAP_COST = 22,
 
 		PublicNames = {
 			MINING_POWER = "Mining Power",
@@ -764,6 +780,15 @@ module = {
 			ORE_YIELD = "Ore Yield",
 			LARGE_MONSTER_DAMAGE = "Damage to Large Monsters",
 			MAX_HEALTH = "Health",
+			JET_PACK_FUEL = "Jet Pack Fuel",
+			REFINE_DURATION = "Refine Time",
+			WEAPON_RELOAD = "Weapon Reload",
+			WEAPON_MAGAZINE = "Magazine Size",
+			POST_TURN_SPEED = "Post Turn Speed",
+			POST_RELOAD = "Post Reload",
+			HAMMER_SWING_SPEED = "Repair Swing Speed",
+			TOWER_COST = "Tower Cost",
+			TRAP_COST = "Trap Cost",
 		},
 	},
 	-- the class-only tool each class carries (GDD "Classes"; M64). Named
@@ -799,23 +824,22 @@ module = {
 			MEDKIT = "Medkit",
 		},
 	},
-	-- skill families (GDD "Characters"): every skill belongs to one; two of
-	-- a family give a title and three its set bonus (M56)
+	-- skill families (GDD "Characters"): every skill belongs to one (a title
+	-- for two of a family and a set bonus for three were dropped on
+	-- 2026-11-09). Three since
+	-- 2026-11-09 (designer): Mining, Combat, and Building, which covers
+	-- repairing; six (Digging, Hauling, Demolition, Building, Gunnery,
+	-- Marksmanship) before. A skill is saved by its id, never its family,
+	-- so the values are free to change
 	SkillFamily = {
-		DIGGING = 1,
-		HAULING = 2,
-		DEMOLITION = 3,
-		BUILDING = 4,
-		GUNNERY = 5,
-		MARKSMANSHIP = 6,
+		MINING = 1,
+		COMBAT = 2,
+		BUILDING = 3,
 
 		PublicNames = {
-			DIGGING = "Digging",
-			HAULING = "Hauling",
-			DEMOLITION = "Demolition",
+			MINING = "Mining",
+			COMBAT = "Combat",
 			BUILDING = "Building",
-			GUNNERY = "Gunnery",
-			MARKSMANSHIP = "Marksmanship",
 		},
 	},
 	-- the one rarity ladder (designer, 2026-10-12; five tiers, replacing

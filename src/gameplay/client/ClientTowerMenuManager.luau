@@ -94,7 +94,9 @@ end
 -- an upgrade's price for this player's class (the defense dial,
 -- 2026-10-22), the number the server charges
 function ClientTowerMenuManager:getUpgradePrice(basePrice: number): number
-	return ClassRules.scaleByModifiers(basePrice, ClassRules.decodeModifiers(ClientDataManager:getCurrentPlayerAttribute(Attributes.CLASS_MODIFIERS)), Enums.ClassModifier.DEFENSE_COST)
+	-- the defense dial and the Foreman's tower discount (M56), as the server charges
+	local modifiers = ClassRules.decodeModifiers(ClientDataManager:getCurrentPlayerAttribute(Attributes.CLASS_MODIFIERS))
+	return ClassRules.scaleAmount(basePrice, (modifiers[Enums.ClassModifier.DEFENSE_COST] or 1) * (modifiers[Enums.ClassModifier.TOWER_COST] or 1))
 end
 
 -- one stat's text as PlacementRules formats it; HP alone shows the

@@ -46,11 +46,16 @@ ClassRules.CORE_MODIFIERS = {
 -- clients read (the stands' prices, 2026-10-22); JSON keeps the keys as
 -- strings, so the decoder turns them back into Enums.ClassModifier
 function ClassRules.encodeModifiers(classData: ClassData?): string
+	return ClassRules.encodeModifierTable(if classData then classData.MODIFIERS else {})
+end
+
+-- the same for a modifiers table already combined with the player's
+-- skills (SkillEffectRules.combineModifiers, M56), which is what the
+-- server publishes since 2026-11-09
+function ClassRules.encodeModifierTable(modifiers: { [number]: number }): string
 	local encoded = {}
-	if classData then
-		for classModifier, scale in classData.MODIFIERS do
-			encoded[tostring(classModifier)] = scale
-		end
+	for classModifier, scale in modifiers do
+		encoded[tostring(classModifier)] = scale
 	end
 	return HttpService:JSONEncode(encoded)
 end

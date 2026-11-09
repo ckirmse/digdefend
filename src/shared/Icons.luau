@@ -206,6 +206,9 @@ Icons.UI = {
 	-- the padlock over a locked class or perk row in the Class Menu
 	-- (the Missile Launcher's lock marker stood in before, 2026-11-05)
 	LOCK = "rbxassetid://87535225906474",
+	-- the Supply Crate: a capture of the designer's SupplyCrateScreenshot
+	-- model through the icon pipeline (docs/icon-capture.md), 2026-11-09
+	SUPPLY_CRATE = "rbxassetid://84556835168975",
 }
 
 function Icons.isPlaceholder(id: string?): boolean

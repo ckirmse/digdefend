@@ -50,9 +50,16 @@ Constants.HUD_KEYS_AMOUNT_LABEL = "KeysAmount"
 Constants.HUD_MENU_BUTTONS = "MenuButtons"
 Constants.HUD_STORE_BUTTON = "StoreButton"
 -- the Loadout button until 2026-10-12 (M37), the Character button until
--- 2026-10-30: it opens the Character Select Menu (the classes). The Daily
--- Rewards button left the HUD the same day (post launch, M39)
-Constants.HUD_CLASSES_BUTTON = "ClassesButton"
+-- 2026-10-30, ClassesButton until the designer's restyle of 2026-11-09: it
+-- opens the Class Menu. The Daily Rewards button left the HUD on
+-- 2026-10-30 (post launch, M39)
+Constants.HUD_CLASSES_BUTTON = "ClassButton"
+-- opens the Gear Locker (designer, 2026-11-09)
+Constants.HUD_GEAR_BUTTON = "GearButton"
+-- the picture on a menu button: the Store's crate, the Gear's locker art,
+-- and on the Class button the equipped class's own icon, which
+-- ClientHudManager keeps current (designer, 2026-11-09)
+Constants.HUD_MENU_BUTTON_ICON = "Icon"
 -- SoundService layout (designer-authored in both places): AudioPlayers under
 -- these folders, each wired to the AudioDeviceOutput; see SoundNames
 -- how long a client manager waits for a Studio-authored instance (a
@@ -180,10 +187,30 @@ Constants.CAMP_REFINERY_MODEL = "Refinery"
 Constants.REFINERY_FUNNEL_PART = "Funnel"
 Constants.REFINERY_ENTRANCE_ATTACHMENT = "Entrance"
 Constants.REFINERY_EXIT_ATTACHMENT = "Exit"
--- Camp.Refinery.Spikes1 / Spikes2: the two anchored grinder rollers, each
--- long along its own Z axis with gears welded on; clients spin them in
--- opposite directions while a refine runs (2026-10-09)
+-- Camp.Refinery.Spikes1 / Spikes2: the anchored grinder rollers, each long
+-- along its own Z axis; clients spin whichever the model has, neighbours
+-- in opposite directions, while a refine runs (2026-10-09; the artist's
+-- model of 2026-11-09 keeps Spikes1 alone)
 Constants.REFINERY_SPIKE_PARTS = { "Spikes1", "Spikes2" }
+-- Camp.Refinery.Refinery: the artist's body mesh (2026-11-09) carrying the
+-- attachments the client aims at: IronGoldOreTarget on the left side,
+-- where gold and iron ore flies in and bars fly out, UraniumOreTarget on
+-- the right for uranium, SmokeParticle with the emitters that run while
+-- refining, and TubeFillPlacement, the centre the uranium tube's fill is
+-- scaled about
+Constants.REFINERY_IRON_GOLD_ORE_TARGET_ATTACHMENT = "IronGoldOreTarget"
+Constants.REFINERY_URANIUM_ORE_TARGET_ATTACHMENT = "UraniumOreTarget"
+Constants.REFINERY_SMOKE_ATTACHMENT = "SmokeParticle"
+Constants.REFINERY_TUBE_FILL_PLACEMENT_ATTACHMENT = "TubeFillPlacement"
+-- Camp.Refinery.RefiningGlow: the Neon part under the grinder, transparent
+-- while idle, with the RefiningLight PointLight that pulses while refining
+Constants.REFINERY_REFINING_GLOW_PART = "RefiningGlow"
+Constants.REFINERY_REFINING_LIGHT = "RefiningLight"
+-- Camp.Refinery.Refinery_Tube_Fill: the Neon column inside the uranium
+-- tube, its Y size the crew's share of the uranium target, holding the
+-- UraniumGlow PointLight lit once any uranium is refined
+Constants.REFINERY_TUBE_FILL_PART = "Refinery_Tube_Fill"
+Constants.REFINERY_URANIUM_GLOW_LIGHT = "UraniumGlow"
 -- Camp.MiningStore.Stands: one "<Item>Stand" Model per Enums.StoreItem
 -- (the name comes from StoreRules.standNameForItem), each with a Base part
 -- carrying the SurfaceGui the client fills in and the ProximityPrompt the
@@ -651,6 +678,9 @@ Constants.GEIGER_COUNTER_ROOT_FRAME = "Root"
 Constants.GEIGER_COUNTER_DIAL = "Dial"
 Constants.GEIGER_COUNTER_ICON = "Icon"
 Constants.GEIGER_COUNTER_RING_PREFIX = "Ring"
+-- the Uranium Seeker's arrow beside the dial (M56): up or down to the
+-- nearest uranium once the second ring is lit, hidden otherwise
+Constants.GEIGER_COUNTER_DIRECTION_LABEL = "Direction"
 -- a crewmate's name over their head in their compass dot colour
 -- (GameAssets/Gui/PlayerName, scripts/studio/build_player_name_billboard.luau)
 Constants.PLAYER_NAME_BILLBOARD = "PlayerName"

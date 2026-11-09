@@ -765,7 +765,8 @@ function ClientWeaponManager:readTuning()
 		return if typeof(value) == "number" then value else default
 	end
 	self.magazineSize = read(Attributes.WEAPON_MAGAZINE_SIZE, 0)
-	self.fireIntervalSec = read(Attributes.WEAPON_FIRE_INTERVAL_SEC, DEFAULT_FIRE_INTERVAL_SEC)
+	-- the Last Stand's multiple paces the trigger as it does the server (M56)
+	self.fireIntervalSec = read(Attributes.WEAPON_FIRE_INTERVAL_SEC, DEFAULT_FIRE_INTERVAL_SEC) / math.max(read(Attributes.FIRE_RATE_MULTIPLIER, 1), 0.01)
 	self.rangeStuds = read(Attributes.WEAPON_RANGE_STUDS, DEFAULT_RANGE_STUDS)
 	self:renderAmmo()
 end
@@ -836,7 +837,7 @@ function ClientWeaponManager:init()
 	ClientDataManager:subscribeCurrentPlayerAttribute(Attributes.WEAPON_SECONDARY_READY_TIME, applySecondaryReady)
 
 	self:readTuning()
-	for _, key in { Attributes.WEAPON_MAGAZINE_SIZE, Attributes.WEAPON_FIRE_INTERVAL_SEC, Attributes.WEAPON_RANGE_STUDS } do
+	for _, key in { Attributes.WEAPON_MAGAZINE_SIZE, Attributes.WEAPON_FIRE_INTERVAL_SEC, Attributes.WEAPON_RANGE_STUDS, Attributes.FIRE_RATE_MULTIPLIER } do
 		ClientDataManager:subscribeCurrentPlayerAttribute(
 			key,
 			function()

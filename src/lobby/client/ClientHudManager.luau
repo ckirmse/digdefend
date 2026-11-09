@@ -13,6 +13,7 @@ local TweenService = game:GetService("TweenService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local utils = require("@game/ReplicatedStorage/Shared/utils")
@@ -24,6 +25,7 @@ local ClientLabelFlash = require(script.Parent.Parent.Client.ClientLabelFlash)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
 local ClientGuiFade = require(script.Parent.Parent.Client.ClientGuiFade)
 local ClientGachaMenuManager = require(script.Parent.ClientGachaMenuManager)
+local ClientGearMenuManager = require(script.Parent.ClientGearMenuManager)
 
 local ClientHudManager = {}
 ClientHudManager.__index = ClientHudManager
@@ -232,6 +234,21 @@ function ClientHudManager:wireButton(parent: Instance, name: string, onActivated
 	)
 end
 
+-- the Class button's picture is the equipped class's icon (designer,
+-- 2026-11-09); a class with no picture yet keeps whatever the designer
+-- authored on the label
+function ClientHudManager:renderClassIcon(menuButtons: Instance)
+	local button = menuButtons:FindFirstChild(Constants.HUD_CLASSES_BUTTON)
+	local icon = if button then button:FindFirstChild(Constants.HUD_MENU_BUTTON_ICON) else nil
+	if not icon or not icon:IsA("ImageLabel") then
+		return
+	end
+	local iconId = Icons.CLASS_KIND[ClientDataManager:getActiveClassKind()]
+	if iconId and not Icons.isPlaceholder(iconId) then
+		icon.Image = iconId
+	end
+end
+
 function ClientHudManager:init()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local gui = playerGui:WaitForChild(Constants.HUD_GUI_NAME) :: ScreenGui
@@ -283,6 +300,19 @@ function ClientHudManager:init()
 		Constants.HUD_STORE_BUTTON,
 		function()
 			ClientGachaMenuManager:openMenu()
+		end
+	)
+	self:wireButton(
+		menuButtons,
+		Constants.HUD_GEAR_BUTTON,
+		function()
+			ClientGearMenuManager:openMenu()
+		end
+	)
+	self:renderClassIcon(menuButtons)
+	ClientDataManager:subscribeClasses(
+		function()
+			self:renderClassIcon(menuButtons)
 		end
 	)
 

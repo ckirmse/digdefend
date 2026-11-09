@@ -49,6 +49,7 @@ local PurchaseManager = require(script.Parent.Parent.Server.PurchaseManager)
 local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidReplicationManager)
 local DefenseTableManager = require(script.Parent.DefenseTableManager)
 local JetPackManager = require(script.Parent.Parent.Server.JetPackManager)
+local SkillManager = require(script.Parent.SkillManager)
 local MapManager = require(script.Parent.MapManager)
 local PostManager = require(script.Parent.PostManager)
 local Ragdoll = require(script.Parent.Ragdoll)
@@ -564,6 +565,14 @@ function ReviveManager:damagePlayer(player: Player, amount: number, attackerKind
 	end
 	local now = workspace:GetServerTimeNow()
 	local isInvulnerable = now < (self.invulnerableUntilByPlayer[player] or 0)
+	-- the skills on a hit taken (M56): the Thick Skull against the mine's
+	-- monsters, the Thick Skin against any monster at night
+	if SkillManager:isMineMonster(attackerKind) then
+		amount *= SkillManager:multiplierFor(player, "THICK_SKULL", "MINE_MONSTER_DAMAGE_MULTIPLIER")
+	end
+	if attackerKind ~= nil and SkillManager:isNight() then
+		amount *= SkillManager:multiplierFor(player, "THICK_SKIN", "NIGHT_DAMAGE_TAKEN_MULTIPLIER")
+	end
 	local health, isKilled = ReviveRules.applyDamage(humanoid.Health, amount, isInvulnerable)
 	if not isInvulnerable then
 		for _, handler in self.damagedHandlers do
