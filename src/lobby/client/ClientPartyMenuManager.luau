@@ -7,6 +7,7 @@
 -- a menu is open the camera sits on the pad's CameraPositionPart and the
 -- character stays in its helicopter seat (leaving the seat leaves the party).
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
@@ -118,6 +119,9 @@ local DEPARTING_IN = "Departing in %d seconds"
 -- a leaver stands this far above the ExitSpawn part, clear of it (the
 -- server's fallback move uses the same lift)
 local EXIT_LIFT = Vector3.new(0, 3, 0)
+-- how long the stand-up waits for the engine to drop the SeatWeld before
+-- stepping clear anyway (2026-11-09)
+local STAND_CLEAR_TIMEOUT_SEC = 0.5
 -- the Queue Menu's lines (designer, 2026-10-30), formatted as titles
 local MAP_FORMAT = "%s (%s)"
 local CREW_FORMAT = "Crew (%d/%d)"
@@ -445,11 +449,31 @@ function ClientPartyMenuManager:setMovementLocked(isLocked: boolean, padModel: M
 		local exitSpawn = if padModel then padModel:FindFirstChild(Constants.PAD_EXIT_SPAWN_PART) else nil
 		local root = humanoid.RootPart
 		if exitSpawn and exitSpawn:IsA("BasePart") and root then
+			-- the SeatWeld goes on the physics step after Sit = false; a move
+			-- in the same frame dragged the welded seat out of the cabin with
+			-- the body, so the next boarding sat in mid air (2026-11-09). The
+			-- step clear waits for the weld to be gone, with a bounded fallback
 			local facing = exitSpawn.CFrame.LookVector * Vector3.new(1, 0, 1)
 			local standPosition = exitSpawn.Position + EXIT_LIFT
-			character:PivotTo(CFrame.lookAlong(standPosition, if facing.Magnitude > 0 then facing.Unit else Vector3.zAxis))
-			root.AssemblyLinearVelocity = Vector3.zero
-			root.AssemblyAngularVelocity = Vector3.zero
+			local standFrame = CFrame.lookAlong(standPosition, if facing.Magnitude > 0 then facing.Unit else Vector3.zAxis)
+			local waitedSec = 0
+			local connection: RBXScriptConnection
+			connection = RunService.Heartbeat:Connect(
+				function(deltaSec: number)
+					waitedSec += deltaSec
+					local isSeated = humanoid.SeatPart ~= nil or humanoid:GetState() == Enum.HumanoidStateType.Seated
+					if isSeated and waitedSec < STAND_CLEAR_TIMEOUT_SEC then
+						return
+					end
+					connection:Disconnect()
+					if character.Parent == nil then
+						return
+					end
+					character:PivotTo(standFrame)
+					root.AssemblyLinearVelocity = Vector3.zero
+					root.AssemblyAngularVelocity = Vector3.zero
+				end
+			)
 		end
 	end
 end
