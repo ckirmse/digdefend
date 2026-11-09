@@ -10,7 +10,9 @@
 -- M61), which sells it for PRICE_KEYS Keys; hats live in Characters/Hats.
 -- The two entries are placeholders cut from the stock pick axe and jet
 -- pack so the crate reveal can be tested; real skins replace them. The
--- prices are placeholders too (2026-11-05).
+-- prices are placeholders too (2026-11-05). Every entry carries a RARITY
+-- (Enums.Rarity; designer, 2026-11-09), shown on the crate's odds list and
+-- its reveal in the rarity's colour; the draw odds do not read it.
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 
 return {
@@ -20,12 +22,14 @@ return {
 			NAME = "Test Pick Axe",
 			TEMPLATE = "TEST_PICK_AXE",
 			PRICE_KEYS = 10,
+			RARITY = Enums.Rarity.RARE,
 		},
 		TEST_JET_PACK = {
 			SLOT = Enums.CosmeticSlot.JET_PACK,
 			NAME = "Test Jet Pack",
 			TEMPLATE = "TEST_JET_PACK",
 			PRICE_KEYS = 10,
+			RARITY = Enums.Rarity.EPIC,
 		},
 	},
 }

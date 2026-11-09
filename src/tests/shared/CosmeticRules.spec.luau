@@ -10,8 +10,8 @@ local Enums = require(game:GetService("ReplicatedStorage").Shared.Enums)
 
 local function makeCatalogue()
 	return {
-		ZEBRA_PICK = { SLOT = Enums.CosmeticSlot.PICK_AXE, NAME = "Zebra Pick", TEMPLATE = "ZEBRA_PICK", REVEAL_SCALE = 1.5 },
-		APPLE_PACK = { SLOT = Enums.CosmeticSlot.JET_PACK, NAME = "Apple Pack", TEMPLATE = "APPLE_PACK" },
+		ZEBRA_PICK = { SLOT = Enums.CosmeticSlot.PICK_AXE, NAME = "Zebra Pick", TEMPLATE = "ZEBRA_PICK", REVEAL_SCALE = 1.5, RARITY = Enums.Rarity.RARE },
+		APPLE_PACK = { SLOT = Enums.CosmeticSlot.JET_PACK, NAME = "Apple Pack", TEMPLATE = "APPLE_PACK", RARITY = Enums.Rarity.COMMON },
 	}
 end
 
@@ -26,14 +26,15 @@ describe(
 		)
 
 		it(
-			"names a bad slot, a missing name, and a bad reveal scale",
+			"names a bad slot, a missing name, a bad reveal scale, and a missing rarity",
 			function()
 				local catalogue = makeCatalogue()
 				catalogue.ZEBRA_PICK.SLOT = 99
 				catalogue.APPLE_PACK.NAME = ""
 				catalogue.APPLE_PACK.REVEAL_SCALE = 0
+				catalogue.ZEBRA_PICK.RARITY = nil
 				local problems = CosmeticRules.validateCatalogue(catalogue)
-				expect(#problems).toBe(3)
+				expect(#problems).toBe(4)
 			end
 		)
 	end

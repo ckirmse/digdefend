@@ -40,6 +40,7 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
 local Icons = require("@game/ReplicatedStorage/Shared/Icons")
+local KeyStoreRules = require("@game/ReplicatedStorage/Shared/KeyStoreRules")
 local SkillRules = require("@game/ReplicatedStorage/Shared/SkillRules")
 local CosmeticRules = require("@game/ReplicatedStorage/Shared/CosmeticRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
@@ -176,6 +177,7 @@ export type ClientGachaMenuManager = typeof(setmetatable(
 		headlineAuthoredImageTransparency: number,
 		headlineAuthoredTextTransparency: number,
 		headlineAuthoredStrokeTransparency: number,
+		headlineAuthoredTextColor: Color3,
 	},
 	ClientGachaMenuManager
 ))
@@ -215,6 +217,9 @@ local HEADLINE_KEYS = "+%d keys"
 local HEADLINE_MAXED = "Class already maxed out"
 local HEADLINE_COSMETIC = "%s unlocked!"
 local HEADLINE_COSMETIC_OWNED = "You already own %s"
+-- a cosmetic's rarity beside its name on the odds list and the reveal
+-- (designer, 2026-11-09): "Rare Test Pick Axe"
+local RARITY_NAME_FORMAT = "%s %s"
 -- the button under the card: CLAIM, or EXCHANGE FOR KEYS under a maxed class
 local CLAIM_TEXT = "Claim"
 local SELL_TEXT = "Exchange for keys"
@@ -251,6 +256,26 @@ function ClientGachaMenuManager:cosmeticName(cosmeticId: string): string
 	local catalogue = SkillRules.decodeHatCatalogue(ClientDataManager:getGameMetadata(Attributes.HAT_CATALOGUE))
 	local entry = catalogue[cosmeticId]
 	return if entry then entry.name else cosmeticId
+end
+
+-- a cosmetic's Enums.Rarity, skin or hat, from the Key Store's one list;
+-- nil for an id the list does not know
+function ClientGachaMenuManager:cosmeticRarity(cosmeticId: string): number?
+	local entries = KeyStoreRules.decode(ClientDataManager:getGameMetadata(Attributes.KEY_STORE_CATALOGUE))
+	local entry = if entries then KeyStoreRules.findEntry(entries, cosmeticId) else nil
+	return if entry then entry.rarity else nil
+end
+
+-- the name with its rarity in front, and the rarity's colour; the plain
+-- name and nil for a cosmetic with no known rarity
+function ClientGachaMenuManager:cosmeticNameWithRarity(cosmeticId: string): (string, Color3?)
+	local name = self:cosmeticName(cosmeticId)
+	local rarity = self:cosmeticRarity(cosmeticId)
+	local rarityName = if rarity then Enums.getPublicName(Enums.Rarity, rarity) else nil
+	if not rarity or not rarityName then
+		return name, nil
+	end
+	return string.format(RARITY_NAME_FORMAT, rarityName, name), UiStyle.RARITY_COLORS[rarity]
 end
 
 function ClientGachaMenuManager:findCosmeticEntry(cosmeticId: string): CosmeticRules.PublishedEntry?
@@ -350,6 +375,14 @@ function ClientGachaMenuManager:renderOdds(view: View, config: GachaRules.Config
 		local shareLabel = row:FindFirstChild(Constants.GACHA_ODDS_ROW_SHARE_LABEL) :: TextLabel
 		local kindBar = row:FindFirstChild("KindBar")
 		nameLabel.Text = UiStyle.formatTitle(self:prizeName(prize))
+		if prize.kind == Enums.GachaResultKind.COSMETIC then
+			-- a cosmetic row names its rarity in the rarity's colour
+			local nameWithRarity, rarityColor = self:cosmeticNameWithRarity(prize.cosmeticId or "")
+			nameLabel.Text = UiStyle.formatTitle(nameWithRarity)
+			if rarityColor then
+				nameLabel.TextColor3 = rarityColor
+			end
+		end
 		shareLabel.Text = GachaRules.formatOddsPercent(prize.odds)
 		shareLabel.TextColor3 = kindColor(prize.kind)
 		if kindBar and kindBar:IsA("GuiObject") then
@@ -610,11 +643,14 @@ function ClientGachaMenuManager:setTapHintShown(view: View, isShown: boolean)
 	setLineShown(view.tapHint, isShown, self.tapHintAuthoredTextTransparency, self.tapHintAuthoredStrokeTransparency)
 end
 
--- the headline's backing and words fade together to their authored looks
-function ClientGachaMenuManager:setHeadlineShown(view: View, isShown: boolean, text: string?)
+-- the headline's backing and words fade together to their authored looks;
+-- a colour (a cosmetic's rarity) replaces the words' authored one for
+-- this showing only
+function ClientGachaMenuManager:setHeadlineShown(view: View, isShown: boolean, text: string?, color: Color3?)
 	local backing = view.revealTitle
 	if text then
 		view.revealText.Text = UiStyle.formatTitle(text)
+		view.revealText.TextColor3 = color or self.headlineAuthoredTextColor
 	end
 	setLineShown(view.revealText, isShown, self.headlineAuthoredTextTransparency, self.headlineAuthoredStrokeTransparency)
 	if isShown then
@@ -1119,7 +1155,8 @@ function ClientGachaMenuManager:flyPrize(view: View, payload: { [string]: any },
 				end
 			)
 			local headline = if isOwned then HEADLINE_COSMETIC_OWNED else HEADLINE_COSMETIC
-			self:setHeadlineShown(view, true, string.format(headline, entry.name))
+			local nameWithRarity, rarityColor = self:cosmeticNameWithRarity(entry.id)
+			self:setHeadlineShown(view, true, string.format(headline, nameWithRarity), rarityColor)
 			self:finishReveal(view)
 			if isOwned then
 				-- the same button, now the offer to exchange
@@ -1745,6 +1782,7 @@ function ClientGachaMenuManager:init()
 	self.headlineAuthoredImageTransparency = view.revealTitle.ImageTransparency
 	self.headlineAuthoredTextTransparency = view.revealText.TextTransparency
 	self.headlineAuthoredStrokeTransparency = view.revealText.TextStrokeTransparency
+	self.headlineAuthoredTextColor = view.revealText.TextColor3
 	view.tapHint.Visible = false
 	view.revealTitle.Visible = false
 	view.gui.Enabled = false
@@ -1879,6 +1917,7 @@ function ClientGachaMenuManager.new(): ClientGachaMenuManager
 	self.headlineAuthoredImageTransparency = 0
 	self.headlineAuthoredTextTransparency = 0
 	self.headlineAuthoredStrokeTransparency = 0
+	self.headlineAuthoredTextColor = UiStyle.TEXT_COLOR
 	return self
 end
 

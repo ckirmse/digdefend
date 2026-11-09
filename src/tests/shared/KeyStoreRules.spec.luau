@@ -15,15 +15,15 @@ local PLACEHOLDER = "rbxassetid://0"
 
 local function makeSkins()
 	return {
-		ZEBRA_PICK = { SLOT = Enums.CosmeticSlot.PICK_AXE, NAME = "Zebra Pick", TEMPLATE = "ZEBRA_PICK", PRICE_KEYS = 30 },
-		APPLE_PACK = { SLOT = Enums.CosmeticSlot.JET_PACK, NAME = "Apple Pack", TEMPLATE = "APPLE_PACK", PRICE_KEYS = 20 },
-		ACORN_PICK = { SLOT = Enums.CosmeticSlot.PICK_AXE, NAME = "Acorn Pick", TEMPLATE = "ACORN_PICK", PRICE_KEYS = 10 },
+		ZEBRA_PICK = { SLOT = Enums.CosmeticSlot.PICK_AXE, NAME = "Zebra Pick", TEMPLATE = "ZEBRA_PICK", PRICE_KEYS = 30, RARITY = Enums.Rarity.EPIC },
+		APPLE_PACK = { SLOT = Enums.CosmeticSlot.JET_PACK, NAME = "Apple Pack", TEMPLATE = "APPLE_PACK", PRICE_KEYS = 20, RARITY = Enums.Rarity.COMMON },
+		ACORN_PICK = { SLOT = Enums.CosmeticSlot.PICK_AXE, NAME = "Acorn Pick", TEMPLATE = "ACORN_PICK", PRICE_KEYS = 10, RARITY = Enums.Rarity.RARE },
 	}
 end
 
 local function makeHats()
 	return {
-		TOP_HAT = { ASSET_ID = 123, NAME = "Top Hat", PRICE_KEYS = 50 },
+		TOP_HAT = { ASSET_ID = 123, NAME = "Top Hat", PRICE_KEYS = 50, RARITY = Enums.Rarity.LEGENDARY },
 	}
 end
 
@@ -54,6 +54,29 @@ describe(
 				expect(problems[1]).toContain("APPLE_PACK")
 				expect(problems[2]).toContain("TOP_HAT")
 				expect(problems[3]).toContain("ZEBRA_PICK")
+			end
+		)
+
+		it(
+			"names a missing rarity on a skin and a hat",
+			function()
+				local skins = makeSkins()
+				skins.ACORN_PICK.RARITY = nil
+				local hats = makeHats()
+				hats.TOP_HAT.RARITY = 99
+				local problems = KeyStoreRules.validate(skins, hats)
+				expect(#problems).toBe(2)
+				expect(problems[1]).toContain("ACORN_PICK")
+				expect(problems[2]).toContain("TOP_HAT")
+			end
+		)
+
+		it(
+			"carries the rarity through build and the codec",
+			function()
+				local entries = KeyStoreRules.decode(KeyStoreRules.encode(makeEntries())) :: { KeyStoreRules.Entry }
+				expect(KeyStoreRules.findEntry(entries, "TOP_HAT").rarity).toBe(Enums.Rarity.LEGENDARY)
+				expect(KeyStoreRules.findEntry(entries, "ACORN_PICK").rarity).toBe(Enums.Rarity.RARE)
 			end
 		)
 	end

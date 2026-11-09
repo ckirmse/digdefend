@@ -206,6 +206,9 @@ module = {
 	-- (CosmeticLoadoutSchema codec: slot key name to skin id), written by
 	-- replicateCosmetics (2026-11-04)
 	COSMETICS = "Cosmetics",
+	-- CurrentPlayer: the player collapsed the controls panel (saved;
+	-- SettingsManager, 2026-11-09)
+	CONTROLS_PANEL_HIDDEN = "ControlsPanelHidden",
 	-- CurrentPlayer (private): the active class's MODIFIERS table as JSON
 	-- (ClassRules codec), for the prices the stands show (2026-10-22)
 	CLASS_MODIFIERS = "ClassModifiers",

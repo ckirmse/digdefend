@@ -58,6 +58,8 @@ export type SaveData = {
 	-- cosmetic id -> true for every cosmetic the account owns; the defaults
 	-- every character starts in are always present
 	ownedCosmetics: { [string]: boolean },
+	-- the controls panel collapsed to its tab (2026-11-09); shown by default
+	isControlsPanelHidden: boolean,
 }
 
 export type Defaults = {
@@ -128,6 +130,7 @@ function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 		classProgress = PlayerSaveSchema.getDefaultClassProgress(defaults),
 		keys = 0,
 		ownedCosmetics = PlayerSaveSchema.getDefaultOwnedCosmetics(defaults),
+		isControlsPanelHidden = false,
 	}
 end
 
@@ -405,6 +408,10 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 		table.insert(repairs, "keys reset")
 	end
 	validateOwnedCosmetics(data, defaults, repairs)
+	if typeof(data.isControlsPanelHidden) ~= "boolean" then
+		data.isControlsPanelHidden = false
+		table.insert(repairs, "isControlsPanelHidden reset")
+	end
 	-- after the progress: the active class must be an owned one
 	validateActiveClassKind(data, defaults, repairs)
 

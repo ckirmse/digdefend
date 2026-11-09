@@ -23,6 +23,8 @@ export type Entry = {
 	REVEAL_SCALE: number?,
 	-- what the Key Store asks (KeyStoreRules validates it; M61)
 	PRICE_KEYS: number?,
+	-- Enums.Rarity (designer, 2026-11-09): shown wherever the skin is named
+	RARITY: number,
 }
 
 export type Catalogue = { [string]: Entry }
@@ -34,6 +36,7 @@ export type PublishedEntry = {
 	name: string,
 	templateName: string,
 	revealScale: number,
+	rarity: number,
 }
 
 -- the problems with a catalogue, in order; empty means well formed
@@ -60,6 +63,9 @@ function CosmeticRules.validateCatalogue(catalogue: Catalogue): { string }
 		if entry.REVEAL_SCALE ~= nil and (typeof(entry.REVEAL_SCALE) ~= "number" or entry.REVEAL_SCALE <= 0) then
 			table.insert(problems, `{id} has a REVEAL_SCALE that is not a positive number`)
 		end
+		if not Enums.isValidValue(Enums.Rarity, entry.RARITY) then
+			table.insert(problems, `{id} has no Enums.Rarity RARITY`)
+		end
 	end
 	table.sort(problems)
 	return problems
@@ -75,6 +81,7 @@ function CosmeticRules.publish(catalogue: Catalogue): { PublishedEntry }
 			name = entry.NAME,
 			templateName = entry.TEMPLATE,
 			revealScale = entry.REVEAL_SCALE or 1,
+			rarity = entry.RARITY,
 		})
 	end
 	table.sort(
@@ -111,6 +118,7 @@ function CosmeticRules.decodeCatalogue(encoded: any): { PublishedEntry }?
 			or typeof(entry.name) ~= "string"
 			or typeof(entry.templateName) ~= "string"
 			or typeof(entry.revealScale) ~= "number"
+			or typeof(entry.rarity) ~= "number"
 		then
 			return nil
 		end
@@ -120,6 +128,7 @@ function CosmeticRules.decodeCatalogue(encoded: any): { PublishedEntry }?
 			name = entry.name,
 			templateName = entry.templateName,
 			revealScale = entry.revealScale,
+			rarity = entry.rarity,
 		})
 	end
 	return published

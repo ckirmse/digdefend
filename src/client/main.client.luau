@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local ClientControlsPanelManager = require(script.Parent.ClientControlsPanelManager)
 local ClientDataManager = require(script.Parent.ClientDataManager)
 local ClientDevTools = require(script.Parent.ClientDevTools)
 local ClientHelicopterManager = require(script.Parent.ClientHelicopterManager)
@@ -49,6 +50,9 @@ ClientSoundManager:init()
 ClientNetManager:init()
 ClientPlayerFeedbackManager:init()
 ClientHelicopterManager:init()
+-- the controls in the corner (2026-11-09): after the net, since its toggle
+-- is sent, and the overlay manager, which it listens to
+ClientControlsPanelManager:init()
 
 if ClientDataManager:getIsAdmin() then
 	ClientDevTools:init()

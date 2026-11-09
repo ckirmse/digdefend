@@ -22,6 +22,7 @@ export type SkinEntry = {
 	SLOT: number,
 	NAME: string,
 	PRICE_KEYS: number?,
+	RARITY: number?,
 }
 
 -- a hat as GameData/Characters/Hats writes it
@@ -29,6 +30,7 @@ export type HatEntry = {
 	ASSET_ID: number,
 	NAME: string,
 	PRICE_KEYS: number?,
+	RARITY: number?,
 }
 
 -- one item as the client draws it
@@ -38,6 +40,8 @@ export type Entry = {
 	name: string,
 	priceKeys: number,
 	iconId: string,
+	-- Enums.Rarity (designer, 2026-11-09)
+	rarity: number,
 }
 
 export type Owned = { [string]: boolean }
@@ -52,18 +56,24 @@ local function isValidPrice(price: any): boolean
 	return typeof(price) == "number" and price > 0 and price == math.floor(price)
 end
 
--- the problems with the two catalogues' prices, in order; empty means
--- every entry can be sold
+-- the problems with the two catalogues' prices and rarities, in order;
+-- empty means every entry can be sold and shown
 function KeyStoreRules.validate(skins: { [string]: SkinEntry }, hats: { [string]: HatEntry }): { string }
 	local problems = {}
 	for id, entry in skins do
 		if not isValidPrice(entry.PRICE_KEYS) then
 			table.insert(problems, `{id} has no PRICE_KEYS (a positive whole number of Keys)`)
 		end
+		if not Enums.isValidValue(Enums.Rarity, entry.RARITY) then
+			table.insert(problems, `{id} has no Enums.Rarity RARITY`)
+		end
 	end
 	for id, entry in hats do
 		if not isValidPrice(entry.PRICE_KEYS) then
 			table.insert(problems, `{id} has no PRICE_KEYS (a positive whole number of Keys)`)
+		end
+		if not Enums.isValidValue(Enums.Rarity, entry.RARITY) then
+			table.insert(problems, `{id} has no Enums.Rarity RARITY`)
 		end
 	end
 	table.sort(problems)
@@ -85,6 +95,7 @@ function KeyStoreRules.build(skins: { [string]: SkinEntry }, hats: { [string]: H
 			name = entry.NAME,
 			priceKeys = entry.PRICE_KEYS or 0,
 			iconId = skinIcons[id] or placeholderIconId,
+			rarity = entry.RARITY or Enums.Rarity.COMMON,
 		})
 	end
 	for id, entry in hats do
@@ -94,6 +105,7 @@ function KeyStoreRules.build(skins: { [string]: SkinEntry }, hats: { [string]: H
 			name = entry.NAME,
 			priceKeys = entry.PRICE_KEYS or 0,
 			iconId = KeyStoreRules.hatIconId(entry.ASSET_ID),
+			rarity = entry.RARITY or Enums.Rarity.COMMON,
 		})
 	end
 	table.sort(
@@ -161,6 +173,7 @@ function KeyStoreRules.decode(encoded: any): { Entry }?
 			or typeof(entry.name) ~= "string"
 			or typeof(entry.priceKeys) ~= "number"
 			or typeof(entry.iconId) ~= "string"
+			or typeof(entry.rarity) ~= "number"
 		then
 			return nil
 		end
@@ -170,6 +183,7 @@ function KeyStoreRules.decode(encoded: any): { Entry }?
 			name = entry.name,
 			priceKeys = entry.priceKeys,
 			iconId = entry.iconId,
+			rarity = entry.rarity,
 		})
 	end
 	return entries
