@@ -72,6 +72,9 @@ The same pass on a controller: every menu navigable with `GuiService` selection,
 
 ## Phase 10: Performance, Stability, and Launch Prep
 
+**M76 — Tutorial** (added 2026-11-09; needs fleshing out)
+A first-time player is walked through one day and one night before the game lets go of them. Shape: a `hasFinishedTutorial` flag in `PlayerSaveSchema` (default false, reset-covered, cleared by a dev tool) picks the flow; the tutorial is the first run itself, solo, on Deadman's Canyon Normal, not a separate map, so nothing is built twice. The run's own managers raise each step from what they already report: leave the helicopter and reach the mine entrance, break a rock (the pick axe swing and the backpack filling), carry ore to the Refinery and watch the bars come out, buy the first Mining Supplies rung, claim a post and fire it at dusk, repair a wall, and survive night 1; each step is a HUD callout with an arrow or a highlight on the thing to use (a `Tutorial` ScreenGui from a build script, the callout art the designer's), the next step opening when the manager says the last was done. Skippable from the first callout; finished when night 1 ends, which saves the flag. The lobby side is one callout each on the Supply Crate stall and the Class button the first time the player lands with Diamonds to spend. Open: whether a tutorial run is forced solo or a first-timer may join a crew (the callouts then speak only to them), whether the first run's waves are softened (`WaveGenerator` already scales per difficulty, so a tutorial difficulty row is one option), what the Daily Reward and badge pay for finishing it (M69, M39), and the wording of every callout, which the designer writes.
+
 **M51 — Low-end device performance**
 Profile on a 2 GB phone and low bandwidth. Tune streaming radius, rock pooling, enemy shadow update rates, and message sizes.
 
