@@ -12,7 +12,6 @@ local PlayerControlData = require("@game/ServerScriptService/GameData/Control/Pl
 local ProfileStore = require(script.Parent.Libs.ProfileStore)
 local ClassManager = require(script.Parent.ClassManager)
 local CosmeticManager = require(script.Parent.CosmeticManager)
-local SettingsManager = require(script.Parent.SettingsManager)
 local DevTools = require(script.Parent.DevTools)
 local HatManager = require(script.Parent.HatManager)
 local NetManager = require(script.Parent.NetManager)
@@ -354,9 +353,6 @@ function GameController:init()
 	-- from it
 	self.cosmeticManager = CosmeticManager
 	CosmeticManager:init(self, SplendidReplicationManager, HatManager)
-	-- the account's small preferences (the controls panel's toggle, 2026-11-09)
-	self.settingsManager = SettingsManager
-	SettingsManager:init(self, SplendidReplicationManager)
 
 	self.devTools = DevTools
 	DevTools:init(self, SplendidReplicationManager, ClassManager)
@@ -373,8 +369,6 @@ function GameController:init()
 		DevTools,
 		ClassManager,
 		CosmeticManager,
-		-- SettingsManager registers itself as a place manager (handlers and
-		-- the ready entry together)
 	}
 	for _, manager in handlerOwners do
 		self:addNetHandlers(manager)

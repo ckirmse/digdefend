@@ -142,7 +142,6 @@ Holding Area
 
 Lobby Menus
 HUD
-* Controls panel (2026-11-09, both places): a dark plate in the bottom right corner for keyboard and gamepad players (never on a touch device, whose buttons are on screen) listing the keys that do something right now, the key in the accent and the action beside it, rewritten as the moment changes: a manned post (aim, fire, tag for the Sniper, leave), Build Mode (place, pan, zoom, rotate, cancel, pick), the tool in hand (the pick axe's swing, the weapon's fire, reload, and aim, a gadget's own verb, the repair hammer), under the body's move, jump, jet pack, tool switch, and backpack. A minus button collapses it to a small CONTROLS tab that opens it again; the choice is saved on the account. It steps aside with the HUD while a menu is up
 * The HUD will show the player state and have buttons to access the various other menus
    * Player State/Balance 
       * Diamonds Balance (the game’s permanent currency; called Diamonds until 2026-10-06, M33, when it took the name players already understand and the diamond icon)

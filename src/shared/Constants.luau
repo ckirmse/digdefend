@@ -673,21 +673,6 @@ Constants.COMPASS_ARROW_DOWN = "ArrowDown"
 -- round dial to the right of the day clock, shown in mining mode. The raw
 -- uranium icon sits in the middle of three rings, Ring1 (inner) to Ring3
 -- (outer); the client shows as many as GeigerRules says are lit
--- the ControlsPanel ScreenGui (both places, 2026-11-09): the list of the
--- controls that apply right now, bottom right, for keyboard and gamepad
--- players (a touch device never shows it); ClientControlsPanelManager
--- fills the rows from pure ControlsRules and the toggle collapses it to
--- the tab, remembered on the save. Built by
--- scripts/studio/build_controls_panel_gui.luau
-Constants.CONTROLS_PANEL_GUI_NAME = "ControlsPanel"
-Constants.CONTROLS_PANEL_ROOT_FRAME = "Root"
-Constants.CONTROLS_PANEL_TITLE_LABEL = "Title"
-Constants.CONTROLS_PANEL_TOGGLE_BUTTON = "ToggleButton"
-Constants.CONTROLS_PANEL_ROWS_FRAME = "Rows"
-Constants.CONTROLS_PANEL_ROW_TEMPLATE = "RowTemplate"
-Constants.CONTROLS_PANEL_ROW_KEY_LABEL = "Key"
-Constants.CONTROLS_PANEL_ROW_ACTION_LABEL = "Action"
-Constants.CONTROLS_PANEL_COLLAPSED_TAB = "CollapsedTab"
 Constants.GEIGER_COUNTER_GUI_NAME = "GeigerCounter"
 Constants.GEIGER_COUNTER_ROOT_FRAME = "Root"
 Constants.GEIGER_COUNTER_DIAL = "Dial"

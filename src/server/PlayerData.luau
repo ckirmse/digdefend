@@ -61,7 +61,6 @@ local SAVE_FIELDS = {
 	"classProgress",
 	"keys",
 	"ownedCosmetics",
-	"isControlsPanelHidden",
 }
 
 local function buildValidSkillIds(): { [string]: boolean }
@@ -337,15 +336,6 @@ end
 
 function PlayerData:getKeys(): number
 	return self.keys
-end
-
--- the controls panel's collapsed state (SettingsManager, 2026-11-09)
-function PlayerData:getIsControlsPanelHidden(): boolean
-	return self.isControlsPanelHidden == true
-end
-
-function PlayerData:setIsControlsPanelHidden(isHidden: boolean)
-	self.isControlsPanelHidden = isHidden
 end
 
 function PlayerData:addKeys(amount: number)

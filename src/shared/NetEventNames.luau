@@ -11,9 +11,6 @@ module = {
 	-- of the account's one loadout ({ slot, skinId }; an empty id clears
 	-- it)
 	TRY_SET_COSMETIC = "TrySetCosmetic",
-	-- the controls panel's toggle, remembered on the save (SettingsManager,
-	-- 2026-11-09): { isHidden }
-	TRY_SET_CONTROLS_PANEL_HIDDEN = "TrySetControlsPanelHidden",
 	-- the Class Menu's perk rolls: one result per roll ({ classKind, slot
 	-- }), which the player keeps or undoes with the price spent either way.
 	-- The result is held on the server until resolved; the roll into an
