@@ -41,7 +41,6 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
 local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local KeyStoreRules = require("@game/ReplicatedStorage/Shared/KeyStoreRules")
-local SkillRules = require("@game/ReplicatedStorage/Shared/SkillRules")
 local CosmeticRules = require("@game/ReplicatedStorage/Shared/CosmeticRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
@@ -246,16 +245,11 @@ function ClientGachaMenuManager:getConfig(): GachaRules.Config_Published?
 	return GachaRules.decodeConfig(ClientDataManager:getGameMetadata(Attributes.GACHA_CONFIG))
 end
 
--- the name a cosmetic id shows: the cosmetics catalogue's skins, else
--- the hat catalogue's hats
+-- the name a cosmetic id shows: the cosmetics catalogue's skins; the id
+-- itself for one the catalogue does not know
 function ClientGachaMenuManager:cosmeticName(cosmeticId: string): string
 	local skin = self:findCosmeticEntry(cosmeticId)
-	if skin then
-		return skin.name
-	end
-	local catalogue = SkillRules.decodeHatCatalogue(ClientDataManager:getGameMetadata(Attributes.HAT_CATALOGUE))
-	local entry = catalogue[cosmeticId]
-	return if entry then entry.name else cosmeticId
+	return if skin then skin.name else cosmeticId
 end
 
 -- a cosmetic's Enums.Rarity, skin or hat, from the Key Store's one list;

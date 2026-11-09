@@ -16,7 +16,6 @@ local function makeEntries()
 		{ id = "ACORN_PICK", slot = Enums.CosmeticSlot.PICK_AXE, name = "Acorn Pick", priceKeys = 10, iconId = "rbxassetid://2" },
 		{ id = "ZEBRA_PICK", slot = Enums.CosmeticSlot.PICK_AXE, name = "Zebra Pick", priceKeys = 30, iconId = "rbxassetid://3" },
 		{ id = "APPLE_PACK", slot = Enums.CosmeticSlot.JET_PACK, name = "Apple Pack", priceKeys = 20, iconId = "rbxassetid://4" },
-		{ id = "TOP_HAT", slot = Enums.CosmeticSlot.HELMET, name = "Top Hat", priceKeys = 50, iconId = "rbxassetid://5" },
 	}
 end
 
@@ -65,18 +64,6 @@ describe(
 				expect(cards[2].isEquipped).toBe(false)
 				expect(cards[3].isOwned).toBe(true)
 				expect(cards[3].isEquipped).toBe(true)
-			end
-		)
-
-		it(
-			"offers the player's own hat as the helmet slot's stock card",
-			function()
-				local cards = GearLockerRules.cardsForSlot(makeEntries(), {}, { HELMET = "TOP_HAT" }, Enums.CosmeticSlot.HELMET, STOCK_ICON)
-				expect(cards[1].id).toBe(CosmeticLoadoutSchema.OWN_HAT_ID)
-				expect(cards[1].name).toBe(GearLockerRules.OWN_HAT_NAME)
-				expect(cards[1].isEquipped).toBe(false)
-				expect(cards[2].id).toBe("TOP_HAT")
-				expect(cards[2].isEquipped).toBe(true)
 			end
 		)
 

@@ -25,14 +25,6 @@ export type SkinEntry = {
 	RARITY: number?,
 }
 
--- a hat as GameData/Characters/Hats writes it
-export type HatEntry = {
-	ASSET_ID: number,
-	NAME: string,
-	PRICE_KEYS: number?,
-	RARITY: number?,
-}
-
 -- one item as the client draws it
 export type Entry = {
 	id: string,
@@ -49,26 +41,16 @@ export type Owned = { [string]: boolean }
 -- why a buy is refused; nil means it may go ahead
 export type BuyRefusal = "owned" | "unknown" | "short"
 
--- Roblox's own render of an accessory, the hat catalogue's picture
-local HAT_THUMBNAIL_FORMAT = "rbxthumb://type=Asset&id=%d&w=150&h=150"
-
 local function isValidPrice(price: any): boolean
 	return typeof(price) == "number" and price > 0 and price == math.floor(price)
 end
 
--- the problems with the two catalogues' prices and rarities, in order;
--- empty means every entry can be sold and shown
-function KeyStoreRules.validate(skins: { [string]: SkinEntry }, hats: { [string]: HatEntry }): { string }
+-- the problems with the catalogue's prices and rarities, in order; empty
+-- means every entry can be sold and shown (hats had their own catalogue
+-- until 2026-11-09)
+function KeyStoreRules.validate(skins: { [string]: SkinEntry }): { string }
 	local problems = {}
 	for id, entry in skins do
-		if not isValidPrice(entry.PRICE_KEYS) then
-			table.insert(problems, `{id} has no PRICE_KEYS (a positive whole number of Keys)`)
-		end
-		if not Enums.isValidValue(Enums.Rarity, entry.RARITY) then
-			table.insert(problems, `{id} has no Enums.Rarity RARITY`)
-		end
-	end
-	for id, entry in hats do
 		if not isValidPrice(entry.PRICE_KEYS) then
 			table.insert(problems, `{id} has no PRICE_KEYS (a positive whole number of Keys)`)
 		end
@@ -80,13 +62,9 @@ function KeyStoreRules.validate(skins: { [string]: SkinEntry }, hats: { [string]
 	return problems
 end
 
-function KeyStoreRules.hatIconId(assetId: number): string
-	return string.format(HAT_THUMBNAIL_FORMAT, assetId)
-end
-
--- the store's list: every skin and every hat, sorted by slot then name so
--- a slot's items sit together in the order the enum lists the slots
-function KeyStoreRules.build(skins: { [string]: SkinEntry }, hats: { [string]: HatEntry }, skinIcons: { [string]: string }, placeholderIconId: string): { Entry }
+-- the store's list: every skin, sorted by slot then name so a slot's
+-- items sit together in the order the enum lists the slots
+function KeyStoreRules.build(skins: { [string]: SkinEntry }, skinIcons: { [string]: string }, placeholderIconId: string): { Entry }
 	local entries: { Entry } = {}
 	for id, entry in skins do
 		table.insert(entries, {
@@ -95,16 +73,6 @@ function KeyStoreRules.build(skins: { [string]: SkinEntry }, hats: { [string]: H
 			name = entry.NAME,
 			priceKeys = entry.PRICE_KEYS or 0,
 			iconId = skinIcons[id] or placeholderIconId,
-			rarity = entry.RARITY or Enums.Rarity.COMMON,
-		})
-	end
-	for id, entry in hats do
-		table.insert(entries, {
-			id = id,
-			slot = Enums.CosmeticSlot.HELMET,
-			name = entry.NAME,
-			priceKeys = entry.PRICE_KEYS or 0,
-			iconId = KeyStoreRules.hatIconId(entry.ASSET_ID),
 			rarity = entry.RARITY or Enums.Rarity.COMMON,
 		})
 	end

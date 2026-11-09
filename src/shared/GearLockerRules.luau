@@ -29,12 +29,11 @@ GearLockerRules.LOCKER_SLOTS = {
 
 -- what the stock card of each slot is called
 GearLockerRules.DEFAULT_NAME = "Standard issue"
-GearLockerRules.OWN_HAT_NAME = "Your own hat"
 
--- the id a slot wears when its loadout entry is empty: the helmet slot
--- shows the player's own hat, any other its stock art
-function GearLockerRules.stockIdForSlot(slot: number): string
-	return if slot == Enums.CosmeticSlot.HELMET then CosmeticLoadoutSchema.OWN_HAT_ID else CosmeticLoadoutSchema.DEFAULT_SKIN_ID
+-- the id a slot wears when its loadout entry is empty: its stock art (the
+-- helmet slot showed the player's own hat until hats went, 2026-11-09)
+function GearLockerRules.stockIdForSlot(_slot: number): string
+	return CosmeticLoadoutSchema.DEFAULT_SKIN_ID
 end
 
 -- the id worn in a slot, the stock one when nothing is saved there
@@ -56,7 +55,7 @@ function GearLockerRules.cardsForSlot(
 	local cards: { Card } = {
 		{
 			id = stockId,
-			name = if slot == Enums.CosmeticSlot.HELMET then GearLockerRules.OWN_HAT_NAME else GearLockerRules.DEFAULT_NAME,
+			name = GearLockerRules.DEFAULT_NAME,
 			iconId = stockIconId,
 			isOwned = true,
 			isEquipped = wornId == stockId,

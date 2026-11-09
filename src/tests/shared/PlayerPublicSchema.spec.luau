@@ -33,7 +33,7 @@ local function makeSnapshot()
 		diamonds = 4321,
 		classRecords = makeRecords(),
 		activeClassKind = Enums.ClassKind.GUNNER,
-		cosmetics = { HELMET = "lamp" },
+		cosmetics = { PICK_AXE = "lamp" },
 		classProgress = PROGRESS,
 		maxSkillSlots = MAX_SKILL_SLOTS,
 		keys = 5,
@@ -119,7 +119,7 @@ describe(
 				expect(attributes[Attributes.IS_ADMIN]).toBe(true)
 				expect(attributes[Attributes.ACTIVE_CLASS_KIND]).toBe(Enums.ClassKind.GUNNER)
 				expect(ClassSchema.decodeRecords(attributes[Attributes.CLASS_RECORDS]).GUNNER.skills["1"].skillId).toBe("GOLD_DIGGER")
-				expect(CosmeticLoadoutSchema.decode(attributes[Attributes.COSMETICS])).toEqual({ HELMET = "lamp" })
+				expect(CosmeticLoadoutSchema.decode(attributes[Attributes.COSMETICS])).toEqual({ PICK_AXE = "lamp" })
 				expect(attributes[Attributes.DAILY_REWARD_LAST_CLAIMED_DAY]).toBe(3)
 				expect(attributes[Attributes.DAILY_REWARD_NEXT_CLAIM_TIME]).toBe(1700000000)
 				expect(attributes[Attributes.KEYS]).toBe(5)

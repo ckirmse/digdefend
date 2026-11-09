@@ -2,8 +2,8 @@
 
 -- The cosmetics catalogue's pure rules (M61 first pass, 2026-11-04): what
 -- a well-formed catalogue is, the list the client draws it from, and the
--- codec that carries it as one GameMetadata JSON string. Hats stay in
--- GameData/Characters/Hats with their own loader; this catalogue holds
+-- codec that carries it as one GameMetadata JSON string. Hats had their
+-- own catalogue and loader until 2026-11-09; this catalogue holds
 -- the skins made from the game's own templates (pick axes, jet packs,
 -- later every Enums.CosmeticSlot), each named by the id a save stores and
 -- the template under GameAssets/Cosmetics/<SLOT>/<template> it is drawn

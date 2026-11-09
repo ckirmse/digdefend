@@ -16,7 +16,6 @@
 -- client's own reading of the flag is never what decides.
 local PolicyService = game:GetService("PolicyService")
 
-local HatsData = require("@game/ServerScriptService/GameData/Characters/Hats")
 local CosmeticCatalogueData = require("@game/ServerScriptService/GameData/Cosmetics/Catalogue")
 local ClassRosterData = require("@game/ServerScriptService/GameData/Classes/Roster")
 local GachaData = require("@game/ServerScriptService/GameData/Gacha/Gacha")
@@ -120,9 +119,6 @@ function GachaManager:buildPool(): GachaRules.Pool
 		table.insert(excluded, classKind)
 	end
 	local cosmeticIds = {}
-	for hatId in HatsData.BY_ID do
-		table.insert(cosmeticIds, hatId)
-	end
 	for cosmeticId in CosmeticCatalogueData.BY_ID do
 		table.insert(cosmeticIds, cosmeticId)
 	end

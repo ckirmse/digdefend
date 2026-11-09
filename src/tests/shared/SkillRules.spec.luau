@@ -118,14 +118,5 @@ describe(
 				expect(SkillRules.decodeSkillCatalogue(nil)).toEqual({})
 			end
 		)
-
-		it(
-			"round-trips the hat catalogue",
-			function()
-				local hats = { HARD_HAT = { name = "Hard Hat", assetId = 123 } }
-				expect(SkillRules.decodeHatCatalogue(SkillRules.encodeHatCatalogue(hats))).toEqual(hats)
-				expect(SkillRules.decodeHatCatalogue("[1]")).toEqual({})
-			end
-		)
 	end
 )

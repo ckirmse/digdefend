@@ -36,13 +36,6 @@ export type SkillOffer = {
 	rarity: number,
 }
 
-export type HatCatalogueEntry = {
-	name: string,
-	assetId: number,
-}
-
-export type HatCatalogue = { [string]: HatCatalogueEntry }
-
 -- one line of the odds table a reroll shows before it is bought (Roblox's
 -- paid random items policy: every outcome's odds as a percentage, the
 -- tiers totalling 100%, reachable before the purchase)
@@ -196,24 +189,6 @@ function SkillRules.decodeSkillCatalogue(encoded: any): SkillCatalogue
 				name = entry.name,
 				description = if typeof(entry.description) == "string" then entry.description else "",
 			}
-		end
-	end
-	return catalogue
-end
-
-function SkillRules.encodeHatCatalogue(catalogue: HatCatalogue): string
-	return HttpService:JSONEncode(catalogue)
-end
-
-function SkillRules.decodeHatCatalogue(encoded: any): HatCatalogue
-	local catalogue: HatCatalogue = {}
-	local decoded = decodeJson(encoded)
-	if typeof(decoded) ~= "table" then
-		return catalogue
-	end
-	for id, entry in decoded do
-		if typeof(id) == "string" and typeof(entry) == "table" and typeof(entry.name) == "string" and typeof(entry.assetId) == "number" then
-			catalogue[id] = { name = entry.name, assetId = entry.assetId }
 		end
 	end
 	return catalogue

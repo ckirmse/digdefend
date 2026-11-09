@@ -550,13 +550,6 @@ Constants.WEARABLE_TEMPLATES_FOLDER = "Wearables"
 -- cosmetic skins (M61 first pass, 2026-11-04): GameAssets/Cosmetics/<SLOT
 -- name>/<template>, built by scripts/studio/build_cosmetic_templates.luau
 Constants.COSMETIC_TEMPLATES_FOLDER = "Cosmetics"
--- catalogue hats loaded by HatManager at startup (GameData/Characters/Hats),
--- one Accessory per hat id, so clients can clone one onto a menu avatar
-Constants.HAT_TEMPLATES_FOLDER = "Hats"
--- copies of the player's own avatar hats, kept by HatManager under their
--- PlayerGui (replicated to that player alone, never simulated) so the menu
--- avatars can wear them while the live character wears a catalogue hat
-Constants.OWN_HATS_FOLDER = "OwnHats"
 Constants.JET_PACK_TEMPLATE = "JET_PACK"
 -- the name the worn copy carries on a character (ClientJetPackManager,
 -- LobbyCharacterManager), so a menu avatar can take it off
@@ -1050,7 +1043,7 @@ Constants.REROLL_BUTTON_PRICE_LABEL = "PriceLabel"
 Constants.REROLL_BUTTON_PRICE_ICON = "PriceIcon"
 -- the cosmetic slots a class loadout shows, in order (designer,
 -- 2026-10-13: only these three until the other slots have skins)
-Constants.CLASS_COSMETIC_SLOTS = { Enums.CosmeticSlot.PICK_AXE, Enums.CosmeticSlot.JET_PACK, Enums.CosmeticSlot.HELMET }
+Constants.CLASS_COSMETIC_SLOTS = { Enums.CosmeticSlot.PICK_AXE, Enums.CosmeticSlot.JET_PACK }
 -- the info dialog over the menu (2026-10-13): a reroll's odds by rarity
 -- (the ODDS button) or a kit item's tooltip (tapping its slot)
 Constants.INFO_DIALOG_TITLE = "Title"

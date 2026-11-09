@@ -8,7 +8,6 @@ local HttpService = game:GetService("HttpService")
 
 local GachaData = require("@game/ServerScriptService/GameData/Gacha/Gacha")
 local ClassRosterData = require("@game/ServerScriptService/GameData/Classes/Roster")
-local HatsData = require("@game/ServerScriptService/GameData/Characters/Hats")
 local SkillsData = require("@game/ServerScriptService/GameData/Characters/Skills")
 local PlayerControlData = require("@game/ServerScriptService/GameData/Control/Player")
 local ClassSchema = require("@game/ReplicatedStorage/Shared/ClassSchema")
@@ -82,9 +81,9 @@ local CLASS_DEFAULTS: ClassSchema.Defaults = {
 local SCHEMA_DEFAULTS: PlayerSaveSchema.Defaults = {
 	startingDiamonds = PlayerControlData.STARTING_DIAMONDS,
 	class = CLASS_DEFAULTS,
-	defaultCosmetics = {
-		[Enums.getName(Enums.CosmeticSlot, Enums.CosmeticSlot.HELMET) :: string] = HatsData.DEFAULT_HAT_ID,
-	},
+	-- no slot has a default skin: an unset slot is the stock art (the Hard
+	-- Hat was the helmet's until hats went, 2026-11-09)
+	defaultCosmetics = {},
 	defaultClassKind = ClassRosterData.DEFAULT_CLASS,
 }
 

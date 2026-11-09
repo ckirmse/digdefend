@@ -15,7 +15,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
-local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local CosmeticLoadoutSchema = require("@game/ReplicatedStorage/Shared/CosmeticLoadoutSchema")
@@ -223,10 +222,11 @@ local function applyGearSkins(model: Model, cosmetics: { [string]: string })
 	end
 end
 
--- the class's equipped cosmetics on the preview (Enums.CosmeticSlot key
--- name -> skin id). Hats swap the avatar's own hat for the equipped one
--- (first pass, 2026-10-12); the pick axe and the jet pack are the slot's
--- template under GameAssets/Cosmetics (2026-11-04)
+-- the account's equipped cosmetics on the preview (Enums.CosmeticSlot
+-- key name -> skin id): the pick axe and the jet pack are the slot's
+-- template under GameAssets/Cosmetics (2026-11-04). The copy keeps the
+-- player's own hats, as the live character does (hat cosmetics went
+-- 2026-11-09)
 local function applyCosmetics(model: Model, cosmetics: { [string]: string }?)
 	if not cosmetics then
 		return
@@ -238,30 +238,6 @@ local function applyCosmetics(model: Model, cosmetics: { [string]: string }?)
 		wornJetPack:Destroy()
 	end
 	applyGearSkins(model, cosmetics)
-	local hatId = cosmetics[Enums.getName(Enums.CosmeticSlot, Enums.CosmeticSlot.HELMET) :: string]
-	local gameAssets = getGameAssets()
-	local hats = if gameAssets then gameAssets:FindFirstChild(Constants.HAT_TEMPLATES_FOLDER) else nil
-	local template = if hats and hatId then hats:FindFirstChild(hatId) else nil
-	-- the copy may be wearing another class's hat: always start bare-headed
-	Wearables.removeHatAccessories(model)
-	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
-	local ownHats = if playerGui then playerGui:FindFirstChild(Constants.OWN_HATS_FOLDER) else nil
-	if template and template:IsA("Accessory") then
-		-- a template is raw catalogue size; the live character's Humanoid
-		-- would scale it to the build, so the server's measured factor does
-		local scale = if ownHats then ownHats:GetAttribute(Attributes.HAT_SCALE) else nil
-		Wearables.wearAccessory(model, template, if typeof(scale) == "number" then scale else 1)
-		return
-	end
-	-- the player's own hats, as the server copied them (already worn size)
-	if not ownHats then
-		return
-	end
-	for _, ownHat in ownHats:GetChildren() do
-		if ownHat:IsA("Accessory") then
-			Wearables.wearAccessory(model, ownHat)
-		end
-	end
 end
 
 -- a copy of the player's own character, made once so an avatar that loads

@@ -34,21 +34,6 @@ function Wearables.removeBackAccessories(character: Model)
 end
 
 -- a legacy catalogue hat reports Unknown, so its hat attachment tells
-function Wearables.isHatAccessory(accessory: Accessory): boolean
-	local handle = accessory:FindFirstChild(Constants.TOOL_HANDLE_PART)
-	return accessory.AccessoryType == Enum.AccessoryType.Hat
-		or (handle ~= nil and handle:FindFirstChild("HatAttachment") ~= nil)
-end
-
--- the player's own hat comes off when a character has one equipped
-function Wearables.removeHatAccessories(character: Model)
-	for _, child in character:GetChildren() do
-		if child:IsA("Accessory") and Wearables.isHatAccessory(child) then
-			child:Destroy()
-		end
-	end
-end
-
 -- a Humanoid shrinks or grows a worn accessory to the avatar's build; a
 -- rig without one gets the same treatment here: the handle, its mesh, and
 -- every attachment offset by one factor

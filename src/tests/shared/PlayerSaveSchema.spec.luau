@@ -14,7 +14,7 @@ local DEFAULTS = {
 		maxSkillSlots = 3,
 		validSkillIds = { GOLD_DIGGER = true },
 	},
-	defaultCosmetics = { HELMET = "HARD_HAT" },
+	defaultCosmetics = {},
 	defaultClassKind = Enums.ClassKind.RECRUIT,
 }
 
@@ -28,7 +28,7 @@ local function makeValidSave()
 	return {
 		diamonds = 250,
 		classes = { RECRUIT = makeClassRecord(), GUNNER = makeClassRecord() },
-		cosmetics = { HELMET = "LAMP" },
+		cosmetics = { PICK_AXE = "LAMP" },
 		activeClassKind = "GUNNER",
 		completions = { ["DEADMANS_CANYON/NORMAL"] = true },
 		dailyReward = { lastClaimedDay = 3, nextClaimTime = 1700000000 },
@@ -55,14 +55,14 @@ describe(
 				})
 				expect(data.diamonds).toBe(50)
 				expect(data.classes).toEqual({})
-				expect(data.cosmetics).toEqual({ HELMET = "HARD_HAT" })
+				expect(data.cosmetics).toEqual({})
 				expect(data.activeClassKind).toBe("RECRUIT")
 				expect(data.completions).toEqual({})
 				expect(data.dailyReward).toEqual({ lastClaimedDay = 0, nextClaimTime = 0 })
 				expect(data.sessionMeta.sessions).toBe(0)
 				expect(data.classProgress).toEqual({ RECRUIT = 0 })
 				expect(data.keys).toBe(0)
-				expect(data.ownedCosmetics).toEqual({ HARD_HAT = true })
+				expect(data.ownedCosmetics).toEqual({})
 			end
 		)
 
@@ -99,10 +99,10 @@ describe(
 				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
 				expect(validated.classProgress).toEqual({ RECRUIT = 0, GUNNER = 3, SNIPER = 0 })
 				expect(validated.keys).toBe(0)
-				expect(validated.ownedCosmetics).toEqual({ HARD_HAT = true, LAMP = true })
+				expect(validated.ownedCosmetics).toEqual({ LAMP = true })
 				-- the clamp, the reset, the dropped class, the restored Recruit,
-				-- the keys, the two dropped cosmetics, the restored hat
-				expect(#repairs).toBe(8)
+				-- the keys, the two dropped cosmetics
+				expect(#repairs).toBe(7)
 			end
 		)
 
@@ -114,7 +114,7 @@ describe(
 				save.ownedCosmetics = 7
 				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
 				expect(validated.classProgress).toEqual({ RECRUIT = 0 })
-				expect(validated.ownedCosmetics).toEqual({ HARD_HAT = true })
+				expect(validated.ownedCosmetics).toEqual({})
 				-- the Gunner is no longer owned, so the active class falls back too
 				expect(validated.activeClassKind).toBe("RECRUIT")
 				expect(#repairs).toBe(3)
@@ -127,14 +127,14 @@ describe(
 				local save = makeValidSave()
 				save.cosmetics = { BOGUS = "x" }
 				local validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
-				expect(validated.cosmetics).toEqual({ HELMET = "HARD_HAT" })
-				expect(#repairs).toBe(2)
+				expect(validated.cosmetics).toEqual({})
+				expect(#repairs).toBe(1)
 
 				save = makeValidSave()
-				save.classes.GUNNER.cosmetics = { HELMET = "lamp" }
-				save.classes.RECRUIT.cosmetics = { HELMET = "other" }
+				save.classes.GUNNER.cosmetics = { PICK_AXE = "lamp" }
+				save.classes.RECRUIT.cosmetics = { PICK_AXE = "other" }
 				validated, repairs = PlayerSaveSchema.validate(save, DEFAULTS)
-				expect(validated.cosmetics).toEqual({ HELMET = "lamp" })
+				expect(validated.cosmetics).toEqual({ PICK_AXE = "lamp" })
 				expect(validated.classes.GUNNER).toEqual(makeClassRecord())
 				expect(validated.classes.RECRUIT).toEqual(makeClassRecord())
 				expect(repairs).toEqual({ "class cosmetics migrated to the account loadout" })
@@ -264,8 +264,8 @@ describe(
 				expect(validated.reviveCredits).toEqual({ SELF = 0, FRIEND = 0, TEAM = 0 })
 				expect(validated.classProgress).toEqual({ RECRUIT = 0 })
 				expect(validated.keys).toBe(0)
-				expect(validated.ownedCosmetics).toEqual({ HARD_HAT = true })
-				expect(validated.cosmetics).toEqual({ HELMET = "HARD_HAT" })
+				expect(validated.ownedCosmetics).toEqual({})
+				expect(validated.cosmetics).toEqual({})
 				expect(#repairs).toBe(11)
 			end
 		)
@@ -346,7 +346,7 @@ describe(
 				nightsSurvived = 4,
 				gear = {},
 				skills = if skillId then { ["1"] = { skillId = skillId, rarity = Enums.Rarity.COMMON } } else {},
-				cosmetics = { HELMET = "lamp" },
+				cosmetics = { PICK_AXE = "lamp" },
 			}
 		end
 
@@ -363,7 +363,7 @@ describe(
 				expect(validated.activeCharacterId).toBeNil()
 				expect(validated.activeClassKind).toBe("GUNNER")
 				expect(validated.classes.GUNNER.skills["1"].skillId).toBe("GOLD_DIGGER")
-				expect(validated.cosmetics).toEqual({ HELMET = "lamp" })
+				expect(validated.cosmetics).toEqual({ PICK_AXE = "lamp" })
 				expect(validated.classes.RECRUIT.skills).toEqual({})
 				expect(table.find(repairs, "characters migrated to classes")).never.toBeNil()
 			end

@@ -17,7 +17,6 @@ local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local KeyStoreRules = require("@game/ReplicatedStorage/Shared/KeyStoreRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local CosmeticCatalogueData = require("@game/ServerScriptService/GameData/Cosmetics/Catalogue")
-local HatsData = require("@game/ServerScriptService/GameData/Characters/Hats")
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
 local PlayerFeedbackManager = require(script.Parent.Parent.Server.PlayerFeedbackManager)
@@ -83,11 +82,11 @@ function KeyStoreManager:buy(player: Player, cosmeticId: string)
 end
 
 function KeyStoreManager:init()
-	local problems = KeyStoreRules.validate(CosmeticCatalogueData.BY_ID, HatsData.BY_ID)
+	local problems = KeyStoreRules.validate(CosmeticCatalogueData.BY_ID)
 	if #problems > 0 then
 		error("KeyStoreManager: a cosmetic has no Keys price: " .. table.concat(problems, "; "))
 	end
-	self.entries = KeyStoreRules.build(CosmeticCatalogueData.BY_ID, HatsData.BY_ID, Icons.COSMETIC_SKIN, Icons.PLACEHOLDER)
+	self.entries = KeyStoreRules.build(CosmeticCatalogueData.BY_ID, Icons.COSMETIC_SKIN, Icons.PLACEHOLDER)
 	-- the list never changes at runtime, so one publish serves every client
 	SplendidReplicationManager:setGameMetadata(Attributes.KEY_STORE_CATALOGUE, KeyStoreRules.encode(self.entries))
 	GameController:registerPlaceManager(self)

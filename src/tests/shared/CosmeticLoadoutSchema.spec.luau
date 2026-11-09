@@ -7,7 +7,7 @@ local expect = JestGlobals.expect
 
 local CosmeticLoadoutSchema = require(game:GetService("ReplicatedStorage").Shared.CosmeticLoadoutSchema)
 
-local DEFAULT_COSMETICS = { HELMET = "HARD_HAT", PICK_AXE = "DEFAULT" }
+local DEFAULT_COSMETICS = { PICK_AXE = "DEFAULT" }
 
 describe(
 	"CosmeticLoadoutSchema.getDefault",
@@ -30,7 +30,7 @@ describe(
 			"passes a good loadout through with no repairs",
 			function()
 				local repairs = {}
-				local loadout = { HELMET = "lamp", PICK_AXE = "ZEBRA_PICK", JET_PACK = "DEFAULT" }
+				local loadout = { PICK_AXE = "ZEBRA_PICK", JET_PACK = "DEFAULT" }
 				expect(CosmeticLoadoutSchema.validate(loadout, DEFAULT_COSMETICS, "cosmetics.", repairs)).toBe(loadout)
 				expect(repairs).toEqual({})
 			end
@@ -41,8 +41,8 @@ describe(
 			function()
 				local repairs = {}
 				local loadout = CosmeticLoadoutSchema.validate({ BOGUS = "x", HELMET = "", JET_PACK = 4 }, DEFAULT_COSMETICS, "cosmetics.", repairs)
-				expect(loadout).toEqual({ HELMET = "HARD_HAT", PICK_AXE = "DEFAULT" })
-				expect(#repairs).toBe(5)
+				expect(loadout).toEqual({ PICK_AXE = "DEFAULT" })
+				expect(#repairs).toBe(4)
 			end
 		)
 
@@ -63,7 +63,7 @@ describe(
 		it(
 			"round-trips a loadout and reads garbage as empty",
 			function()
-				local loadout = { HELMET = "lamp" }
+				local loadout = { JET_PACK = "lamp" }
 				expect(CosmeticLoadoutSchema.decode(CosmeticLoadoutSchema.encode(loadout))).toEqual(loadout)
 				expect(CosmeticLoadoutSchema.decode(nil)).toEqual({})
 				expect(CosmeticLoadoutSchema.decode("not json")).toEqual({})

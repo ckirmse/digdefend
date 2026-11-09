@@ -7,7 +7,8 @@
 -- under GameAssets/Cosmetics/<SLOT>/<TEMPLATE> (built by
 -- scripts/studio/build_cosmetic_templates.luau). Every entry here joins
 -- the class gacha's pool (GachaManager) and the Key Store (KeyStoreManager,
--- M61), which sells it for PRICE_KEYS Keys; hats live in Characters/Hats.
+-- M61), which sells it for PRICE_KEYS Keys; the slots are pick axes and
+-- jet packs (hats went 2026-11-09).
 -- The two entries are placeholders cut from the stock pick axe and jet
 -- pack so the crate reveal can be tested; real skins replace them. The
 -- prices are placeholders too (2026-11-05). Every entry carries a RARITY

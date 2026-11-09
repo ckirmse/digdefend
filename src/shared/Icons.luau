@@ -130,9 +130,9 @@ Icons.CLASS_KIND = {
 	[Enums.ClassKind.AIR_DEFENSE] = "rbxassetid://110014529125871",
 }
 
--- the type box of each row on the sheet's COSMETICS tab (designer's
--- mock-up, 2026-10-13): the slot's own art where it exists, the Hard Hat's
--- catalogue thumbnail for the Helmet, the placeholder for the rest
+-- the type box of each cosmetic slot (designer's mock-up, 2026-10-13):
+-- the slot's own art where it exists (the hat category icon went with
+-- the hats, 2026-11-09)
 Icons.COSMETIC_SLOT = {
 	[Enums.CosmeticSlot.PICK_AXE] = "rbxassetid://80581106612931",
 	[Enums.CosmeticSlot.HAMMER] = "rbxassetid://96069694494045",
@@ -141,11 +141,9 @@ Icons.COSMETIC_SLOT = {
 	[Enums.CosmeticSlot.TOWER] = "rbxassetid://72202536661953",
 	[Enums.CosmeticSlot.JET_PACK] = "rbxassetid://110721276111650",
 	[Enums.CosmeticSlot.BACKPACK] = "rbxassetid://135327278539325",
-	-- the designer's hat category icon (2026-10-13)
-	[Enums.CosmeticSlot.HELMET] = "rbxassetid://94277531430593",
 }
 
--- the one skin each non-hat slot offers so far, the game's existing
+-- the one skin each slot offers so far, the game's existing
 -- asset: renders of GameAssets/Tools/PICK_AXE_1 and
 -- GameAssets/Wearables/JET_PACK captured on 2026-10-13 (placeholders
 -- until the skin art lands; the type box keeps its white glyph above)
@@ -156,7 +154,7 @@ Icons.COSMETIC_DEFAULT_SKIN = {
 
 -- the Key Store's picture of each skin by catalogue id (M61, 2026-11-05):
 -- the placeholder skins reuse the renders above until their art lands; a
--- skin with no entry shows the placeholder. Hats take Roblox's thumbnail
+-- skin with no entry shows the placeholder
 Icons.COSMETIC_SKIN = {
 	TEST_PICK_AXE = Icons.COSMETIC_DEFAULT_SKIN[Enums.CosmeticSlot.PICK_AXE],
 	TEST_JET_PACK = Icons.COSMETIC_DEFAULT_SKIN[Enums.CosmeticSlot.JET_PACK],

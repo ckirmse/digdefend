@@ -64,7 +64,7 @@ export type Result = {
 -- odds list and the reveal strip draw (every entry of a kind is equally
 -- likely, so an entry's odds are its kind's share over the kind's count)
 export type Prize = {
-	-- "CLASS:2", "COSMETIC:HARD_HAT", "KEYS": the strip's stable tile name
+	-- "CLASS:2", "COSMETIC:TEST_PICK_AXE", "KEYS": the strip's stable tile name
 	key: string,
 	kind: number,
 	classKind: number?,

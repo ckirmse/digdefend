@@ -900,7 +900,8 @@ module = {
 		TOWER = 5,
 		JET_PACK = 6,
 		BACKPACK = 7,
-		HELMET = 8,
+		-- HELMET was 8 until 2026-11-09, when hat cosmetics and HatManager
+		-- were removed (designer: pick axe and jet pack skins only for now)
 
 		PublicNames = {
 			PICK_AXE = "Pick Axe",
@@ -910,7 +911,6 @@ module = {
 			TOWER = "Tower",
 			JET_PACK = "Jet Pack",
 			BACKPACK = "Backpack",
-			HELMET = "Helmet",
 		},
 	},
 

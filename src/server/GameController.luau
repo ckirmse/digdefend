@@ -13,7 +13,6 @@ local ProfileStore = require(script.Parent.Libs.ProfileStore)
 local ClassManager = require(script.Parent.ClassManager)
 local CosmeticManager = require(script.Parent.CosmeticManager)
 local DevTools = require(script.Parent.DevTools)
-local HatManager = require(script.Parent.HatManager)
 local NetManager = require(script.Parent.NetManager)
 local PlayerData = require(script.Parent.PlayerData)
 local PlayerFeedbackManager = require(script.Parent.PlayerFeedbackManager)
@@ -344,15 +343,11 @@ function GameController:init()
 	-- the record of truth for a player's classes is PlayerData; this
 	-- manager is the one writer, so every change is replicated (M55, the
 	-- Class Menu of 2026-11-04)
-	-- hats load from the catalogue before any player is Ready (M37, 2026-10-12)
-	self.hatManager = HatManager
-	HatManager:init(self, SplendidReplicationManager)
 	self.classManager = ClassManager
 	ClassManager:init(self, SplendidReplicationManager, NetManager)
-	-- the account's one cosmetic loadout (2026-11-04); HatManager dresses
-	-- from it
+	-- the account's one cosmetic loadout (2026-11-04)
 	self.cosmeticManager = CosmeticManager
-	CosmeticManager:init(self, SplendidReplicationManager, HatManager)
+	CosmeticManager:init(self, SplendidReplicationManager)
 
 	self.devTools = DevTools
 	DevTools:init(self, SplendidReplicationManager, ClassManager)

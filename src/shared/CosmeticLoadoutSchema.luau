@@ -2,7 +2,7 @@
 
 -- The shape of a player's one cosmetic loadout (designer, 2026-11-04:
 -- cosmetics belong to the account, not to a class, so every class is
--- played in the same hat, pick axe, and jet pack). A map of
+-- played in the same pick axe and jet pack; hats went 2026-11-09). A map of
 -- Enums.CosmeticSlot key name to skin id, on the save as `cosmetics`.
 -- Pure, like PlayerSaveSchema: defaults in, a repaired loadout out, so
 -- every rule is unit tested and PlayerData stays thin.
@@ -17,9 +17,6 @@ export type Loadout = { [string]: string }
 
 export type Repair = string
 
--- the skin id that means "no skin here, the player's own look": stored on
--- purpose so a cleared slot is told apart from one that was never set
-CosmeticLoadoutSchema.OWN_HAT_ID = "OWN_HAT"
 -- the stock art of a slot (the pick axe, the jet pack); saved explicitly
 -- so a pick is a pick (designer, 2026-10-13)
 CosmeticLoadoutSchema.DEFAULT_SKIN_ID = "DEFAULT"

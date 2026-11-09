@@ -263,7 +263,7 @@ infoName.Position = UDim2.fromScale(0.5, 0.46)
 infoName.Size = UDim2.fromScale(0.9, 0.1)
 infoName.Parent = infoPanel
 
-local infoSlot = makeLabel(Constants.KEY_STORE_INFO_SLOT_LABEL, "Helmet", UiStyle.BODY_FONT, UiStyle.TEXT_MUTED_COLOR, 22)
+local infoSlot = makeLabel(Constants.KEY_STORE_INFO_SLOT_LABEL, "Pick Axe", UiStyle.BODY_FONT, UiStyle.TEXT_MUTED_COLOR, 22)
 infoSlot.AnchorPoint = Vector2.new(0.5, 0)
 infoSlot.Position = UDim2.fromScale(0.5, 0.57)
 infoSlot.Size = UDim2.fromScale(0.9, 0.07)

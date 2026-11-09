@@ -244,15 +244,9 @@ module = {
 	-- on any GuiButton: the SoundNames.Sfx name it plays instead of the
 	-- button click, or "" to stay silent (ClientButtonSoundManager, 2026-10-13)
 	BUTTON_SOUND = "ButtonSound",
-	-- GameMetadata: JSON of the hat catalogue (SkillRules codec), the
-	-- cosmetics first pass of 2026-10-12
-	HAT_CATALOGUE = "HatCatalogue",
 	-- GameMetadata: JSON of the cosmetics catalogue (CosmeticRules codec),
 	-- the skins made from the game's own templates (M61 first pass, 2026-11-04)
 	COSMETIC_CATALOGUE = "CosmeticCatalogue",
-	-- on a player's OwnHats folder: the factor a Humanoid scales a worn
-	-- accessory by for this avatar's build, so a menu avatar matches
-	HAT_SCALE = "HatScale",
 	DAILY_REWARD_LAST_CLAIMED_DAY = "DailyRewardLastClaimedDay",
 	DAILY_REWARD_NEXT_CLAIM_TIME = "DailyRewardNextClaimTime",
 	-- on each structure shadow part (StructureManager, M23): what it is and
