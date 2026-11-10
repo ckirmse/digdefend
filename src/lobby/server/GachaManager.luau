@@ -21,6 +21,7 @@ local ClassRosterData = require("@game/ServerScriptService/GameData/Classes/Rost
 local GachaData = require("@game/ServerScriptService/GameData/Gacha/Gacha")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local CosmeticRules = require("@game/ReplicatedStorage/Shared/CosmeticRules")
+local DailyStoreRules = require("@game/ReplicatedStorage/Shared/DailyStoreRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
@@ -43,14 +44,18 @@ export type GachaManager = typeof(setmetatable(
 		-- the policy answer per Ready player; absent until it arrives,
 		-- which counts as not restricted
 		isRestrictedByPlayer: { [Player]: boolean },
+		-- the rotating Gear Store's current set; nil until first asked for
+		dailyStore: DailyStoreRules.Store?,
 	},
 	GachaManager
 ))
 
 local EMPTY_SHAPE = {}
 
-local BUY_CLASS_SHAPE = {
-	classKind = { type = "enum", name = "ClassKind" },
+-- one thing from the rotating store: a class card or a cosmetic
+local BUY_STORE_ITEM_SHAPE = {
+	classKind = { type = "enum", name = "ClassKind", optional = true },
+	cosmeticId = { type = "string", optional = true },
 }
 
 local SET_KEYS_ARGS_SHAPE = {
@@ -79,11 +84,22 @@ GachaManager.SET_RESTRICTED_COMMAND = "setPaidRandomRestricted"
 GachaManager.CLEAR_CLASS_PROGRESS_COMMAND = "clearClassProgress"
 GachaManager.CLEAR_COSMETICS_COMMAND = "clearCosmetics"
 GachaManager.RESET_CRATE_TUTORIAL_COMMAND = "resetCrateTutorial"
+GachaManager.RESET_FREE_REROLLS_COMMAND = "resetFreeRerolls"
+GachaManager.RESET_STORE_PURCHASES_COMMAND = "resetStorePurchases"
 
+local FEEDBACK_ALREADY_PURCHASED = "You already bought that card today"
 local FEEDBACK_RESTRICTED = "Rolling is not available on this account"
 local FEEDBACK_NOT_RESTRICTED = "Classes are rolled on this account"
 local FEEDBACK_CLASS_OWNED = "You already own that class"
 local FEEDBACK_CLASS_NOT_SOLD = "That class is not for sale"
+local FEEDBACK_CLASS_NOT_OWNED = "You don't own that class"
+local FEEDBACK_CLASS_MAXED = "That class is fully upgraded"
+local FEEDBACK_COSMETIC_OWNED = "You already own that"
+local FEEDBACK_COSMETIC_NOT_SOLD = "That is not for sale"
+local FEEDBACK_NOT_TODAY = "That is not in the store today"
+-- the republish runs this long after the set's change, so the clock is
+-- safely past it
+local DAILY_STORE_REFRESH_GRACE_SEC = 1
 
 function GachaManager:getNetHandlers()
 	return {
@@ -93,10 +109,10 @@ function GachaManager:getNetHandlers()
 				self:roll(player, false)
 			end,
 		},
-		[NetEventNames.TRY_BUY_CLASS] = {
-			shape = BUY_CLASS_SHAPE,
+		[NetEventNames.TRY_BUY_STORE_ITEM] = {
+			shape = BUY_STORE_ITEM_SHAPE,
 			handler = function(player: Player, payload: { [string]: any })
-				self:buyClass(player, payload.classKind)
+				self:buyStoreItem(player, payload.classKind, payload.cosmeticId)
 			end,
 		},
 	}
@@ -137,6 +153,8 @@ function GachaManager:getPublishedConfig(): GachaRules.Config_Published
 	return {
 		rollPriceDiamonds = GachaData.ROLL_PRICE_DIAMONDS,
 		directClassPriceDiamonds = GachaData.DIRECT_CLASS_PRICE_DIAMONDS,
+		directUpgradePriceDiamondsBySlot = GachaData.DIRECT_UPGRADE_PRICE_DIAMONDS_BY_SLOT,
+		directCosmeticPriceDiamondsByRarity = GachaData.DIRECT_COSMETIC_PRICE_DIAMONDS_BY_RARITY,
 		odds = GachaRules.odds(self.pool),
 		poolClassKinds = self.pool.classKinds,
 		prizes = GachaRules.prizeList(self.pool),
@@ -219,10 +237,20 @@ function GachaManager:roll(player: Player, isFree: boolean, forcedDraw: GachaRul
 	self:grant(player, playerData, result)
 end
 
+-- a class card sells once per class per day (designer, 2026-11-10):
+-- written once the Diamonds are spent and before grant(), which
+-- replicates and saves it with the prize
+function GachaManager:recordStoreClassPurchase(playerData: PlayerData.PlayerData, classKind: number, storeDay: number)
+	local className = Enums.getName(Enums.ClassKind, classKind)
+	if className then
+		DailyStoreRules.recordClassPurchase(playerData:getStorePurchases(), storeDay, className)
+	end
+end
+
 -- the restricted player's road: a class outright, with no skill slots,
 -- at the direct price; refused for everyone else, since the gacha is the
 -- only source of classes by design
-function GachaManager:buyClass(player: Player, classKind: number)
+function GachaManager:buyClass(player: Player, classKind: number, storeDay: number)
 	local playerData = GameController:getPlayerData(player)
 	if not playerData then
 		return
@@ -244,7 +272,159 @@ function GachaManager:buyClass(player: Player, classKind: number)
 		return
 	end
 	SplendidReplicationManager:replicateDiamonds(player)
+	self:recordStoreClassPurchase(playerData, classKind, storeDay)
 	self:grant(player, playerData, { kind = Enums.GachaResultKind.CLASS, classKind = classKind, keys = 0 })
+end
+
+-- the restricted player's tier: the next skill slot of a class they own,
+-- at that slot's price (2026-11-10). A rolling player gets it from a
+-- duplicate in a crate, so it is refused for them
+function GachaManager:upgradeClass(player: Player, classKind: number, storeDay: number)
+	local playerData = GameController:getPlayerData(player)
+	if not playerData then
+		return
+	end
+	if not self:isRestricted(player) then
+		PlayerFeedbackManager:give(player, FEEDBACK_NOT_RESTRICTED)
+		return
+	end
+	local progress = playerData:getClassProgress()
+	if not GachaRules.isClassOwned(progress, classKind) then
+		PlayerFeedbackManager:give(player, FEEDBACK_CLASS_NOT_OWNED)
+		return
+	end
+	local price = GachaRules.directUpgradePrice(GachaData.DIRECT_UPGRADE_PRICE_DIAMONDS_BY_SLOT, progress, classKind, GachaData.MAX_SKILL_SLOTS)
+	if not price then
+		PlayerFeedbackManager:give(player, FEEDBACK_CLASS_MAXED)
+		return
+	end
+	if not playerData:spendDiamonds(price) then
+		PlayerFeedbackManager:giveDiamondsShort(player, price, playerData:getDiamonds())
+		return
+	end
+	SplendidReplicationManager:replicateDiamonds(player)
+	local skillSlot = GachaRules.openSkillSlots(progress, classKind, GachaData.MAX_SKILL_SLOTS) + 1
+	self:recordStoreClassPurchase(playerData, classKind, storeDay)
+	self:grant(player, playerData, { kind = Enums.GachaResultKind.SKILL_SLOT, classKind = classKind, skillSlot = skillSlot, keys = 0 })
+end
+
+-- the rotating Gear Store's set for the day (designer, 2026-11-10): a
+-- pure function of the clock and the catalogue (DailyStoreRules), so
+-- every server shows the same; held here and worked out again once the
+-- day has turned
+function GachaManager:getDailyStore(): DailyStoreRules.Store
+	local now = workspace:GetServerTimeNow()
+	local store = self.dailyStore
+	if store and now < store.refreshTime then
+		return store
+	end
+	local settings = GachaData.DAILY_STORE
+	local classIds = {}
+	for _, classKind in self.pool.classKinds do
+		local className = Enums.getName(Enums.ClassKind, classKind)
+		if className then
+			table.insert(classIds, className)
+		end
+	end
+	local fresh = DailyStoreRules.build(
+		classIds,
+		self.pool.cosmeticIds,
+		now,
+		{
+			classCount = settings.CLASS_COUNT,
+			cosmeticCount = settings.COSMETIC_COUNT,
+			intervalSec = settings.INTERVAL_SEC,
+		}
+	)
+	self.dailyStore = fresh
+	return fresh
+end
+
+function GachaManager:publishDailyStore()
+	SplendidReplicationManager:setGameMetadata(Attributes.DAILY_STORE, DailyStoreRules.encode(self:getDailyStore()))
+end
+
+-- publishes the set now and again each time it changes, for as long as
+-- the server runs
+function GachaManager:runDailyStore()
+	self:publishDailyStore()
+	task.spawn(
+		function()
+			while true do
+				local waitSec = self:getDailyStore().refreshTime - workspace:GetServerTimeNow()
+				task.wait(math.max(waitSec, 0) + DAILY_STORE_REFRESH_GRACE_SEC)
+				self:publishDailyStore()
+			end
+		end
+	)
+end
+
+-- the restricted player's cosmetic: bought by name for Diamonds, priced
+-- by its rarity (2026-11-10). It is granted as a crate result, so it
+-- joins the same owned set the crate and the Key Store fill and the
+-- client opens the crate on it
+function GachaManager:buyCosmetic(player: Player, cosmeticId: string)
+	local playerData = GameController:getPlayerData(player)
+	if not playerData then
+		return
+	end
+	local definition = (CosmeticCatalogueData.BY_ID :: { [string]: any })[cosmeticId]
+	local price = if definition then GachaRules.directCosmeticPrice(GachaData.DIRECT_COSMETIC_PRICE_DIAMONDS_BY_RARITY, definition.RARITY) else nil
+	if not price then
+		warn(`GachaManager: {player.Name} asked to buy cosmetic {cosmeticId}, which has no direct price`)
+		PlayerFeedbackManager:give(player, FEEDBACK_COSMETIC_NOT_SOLD)
+		return
+	end
+	if playerData:getOwnedCosmetics()[cosmeticId] then
+		PlayerFeedbackManager:give(player, FEEDBACK_COSMETIC_OWNED)
+		return
+	end
+	if not playerData:spendDiamonds(price) then
+		PlayerFeedbackManager:giveDiamondsShort(player, price, playerData:getDiamonds())
+		return
+	end
+	SplendidReplicationManager:replicateDiamonds(player)
+	self:grant(player, playerData, { kind = Enums.GachaResultKind.COSMETIC, cosmeticId = cosmeticId, keys = 0 })
+end
+
+-- one purchase from the rotating store (designer, 2026-11-10): only a
+-- restricted player shops there, and only for what is on sale today. A
+-- class card is the next step of its class, the class itself when it is
+-- not owned and its next tier when it is, as a crate's card would be;
+-- each is granted as a crate result (grant sends NotifyGachaResult), so
+-- the client plays the crate opening on exactly what was bought
+function GachaManager:buyStoreItem(player: Player, classKind: number?, cosmeticId: string?)
+	local playerData = GameController:getPlayerData(player)
+	if not playerData then
+		return
+	end
+	if not self:isRestricted(player) then
+		PlayerFeedbackManager:give(player, FEEDBACK_NOT_RESTRICTED)
+		return
+	end
+	local store = self:getDailyStore()
+	if classKind then
+		local className = Enums.getName(Enums.ClassKind, classKind)
+		if not className or not DailyStoreRules.isClassOnSale(store, className) then
+			PlayerFeedbackManager:give(player, FEEDBACK_NOT_TODAY)
+			return
+		end
+		if DailyStoreRules.hasBoughtClass(playerData:getStorePurchases(), store.day, className) then
+			PlayerFeedbackManager:give(player, FEEDBACK_ALREADY_PURCHASED)
+			return
+		end
+		if GachaRules.isClassOwned(playerData:getClassProgress(), classKind) then
+			self:upgradeClass(player, classKind, store.day)
+		else
+			self:buyClass(player, classKind, store.day)
+		end
+	elseif cosmeticId then
+		if not DailyStoreRules.isCosmeticOnSale(store, cosmeticId) then
+			PlayerFeedbackManager:give(player, FEEDBACK_NOT_TODAY)
+			return
+		end
+		self:buyCosmetic(player, cosmeticId)
+	end
 end
 
 -- the dev tool's step: the next thing a roll of that class would give,
@@ -271,14 +451,17 @@ function GachaManager:onPlayerReady(player: Player)
 					return PolicyService:GetPolicyInfoForPlayerAsync(player)
 				end
 			)
-			if not isSuccess then
-				warn(`GachaManager: PolicyService failed for {player.Name}; treating as not restricted. {tostring(policy)}`)
-				return
-			end
 			if self.isRestrictedByPlayer[player] == nil or not GameController:getPlayerData(player) then
 				return
 			end
-			self:setRestricted(player, policy.ArePaidRandomItemsRestricted == true)
+			if isSuccess then
+				self:setRestricted(player, policy.ArePaidRandomItemsRestricted == true)
+			else
+				warn(`GachaManager: PolicyService failed for {player.Name}; treating as not restricted. {tostring(policy)}`)
+			end
+			-- answered or failed, the flag is as final as it gets: the
+			-- client holds its loading screen until this shows (2026-11-10)
+			SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.IS_PAID_RANDOM_ITEMS_POLICY_KNOWN, true)
 		end
 	)
 end
@@ -375,6 +558,27 @@ function GachaManager:registerDevCommands()
 			PlayerFeedbackManager:give(player, "Cosmetics cleared")
 		end
 	)
+	-- every class card in the rotating store buyable again today
+	DevTools:registerPlaceCommand(
+		GachaManager.RESET_STORE_PURCHASES_COMMAND,
+		function(player: Player, _args: { [string]: any })
+			local playerData = GameController:getPlayerData(player)
+			if not playerData then
+				return
+			end
+			playerData:resetStorePurchases()
+			SplendidReplicationManager:replicateGacha(player)
+			PlayerFeedbackManager:give(player, "Store purchases reset")
+		end
+	)
+	-- every skill slot's free daily reroll ready again, any offer gone
+	DevTools:registerPlaceCommand(
+		GachaManager.RESET_FREE_REROLLS_COMMAND,
+		function(player: Player, _args: { [string]: any })
+			ClassManager:clearFreeRolls(player)
+			PlayerFeedbackManager:give(player, "Free rerolls reset")
+		end
+	)
 	-- the Supply Crate lesson unlearnt, so the guide leads to the stall again
 	DevTools:registerPlaceCommand(
 		GachaManager.RESET_CRATE_TUTORIAL_COMMAND,
@@ -413,6 +617,13 @@ function GachaManager:init()
 	end
 	-- the names and templates the reveal and the odds list draw skins by
 	SplendidReplicationManager:setGameMetadata(Attributes.COSMETIC_CATALOGUE, CosmeticRules.encodeCatalogue(CosmeticRules.publish(CosmeticCatalogueData.BY_ID)))
+	-- ClassManager is common code and cannot ask the lobby: it is handed
+	-- the question, so a restricted player's reroll is the free daily one
+	ClassManager:setPaidRandomRestrictedProvider(
+		function(player: Player): boolean
+			return self:isRestricted(player)
+		end
+	)
 	self.pool = self:buildPool()
 	if #self.pool.classKinds == 0 then
 		error("GachaManager: no class is in the gacha pool; check GameData/Gacha/Gacha.EXCLUDED_KINDS and the roster's POST_LAUNCH_KINDS")
@@ -420,6 +631,7 @@ function GachaManager:init()
 	-- the menu draws its price, odds, and class list from this; none of
 	-- it changes at runtime
 	SplendidReplicationManager:setGameMetadata(Attributes.GACHA_CONFIG, GachaRules.encodeConfig(self:getPublishedConfig()))
+	self:runDailyStore()
 	self:registerDevCommands()
 	GameController:registerPlaceManager(self)
 end

@@ -314,6 +314,8 @@ describe(
 				local config = {
 					rollPriceDiamonds = 100,
 					directClassPriceDiamonds = 400,
+					directUpgradePriceDiamondsBySlot = { 400, 600, 800 },
+					directCosmeticPriceDiamondsByRarity = { 200, 300, 500, 800, 1200 },
 					odds = { CLASS = 0.6, COSMETIC = 0.3, KEYS = 0.1 },
 					poolClassKinds = { 2, 3, 4 },
 					prizes = GachaRules.prizeList(makePool()),
@@ -325,6 +327,8 @@ describe(
 				expect(decoded.prizes[5].key).toBe("KEYS")
 				expect(decoded.rollPriceDiamonds).toBe(100)
 				expect(decoded.directClassPriceDiamonds).toBe(400)
+				expect(decoded.directUpgradePriceDiamondsBySlot).toEqual({ 400, 600, 800 })
+				expect(decoded.directCosmeticPriceDiamondsByRarity).toEqual({ 200, 300, 500, 800, 1200 })
 				expect(decoded.odds.CLASS).toBeCloseTo(0.6, 5)
 				expect(decoded.poolClassKinds).toEqual({ 2, 3, 4 })
 				expect(decoded.maxSkillSlots).toBe(3)
@@ -349,6 +353,41 @@ describe(
 				expect(owned).toEqual({ LAMP = true, HARD_HAT = true })
 				expect(GachaRules.decodeProgress(nil)).toEqual({})
 				expect(GachaRules.decodeOwnedCosmetics("oops")).toEqual({})
+			end
+		)
+	end
+)
+
+describe(
+	"GachaRules direct prices",
+	function()
+		local UPGRADE_PRICES = { 400, 600, 800 }
+
+		it(
+			"prices the next skill slot of an owned class",
+			function()
+				local progress = { GUNNER = 0, SNIPER = 2 }
+				expect(GachaRules.directUpgradePrice(UPGRADE_PRICES, progress, Enums.ClassKind.GUNNER, 3)).toBe(400)
+				expect(GachaRules.directUpgradePrice(UPGRADE_PRICES, progress, Enums.ClassKind.SNIPER, 3)).toBe(800)
+			end
+		)
+
+		it(
+			"has no upgrade for a class not owned or with every slot open",
+			function()
+				local progress = { GUNNER = 3 }
+				expect(GachaRules.directUpgradePrice(UPGRADE_PRICES, progress, Enums.ClassKind.GUNNER, 3)).toBeNil()
+				expect(GachaRules.directUpgradePrice(UPGRADE_PRICES, progress, Enums.ClassKind.SNIPER, 3)).toBeNil()
+			end
+		)
+
+		it(
+			"prices a cosmetic by its rarity",
+			function()
+				local prices = { 200, 300, 500, 800, 1200 }
+				expect(GachaRules.directCosmeticPrice(prices, Enums.Rarity.COMMON)).toBe(200)
+				expect(GachaRules.directCosmeticPrice(prices, Enums.Rarity.LEGENDARY)).toBe(1200)
+				expect(GachaRules.directCosmeticPrice({}, Enums.Rarity.RARE)).toBeNil()
 			end
 		)
 	end

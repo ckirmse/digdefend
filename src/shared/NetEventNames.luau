@@ -17,6 +17,11 @@ module = {
 	-- empty slot is free and lands at once (isFinal on the offer)
 	TRY_REROLL_SKILL = "TryRerollSkill",
 	TRY_RESOLVE_SKILL_ROLL = "TryResolveSkillRoll",
+	-- the restricted player's reroll (2026-11-10): TryRerollSkill on a
+	-- filled slot is their free daily roll, answered with the offer
+	-- (isFreeOffer) and saved on the slot; this keeps it for Diamonds
+	-- ({ classKind, slot })
+	TRY_KEEP_SKILL_OFFER = "TryKeepSkillOffer",
 	NOTIFY_SKILL_ROLL_OFFER = "NotifySkillRollOffer",
 	-- the class gacha (M70, GachaManager in the lobby): one roll for
 	-- Diamonds, answered with what it turned into; the direct class buy for
@@ -24,6 +29,11 @@ module = {
 	-- class (ClassManager, ownership checked)
 	TRY_ROLL_GACHA = "TryRollGacha",
 	TRY_BUY_CLASS = "TryBuyClass",
+	-- the restricted player's rotating store (2026-11-10), the one place
+	-- they buy by name: one thing on sale today, a class card
+	-- ({ classKind }) or a cosmetic ({ cosmeticId }). Its answer is
+	-- NotifyGachaResult, so the crate opens on what was bought
+	TRY_BUY_STORE_ITEM = "TryBuyStoreItem",
 	TRY_SELECT_CLASS = "TrySelectClass",
 	NOTIFY_GACHA_RESULT = "NotifyGachaResult",
 	-- the Diamond Store (M40, DiamondStoreManager in the lobby): ask for

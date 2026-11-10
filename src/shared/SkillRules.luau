@@ -20,6 +20,29 @@ export type RerollPricing = {
 	-- the skill slots a class can open (the gacha opens them, M70), so the
 	-- menu draws every row, the locked ones too
 	maxSkillSlots: number,
+	-- the restricted player's reroll (2026-11-10): how long a slot waits
+	-- between free rolls, and what keeping an offer costs by the offered
+	-- skill's Enums.Rarity value
+	freeRollIntervalSec: number,
+	keepPriceDiamondsByRarity: { number },
+}
+
+-- a slot's last free roll as the save holds it: when it was rolled, and
+-- the offer while it has not been kept
+export type FreeRoll = {
+	rollTime: number,
+	skillId: string?,
+	rarity: number?,
+}
+
+-- what a slot's free roll allows right now
+export type FreeRollState = {
+	-- the next free roll may be taken
+	canRoll: boolean,
+	-- when it may, and when a standing offer lapses; 0 with canRoll
+	nextRollTime: number,
+	-- the offer still to be kept, if any
+	offer: SkillOffer?,
 }
 
 export type SkillCatalogueEntry = {
@@ -71,6 +94,32 @@ function SkillRules.skillRollPrice(pricing: RerollPricing, isSlotEmpty: boolean)
 		return 0
 	end
 	return pricing.skillPriceDiamonds
+end
+
+-- where a slot's free roll stands at `now`: a slot never rolled, or one
+-- whose wait has run out, may roll (and any old offer has lapsed with
+-- it); otherwise it waits, with its offer if that was not kept
+function SkillRules.freeRollState(freeRoll: FreeRoll?, now: number, intervalSec: number): FreeRollState
+	if not freeRoll or now >= freeRoll.rollTime + intervalSec then
+		return { canRoll = true, nextRollTime = 0, offer = nil }
+	end
+	local offer: SkillOffer? = nil
+	if freeRoll.skillId and freeRoll.rarity then
+		offer = { skillId = freeRoll.skillId, rarity = freeRoll.rarity }
+	end
+	return { canRoll = false, nextRollTime = freeRoll.rollTime + intervalSec, offer = offer }
+end
+
+-- what keeping an offered skill of that rarity costs; nil for a rarity
+-- with no price
+function SkillRules.keepPrice(pricing: RerollPricing, rarity: number): number?
+	return pricing.keepPriceDiamondsByRarity[rarity]
+end
+
+-- a wait as hours, minutes, and seconds ("07:05:09"), never negative
+function SkillRules.formatCountdown(seconds: number): string
+	local whole = math.max(0, math.ceil(seconds))
+	return string.format("%02d:%02d:%02d", whole // 3600, (whole % 3600) // 60, whole % 60)
 end
 
 -- a skill roll draws evenly over the catalogue, so a rarity's share is its
@@ -155,6 +204,18 @@ local function decodeJson(encoded: any): any
 	return decoded
 end
 
+local function decodeNumberList(value: any): { number }
+	local list: { number } = {}
+	if typeof(value) == "table" then
+		for _, entry in value do
+			if typeof(entry) == "number" then
+				table.insert(list, entry)
+			end
+		end
+	end
+	return list
+end
+
 function SkillRules.encodeRerollPricing(pricing: RerollPricing): string
 	return HttpService:JSONEncode(pricing)
 end
@@ -168,6 +229,8 @@ function SkillRules.decodeRerollPricing(encoded: any): RerollPricing?
 		skillPriceDiamonds = decoded.skillPriceDiamonds,
 		isFirstSkillRollFree = decoded.isFirstSkillRollFree == true,
 		maxSkillSlots = decoded.maxSkillSlots,
+		freeRollIntervalSec = if typeof(decoded.freeRollIntervalSec) == "number" then decoded.freeRollIntervalSec else 0,
+		keepPriceDiamondsByRarity = decodeNumberList(decoded.keepPriceDiamondsByRarity),
 	}
 end
 

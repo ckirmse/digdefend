@@ -132,3 +132,70 @@ describe(
 		)
 	end
 )
+
+describe(
+	"ClassSchema free rolls",
+	function()
+		it(
+			"leaves a record without free rolls alone",
+			function()
+				local repairs = {}
+				local record = ClassSchema.validate(makeRecord(), DEFAULTS, "classes.GUNNER.", repairs)
+				expect(record.freeRolls).toBeNil()
+				expect(#repairs).toBe(0)
+			end
+		)
+
+		it(
+			"keeps a valid free roll and its offer",
+			function()
+				local saved = makeRecord()
+				saved.freeRolls = { ["1"] = { rollTime = 1000, skillId = "HANDY", rarity = Enums.Rarity.COMMON } }
+				local repairs = {}
+				local record = ClassSchema.validate(saved, DEFAULTS, "classes.GUNNER.", repairs)
+				expect(record.freeRolls["1"]).toEqual({ rollTime = 1000, skillId = "HANDY", rarity = Enums.Rarity.COMMON })
+				expect(#repairs).toBe(0)
+			end
+		)
+
+		it(
+			"drops an offer for an unknown skill but keeps the wait",
+			function()
+				local saved = makeRecord()
+				saved.freeRolls = { ["2"] = { rollTime = 1000, skillId = "GONE", rarity = Enums.Rarity.COMMON } }
+				local repairs = {}
+				local record = ClassSchema.validate(saved, DEFAULTS, "classes.GUNNER.", repairs)
+				expect(record.freeRolls["2"]).toEqual({ rollTime = 1000 })
+				expect(#repairs).toBe(1)
+			end
+		)
+
+		it(
+			"drops an entry for a slot that cannot exist or with no roll time",
+			function()
+				local saved = makeRecord()
+				saved.freeRolls = { ["9"] = { rollTime = 1000 }, ["1"] = { skillId = "HANDY" } }
+				local repairs = {}
+				local record = ClassSchema.validate(saved, DEFAULTS, "classes.GUNNER.", repairs)
+				expect(record.freeRolls).toEqual({})
+				expect(#repairs).toBe(2)
+			end
+		)
+
+		it(
+			"round-trips free rolls through the records codec",
+			function()
+				local records = {
+					GUNNER = {
+						skills = { ["1"] = { skillId = "HANDY", rarity = Enums.Rarity.COMMON } },
+						freeRolls = { ["1"] = { rollTime = 1000, skillId = "GOLD_DIGGER", rarity = Enums.Rarity.RARE } },
+					},
+					SNIPER = { skills = {} },
+				}
+				local decoded = ClassSchema.decodeRecords(ClassSchema.encodeRecords(records, 3))
+				expect(decoded.GUNNER.freeRolls["1"]).toEqual({ rollTime = 1000, skillId = "GOLD_DIGGER", rarity = Enums.Rarity.RARE })
+				expect(decoded.SNIPER.freeRolls).toBeNil()
+			end
+		)
+	end
+)

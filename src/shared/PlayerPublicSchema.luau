@@ -7,6 +7,7 @@
 local Attributes = require(script.Parent.Attributes)
 local ClassSchema = require(script.Parent.ClassSchema)
 local CosmeticLoadoutSchema = require(script.Parent.CosmeticLoadoutSchema)
+local DailyStoreRules = require(script.Parent.DailyStoreRules)
 local Enums = require(script.Parent.Enums)
 local GachaRules = require(script.Parent.GachaRules)
 
@@ -30,6 +31,8 @@ export type Snapshot = {
 	maxSkillSlots: number?,
 	keys: number?,
 	ownedCosmetics: GachaRules.OwnedCosmetics?,
+	-- the class cards bought from the rotating store's current set
+	storePurchases: DailyStoreRules.Purchases?,
 	dailyRewardLastClaimedDay: number?,
 	dailyRewardNextClaimTime: number?,
 	hasFinishedTutorial: boolean?,
@@ -77,6 +80,7 @@ function PlayerPublicSchema.buildGachaAttributes(snapshot: Snapshot): AttributeM
 		[Attributes.KEYS] = snapshot.keys or 0,
 		[Attributes.CLASS_PROGRESS] = GachaRules.encodeProgress(snapshot.classProgress or {}),
 		[Attributes.OWNED_COSMETICS] = GachaRules.encodeOwnedCosmetics(snapshot.ownedCosmetics or {}),
+		[Attributes.STORE_PURCHASES] = DailyStoreRules.encodePurchases(snapshot.storePurchases or DailyStoreRules.getDefaultPurchases()),
 	}
 end
 

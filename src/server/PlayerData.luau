@@ -12,6 +12,7 @@ local SkillsData = require("@game/ServerScriptService/GameData/Characters/Skills
 local PlayerControlData = require("@game/ServerScriptService/GameData/Control/Player")
 local ClassSchema = require("@game/ReplicatedStorage/Shared/ClassSchema")
 local CosmeticLoadoutSchema = require("@game/ReplicatedStorage/Shared/CosmeticLoadoutSchema")
+local DailyStoreRules = require("@game/ReplicatedStorage/Shared/DailyStoreRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local PlayerSaveSchema = require("@game/ReplicatedStorage/Shared/PlayerSaveSchema")
 local utils = require("@game/ReplicatedStorage/Shared/utils")
@@ -45,6 +46,7 @@ export type PlayerData = typeof(setmetatable(
 		hasFinishedIronTutorial: boolean,
 		hasFinishedUraniumTutorial: boolean,
 		hasFinishedSupplyCrateTutorial: boolean,
+		storePurchases: DailyStoreRules.Purchases,
 	},
 	PlayerData
 ))
@@ -68,6 +70,7 @@ local SAVE_FIELDS = {
 	"hasFinishedIronTutorial",
 	"hasFinishedUraniumTutorial",
 	"hasFinishedSupplyCrateTutorial",
+	"storePurchases",
 }
 
 -- the save field behind each part of the tutorial
@@ -347,6 +350,18 @@ end
 -- worn is never checked against what is owned
 function PlayerData:resetOwnedCosmetics()
 	self.ownedCosmetics = PlayerSaveSchema.getDefaultOwnedCosmetics(SCHEMA_DEFAULTS)
+end
+
+-- the class cards bought from the rotating store's current set
+-- (2026-11-10, one per class per day); the lobby GachaManager is the one
+-- writer, through DailyStoreRules on the live record
+function PlayerData:getStorePurchases(): DailyStoreRules.Purchases
+	return self.storePurchases
+end
+
+-- every card buyable again, for the dev tool
+function PlayerData:resetStorePurchases()
+	self.storePurchases = DailyStoreRules.getDefaultPurchases()
 end
 
 function PlayerData:getKeys(): number

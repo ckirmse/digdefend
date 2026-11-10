@@ -12,6 +12,8 @@ local PRICING = {
 	skillPriceDiamonds = 10,
 	isFirstSkillRollFree = true,
 	maxSkillSlots = 3,
+	freeRollIntervalSec = 86400,
+	keepPriceDiamondsByRarity = { 10, 20, 40, 80, 160 },
 }
 
 local CATALOGUE = {
@@ -116,6 +118,78 @@ describe(
 				local sparse = SkillRules.decodeSkillCatalogue("{\"X\":{\"name\":\"X\"}}")
 				expect(sparse.X).toEqual({ family = 0, rarity = 0, name = "X", description = "" })
 				expect(SkillRules.decodeSkillCatalogue(nil)).toEqual({})
+			end
+		)
+	end
+)
+
+describe(
+	"SkillRules free rolls",
+	function()
+		local DAY = 86400
+
+		it(
+			"lets a slot never rolled roll at once",
+			function()
+				local state = SkillRules.freeRollState(nil, 1000, DAY)
+				expect(state.canRoll).toBe(true)
+				expect(state.offer).toBeNil()
+			end
+		)
+
+		it(
+			"holds the offer and the wait until the interval has run",
+			function()
+				local freeRoll = { rollTime = 1000, skillId = "HANDY", rarity = Enums.Rarity.RARE }
+				local state = SkillRules.freeRollState(freeRoll, 1000 + DAY - 1, DAY)
+				expect(state.canRoll).toBe(false)
+				expect(state.nextRollTime).toBe(1000 + DAY)
+				expect(state.offer).toEqual({ skillId = "HANDY", rarity = Enums.Rarity.RARE })
+			end
+		)
+
+		it(
+			"waits with no offer once it was kept",
+			function()
+				local state = SkillRules.freeRollState({ rollTime = 1000 }, 2000, DAY)
+				expect(state.canRoll).toBe(false)
+				expect(state.offer).toBeNil()
+			end
+		)
+
+		it(
+			"lapses the offer when the next roll is due",
+			function()
+				local freeRoll = { rollTime = 1000, skillId = "HANDY", rarity = Enums.Rarity.RARE }
+				local state = SkillRules.freeRollState(freeRoll, 1000 + DAY, DAY)
+				expect(state.canRoll).toBe(true)
+				expect(state.offer).toBeNil()
+			end
+		)
+
+		it(
+			"prices a kept offer by its rarity",
+			function()
+				expect(SkillRules.keepPrice(PRICING, Enums.Rarity.COMMON)).toBe(10)
+				expect(SkillRules.keepPrice(PRICING, Enums.Rarity.LEGENDARY)).toBe(160)
+			end
+		)
+
+		it(
+			"writes a wait as hours, minutes, and seconds",
+			function()
+				expect(SkillRules.formatCountdown(7 * 3600 + 5 * 60 + 9)).toBe("07:05:09")
+				expect(SkillRules.formatCountdown(0.2)).toBe("00:00:01")
+				expect(SkillRules.formatCountdown(-5)).toBe("00:00:00")
+			end
+		)
+
+		it(
+			"carries the free roll numbers through the pricing codec",
+			function()
+				local decoded = SkillRules.decodeRerollPricing(SkillRules.encodeRerollPricing(PRICING))
+				expect(decoded.freeRollIntervalSec).toBe(86400)
+				expect(decoded.keepPriceDiamondsByRarity).toEqual({ 10, 20, 40, 80, 160 })
 			end
 		)
 	end

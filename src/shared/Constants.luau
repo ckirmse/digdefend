@@ -49,6 +49,9 @@ Constants.HUD_KEYS_WALLET = "KeysWallet"
 Constants.HUD_KEYS_AMOUNT_LABEL = "KeysAmount"
 Constants.HUD_MENU_BUTTONS = "MenuButtons"
 Constants.HUD_STORE_BUTTON = "StoreButton"
+-- shown in the Store button's place for a player restricted from paid
+-- random items; opens the rotating store
+Constants.HUD_ROTATING_STORE_BUTTON = "RotatingStoreButton"
 -- the Loadout button until 2026-10-12 (M37), the Character button until
 -- 2026-10-30, ClassesButton until the designer's restyle of 2026-11-09: it
 -- opens the Class Menu. The Daily Rewards button left the HUD on
@@ -907,6 +910,12 @@ Constants.CLASS_INFO_EQUIP_BUTTON = "EquipButton"
 -- the designer's plate over the Odds and Equip spots on a locked class,
 -- sending the player to the Supply Crates (2026-11-05)
 Constants.CLASS_INFO_SUPPLY_CRATE_BUTTON = "SupplyCrateButton"
+-- the restricted player's plates (designer, 2026-11-10), both roads to
+-- the rotating store: RotatingStoreButton stands where SupplyCrateButton
+-- does on a locked class and UpgradeButton where OddsButton does on an
+-- owned one
+Constants.CLASS_INFO_ROTATING_STORE_BUTTON = "RotatingStoreButton"
+Constants.CLASS_INFO_UPGRADE_BUTTON = "UpgradeButton"
 -- the word label on the Equip, Odds, and Supply Crate plates
 Constants.EQUIP_BUTTON_LABEL = "TextLabel"
 Constants.CLASS_MENU_INFO_DIALOG = "InfoDialog"
@@ -981,6 +990,23 @@ Constants.KEY_STORE_INFO_HINT_LABEL = "Hint"
 Constants.KEY_STORE_BUY_BUTTON = "BuyButton"
 Constants.KEY_STORE_BUY_PRICE_LABEL = "Price"
 Constants.KEY_STORE_EQUIP_BUTTON = "EquipButton"
+-- the restricted player's rotating store (2026-11-10; scripts/studio/
+-- build_restricted_store_gui.luau): a copy of the KeyStore layout, so
+-- its inner names are the KEY_STORE_ ones above, plus the page frame,
+-- the Actions frame holding each card's button, and that button's
+-- price tab
+Constants.RESTRICTED_STORE_GUI_NAME = "RestrictedStoreGui"
+Constants.RESTRICTED_STORE_STORE_PAGE = "StorePage"
+Constants.RESTRICTED_STORE_PRICE_TAB = "PriceTab"
+Constants.RESTRICTED_STORE_ACTIONS = "Actions"
+-- the card's frame for a thing that cannot be bought (owned, maxed out);
+-- its word is the frame's "TextLabel"
+Constants.RESTRICTED_STORE_NOT_AVAILABLE = "NotAvailable"
+-- the card's frames for the item's name and its type; each holds one label
+Constants.RESTRICTED_STORE_ITEM_HEADER = "Header"
+Constants.RESTRICTED_STORE_ITEM_TYPE = "Type"
+-- the store page: the countdown to the next set, over the cards
+Constants.RESTRICTED_STORE_REFRESH_TIMER = "RefreshTimer"
 -- the lobby's two store stalls (designer, 2026-11-03): a Folder each in
 -- Workspace, with a MenuTouchPart whose volume opens that stall's menu
 -- when the player walks into it (ClientStoreZoneManager)
@@ -991,6 +1017,12 @@ Constants.STORE_MENU_TOUCH_PART = "MenuTouchPart"
 -- Workspace with the same MenuTouchPart: the Gear Locker and the Class Menu
 Constants.LOBBY_GEAR_SELECTION_FOLDER = "GearSelection"
 Constants.LOBBY_CLASS_SELECTION_FOLDER = "ClassSelection"
+-- each stall's name twice (designer, 2026-11-10): the 3DText model of
+-- letter meshes everyone sees by default, and a Sign part whose
+-- SurfaceGui (off by default) says the same in an auto-localised
+-- TextLabel, since translation cannot reach a mesh (ClientStoreSignManager)
+Constants.LOBBY_STALL_3D_TEXT_MODEL = "3DText"
+Constants.LOBBY_STALL_SIGN_PART = "Sign"
 
 -- the Gear Locker menu (M61, 2026-11-06; scripts/studio/build_gear_menu_gui.luau):
 -- the X, the avatar viewport wearing the loadout, and one row per slot the

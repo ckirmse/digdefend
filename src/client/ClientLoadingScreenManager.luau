@@ -29,6 +29,9 @@ export type ClientLoadingScreenManager = typeof(setmetatable(
 		-- the same screen doubles as the departure screen (decided 2026-09-11,
 		-- M13; may get its own art later)
 		isDeparting: boolean,
+		-- named reasons the arrival screen must stay up a little longer
+		-- (the lobby signs settling); hide() waits for the last to go
+		holds: { [string]: boolean },
 	},
 	ClientLoadingScreenManager
 ))
@@ -40,6 +43,10 @@ local HIDE_TWEEN_SEC = 0.6
 local MIN_VISIBLE_SEC = 2
 -- past this the player deserves to know the wait is the connection, not a hang
 local SLOW_LOAD_HINT_SEC = 10
+-- the longest hide() waits on holds before leaving anyway (designer,
+-- 2026-11-10): a hold is a nicety, never a reason to keep a player out
+local MAX_HOLD_SEC = 10
+local HOLD_POLL_SEC = 0.1
 
 local SLOW_LOAD_MESSAGE = "Slow connection, still loading your save..."
 local RETRYING_MESSAGE = "Connection trouble, retrying..."
@@ -121,6 +128,17 @@ function ClientLoadingScreenManager:show()
 	)
 end
 
+-- a system that changes what the player first sees (the lobby's stall
+-- signs) holds the arrival screen until it has settled, so the change
+-- is never watched; add at require time, before startup can reach hide()
+function ClientLoadingScreenManager:addHold(name: string)
+	self.holds[name] = true
+end
+
+function ClientLoadingScreenManager:releaseHold(name: string)
+	self.holds[name] = nil
+end
+
 function ClientLoadingScreenManager:hide()
 	if not self.isShowing then
 		return
@@ -128,6 +146,14 @@ function ClientLoadingScreenManager:hide()
 	if not game:IsLoaded() then
 		game.Loaded:Wait()
 	end
+	local holdStartTime = workspace:GetServerTimeNow()
+	while next(self.holds) ~= nil and workspace:GetServerTimeNow() - holdStartTime < MAX_HOLD_SEC do
+		task.wait(HOLD_POLL_SEC)
+	end
+	for name in self.holds do
+		warn(`ClientLoadingScreenManager: gave up waiting on {name} after {MAX_HOLD_SEC} s`)
+	end
+	self.holds = {}
 	local gui = self.gui
 	if gui then
 		local shownAt = gui:GetAttribute(Attributes.LOADING_SHOWN_AT)
@@ -232,6 +258,7 @@ function ClientLoadingScreenManager.new(): ClientLoadingScreenManager
 	self.isShowing = false
 	self.progress = 0
 	self.caption = "Connecting..."
+	self.holds = {}
 	self.loadStatusConnection = nil
 	self.isDeparting = false
 	return self

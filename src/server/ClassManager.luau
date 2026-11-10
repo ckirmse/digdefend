@@ -51,6 +51,7 @@ export type ClassManager = typeof(setmetatable(
 		-- told when a skill lands in or leaves a slot of the class in play
 		-- (a class change is told through classChangedCallbacks)
 		skillsChangedCallbacks: { (player: Player) -> () },
+		paidRandomRestrictedProvider: ((player: Player) -> boolean)?,
 		random: Random,
 	},
 	ClassManager
@@ -76,6 +77,8 @@ local RESOLVE_SKILL_ROLL_SHAPE = {
 local FEEDBACK_ROLL_PENDING = "Keep or undo the roll on screen first"
 local FEEDBACK_SLOT_LOCKED = "That perk slot is still locked"
 local FEEDBACK_CLASS_LOCKED = "You do not own that class yet"
+local FEEDBACK_FREE_ROLL_WAIT = "That slot's free reroll is not ready yet"
+local FEEDBACK_OFFER_GONE = "That offer has expired"
 
 function ClassManager:getNetHandlers()
 	return {
@@ -95,6 +98,12 @@ function ClassManager:getNetHandlers()
 			shape = RESOLVE_SKILL_ROLL_SHAPE,
 			handler = function(player: Player, payload: { [string]: any })
 				self:resolveSkillRoll(player, payload.isTaken)
+			end,
+		},
+		[NetEventNames.TRY_KEEP_SKILL_OFFER] = {
+			shape = REROLL_SKILL_SHAPE,
+			handler = function(player: Player, payload: { [string]: any })
+				self:keepSkillOffer(player, payload.classKind, payload.slot)
 			end,
 		},
 	}
@@ -284,6 +293,8 @@ function ClassManager:getRerollPricing(): SkillRules.RerollPricing
 		skillPriceDiamonds = RerollsData.SKILL_REROLL_PRICE_DIAMONDS,
 		isFirstSkillRollFree = RerollsData.IS_FIRST_SKILL_ROLL_FREE,
 		maxSkillSlots = PlayerData.getClassDefaults().maxSkillSlots,
+		freeRollIntervalSec = RerollsData.RESTRICTED_FREE_REROLL_INTERVAL_SEC,
+		keepPriceDiamondsByRarity = RerollsData.RESTRICTED_KEEP_PRICE_DIAMONDS_BY_RARITY,
 	}
 end
 
@@ -334,6 +345,13 @@ function ClassManager:rerollSkill(player: Player, classKind: number?, slot: numb
 	end
 	local pricing = self:getRerollPricing()
 	local isSlotEmpty = record.skills[tostring(slot)] == nil
+	-- a player restricted from paid random items never pays for a roll:
+	-- a filled slot takes its free daily roll instead (the roll into an
+	-- empty slot is free and kept at once for everyone, below)
+	if not isSlotEmpty and self:isPaidRandomRestricted(player) then
+		self:rollFreeOffer(player, playerData, kind, record, slot)
+		return
+	end
 	local price = SkillRules.skillRollPrice(pricing, isSlotEmpty)
 	if not playerData:spendDiamonds(price) then
 		PlayerFeedbackManager:giveDiamondsShort(player, price, playerData:getDiamonds())
@@ -376,6 +394,116 @@ function ClassManager:rerollSkill(player: Player, classKind: number?, slot: numb
 			offer = offer,
 		}
 	)
+end
+
+-- whether PolicyService restricts the player from paid random items; the
+-- lobby's GachaManager holds the answer and hands this manager the
+-- question (the gameplay place has no rolls, so no provider and false)
+function ClassManager:setPaidRandomRestrictedProvider(provider: (player: Player) -> boolean)
+	self.paidRandomRestrictedProvider = provider
+end
+
+function ClassManager:isPaidRandomRestricted(player: Player): boolean
+	local provider = self.paidRandomRestrictedProvider
+	return provider ~= nil and provider(player)
+end
+
+-- the restricted player's reroll (designer, 2026-11-10): one free roll
+-- per filled slot every RESTRICTED_FREE_REROLL_INTERVAL_SEC. Nothing is
+-- paid for the chance; the result is saved on the slot as an offer the
+-- player sees in full and may keep for Diamonds (keepSkillOffer) until
+-- the slot's next roll is due
+function ClassManager:rollFreeOffer(player: Player, playerData: PlayerData.PlayerData, classKind: number, record: ClassSchema.ClassSave, slot: number)
+	local now = workspace:GetServerTimeNow()
+	local freeRolls = record.freeRolls or {}
+	local state = SkillRules.freeRollState(freeRolls[tostring(slot)], now, RerollsData.RESTRICTED_FREE_REROLL_INTERVAL_SEC)
+	if not state.canRoll then
+		PlayerFeedbackManager:give(player, FEEDBACK_FREE_ROLL_WAIT)
+		return
+	end
+	local offer = SkillRules.rollSkill(self.random, self:getSkillCatalogue())
+	if not offer then
+		warn("ClassManager: the skill catalogue is empty; nothing to roll")
+		return
+	end
+	record.freeRolls = freeRolls
+	freeRolls[tostring(slot)] = {
+		rollTime = now,
+		skillId = offer.skillId,
+		rarity = offer.rarity,
+	}
+	playerData:saveNow()
+	-- the offer first, so the menu's reel is turning before the redraw
+	-- the data change brings
+	netManager:notifyClient(
+		player,
+		NetEventNames.NOTIFY_SKILL_ROLL_OFFER,
+		{
+			classKind = classKind,
+			slot = slot,
+			offer = offer,
+			isFreeOffer = true,
+		}
+	)
+	splendidReplicationManager:replicateClasses(player)
+end
+
+-- the restricted player keeps the offer standing on a slot: the price is
+-- the offered skill's rarity price, and the wait for the slot's next
+-- free roll is untouched
+function ClassManager:keepSkillOffer(player: Player, classKind: number?, slot: number)
+	local playerData = self:getPlayerData(player)
+	if not playerData then
+		return
+	end
+	local kind = classKind or playerData:getActiveClassKind()
+	local record = self:getRecord(player, kind)
+	if not record or not self:isPaidRandomRestricted(player) then
+		return
+	end
+	if not self:isClassOwned(player, kind) then
+		PlayerFeedbackManager:give(player, FEEDBACK_CLASS_LOCKED)
+		return
+	end
+	if slot > self:getOpenSkillSlots(player, kind) then
+		PlayerFeedbackManager:give(player, FEEDBACK_SLOT_LOCKED)
+		return
+	end
+	local freeRoll = if record.freeRolls then record.freeRolls[tostring(slot)] else nil
+	local state = SkillRules.freeRollState(freeRoll, workspace:GetServerTimeNow(), RerollsData.RESTRICTED_FREE_REROLL_INTERVAL_SEC)
+	local offer = state.offer
+	if not freeRoll or not offer then
+		PlayerFeedbackManager:give(player, FEEDBACK_OFFER_GONE)
+		return
+	end
+	local price = SkillRules.keepPrice(self:getRerollPricing(), offer.rarity)
+	if not price then
+		warn(`ClassManager: no keep price for rarity {offer.rarity}`)
+		return
+	end
+	if not playerData:spendDiamonds(price) then
+		PlayerFeedbackManager:giveDiamondsShort(player, price, playerData:getDiamonds())
+		return
+	end
+	splendidReplicationManager:replicateDiamonds(player)
+	freeRoll.skillId = nil
+	freeRoll.rarity = nil
+	self:setSkill(player, kind, slot, offer.skillId, offer.rarity)
+	playerData:saveNow()
+end
+
+-- the dev tool's reset: every slot of every class may take its free roll
+-- again, and any standing offer is gone
+function ClassManager:clearFreeRolls(player: Player)
+	local playerData = self:getPlayerData(player)
+	if not playerData then
+		return
+	end
+	for _, record in playerData:getClassRecords() do
+		record.freeRolls = nil
+	end
+	playerData:saveNow()
+	splendidReplicationManager:replicateClasses(player)
 end
 
 function ClassManager:resolveSkillRoll(player: Player, isTaken: boolean)

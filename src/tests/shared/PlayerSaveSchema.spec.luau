@@ -42,6 +42,7 @@ local function makeValidSave()
 		hasFinishedIronTutorial = true,
 		hasFinishedUraniumTutorial = false,
 		hasFinishedSupplyCrateTutorial = true,
+		storePurchases = { day = 20000, classIds = { "GUNNER" } },
 	}
 end
 
@@ -274,7 +275,8 @@ describe(
 				expect(validated.hasFinishedIronTutorial).toBe(false)
 				expect(validated.hasFinishedUraniumTutorial).toBe(false)
 				expect(validated.hasFinishedSupplyCrateTutorial).toBe(false)
-				expect(#repairs).toBe(15)
+				expect(validated.storePurchases).toEqual({ day = 0, classIds = {} })
+				expect(#repairs).toBe(16)
 			end
 		)
 		it(

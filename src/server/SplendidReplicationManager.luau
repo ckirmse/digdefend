@@ -70,6 +70,7 @@ local function snapshot(player: Player, playerData: any): PlayerPublicSchema.Sna
 		maxSkillSlots = PlayerData.getClassDefaults().maxSkillSlots,
 		keys = playerData:getKeys(),
 		ownedCosmetics = playerData:getOwnedCosmetics(),
+		storePurchases = playerData:getStorePurchases(),
 		dailyRewardLastClaimedDay = dailyReward.lastClaimedDay,
 		dailyRewardNextClaimTime = dailyReward.nextClaimTime,
 		hasFinishedTutorial = playerData:getHasFinishedTutorialPart(Enums.TutorialPart.MAIN),

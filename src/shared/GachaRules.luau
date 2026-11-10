@@ -76,6 +76,10 @@ export type Prize = {
 export type Config_Published = {
 	rollPriceDiamonds: number,
 	directClassPriceDiamonds: number,
+	-- the restricted player's other prices (2026-11-10): opening skill
+	-- slot N of an owned class, and a cosmetic by its Enums.Rarity value
+	directUpgradePriceDiamondsBySlot: { number },
+	directCosmeticPriceDiamondsByRarity: { number },
 	-- share of rolls per kind (0 to 1), the empty kinds left out
 	odds: { [string]: number },
 	-- every class the pool may roll, so the menu can list them
@@ -336,6 +340,38 @@ function GachaRules.poolClassKinds(allClassKinds: { number }, excludedKinds: { n
 	return kinds
 end
 
+-- what the next tier of an owned class costs a restricted player: the
+-- price of the skill slot after the ones open; nil for a class not
+-- owned, a class with every slot open, or a slot with no price
+function GachaRules.directUpgradePrice(pricesBySlot: { number }, progress: Progress, classKind: number, maxSkillSlots: number): number?
+	if not GachaRules.isClassOwned(progress, classKind) then
+		return nil
+	end
+	local open = GachaRules.openSkillSlots(progress, classKind, maxSkillSlots)
+	if open >= maxSkillSlots then
+		return nil
+	end
+	return pricesBySlot[open + 1]
+end
+
+-- what a cosmetic of that rarity costs a restricted player; nil for a
+-- rarity with no price
+function GachaRules.directCosmeticPrice(pricesByRarity: { number }, rarity: number): number?
+	return pricesByRarity[rarity]
+end
+
+local function decodeNumberList(value: any): { number }
+	local list: { number } = {}
+	if typeof(value) == "table" then
+		for _, entry in value do
+			if typeof(entry) == "number" then
+				table.insert(list, entry)
+			end
+		end
+	end
+	return list
+end
+
 function GachaRules.encodeConfig(config: Config_Published): string
 	return HttpService:JSONEncode(config)
 end
@@ -385,6 +421,8 @@ function GachaRules.decodeConfig(encoded: any): Config_Published?
 	return {
 		rollPriceDiamonds = decoded.rollPriceDiamonds,
 		directClassPriceDiamonds = if typeof(decoded.directClassPriceDiamonds) == "number" then decoded.directClassPriceDiamonds else 0,
+		directUpgradePriceDiamondsBySlot = decodeNumberList(decoded.directUpgradePriceDiamondsBySlot),
+		directCosmeticPriceDiamondsByRarity = decodeNumberList(decoded.directCosmeticPriceDiamondsByRarity),
 		odds = odds,
 		poolClassKinds = poolClassKinds,
 		prizes = prizes,

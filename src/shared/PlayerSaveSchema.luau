@@ -7,6 +7,7 @@
 local ClassSchema = require(script.Parent.ClassSchema)
 local CompletionKeys = require(script.Parent.CompletionKeys)
 local CosmeticLoadoutSchema = require(script.Parent.CosmeticLoadoutSchema)
+local DailyStoreRules = require(script.Parent.DailyStoreRules)
 local Enums = require(script.Parent.Enums)
 local Validate = require(script.Parent.Validate)
 
@@ -70,6 +71,9 @@ export type SaveData = {
 	-- the lobby's Supply Crate lesson (2026-11-10): set by the server at
 	-- the first crate paid for with Diamonds
 	hasFinishedSupplyCrateTutorial: boolean,
+	-- the class cards bought from the rotating store's current set
+	-- (2026-11-10): one card per class per day
+	storePurchases: DailyStoreRules.Purchases,
 }
 
 export type Defaults = {
@@ -144,6 +148,7 @@ function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 		hasFinishedIronTutorial = false,
 		hasFinishedUraniumTutorial = false,
 		hasFinishedSupplyCrateTutorial = false,
+		storePurchases = DailyStoreRules.getDefaultPurchases(),
 	}
 end
 
@@ -355,6 +360,30 @@ local function validateOwnedCosmetics(data: any, defaults: Defaults, repairs: { 
 	end
 end
 
+-- a day's number and a list of class names; a broken record is emptied,
+-- which only ever lets a card be bought again
+local function validateStorePurchases(data: any, repairs: { Repair })
+	local purchases = data.storePurchases
+	if typeof(purchases) ~= "table" or not Validate.isValueType(purchases.day, "nonnegativeInteger") or typeof(purchases.classIds) ~= "table" then
+		data.storePurchases = DailyStoreRules.getDefaultPurchases()
+		table.insert(repairs, "storePurchases reset")
+		return
+	end
+	local classIds: { string } = {}
+	local hasDropped = false
+	for _, classId in purchases.classIds do
+		if typeof(classId) == "string" and Enums.getValueByName(Enums.ClassKind, classId) ~= nil then
+			table.insert(classIds, classId)
+		else
+			hasDropped = true
+		end
+	end
+	if hasDropped then
+		purchases.classIds = classIds
+		table.insert(repairs, "storePurchases dropped an unknown class")
+	end
+end
+
 -- repairs data in place and returns it, plus the list of repairs made; a
 -- non-table save is replaced wholesale
 function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { Repair })
@@ -437,6 +466,7 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 		data.hasFinishedSupplyCrateTutorial = false
 		table.insert(repairs, "hasFinishedSupplyCrateTutorial reset")
 	end
+	validateStorePurchases(data, repairs)
 	-- after the progress: the active class must be an owned one
 	validateActiveClassKind(data, defaults, repairs)
 

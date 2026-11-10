@@ -8,7 +8,7 @@
 -- pays Keys too. Classes and skill slots come only from the gacha; Keys
 -- buy cosmetics by name (M61). Every number here is a placeholder until
 -- the economy is tuned against the Diamonds earn rate ("Earning Diamonds").
--- (A class kind in EXCLUDED_KINDS brings the shared Enums require back.)
+local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 
 return {
 	-- what one roll costs
@@ -36,6 +36,34 @@ return {
 	-- (decided 2026-11-02), the class arriving with no skill slots as a
 	-- rolled one does. Their skill slots are the parked part of M56
 	DIRECT_CLASS_PRICE_DIAMONDS = 400,
+	-- the rest of the restricted player's road (designer, 2026-11-10): with
+	-- no crate to draw a duplicate from, a tier (the next skill slot) is
+	-- bought outright, the price of opening slot 1, 2, 3 in order; and a
+	-- cosmetic, which the crate would have drawn or Keys bought (Keys
+	-- only come from crates), is bought for Diamonds by its rarity.
+	-- Placeholders like every number here
+	DIRECT_UPGRADE_PRICE_DIAMONDS_BY_SLOT = { 400, 600, 800 },
+	-- the restricted player's store rotates (designer, 2026-11-10): this
+	-- many class cards and this many cosmetics on sale at a time, the
+	-- same for everyone, changed every INTERVAL_SEC. A class card is the
+	-- next step of that class (the class itself, then its tiers), at the
+	-- prices above; nothing is on sale two days running while a shelf
+	-- holds two days' worth or more (pure DailyStoreRules). Four cards
+	-- every eight hours since the evening of 2026-11-10 (three a day
+	-- before); a "day" in the rules is one interval, so the one card per
+	-- class limit lifts at each change too
+	DAILY_STORE = {
+		CLASS_COUNT = 2,
+		COSMETIC_COUNT = 2,
+		INTERVAL_SEC = 28800,
+	},
+	DIRECT_COSMETIC_PRICE_DIAMONDS_BY_RARITY = {
+		[Enums.Rarity.COMMON] = 200,
+		[Enums.Rarity.UNCOMMON] = 300,
+		[Enums.Rarity.RARE] = 500,
+		[Enums.Rarity.EPIC] = 800,
+		[Enums.Rarity.LEGENDARY] = 1200,
+	},
 	-- classes never in the pool. The Recruit was here until 2026-11-05: a
 	-- free player could then never open their own class's perk slots, so
 	-- its card is drawn like any other owned class (a tier up at once)

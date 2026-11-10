@@ -9,6 +9,7 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local ClassSchema = require("@game/ReplicatedStorage/Shared/ClassSchema")
 local CosmeticLoadoutSchema = require("@game/ReplicatedStorage/Shared/CosmeticLoadoutSchema")
+local DailyStoreRules = require("@game/ReplicatedStorage/Shared/DailyStoreRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
 local SkillEffectRules = require("@game/ReplicatedStorage/Shared/SkillEffectRules")
@@ -148,6 +149,11 @@ end
 
 function ClientDataManager:getClassProgress(): GachaRules.Progress
 	return GachaRules.decodeProgress(self:getCurrentPlayerAttribute(Attributes.CLASS_PROGRESS))
+end
+
+-- the class cards bought from the rotating store's current set
+function ClientDataManager:getStorePurchases(): DailyStoreRules.Purchases
+	return DailyStoreRules.decodePurchases(self:getCurrentPlayerAttribute(Attributes.STORE_PURCHASES))
 end
 
 function ClientDataManager:getOwnedCosmetics(): GachaRules.OwnedCosmetics

@@ -41,6 +41,8 @@ local SET_RESTRICTED_COMMAND = "setPaidRandomRestricted"
 local CLEAR_CLASS_PROGRESS_COMMAND = "clearClassProgress"
 local CLEAR_COSMETICS_COMMAND = "clearCosmetics"
 local RESET_CRATE_TUTORIAL_COMMAND = "resetCrateTutorial"
+local RESET_FREE_REROLLS_COMMAND = "resetFreeRerolls"
+local RESET_STORE_PURCHASES_COMMAND = "resetStorePurchases"
 
 local function sendDevTool(command: string, args: { [string]: any })
 	ClientNetManager:fireServer(
@@ -125,6 +127,12 @@ function ClientGachaDevTools:renderSection()
 	end
 	if Iris.Button({ "Reset the Supply Crate tutorial" }).clicked() then
 		sendDevTool(RESET_CRATE_TUTORIAL_COMMAND, {})
+	end
+	if Iris.Button({ "Reset free rerolls (restricted)" }).clicked() then
+		sendDevTool(RESET_FREE_REROLLS_COMMAND, {})
+	end
+	if Iris.Button({ "Reset rotating store purchases (restricted)" }).clicked() then
+		sendDevTool(RESET_STORE_PURCHASES_COMMAND, {})
 	end
 	Iris.ComboArray({ "Class to step" }, { index = self.classOption }, self.classOptions)
 	if Iris.Button({ "Grant next step of class" }).clicked() then

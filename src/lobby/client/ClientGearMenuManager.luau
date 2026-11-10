@@ -56,6 +56,7 @@ export type ClientGearMenuManager = typeof(setmetatable(
 ))
 
 local LOCKED_TEXT = "Found in Supply Crates"
+local LOCKED_TEXT_RESTRICTED = "Found in the Store"
 local LOCKED_TEXT_SEC = 2
 -- a locked card's picture is dimmed under its lock
 local LOCKED_ICON_COLOR = Color3.fromRGB(90, 90, 90)
@@ -111,7 +112,10 @@ end
 function ClientGearMenuManager:onCardActivated(slot: number, card: GearLockerRules.Card)
 	if not card.isOwned then
 		ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
-		ClientPlayerFeedbackManager:giveLocal(LOCKED_TEXT, LOCKED_TEXT_SEC)
+		-- a player restricted from paid random items has no crates: their
+		-- cosmetics come from the rotating store
+		local lockedText = if ClientDataManager:isPaidRandomItemsRestricted() then LOCKED_TEXT_RESTRICTED else LOCKED_TEXT
+		ClientPlayerFeedbackManager:giveLocal(lockedText, LOCKED_TEXT_SEC)
 		return
 	end
 	if card.isEquipped then

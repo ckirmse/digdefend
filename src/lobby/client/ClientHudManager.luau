@@ -309,6 +309,31 @@ function ClientHudManager:init()
 			ClientGearMenuManager:openMenu()
 		end
 	)
+	-- the gacha menu hands a restricted player on to the rotating store,
+	-- so this button never shows them a crate
+	self:wireButton(
+		menuButtons,
+		Constants.HUD_ROTATING_STORE_BUTTON,
+		function()
+			ClientGachaMenuManager:openMenu()
+		end
+	)
+	-- a player restricted from paid random items has no crates to open,
+	-- so the Store button gives its place to the Rotating Store button
+	-- (designer, 2026-11-10)
+	local storeButton = menuButtons:FindFirstChild(Constants.HUD_STORE_BUTTON)
+	local rotatingStoreButton = menuButtons:FindFirstChild(Constants.HUD_ROTATING_STORE_BUTTON)
+	local function renderStoreButton()
+		local isRestricted = ClientDataManager:isPaidRandomItemsRestricted()
+		if storeButton and storeButton:IsA("GuiObject") then
+			storeButton.Visible = not isRestricted
+		end
+		if rotatingStoreButton and rotatingStoreButton:IsA("GuiObject") then
+			rotatingStoreButton.Visible = isRestricted
+		end
+	end
+	renderStoreButton()
+	ClientDataManager:subscribeCurrentPlayerAttribute(Attributes.IS_PAID_RANDOM_ITEMS_RESTRICTED, renderStoreButton)
 	self:renderClassIcon(menuButtons)
 	ClientDataManager:subscribeClasses(
 		function()

@@ -9,6 +9,7 @@ local ClientClassMenuManager = require(script.Parent.ClientClassMenuManager)
 local ClientCrateTutorialManager = require(script.Parent.ClientCrateTutorialManager)
 local ClientGachaDevTools = require(script.Parent.ClientGachaDevTools)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
+local ClientRestrictedStoreManager = require(script.Parent.ClientRestrictedStoreManager)
 local ClientGachaMenuManager = require(script.Parent.ClientGachaMenuManager)
 local ClientGearMenuManager = require(script.Parent.ClientGearMenuManager)
 local ClientHudManager = require(script.Parent.ClientHudManager)
@@ -17,6 +18,7 @@ local ClientJetPackManager = require(script.Parent.Parent.Client.ClientJetPackMa
 local ClientPadBillboardManager = require(script.Parent.ClientPadBillboardManager)
 local ClientLobbyMusicManager = require(script.Parent.ClientLobbyMusicManager)
 local ClientLobbyNpcManager = require(script.Parent.ClientLobbyNpcManager)
+local ClientStoreSignManager = require(script.Parent.ClientStoreSignManager)
 local ClientStoreZoneManager = require(script.Parent.ClientStoreZoneManager)
 local ClientPartyMenuManager = require(script.Parent.ClientPartyMenuManager)
 
@@ -30,6 +32,7 @@ ClientGachaMenuManager:init()
 ClientKeyStoreManager:init()
 ClientGearMenuManager:init()
 ClientDiamondStoreManager:init()
+ClientRestrictedStoreManager:init()
 ClientGachaDevTools:init()
 ClientHudManager:init()
 -- after the HUD, whose jet pack bar and touch button it drives
@@ -41,6 +44,7 @@ ClientLobbyMusicManager:init()
 ClientLobbyNpcManager:init()
 -- after both store menus, which it opens
 ClientStoreZoneManager:init()
+ClientStoreSignManager:init()
 -- after the crate menu, whose price and button it reads; off the main
 -- thread because it waits for the Tutorial gui
 task.spawn(

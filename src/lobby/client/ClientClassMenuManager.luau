@@ -36,6 +36,7 @@ local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
+local ClientTicker = require(script.Parent.Parent.Client.ClientTicker)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
 local ClientGachaMenuManager = require(script.Parent.ClientGachaMenuManager)
 
@@ -61,6 +62,10 @@ type View = {
 	oddsButton: GuiButton,
 	equipButton: GuiButton,
 	supplyCrateButton: GuiButton,
+	-- the restricted player's plates, both roads to the rotating store;
+	-- nil on a gui without them
+	rotatingStoreButton: GuiButton?,
+	upgradeButton: GuiButton?,
 	infoDialog: GuiObject,
 	infoTitle: TextLabel,
 	infoPicture: ImageLabel,
@@ -122,6 +127,9 @@ export type ClientClassMenuManager = typeof(setmetatable(
 		rollConnections: { RBXScriptConnection },
 		-- the connections of the cloned buttons, dropped on every redraw
 		cloneConnections: { RBXScriptConnection },
+		-- the labels counting down to a restricted player's next free
+		-- roll, rebuilt with the perk rows and written once a second
+		freeRollTimers: { { label: TextLabel, endTime: number, format: string } },
 		listPaddingTopScale: number?,
 		listGapScale: number?,
 		-- the class the EQUIPPED CLASS box last showed, nil on opening so
@@ -149,6 +157,11 @@ local EMPTY_PERK_DESCRIPTION = "Roll a perk"
 local UNLOCKED_AT_FORMAT = "Unlocked at %d " .. utf8.char(0x2605)
 local ROLL_TEXT = "Roll"
 local REROLL_TEXT = "Reroll"
+local KEEP_TEXT = "Keep"
+local FREE_ROLL_TIMER_INTERVAL_SEC = 1
+-- an offered skill's description, the skill it would replace, and the
+-- countdown to the offer's end (the last %s, filled every second)
+local OFFER_DESCRIPTION_FORMAT = "%s\nReplaces %s. Offer ends in %%s"
 local FREE_TEXT = "Free"
 local EQUIP_TEXT = "Equip"
 local EQUIPPED_TEXT = "Equipped"
@@ -432,6 +445,7 @@ function ClientClassMenuManager:renderPerkRows(view: View, classKind: number)
 	if activeRoll and activeRoll.classKind == classKind then
 		return
 	end
+	table.clear(self.freeRollTimers)
 	local pricing = self:getRerollPricing()
 	local record = ClientDataManager:getClassRecord(classKind)
 	local stars = self:starsOf(classKind) or 0
@@ -491,6 +505,12 @@ function ClientClassMenuManager:showRerollButton(row: Instance, classKind: numbe
 	if not pricing then
 		return
 	end
+	-- a player restricted from paid random items rerolls a filled slot
+	-- free once a day and pays only to keep what came up
+	if not isEmpty and ClientDataManager:isPaidRandomItemsRestricted() then
+		self:showFreeRollButton(row, rerollButton, classKind, slot, pricing)
+		return
+	end
 	local price = SkillRules.skillRollPrice(pricing, isEmpty)
 	self:fillRerollButton(rerollButton, if isEmpty then ROLL_TEXT else REROLL_TEXT, price)
 	self:addCloneConnection(
@@ -500,6 +520,102 @@ function ClientClassMenuManager:showRerollButton(row: Instance, classKind: numbe
 			end
 		)
 	)
+end
+
+-- the restricted player's row (designer, 2026-11-10), in one of three
+-- states read from the slot's saved free roll: the roll is ready (REROLL,
+-- FREE); an offer stands (the row shows the offered skill, what it would
+-- replace, and a countdown to the offer's end, and the button is KEEP
+-- with the rarity's Diamond price); or the offer was kept or never came
+-- and the next roll is still to come (the button dimmed, counting down)
+function ClientClassMenuManager:showFreeRollButton(row: Instance, button: GuiButton, classKind: number, slot: number, pricing: SkillRules.RerollPricing)
+	local record = ClientDataManager:getClassRecord(classKind)
+	local freeRoll = if record.freeRolls then record.freeRolls[tostring(slot)] else nil
+	local state = SkillRules.freeRollState(freeRoll, workspace:GetServerTimeNow(), pricing.freeRollIntervalSec)
+	if state.canRoll then
+		self:fillRerollButton(button, REROLL_TEXT, 0)
+		self:addCloneConnection(
+			button.Activated:Connect(
+				function()
+					self:requestRoll(classKind, slot, 0)
+				end
+			)
+		)
+		return
+	end
+	local offer = state.offer
+	if not offer then
+		self:fillRerollButton(button, REROLL_TEXT, 0)
+		button.Interactable = false
+		local priceLabel = button:FindFirstChild(Constants.REROLL_BUTTON_PRICE_LABEL)
+		if priceLabel and priceLabel:IsA("TextLabel") then
+			self:addFreeRollTimer(priceLabel, state.nextRollTime, "%s")
+		end
+		return
+	end
+	local held = record.skills[tostring(slot)]
+	local heldEntry = self:reelEntryFor(if held then held.skillId else nil, if held then held.rarity else nil)
+	local offerEntry = self:reelEntryFor(offer.skillId, offer.rarity)
+	local skillText = skillTextOf(row)
+	fillSkillText(skillText, offerEntry)
+	local descriptionLabel = skillText:FindFirstChild(Constants.PERK_ROW_DESCRIPTION_LABEL)
+	if descriptionLabel and descriptionLabel:IsA("TextLabel") then
+		-- the words are data, so a % in them must not read as a format
+		local description = string.gsub(offerEntry.description, "%%", "%%%%")
+		local heldName = string.gsub(heldEntry.name, "%%", "%%%%")
+		self:addFreeRollTimer(descriptionLabel, state.nextRollTime, string.format(OFFER_DESCRIPTION_FORMAT, description, heldName))
+	end
+	local price = SkillRules.keepPrice(pricing, offer.rarity) or 0
+	self:fillRerollButton(button, KEEP_TEXT, price)
+	self:addCloneConnection(
+		button.Activated:Connect(
+			function()
+				self:requestKeep(classKind, slot, price)
+			end
+		)
+	)
+end
+
+-- a label that counts down to a slot's next free roll: written now and
+-- then once a second by the ticker (stepFreeRollTimers)
+function ClientClassMenuManager:addFreeRollTimer(label: TextLabel, endTime: number, format: string)
+	table.insert(self.freeRollTimers, { label = label, endTime = endTime, format = format })
+	label.Text = string.format(format, SkillRules.formatCountdown(endTime - workspace:GetServerTimeNow()))
+end
+
+function ClientClassMenuManager:stepFreeRollTimers()
+	if not self.isOpen or #self.freeRollTimers == 0 then
+		return
+	end
+	local now = workspace:GetServerTimeNow()
+	local hasExpired = false
+	for _, timer in self.freeRollTimers do
+		timer.label.Text = string.format(timer.format, SkillRules.formatCountdown(timer.endTime - now))
+		if now >= timer.endTime then
+			hasExpired = true
+		end
+	end
+	if hasExpired then
+		-- a wait ran out: the row is redrawn into its ready state (the
+		-- list is cleared first so a skipped redraw cannot loop)
+		table.clear(self.freeRollTimers)
+		self:render()
+	end
+end
+
+-- KEEP on a standing offer: judged here first so a short balance never
+-- makes a round trip; the server checks the offer and the price again
+function ClientClassMenuManager:requestKeep(classKind: number, slot: number, price: number)
+	local diamonds = ClientDataManager:getDiamonds()
+	if price > diamonds then
+		ClientDiamondStoreManager:handleDiamondsShort(price, diamonds)
+		return
+	end
+	ClientSoundManager:playSfx(SoundNames.Sfx.SALE_SUCCESS)
+	ClientNetManager:fireServer(NetEventNames.TRY_KEEP_SKILL_OFFER, {
+		classKind = classKind,
+		slot = slot,
+	})
 end
 
 -- a roll the menu already knows the price of: a short balance is handled
@@ -598,9 +714,23 @@ function ClientClassMenuManager:renderInfo(view: View, entry: ClassCatalogueRule
 	-- a locked class shows the one Supply Crate plate where Odds and Equip
 	-- stand; an owned class with no star has its Odds plate send the
 	-- player there too (designer, 2026-11-05)
-	view.supplyCrateButton.Visible = not isOwned
-	view.oddsButton.Visible = isOwned
+	-- a player restricted from paid random items has no crate and no
+	-- random reroll odds to read (designer, 2026-11-10): a locked class
+	-- shows the Rotating Store plate alone, an owned one the Upgrade
+	-- plate where Odds stands, and both lead to the rotating store,
+	-- where class cards are bought
+	local isRestricted = ClientDataManager:isPaidRandomItemsRestricted()
+	view.supplyCrateButton.Visible = not isOwned and not isRestricted
+	view.oddsButton.Visible = isOwned and not isRestricted
 	view.equipButton.Visible = isOwned
+	local rotatingStoreButton = view.rotatingStoreButton
+	if rotatingStoreButton then
+		rotatingStoreButton.Visible = isRestricted and not isOwned
+	end
+	local upgradeButton = view.upgradeButton
+	if upgradeButton then
+		upgradeButton.Visible = isRestricted and isOwned
+	end
 	local isStarUp = self:isOddsStarUp(classKind)
 	local oddsText = if isStarUp then STAR_UP_TEXT else ODDS_TEXT
 	setLabel(view.oddsButton, Constants.EQUIP_BUTTON_LABEL, UiStyle.formatTitle(oddsText))
@@ -848,7 +978,10 @@ function ClientClassMenuManager:onSkillRollOffer(payload: any)
 	end
 	local classKind = if typeof(payload.classKind) == "number" then payload.classKind else self.selectedClassKind
 	local slot: number = payload.slot
-	local isFinal = payload.isFinal == true
+	-- a restricted player's free roll is saved on the slot as an offer
+	-- already, so like the free first roll its reel is show: no KEEP or X
+	-- follows, the redraw draws the offer with its own Keep
+	local isFinal = payload.isFinal == true or payload.isFreeOffer == true
 	local row = view.perkRows:FindFirstChild(string.format(PERK_ROW_NAME_FORMAT, slot))
 	if classKind ~= self.selectedClassKind or not row then
 		-- the panel moved on under the request: an open offer is handed back
@@ -861,7 +994,8 @@ function ClientClassMenuManager:onSkillRollOffer(payload: any)
 	self:closeInfo()
 	local generation = self.rollGeneration
 	local record = ClientDataManager:getClassRecord(classKind)
-	local current = if isFinal then nil else record.skills[tostring(slot)]
+	-- the reel starts from the empty slot only for the first roll
+	local current = if payload.isFinal == true then nil else record.skills[tostring(slot)]
 	local start = self:reelEntryFor(if current then current.skillId else nil, if current then current.rarity else nil)
 	local result = self:reelEntryFor(payload.offer.skillId, payload.offer.rarity)
 	self.activeRoll = {
@@ -1009,6 +1143,11 @@ function ClientClassMenuManager:findView(playerGui: PlayerGui): View?
 	local oddsButton = find(infoPanel, Constants.CLASS_INFO_ODDS_BUTTON)
 	local equipButton = find(infoPanel, Constants.CLASS_INFO_EQUIP_BUTTON)
 	local supplyCrateButton = find(infoPanel, Constants.CLASS_INFO_SUPPLY_CRATE_BUTTON)
+	local rotatingStoreButton = find(infoPanel, Constants.CLASS_INFO_ROTATING_STORE_BUTTON)
+	local upgradeButton = find(infoPanel, Constants.CLASS_INFO_UPGRADE_BUTTON)
+	if not rotatingStoreButton or not upgradeButton then
+		warn("ClientClassMenuManager: the ClassMenu has no RotatingStoreButton or UpgradeButton; a restricted player has no road to the store from here")
+	end
 	local infoDialog = find(dialog, Constants.CLASS_MENU_INFO_DIALOG)
 	local infoTitle = find(infoDialog, Constants.INFO_DIALOG_TITLE)
 	local infoPicture = find(infoDialog, Constants.INFO_DIALOG_PICTURE)
@@ -1039,6 +1178,8 @@ function ClientClassMenuManager:findView(playerGui: PlayerGui): View?
 		oddsButton = oddsButton :: GuiButton,
 		equipButton = equipButton :: GuiButton,
 		supplyCrateButton = supplyCrateButton :: GuiButton,
+		rotatingStoreButton = if rotatingStoreButton and rotatingStoreButton:IsA("GuiButton") then rotatingStoreButton else nil,
+		upgradeButton = if upgradeButton and upgradeButton:IsA("GuiButton") then upgradeButton else nil,
 		infoDialog = infoDialog :: GuiObject,
 		infoTitle = infoTitle :: TextLabel,
 		infoPicture = infoPicture :: ImageLabel,
@@ -1083,6 +1224,17 @@ function ClientClassMenuManager:init()
 			self:openSupplyCrates()
 		end
 	)
+	-- both of the restricted player's plates do what the Supply Crate
+	-- plate does: this menu closes and the stall's menu opens, which for
+	-- them is the rotating store (ClientGachaMenuManager:openMenu)
+	for _, plate in { view.rotatingStoreButton, view.upgradeButton } do
+		plate.Visible = false
+		plate.Activated:Connect(
+			function()
+				self:openSupplyCrates()
+			end
+		)
+	end
 	view.infoClose.Activated:Connect(
 		function()
 			self:closeInfo()
@@ -1140,9 +1292,24 @@ function ClientClassMenuManager:init()
 			self:render()
 		end
 	)
+	-- the restricted flag swaps the crate and odds plates for the store's
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.IS_PAID_RANDOM_ITEMS_RESTRICTED,
+		function()
+			self:render()
+		end
+	)
 	-- the Diamonds balance a roll spends is the HUD's wallet, left on
 	-- screen under the clear backdrop (designer, 2026-11-05; the menu had
 	-- its own wallet before), and a shortfall flashes it through the HUD
+	-- the free roll countdowns; a tick with the menu closed or nothing
+	-- counting returns at once
+	ClientTicker.every(
+		FREE_ROLL_TIMER_INTERVAL_SEC,
+		function()
+			self:stepFreeRollTimers()
+		end
+	)
 	ClientNetManager:registerHandler(
 		NetEventNames.NOTIFY_SKILL_ROLL_OFFER,
 		function(payload: any)
@@ -1158,6 +1325,7 @@ function ClientClassMenuManager.new(): ClientClassMenuManager
 	self.isOpen = false
 	self.selectedClassKind = 0
 	self.activeRoll = nil
+	self.freeRollTimers = {}
 	self.rollGeneration = 0
 	self.rollConnections = {}
 	self.cloneConnections = {}

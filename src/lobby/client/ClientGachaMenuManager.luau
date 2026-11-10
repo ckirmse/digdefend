@@ -53,6 +53,7 @@ local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
+local ClientRestrictedStoreManager = require(script.Parent.ClientRestrictedStoreManager)
 local ClientKeyStoreManager = require(script.Parent.ClientKeyStoreManager)
 local ClientPadBillboardManager = require(script.Parent.ClientPadBillboardManager)
 
@@ -123,6 +124,15 @@ type Faded = {
 	value: number,
 }
 
+type ExpectedPurchase = {
+	-- the answer is no longer waited for after this server time
+	expireTime: number,
+	-- hides the store, then calls `next`
+	hideStore: (next: () -> ()) -> (),
+	-- puts the store back once the prize is claimed
+	onDone: () -> (),
+}
+
 export type ClientGachaMenuManager = typeof(setmetatable(
 	{} :: {
 		view: View?,
@@ -170,6 +180,13 @@ export type ClientGachaMenuManager = typeof(setmetatable(
 		-- told when the HUD wallets should fade for the reveal and come
 		-- back after the claim (the HUD listens; it requires this module)
 		walletsFadedSubscribers: { (isFaded: boolean, fadeSec: number) -> () },
+		-- the restricted player's store purchase (2026-11-10): the store
+		-- says a result is on its way (expectPurchaseReveal), and when it
+		-- comes the crate opens on it with no menu and no tap; the two
+		-- callbacks fade the store out before and bring it back after
+		expectedPurchase: ExpectedPurchase?,
+		isPurchaseReveal: boolean,
+		purchaseRevealDone: (() -> ())?,
 		dialogAuthoredTransparency: number,
 		tapHintAuthoredTextTransparency: number,
 		tapHintAuthoredStrokeTransparency: number,
@@ -226,6 +243,9 @@ local SELL_TEXT = "Exchange for keys"
 -- a roll whose result never comes (the server refused it) is let go of
 -- after this long waiting at the crate, and the menu comes back
 local RESULT_TIMEOUT_SEC = 8
+-- how long a store purchase's answer is waited for before a result is
+-- treated as nobody's
+local PURCHASE_EXPECT_SEC = 6
 -- the card starts this small at the crate's mouth
 local CARD_START_SCALE = 0.15
 local CAMERA_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_CAMERA_TWEEN_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
@@ -1370,6 +1390,10 @@ end
 -- CLAIM (or a roll that never answered): the crate shuts, the world
 -- comes back, and the camera glides back to the menu shot
 function ClientGachaMenuManager:returnToMenu()
+	if self.isPurchaseReveal then
+		self:endPurchaseReveal()
+		return
+	end
 	local view = self.view
 	local crate = self.crate
 	if not view or not crate then
@@ -1434,6 +1458,10 @@ function ClientGachaMenuManager:requestRoll()
 	if not view or not config or self.isRolling or self.stage ~= Stage.MENU then
 		return
 	end
+	-- never sent for a restricted player; the server refuses it as well
+	if ClientDataManager:isPaidRandomItemsRestricted() then
+		return
+	end
 	local diamonds = ClientDataManager:getDiamonds()
 	if diamonds < config.rollPriceDiamonds then
 		ClientDiamondStoreManager:handleDiamondsShort(config.rollPriceDiamonds, diamonds)
@@ -1466,7 +1494,87 @@ function ClientGachaMenuManager:beginRoll(send: () -> ())
 	self:startSequence()
 end
 
+-- the rotating store is about to buy something (a restricted player):
+-- the result that follows is theirs to see as a crate opening. hideStore
+-- fades the store away and calls on; onDone puts it back after CLAIM
+function ClientGachaMenuManager:expectPurchaseReveal(hideStore: (next: () -> ()) -> (), onDone: () -> ())
+	self.expectedPurchase = {
+		expireTime = workspace:GetServerTimeNow() + PURCHASE_EXPECT_SEC,
+		hideStore = hideStore,
+		onDone = onDone,
+	}
+end
+
+-- the crate sequence as the show for a purchase (designer, 2026-11-10):
+-- no menu panel, the camera glides straight to the crate, and the crate
+-- opens by itself on what was bought, with no TAP TO OPEN. CLAIM ends
+-- it (endPurchaseReveal). False when the scene cannot play, so the
+-- caller can carry on without it
+function ClientGachaMenuManager:playPurchaseReveal(payload: { [string]: any }, onDone: () -> ()): boolean
+	local view = self.view
+	local overlay = self.overlay
+	local crate = self.crate
+	local camera = workspace.CurrentCamera
+	if not view or not overlay or not crate or not camera or self.isOpen or ClientOverlayManager:isOverlayActive() then
+		return false
+	end
+	self.isOpen = true
+	self:resetSequence()
+	self.isPurchaseReveal = true
+	self.purchaseRevealDone = onDone
+	view.gui.Enabled = true
+	view.dialog.Visible = false
+	ClientOverlayManager:notifyBeginOverlay(overlay)
+	self.savedCameraCFrame = camera.CFrame
+	self:fadeSelf(true)
+	ClientPadBillboardManager:setBillboardsFadedByMenu(true, UiStyle.GACHA_WORLD_FADE_SEC)
+	self.pendingResult = payload
+	self.isRolling = true
+	self.sequenceSerial += 1
+	local serial = self.sequenceSerial
+	self.stage = Stage.PANNING
+	self:fadeWorld(crate, true)
+	self:notifyWalletsFaded(true, UiStyle.GACHA_WORLD_FADE_SEC)
+	self:tweenCamera(
+		crate.cameraSequence,
+		CAMERA_TWEEN_INFO,
+		function()
+			if serial ~= self.sequenceSerial then
+				return
+			end
+			-- the tap's own stage, passed through at once
+			self.stage = Stage.TAP
+			self:openCrate()
+		end
+	)
+	return true
+end
+
+-- CLAIM after a purchase: the scene is put away, the player's own
+-- camera comes back where it stood, and the store returns
+function ClientGachaMenuManager:endPurchaseReveal()
+	local onDone = self.purchaseRevealDone
+	self:closeMenu()
+	if onDone then
+		onDone()
+	end
+end
+
 function ClientGachaMenuManager:showResult(payload: { [string]: any })
+	local expected = self.expectedPurchase
+	if expected and not self.isOpen then
+		self.expectedPurchase = nil
+		if workspace:GetServerTimeNow() < expected.expireTime then
+			expected.hideStore(
+				function()
+					if not self:playPurchaseReveal(payload, expected.onDone) then
+						expected.onDone()
+					end
+				end
+			)
+			return
+		end
+	end
 	if not self.isOpen then
 		-- a roll from the dev panel with the menu closed: the balances
 		-- already moved, there is nothing to show
@@ -1537,6 +1645,13 @@ function ClientGachaMenuManager:resetSequence()
 end
 
 function ClientGachaMenuManager:openMenu()
+	-- a player restricted from paid random items never sees the crate
+	-- (designer, 2026-11-10): every road here (the stall, the HUD's Store
+	-- button, the Class Menu) lands on the store that sells by name
+	if ClientDataManager:isPaidRandomItemsRestricted() then
+		ClientRestrictedStoreManager:openMenu()
+		return
+	end
 	local view = self.view
 	local overlay = self.overlay
 	if not view or not overlay or self.isOpen then
@@ -1577,6 +1692,8 @@ function ClientGachaMenuManager:closeMenu()
 		return
 	end
 	self.isOpen = false
+	self.isPurchaseReveal = false
+	self.purchaseRevealDone = nil
 	self:resetSequence()
 	self:fadeSelf(false, true)
 	ClientPadBillboardManager:setBillboardsFadedByMenu(false, 0)
@@ -1842,6 +1959,8 @@ function ClientGachaMenuManager:init()
 		end,
 		notifyForceEnd = function(_overlay)
 			self.isOpen = false
+			self.isPurchaseReveal = false
+			self.purchaseRevealDone = nil
 			self:resetSequence()
 			self:fadeSelf(false, true)
 			ClientPadBillboardManager:setBillboardsFadedByMenu(false, 0)
@@ -1882,12 +2001,25 @@ function ClientGachaMenuManager:init()
 		ClientDataManager:subscribeCurrentPlayerAttribute(
 			attribute,
 			function()
+				-- the policy answering with the crate menu already open: it
+				-- closes, since a restricted player may not see it
+				if self.isOpen and ClientDataManager:isPaidRandomItemsRestricted() then
+					self:closeMenu()
+					return
+				end
 				if self.stage == Stage.MENU then
 					self:render()
 				end
 			end
 		)
 	end
+	-- the rotating store cannot require this module (this one requires
+	-- it), so it is handed the way to ask for a purchase's crate opening
+	ClientRestrictedStoreManager:setPurchaseRevealer(
+		function(hideStore: (next: () -> ()) -> (), onDone: () -> ())
+			self:expectPurchaseReveal(hideStore, onDone)
+		end
+	)
 	ClientNetManager:registerHandler(
 		NetEventNames.NOTIFY_GACHA_RESULT,
 		function(payload: any)
@@ -1926,6 +2058,9 @@ function ClientGachaMenuManager.new(): ClientGachaMenuManager
 	self.savedCameraCFrame = nil
 	self.pulseTween = nil
 	self.walletsFadedSubscribers = {}
+	self.expectedPurchase = nil
+	self.isPurchaseReveal = false
+	self.purchaseRevealDone = nil
 	self.dialogAuthoredTransparency = 0
 	self.tapHintAuthoredTextTransparency = 0
 	self.tapHintAuthoredStrokeTransparency = 0

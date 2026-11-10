@@ -225,8 +225,18 @@ module = {
 	HAS_FINISHED_URANIUM_TUTORIAL = "HasFinishedUraniumTutorial",
 	-- the lobby's Supply Crate lesson, done at the first crate paid for
 	HAS_FINISHED_SUPPLY_CRATE_TUTORIAL = "HasFinishedSupplyCrateTutorial",
+	-- CurrentPlayer (lobby): PolicyService has answered (or failed) for
+	-- this player, so IsPaidRandomItemsRestricted is final; the lobby
+	-- holds the loading screen for it (2026-11-10)
+	IS_PAID_RANDOM_ITEMS_POLICY_KNOWN = "IsPaidRandomItemsPolicyKnown",
+	-- GameMetadata (lobby): the rotating Gear Store's day, next change,
+	-- and the cosmetic ids on sale, as DailyStoreRules JSON (2026-11-10)
+	DAILY_STORE = "DailyStore",
 	CLASS_PROGRESS = "ClassProgress",
 	OWNED_COSMETICS = "OwnedCosmetics",
+	-- CurrentPlayer (private): the class cards this player bought from
+	-- the rotating store's current set, as DailyStoreRules JSON
+	STORE_PURCHASES = "StorePurchases",
 	-- CurrentPlayer (private): true when PolicyService says the player may
 	-- not buy paid random items, so the menu offers the direct class buy
 	-- instead of the roll (M70)
