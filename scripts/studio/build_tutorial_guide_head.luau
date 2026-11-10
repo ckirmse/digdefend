@@ -6,8 +6,9 @@
 -- and texture ids, sizes, colours, and the helmet's and mask's offsets
 -- from the head were read off the lobby rig on 2026-11-09, so the two
 -- places need no shared asset; the head's front is its -Z. Run from the
--- Studio command bar (or the MCP execute_luau tool) in the gameplay
--- place; it replaces any existing copy.
+-- Studio command bar (or the MCP execute_luau tool) in the gameplay place,
+-- and in the lobby for its Supply Crate lesson (2026-11-10); it replaces
+-- any existing head. The beam defaults are the designer's tuned values.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local InsertService = game:GetService("InsertService")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
@@ -43,8 +44,11 @@ local PARTS = {
 		textureId = "rbxassetid://5197121493",
 		size = Vector3.new(1.42427, 1.28882, 1.83896),
 		color = GEAR_COLOR,
-		-- mask (52.108082, 5.975954, 21.779995): 0.283 ahead of the face, 0.085 to its right
-		offset = CFrame.new(0.084999, 0.007689, -0.283386),
+		-- mask (52.108082, 5.975954, 21.779995): 0.283 ahead of the face,
+		-- 0.085 toward the head's own -X. The first build had +0.085, the
+		-- mirror image, which sat the mask off the face (fixed 2026-11-10
+		-- from head.CFrame:ToObjectSpace(mask.CFrame) on the lobby rig)
+		offset = CFrame.new(-0.084999, 0.007689, -0.283386),
 	},
 }
 
@@ -96,8 +100,8 @@ if not folder:FindFirstChild("GuideBeam") then
 	local beam = Instance.new("Beam")
 	beam.Name = "GuideBeam"
 	beam.Color = ColorSequence.new(Color3.fromRGB(245, 200, 80))
-	beam.Width0 = 1
-	beam.Width1 = 1
+	beam.Width0 = 3
+	beam.Width1 = 3
 	beam.FaceCamera = true
 	beam.LightEmission = 1
 	beam.LightInfluence = 0
@@ -106,7 +110,7 @@ if not folder:FindFirstChild("GuideBeam") then
 	beam.Texture = "rbxassetid://75040607043356"
 	beam.TextureMode = Enum.TextureMode.Wrap
 	beam.TextureLength = 4
-	beam.TextureSpeed = 1.5
+	beam.TextureSpeed = 3
 	beam.Segments = 1
 	beam.Parent = folder
 	print("build_tutorial_guide_head: built ReplicatedStorage.GameAssets.Tutorial.GuideBeam")

@@ -228,6 +228,10 @@ module = {
 	-- 0 to stop), so the server streams the world and the monsters round
 	-- that player instead of the DeathRoom
 	TRY_SPECTATE = "TrySpectate",
+	-- the tutorial (M76): the last line of a part has ended on this
+	-- client ({ part }, an Enums.TutorialPart), so the server saves that
+	-- part as finished
+	TRY_FINISH_TUTORIAL = "TryFinishTutorial",
 	-- Give Currency (M32): { targetUserId, goldBars, ironBars } after the
 	-- menu's Confirm; both players hear the result as feedback text
 	TRY_GIVE_CURRENCY = "TryGiveCurrency",

@@ -40,6 +40,7 @@ local GRANT_CLASS_STEP_COMMAND = "grantClassStep"
 local SET_RESTRICTED_COMMAND = "setPaidRandomRestricted"
 local CLEAR_CLASS_PROGRESS_COMMAND = "clearClassProgress"
 local CLEAR_COSMETICS_COMMAND = "clearCosmetics"
+local RESET_CRATE_TUTORIAL_COMMAND = "resetCrateTutorial"
 
 local function sendDevTool(command: string, args: { [string]: any })
 	ClientNetManager:fireServer(
@@ -121,6 +122,9 @@ function ClientGachaDevTools:renderSection()
 	end
 	if Iris.Button({ "Clear cosmetics" }).clicked() then
 		sendDevTool(CLEAR_COSMETICS_COMMAND, {})
+	end
+	if Iris.Button({ "Reset the Supply Crate tutorial" }).clicked() then
+		sendDevTool(RESET_CRATE_TUTORIAL_COMMAND, {})
 	end
 	Iris.ComboArray({ "Class to step" }, { index = self.classOption }, self.classOptions)
 	if Iris.Button({ "Grant next step of class" }).clicked() then

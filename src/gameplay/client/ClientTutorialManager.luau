@@ -8,8 +8,8 @@
 -- here from state the client already has (the backpack and balance
 -- attributes, the equipped tool, the mine's grid, the run's day and
 -- phase, the post models), so the server scripts nothing and only owns
--- the HasFinishedTutorial flag (TutorialManager: set at the dawn after
--- the first night). There is no NEXT and no SKIP (designer, 2026-11-09):
+-- the three finished flags (TutorialManager: each saved when this
+-- client reports that part's last line ended). There is no NEXT and no SKIP (designer, 2026-11-09):
 -- a line is read in its own time or waited out. The HUD arrow is
 -- one ImageLabel parked beside the element a step names and bobbing
 -- toward it; the guide beam is one Beam from the player's root to an
@@ -18,8 +18,12 @@
 -- compass's home, the pick axe stand, the nearest unclaimed post sign,
 -- re-picked while the step is up). Sequences: the day 1 one starts when
 -- the DAY 1 card closes, the sunset and night ones replace whatever is
--- playing, the morning one ends the walkthrough, and the first Iron and
--- the first Uranium wait their turn behind what is up.
+-- playing, the morning one ends the walkthrough, and the Iron and
+-- Uranium ones are never queued (designer, 2026-11-10): each time that
+-- ore is mined they play if no line is up (nothing playing, or a step
+-- waiting on its task with the dialogue gone), setting the waiting step
+-- aside and handing back to it after; otherwise they try again at the
+-- next ore.
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -37,8 +41,11 @@ local StoreRules = require("@game/ReplicatedStorage/Shared/StoreRules")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientGuiFade = require(script.Parent.Parent.Client.ClientGuiFade)
+local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
+local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientMineManager = require(script.Parent.ClientMineManager)
+local ClientRefineryManager = require(script.Parent.ClientRefineryManager)
 local ClientRunCycleManager = require(script.Parent.ClientRunCycleManager)
 local ClientToolBarManager = require(script.Parent.ClientToolBarManager)
 local TutorialScript = require(script.Parent.TutorialScript)
@@ -60,11 +67,24 @@ type ArrowSide = {
 	bob: Vector2,
 }
 
+type Suspended = {
+	sequence: TutorialScript.Sequence,
+	stepIndex: number,
+	step: TutorialScript.Step,
+}
+
 export type ClientTutorialManager = typeof(setmetatable(
 	{} :: {
 		gui: ScreenGui?,
 		dialog: GuiObject?,
 		portrait: ViewportFrame?,
+		-- the head in the portrait, nodded while a line types out: the
+		-- typewriter's end, how much of the motion is in (eased 0 to 1),
+		-- and the last frame's time for the easing
+		portraitHead: Model?,
+		typeEndTime: number,
+		talkShare: number,
+		lastStepTime: number,
 		messageLabel: TextLabel?,
 		readBar: GuiObject?,
 		-- the Tasks panel (designer, 2026-11-09): the goal of a waiting step
@@ -87,6 +107,10 @@ export type ClientTutorialManager = typeof(setmetatable(
 		-- flag was false at Ready (or was reset by the dev tool); false
 		-- again after SKIP or the morning lines
 		isArmed: boolean,
+		-- the dev panel's "start now" is running: nothing it plays is
+		-- reported to the server, and the side lessons play whatever the
+		-- save says
+		isDevPlaythrough: boolean,
 		-- the sequences that have played, so each fires once
 		playedKeys: { [string]: boolean },
 		-- the running sequence and the ones queued behind it
@@ -95,6 +119,10 @@ export type ClientTutorialManager = typeof(setmetatable(
 		pending: { TutorialScript.Sequence },
 		-- the step on screen, nil between steps
 		currentStep: TutorialScript.Step?,
+		-- the waiting step an Iron or Uranium sequence cut in on: its task
+		-- and beam stay up while the lines play, and it takes over again
+		-- where it stood when they end
+		suspended: Suspended?,
 		-- the read bar's authored width, drained by the reading time
 		readBarFullScale: number,
 		-- a step without a wait leaves at this server time
@@ -104,6 +132,9 @@ export type ClientTutorialManager = typeof(setmetatable(
 		-- first Gold Bars credited, each latched for good
 		hasMinedByResource: { [number]: boolean },
 		hasRefinedGold: boolean,
+		-- the server time the Gold Bars balance last rose; the payout's
+		-- bars are still flying to the HUD for a moment after it
+		goldBarsRiseTime: number,
 		-- the pick axe level at Ready, so a bought rung is a rise from it
 		pickAxeLevelAtStart: number,
 		-- the mine-and-refine loop toward the pick axe price: the ore the
@@ -118,6 +149,12 @@ export type ClientTutorialManager = typeof(setmetatable(
 		beam: Beam?,
 		beamFolder: Folder?,
 		targetPart: BasePart?,
+		-- the bend: while a target has a waypoint the player has not
+		-- reached, the first beam ends on this part and the second runs
+		-- from it to the target
+		waypointPart: BasePart?,
+		waypointBeam: Beam?,
+		hasReachedWaypoint: boolean,
 		rootAttachment: Attachment?,
 		beamTargetName: string?,
 		-- the template's transparency, faded to 1 when a step's beamUntil
@@ -152,6 +189,13 @@ local BEAM_ROOT_OFFSET = Vector3.new(0, -1, 0)
 local POST_PICK_INTERVAL_SEC = 0.5
 -- the beam's fade once its step's beamUntil holds
 local BEAM_FADE_SEC = 0.6
+-- standing this close to a beam's waypoint counts as through the door:
+-- the beam runs straight to its target from then on
+local WAYPOINT_REACH_STUDS = 6
+-- a Gold Bars rise counts as paid out this long after it at the
+-- earliest: the balance can replicate a frame before the payout message
+-- that starts the bars flying
+local PAYOUT_SETTLE_MIN_SEC = 0.3
 -- standing this close to the entrance mouth counts as in the mine
 local ENTRANCE_REACH_STUDS = 10
 local FIRST_DAY = 1
@@ -159,6 +203,24 @@ local FOLDER_NAME = "TutorialGuide"
 -- the dialogue and the Tasks panel fade in and out
 local PANEL_FADE_SEC = 0.35
 local PROGRESS_FORMAT = "%s (%d/%d)"
+-- the guide "talks" while a line types out (designer, 2026-11-10): the
+-- head has no jaw and wears a mask, so talking is a quick nod with a
+-- slower sway and a small bob, about a point at the neck; the motion
+-- eases in and out at this rate (shares per second)
+local TALK_NOD_HZ = 2.25
+local TALK_NOD_DEGREES = 5
+local TALK_SWAY_HZ = 1.7
+local TALK_SWAY_DEGREES = 2.5
+local TALK_BOB_STUDS = 0.03
+local TALK_EASE_PER_SEC = 8
+local TALK_NECK_OFFSET = Vector3.new(0, -0.6, 0)
+
+-- the side lessons: the sequence each key plays, the part of the save it
+-- finishes, and the CurrentPlayer flag that says it is already learnt
+local SIDE_LESSONS: { [string]: { part: number, attribute: string } } = {
+	IRON = { part = Enums.TutorialPart.IRON, attribute = Attributes.HAS_FINISHED_IRON_TUTORIAL },
+	URANIUM = { part = Enums.TutorialPart.URANIUM, attribute = Attributes.HAS_FINISHED_URANIUM_TUTORIAL },
+}
 
 -- the arrow beside each HUD element: right of the Balances (pointing
 -- left), left of the backpack button (pointing right), above the pick
@@ -243,12 +305,21 @@ function ClientTutorialManager:isBackpackFull(): boolean
 	return capacity > 0 and total >= capacity
 end
 
+-- the balance holds a payout the moment the server credits it, but the
+-- bars are still flying from the Refinery to the HUD and the shown count
+-- climbs as each lands; a line about the bars waits for the last one
+-- (designer, 2026-11-10)
+function ClientTutorialManager:isGoldPayoutSettled(): boolean
+	return workspace:GetServerTimeNow() - self.goldBarsRiseTime >= PAYOUT_SETTLE_MIN_SEC
+		and not ClientRefineryManager:isPayoutInFlight(Enums.RefinedResource.GOLD_BAR)
+end
+
 -- the next pick axe rung's Gold price, from the store catalogue the
--- server publishes; the designer's 25 when the catalogue is not up yet
+-- server publishes; the designer's 20 when the catalogue is not up yet
 function ClientTutorialManager:getPickAxePrice(): number
 	local catalog = StoreRules.decodeCatalog(ClientDataManager:getGameMetadata(Attributes.STORE_CATALOG))
 	local offer = if catalog then StoreRules.getOffer(catalog, Enums.StoreItem.PICK_AXE, self.pickAxeLevelAtStart) else nil
-	return if offer and offer.price then offer.price else 25
+	return if offer and offer.price then offer.price else 20
 end
 
 -- every condition a step can wait on or skip by, and every number a
@@ -263,7 +334,7 @@ function ClientTutorialManager:judge(name: string): boolean
 	elseif name == "backpackFull" then
 		return self:isBackpackFull()
 	elseif name == "refinedGold" then
-		return self.hasRefinedGold
+		return self.hasRefinedGold and self:isGoldPayoutSettled()
 	elseif name == "hasPickAxeGold" then
 		return readNumberAttribute(Attributes.BALANCE_GOLD_BARS) >= self:getPickAxePrice()
 	elseif name == "pickAxeBought" then
@@ -279,9 +350,9 @@ function ClientTutorialManager:judge(name: string): boolean
 		-- in one replication batch, and the bars are what the price needs
 		return readNumberAttribute(Attributes.BACKPACK_GOLD_ORE) >= self.goldOreTarget
 			or self:isBackpackFull()
-			or readNumberAttribute(Attributes.BALANCE_GOLD_BARS) > self.goldBarsAtStepStart
+			or self:judge("goldOreRefined")
 	elseif name == "goldOreRefined" then
-		return readNumberAttribute(Attributes.BALANCE_GOLD_BARS) > self.goldBarsAtStepStart
+		return readNumberAttribute(Attributes.BALANCE_GOLD_BARS) > self.goldBarsAtStepStart and self:isGoldPayoutSettled()
 	elseif name == "goldOreRefinedOrEnough" then
 		return self:judge("goldOreRefined") or self:judge("hasPickAxeGold")
 	elseif name == "jetPackUsed" then
@@ -348,6 +419,19 @@ function ClientTutorialManager:findBeamTarget(name: string): (Vector3?, boolean)
 	end
 	warn(`ClientTutorialManager: no beam target named {name}`)
 	return nil, false
+end
+
+-- the point a beam bends through on its way to the target, where the
+-- map has one: the Dig Store's doorway for the pick axe stand, so the
+-- beam does not cut through the wall
+function ClientTutorialManager:findBeamWaypoint(name: string): Vector3?
+	if name ~= "pickAxeStand" then
+		return nil
+	end
+	local camp = workspace:FindFirstChild(Constants.CAMP_FOLDER)
+	local store = if camp then camp:FindFirstChild(Constants.CAMP_MINING_STORE_MODEL) else nil
+	local waypoint = if store then store:FindFirstChild(Constants.MINING_STORE_WAYPOINT_PART) else nil
+	return if waypoint and waypoint:IsA("BasePart") then waypoint.Position else nil
 end
 
 -- a prompt's own point: the server parents a sign's Claim prompt to an
@@ -467,6 +551,16 @@ function ClientTutorialManager:ensureBeam(): Beam?
 		beam.Enabled = false
 		beam.Parent = folder
 		self.beam = beam
+		-- the second leg, from the waypoint on to the target
+		local waypointPart = (targetPart :: BasePart):Clone()
+		waypointPart.Name = "Waypoint"
+		waypointPart.Parent = folder
+		self.waypointPart = waypointPart
+		local waypointBeam = beam:Clone()
+		waypointBeam.Name = "WaypointBeam"
+		waypointBeam.Attachment0 = waypointPart:FindFirstChild("BeamEnd") :: Attachment
+		waypointBeam.Parent = folder
+		self.waypointBeam = waypointBeam
 	end
 	return beam
 end
@@ -474,14 +568,22 @@ end
 function ClientTutorialManager:setBeamTarget(name: string?)
 	self.beamTargetName = name
 	self.beamFadeStartTime = nil
+	self.hasReachedWaypoint = false
 	local beam = self:ensureBeam()
 	if not beam then
 		return
 	end
 	beam.Enabled = false
+	local waypointBeam = self.waypointBeam
+	if waypointBeam then
+		waypointBeam.Enabled = false
+	end
 	local authored = self.beamAuthoredTransparency
 	if authored then
 		beam.Transparency = authored
+		if waypointBeam then
+			waypointBeam.Transparency = authored
+		end
 	end
 	if name then
 		self:placeBeam(true)
@@ -512,6 +614,10 @@ function ClientTutorialManager:stepBeamFade(now: number)
 		table.insert(keypoints, NumberSequenceKeypoint.new(keypoint.Time, keypoint.Value + (1 - keypoint.Value) * share, keypoint.Envelope))
 	end
 	beam.Transparency = NumberSequence.new(keypoints)
+	local waypointBeam = self.waypointBeam
+	if waypointBeam then
+		waypointBeam.Transparency = beam.Transparency
+	end
 	if share >= 1 then
 		self:setBeamTarget(nil)
 	end
@@ -532,11 +638,37 @@ function ClientTutorialManager:placeBeam(isForced: boolean)
 	end
 	self.lastPostPickTime = now
 	local target, isPrompt = self:findBeamTarget(name)
+	local waypointPart = self.waypointPart
+	local waypointBeam = self.waypointBeam
+	local targetEnd = targetPart:FindFirstChild("BeamEnd") :: Attachment
 	if not target then
 		beam.Enabled = false
+		if waypointBeam then
+			waypointBeam.Enabled = false
+		end
 		return
 	end
 	targetPart.Position = if isPrompt then target else target + Vector3.new(0, BEAM_TARGET_RISE_STUDS, 0)
+	-- through the waypoint until the player has stood at it; once
+	-- through the door the bend would lead back out, so it stays
+	-- straight for the rest of the step
+	local waypoint = if self.hasReachedWaypoint then nil else self:findBeamWaypoint(name)
+	local root = getRootPart()
+	if waypoint and root and (root.Position - waypoint).Magnitude <= WAYPOINT_REACH_STUDS then
+		self.hasReachedWaypoint = true
+		waypoint = nil
+	end
+	if waypoint and waypointPart and waypointBeam then
+		waypointPart.Position = waypoint
+		beam.Attachment1 = waypointPart:FindFirstChild("BeamEnd") :: Attachment
+		waypointBeam.Attachment1 = targetEnd
+		waypointBeam.Enabled = true
+	else
+		beam.Attachment1 = targetEnd
+		if waypointBeam then
+			waypointBeam.Enabled = false
+		end
+	end
 	beam.Enabled = true
 end
 
@@ -637,7 +769,8 @@ end
 -- the goal line, with its progress pair where the step names one; only
 -- written when it changes so the label is not churned every frame
 function ClientTutorialManager:renderTask()
-	local step = self.currentStep
+	local suspended = self.suspended
+	local step = if suspended then suspended.step else self.currentStep
 	local label = self.taskLabel
 	if not label or not step or not step.task then
 		return
@@ -677,9 +810,14 @@ function ClientTutorialManager:showStep(step: TutorialScript.Step)
 	self.currentStep = step
 	local now = workspace:GetServerTimeNow()
 	self.stepStartTime = now
-	self.goldOreTarget = self:computeGoldOreTarget()
-	self.goldBarsAtStepStart = readNumberAttribute(Attributes.BALANCE_GOLD_BARS)
-	self.hasBurnedJetPackThisStep = false
+	-- a line cutting in on a waiting step leaves that step's own counts,
+	-- beam, and task as they stand
+	local isCuttingIn = self.suspended ~= nil
+	if not isCuttingIn then
+		self.goldOreTarget = self:computeGoldOreTarget()
+		self.goldBarsAtStepStart = readNumberAttribute(Attributes.BALANCE_GOLD_BARS)
+		self.hasBurnedJetPackThisStep = false
+	end
 	if not step.text then
 		-- a task-only step: no line, the goal up at once
 		self.stepEndTime = nil
@@ -700,7 +838,9 @@ function ClientTutorialManager:showStep(step: TutorialScript.Step)
 		label.Text = text
 		label.MaxVisibleGraphemes = 0
 		local graphemeCount = utf8.len(text) or #text
-		TweenService:Create(label, TweenInfo.new(math.min(TYPE_MAX_SEC, graphemeCount * TYPE_SEC_PER_CHARACTER), Enum.EasingStyle.Linear), { MaxVisibleGraphemes = graphemeCount }):Play()
+		local typeSec = math.min(TYPE_MAX_SEC, graphemeCount * TYPE_SEC_PER_CHARACTER)
+		TweenService:Create(label, TweenInfo.new(typeSec, Enum.EasingStyle.Linear), { MaxVisibleGraphemes = graphemeCount }):Play()
+		self.typeEndTime = now + typeSec
 	end
 	-- every line is up for its reading time; a line that waits on
 	-- nothing advances at its end, one that waits leaves the dialogue
@@ -710,12 +850,14 @@ function ClientTutorialManager:showStep(step: TutorialScript.Step)
 	local readEndTime = now + math.clamp(READ_BASE_SEC + #text * READ_SEC_PER_CHARACTER, READ_MIN_SEC, READ_MAX_SEC) + (step.extraSec or 0)
 	self.stepEndTime = if isWaiting then nil else readEndTime
 	self.lineEndTime = if isWaiting then readEndTime else nil
-	self:setBeamTarget(step.beam)
 	self:setDialogShown(true)
 	-- the goal takes the line's place once the line has been read
 	-- (designer, 2026-11-09); a step with no line time left (none have)
 	-- would show it at once
-	self:setTasksShown(false)
+	if not isCuttingIn then
+		self:setBeamTarget(step.beam)
+		self:setTasksShown(false)
+	end
 	ClientSoundManager:playSfx(SoundNames.Sfx.TUTORIAL_PROMPT)
 end
 
@@ -731,6 +873,9 @@ function ClientTutorialManager:advance()
 		self.stepIndex += 1
 		local step = sequence[self.stepIndex]
 		if not step then
+			-- only here has a sequence's last line been read out: a stop or
+			-- an override never comes this way
+			self:reportFinished(sequence)
 			self:endSequence()
 			return
 		end
@@ -746,7 +891,51 @@ function ClientTutorialManager:advance()
 	end
 end
 
+-- the server saves a part as finished when its last line has ended
+-- (designer, 2026-11-10): the morning's goodbye for the walkthrough, and
+-- each side lesson's own last line. A walkthrough left before the
+-- goodbye is played in full on the next run
+function ClientTutorialManager:reportFinished(sequence: TutorialScript.Sequence)
+	if self.isDevPlaythrough then
+		return
+	end
+	local part: number? = if sequence == TutorialScript.MORNING then Enums.TutorialPart.MAIN else nil
+	for key, lesson in SIDE_LESSONS do
+		if sequence == (TutorialScript :: any)[key] then
+			part = lesson.part
+		end
+	end
+	if part then
+		ClientNetManager:fireServer(NetEventNames.TRY_FINISH_TUTORIAL, { part = part })
+	end
+end
+
+-- a side lesson cut off before its last line (the sunset or the night
+-- taking over) has not been learnt: the next ore may start it again
+function ClientTutorialManager:forgetCutOffLesson()
+	local running = self.sequence
+	for key in SIDE_LESSONS do
+		if running ~= nil and running == (TutorialScript :: any)[key] then
+			self.playedKeys[key] = nil
+		end
+	end
+end
+
 function ClientTutorialManager:endSequence()
+	local suspended = self.suspended
+	if suspended then
+		-- the lines that cut in are done: the waiting step takes over
+		-- again where it stood, its task and beam never having left; if
+		-- its goal was met meanwhile, the next frame's judge moves it on
+		self.suspended = nil
+		self.sequence = suspended.sequence
+		self.stepIndex = suspended.stepIndex
+		self.currentStep = suspended.step
+		self.stepEndTime = nil
+		self.lineEndTime = nil
+		self:setDialogShown(false)
+		return
+	end
 	local wasMorning = self.sequence == TutorialScript.MORNING
 	self.sequence = nil
 	self.currentStep = nil
@@ -794,8 +983,48 @@ function ClientTutorialManager:play(key: string, isOverride: boolean)
 		return
 	end
 	if isOverride then
+		self:forgetCutOffLesson()
 		self.pending = {}
+		self.suspended = nil
 	end
+	self:startSequence(sequence)
+end
+
+-- the Iron and Uranium lines (designer, 2026-11-10): asked for every
+-- time that ore is mined and never queued, since a queue played them
+-- minutes after the find. They play when no line is on screen: nothing
+-- playing, or a step waiting on its task with its dialogue gone, which
+-- is set aside and resumed after. Otherwise nothing happens and the
+-- sequence stays unplayed for the next ore to ask again
+function ClientTutorialManager:playIfFree(key: string)
+	local lesson = SIDE_LESSONS[key]
+	if not lesson or self.playedKeys[key] or self.suspended then
+		return
+	end
+	-- each lesson has its own flag on the save, apart from the
+	-- walkthrough's: a player who never met Uranium on the first run
+	-- still gets its lines on a later one
+	if not self.isDevPlaythrough and ClientDataManager:getCurrentPlayerAttribute(lesson.attribute) == true then
+		return
+	end
+	local sequence = (TutorialScript :: any)[key] :: TutorialScript.Sequence?
+	if not sequence then
+		warn(`ClientTutorialManager: no sequence named {key}`)
+		return
+	end
+	local running = self.sequence
+	local step = self.currentStep
+	if running then
+		if not step or not step.waitFor or self.isDialogShown then
+			return
+		end
+		self.suspended = {
+			sequence = running,
+			stepIndex = self.stepIndex,
+			step = step,
+		}
+	end
+	self.playedKeys[key] = true
 	self:startSequence(sequence)
 end
 
@@ -805,6 +1034,7 @@ end
 function ClientTutorialManager:startNow()
 	self:stopNow()
 	self.isArmed = true
+	self.isDevPlaythrough = true
 	self.playedKeys = {}
 	self.pickAxeLevelAtStart = readNumberAttribute(Attributes.PICK_AXE_LEVEL)
 	self.hasMinedByResource = {}
@@ -816,18 +1046,45 @@ end
 -- touching the save
 function ClientTutorialManager:stopNow()
 	self.pending = {}
+	self.suspended = nil
 	self.sequence = nil
+	self.isDevPlaythrough = false
 	self:endSequence()
+end
+
+-- the portrait head's pose for this frame: nodding while the line
+-- types, easing back to rest once it is all out
+function ClientTutorialManager:stepTalk(now: number)
+	local head = self.portraitHead
+	local deltaSec = math.clamp(now - self.lastStepTime, 0, 0.1)
+	self.lastStepTime = now
+	if not head then
+		return
+	end
+	local goal = if now < self.typeEndTime then 1 else 0
+	local share = self.talkShare
+	if share == goal and goal == 0 then
+		return
+	end
+	local change = TALK_EASE_PER_SEC * deltaSec
+	share = if goal > share then math.min(share + change, goal) else math.max(share - change, goal)
+	self.talkShare = share
+	local nod = math.sin(now * TALK_NOD_HZ * math.pi * 2)
+	local sway = math.sin(now * TALK_SWAY_HZ * math.pi * 2)
+	local turn = CFrame.Angles(math.rad(nod * TALK_NOD_DEGREES * share), math.rad(sway * TALK_SWAY_DEGREES * share), 0)
+	local bob = Vector3.new(0, math.abs(nod) * TALK_BOB_STUDS * share, 0)
+	head:PivotTo(CFrame.new(TALK_NECK_OFFSET + bob) * turn * CFrame.new(-TALK_NECK_OFFSET))
 end
 
 function ClientTutorialManager:step()
 	local step = self.currentStep
+	local now = workspace:GetServerTimeNow()
+	self:stepTalk(now)
 	if not step then
 		return
 	end
 	self:placeArrow()
 	self:placeBeam(false)
-	local now = workspace:GetServerTimeNow()
 	self:stepBeamFade(now)
 	local endTime = self.stepEndTime or self.lineEndTime
 	local readBar = self.readBar
@@ -855,6 +1112,10 @@ function ClientTutorialManager:step()
 			self:advance()
 		end
 		return
+	end
+	if self.suspended and self.isTasksShown then
+		-- the set-aside step's count keeps up while the lines play
+		self:renderTask()
 	end
 	if endTime and now >= endTime then
 		self:advance()
@@ -892,12 +1153,13 @@ function ClientTutorialManager:watchBackpack()
 				attribute,
 				function(value: any)
 					local amount = if typeof(value) == "number" then value else 0
-					if amount > last and not self.hasMinedByResource[resource] then
+					if amount > last then
 						self.hasMinedByResource[resource] = true
+						-- every find asks again until the lines have played
 						if resource == Enums.RawResource.IRON_ORE then
-							self:play("IRON", false)
+							self:playIfFree("IRON")
 						elseif resource == Enums.RawResource.URANIUM_ORE then
-							self:play("URANIUM", false)
+							self:playIfFree("URANIUM")
 						end
 					end
 					last = amount
@@ -914,6 +1176,7 @@ function ClientTutorialManager:watchBackpack()
 				local amount = if typeof(value) == "number" then value else 0
 				if amount > lastGold then
 					self.hasRefinedGold = true
+					self.goldBarsRiseTime = workspace:GetServerTimeNow()
 				end
 				lastGold = amount
 			end
@@ -943,6 +1206,7 @@ function ClientTutorialManager:fillPortrait()
 	local head = template:Clone()
 	head:PivotTo(CFrame.new())
 	head.Parent = portrait
+	self.portraitHead = head
 	local camera = Instance.new("Camera")
 	camera.FieldOfView = 40
 	-- the face is the model's -Z; a little above centre so the helmet fits
@@ -996,9 +1260,9 @@ function ClientTutorialManager:init()
 	self.isArmed = ClientDataManager:getCurrentPlayerAttribute(Attributes.HAS_FINISHED_TUTORIAL) ~= true
 	self.pickAxeLevelAtStart = readNumberAttribute(Attributes.PICK_AXE_LEVEL)
 	self:watchBackpack()
-	-- the dev tool's reset arms the walkthrough again; the server's own
-	-- flip to true at the dawn is left alone, since the morning lines are
-	-- still to play
+	-- the dev tool's reset arms the walkthrough again; the flag turning
+	-- true is this client's own report of the goodbye line, by which time
+	-- endSequence has disarmed it
 	table.insert(
 		self.disconnects,
 		ClientDataManager:subscribeCurrentPlayerAttribute(
@@ -1006,12 +1270,27 @@ function ClientTutorialManager:init()
 			function(value: any)
 				if value == false then
 					self.isArmed = true
+					self.isDevPlaythrough = false
 					self.playedKeys = {}
 					self.pickAxeLevelAtStart = readNumberAttribute(Attributes.PICK_AXE_LEVEL)
 				end
 			end
 		)
 	)
+	-- a side lesson reset on its own may play again this run
+	for key, lesson in SIDE_LESSONS do
+		table.insert(
+			self.disconnects,
+			ClientDataManager:subscribeCurrentPlayerAttribute(
+				lesson.attribute,
+				function(value: any)
+					if value == false then
+						self.playedKeys[key] = nil
+					end
+				end
+			)
+		)
+	end
 	ClientRunCycleManager:subscribeCardClosed(
 		function()
 			self:onCardClosed()
@@ -1045,6 +1324,10 @@ end
 function ClientTutorialManager.new(): ClientTutorialManager
 	local self = setmetatable({}, ClientTutorialManager) :: ClientTutorialManager
 	self.isArmed = false
+	self.isDevPlaythrough = false
+	self.typeEndTime = 0
+	self.talkShare = 0
+	self.lastStepTime = 0
 	self.playedKeys = {}
 	self.sequence = nil
 	self.stepIndex = 0
@@ -1062,11 +1345,14 @@ function ClientTutorialManager.new(): ClientTutorialManager
 	self.tasksFadeGeneration = 0
 	self.hasMinedByResource = {}
 	self.hasRefinedGold = false
+	self.goldBarsRiseTime = 0
 	self.pickAxeLevelAtStart = 0
 	self.goldOreTarget = 1
 	self.goldBarsAtStepStart = 0
 	self.hasBurnedJetPackThisStep = false
 	self.lastPostPickTime = 0
+	self.suspended = nil
+	self.hasReachedWaypoint = false
 	self.beamAuthoredTransparency = nil
 	self.beamFadeStartTime = nil
 	self.disconnects = {}

@@ -615,6 +615,18 @@ module = {
 			TEAM = "Team Revive",
 		},
 	},
+	-- the parts of the first-run tutorial a save tracks apart (2026-11-10):
+	-- the walkthrough itself, done when its last line ends, and the two
+	-- side lessons a player meets whenever they first mine that ore
+	TutorialPart = {
+		MAIN = 1,
+		IRON = 2,
+		URANIUM = 3,
+		-- the lobby's lesson (2026-11-10): led to the Supply Crate stall
+		-- the first time the Diamonds cover a crate; done at the first
+		-- crate paid for
+		SUPPLY_CRATE = 4,
+	},
 	-- what a dead player's Results Menu offers right now: nothing (the 60
 	-- seconds ran out), their own Revive, or the crew's Team Revive
 	ReviveOffer = {

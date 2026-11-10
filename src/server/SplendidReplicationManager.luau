@@ -6,6 +6,7 @@
 -- else writes the tree.
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
+local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local PlayerPublicSchema = require("@game/ReplicatedStorage/Shared/PlayerPublicSchema")
 local PlayerData = require(script.Parent.PlayerData)
 
@@ -71,7 +72,10 @@ local function snapshot(player: Player, playerData: any): PlayerPublicSchema.Sna
 		ownedCosmetics = playerData:getOwnedCosmetics(),
 		dailyRewardLastClaimedDay = dailyReward.lastClaimedDay,
 		dailyRewardNextClaimTime = dailyReward.nextClaimTime,
-		hasFinishedTutorial = playerData:getHasFinishedTutorial(),
+		hasFinishedTutorial = playerData:getHasFinishedTutorialPart(Enums.TutorialPart.MAIN),
+		hasFinishedIronTutorial = playerData:getHasFinishedTutorialPart(Enums.TutorialPart.IRON),
+		hasFinishedUraniumTutorial = playerData:getHasFinishedTutorialPart(Enums.TutorialPart.URANIUM),
+		hasFinishedSupplyCrateTutorial = playerData:getHasFinishedTutorialPart(Enums.TutorialPart.SUPPLY_CRATE),
 	}
 end
 
@@ -309,7 +313,12 @@ function SplendidReplicationManager:replicateTutorial(player: Player)
 	if not playerData or not currentPlayer then
 		return
 	end
-	currentPlayer:SetAttribute(Attributes.HAS_FINISHED_TUTORIAL, playerData:getHasFinishedTutorial())
+	-- the side lessons first: the client re-arms on the main flag turning
+	-- false, and reads the other two as it does
+	currentPlayer:SetAttribute(Attributes.HAS_FINISHED_IRON_TUTORIAL, playerData:getHasFinishedTutorialPart(Enums.TutorialPart.IRON))
+	currentPlayer:SetAttribute(Attributes.HAS_FINISHED_URANIUM_TUTORIAL, playerData:getHasFinishedTutorialPart(Enums.TutorialPart.URANIUM))
+	currentPlayer:SetAttribute(Attributes.HAS_FINISHED_SUPPLY_CRATE_TUTORIAL, playerData:getHasFinishedTutorialPart(Enums.TutorialPart.SUPPLY_CRATE))
+	currentPlayer:SetAttribute(Attributes.HAS_FINISHED_TUTORIAL, playerData:getHasFinishedTutorialPart(Enums.TutorialPart.MAIN))
 end
 
 function SplendidReplicationManager:replicateCompletions(player: Player)

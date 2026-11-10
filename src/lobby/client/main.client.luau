@@ -6,6 +6,7 @@ local ClientButtonSoundManager = require(script.Parent.Parent.Client.ClientButto
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientDevConsoleManager = require(script.Parent.Parent.Client.ClientDevConsoleManager)
 local ClientClassMenuManager = require(script.Parent.ClientClassMenuManager)
+local ClientCrateTutorialManager = require(script.Parent.ClientCrateTutorialManager)
 local ClientGachaDevTools = require(script.Parent.ClientGachaDevTools)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
 local ClientGachaMenuManager = require(script.Parent.ClientGachaMenuManager)
@@ -40,3 +41,10 @@ ClientLobbyMusicManager:init()
 ClientLobbyNpcManager:init()
 -- after both store menus, which it opens
 ClientStoreZoneManager:init()
+-- after the crate menu, whose price and button it reads; off the main
+-- thread because it waits for the Tutorial gui
+task.spawn(
+	function()
+		ClientCrateTutorialManager:init()
+	end
+)

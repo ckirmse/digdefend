@@ -24,8 +24,12 @@
 -- frame those that moved go in one workspace:BulkMoveTo; a monster that
 -- stood still costs nothing, and a Proxy is placed every other frame.
 -- Projectiles fly on the client from the launch message; blasts reuse the
--- Post rocket's effect. A hit flashes an animated rig's own pooled
--- Highlight (the engine draws at most 31; a few at once is plenty).
+-- Post rocket's effect. Any loss of HP flashes the body red (designer,
+-- 2026-11-10; white, and on a weapon's hit message alone, before): a
+-- drop in a snapshot's HP share is the trigger, so traps, pools, and
+-- fire flash too. A rig flashes its own pooled Highlight (the engine
+-- draws at most 31, so they are capped); a one-part Held or Proxy body
+-- is tinted by its own colour instead, which costs no Highlight.
 -- HP bar (decided 2026-09-23): one bar only, on the damaged monster under
 -- the reticle (the screen centre). Monster parts take no queries, so the
 -- aim is the weapons' ray-against-box maths over the drawn positions, cut
@@ -124,6 +128,11 @@ type BodyEntry = {
 	-- the part's place relative to the root
 	offset: CFrame,
 	pool: { BodyEntry },
+	-- the hit flash: the part is tinted until this time, then given its
+	-- own look back (a union shows its baked colours again)
+	flashUntil: number,
+	authoredColor: Color3,
+	authoredUsesPartColor: boolean,
 }
 
 type ClientMonster = {
@@ -217,6 +226,7 @@ export type ClientMonsterManager = typeof(setmetatable(
 		dying: { Dying },
 		projectiles: { Projectile },
 		flashing: { Rig },
+		flashingBodies: { BodyEntry },
 		lastRankTime: number,
 		isRankPending: boolean,
 		rigClonesLeft: number,
@@ -288,8 +298,12 @@ local FLOATER_FADE_SEC = 2
 -- moment it is drawn and faded with it
 local FLOATER_THEME_SOUND_NAME = "MinerTheme"
 local HIT_FLASH_SEC = 0.12
-local HIT_FLASH_COLOR = Color3.fromRGB(255, 255, 255)
-local MAX_FLASHES = 8
+local HIT_FLASH_COLOR = Color3.fromRGB(255, 40, 40)
+-- rigs flashing at once: each is a Highlight, and the engine draws 31
+local MAX_FLASHES = 16
+-- one-part bodies tinted at once; past it a hit is taken silently, so a
+-- whole wave standing in a pool does not rewrite hundreds of parts
+local MAX_BODY_FLASHES = 60
 -- a projectile's path bows up by this share of its length
 local PROJECTILE_ARC_SHARE = 0.12
 local PROJECTILE_PLACEHOLDER_SIZE = 1.6
@@ -579,6 +593,9 @@ function ClientMonsterManager:acquireBody(visual: MonsterRules.Visual, partName:
 		part = part,
 		offset = root.CFrame:ToObjectSpace(templatePart.CFrame),
 		pool = pool,
+		flashUntil = 0,
+		authoredColor = part.Color,
+		authoredUsesPartColor = part:IsA("UnionOperation") and part.UsePartColor,
 	}
 end
 
@@ -599,7 +616,22 @@ function ClientMonsterManager:acquireHeld(visual: MonsterRules.Visual): BodyEntr
 	return entry
 end
 
+-- a union draws its baked colours unless UsePartColor is on, so the tint
+-- is that switch plus the colour; any other part just takes the colour
+function ClientMonsterManager:setBodyFlashed(entry: BodyEntry, isFlashed: boolean)
+	local part = entry.part
+	part.Color = if isFlashed then HIT_FLASH_COLOR else entry.authoredColor
+	if part:IsA("UnionOperation") then
+		part.UsePartColor = isFlashed or entry.authoredUsesPartColor
+	end
+end
+
 function ClientMonsterManager:releaseBody(entry: BodyEntry)
+	if entry.flashUntil > 0 then
+		-- back to the pool with its own look; stepFlashes drops it next frame
+		entry.flashUntil = 0
+		self:setBodyFlashed(entry, false)
+	end
 	entry.part.CFrame = PARKED_CFRAME
 	table.insert(entry.pool, entry)
 end
@@ -860,6 +892,9 @@ function ClientMonsterManager:applyRecord(id: number, x: number, y: number, z: n
 		local deltaX = x - monster.sampleXs[head]
 		local deltaZ = z - monster.sampleZs[head]
 		monster.speedStudsPerSec = math.sqrt(deltaX * deltaX + deltaZ * deltaZ) / (time - monster.sampleTimes[head])
+	end
+	if hpShare < monster.hpShare then
+		self:flashMonster(monster)
 	end
 	monster.hpShare = hpShare
 	monster.action = action
@@ -1158,30 +1193,63 @@ function ClientMonsterManager:getBodyPosition(damageableId: string): Vector3?
 	return if cframe then cframe.Position else nil
 end
 
--- an animated rig flashes its own Highlight; a body further away, or one
--- past the flash cap, takes the hit silently
+-- a weapon's hit message names the body: the same flash a snapshot's HP
+-- drop gives, a moment sooner for the shooter
 function ClientMonsterManager:flashHit(damageableId: string): boolean
 	local monster = self.monsterByDamageableId[damageableId]
 	if not monster then
 		return false
 	end
-	local rig = monster.rig
-	if not rig or monster.mode ~= MODE_ANIMATED then
-		return true
-	end
-	local now = workspace:GetServerTimeNow()
-	if rig.flashUntil <= now then
-		if #self.flashing >= MAX_FLASHES then
-			return true
-		end
-		table.insert(self.flashing, rig)
-		rig.highlight.Enabled = true
-	end
-	rig.flashUntil = now + HIT_FLASH_SEC
+	self:flashMonster(monster)
 	return true
 end
 
+-- whatever the monster is drawn with turns red for HIT_FLASH_SEC: a
+-- rig by its Highlight, a Held or Proxy part by its colour; one past
+-- its cap takes the hit silently
+function ClientMonsterManager:flashMonster(monster: ClientMonster)
+	local now = workspace:GetServerTimeNow()
+	local rig = monster.rig
+	if rig then
+		if rig.flashUntil <= now then
+			if #self.flashing >= MAX_FLASHES then
+				return
+			end
+			table.insert(self.flashing, rig)
+			rig.highlight.Enabled = true
+		end
+		rig.flashUntil = now + HIT_FLASH_SEC
+		return
+	end
+	local entry = monster.held or monster.proxy
+	if not entry then
+		return
+	end
+	if entry.flashUntil <= now then
+		if #self.flashingBodies >= MAX_BODY_FLASHES then
+			return
+		end
+		table.insert(self.flashingBodies, entry)
+		self:setBodyFlashed(entry, true)
+	end
+	entry.flashUntil = now + HIT_FLASH_SEC
+end
+
 function ClientMonsterManager:stepFlashes(now: number)
+	local flashingBodies = self.flashingBodies
+	local bodyIndex = #flashingBodies
+	while bodyIndex > 0 do
+		local entry = flashingBodies[bodyIndex]
+		if now >= entry.flashUntil then
+			if entry.flashUntil > 0 then
+				entry.flashUntil = 0
+				self:setBodyFlashed(entry, false)
+			end
+			flashingBodies[bodyIndex] = flashingBodies[#flashingBodies]
+			flashingBodies[#flashingBodies] = nil
+		end
+		bodyIndex -= 1
+	end
 	local flashing = self.flashing
 	local index = #flashing
 	while index > 0 do
@@ -1891,6 +1959,7 @@ function ClientMonsterManager.new(): ClientMonsterManager
 	self.dying = {}
 	self.projectiles = {}
 	self.flashing = {}
+	self.flashingBodies = {}
 	self.lastRankTime = 0
 	self.isRankPending = true
 	self.rigClonesLeft = MAX_RIG_CLONES_PER_FRAME

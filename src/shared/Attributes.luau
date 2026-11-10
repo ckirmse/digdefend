@@ -220,6 +220,11 @@ module = {
 	-- CurrentPlayer: the first-run walkthrough is done (M76); the gameplay
 	-- client runs the tutorial while this is false
 	HAS_FINISHED_TUTORIAL = "HasFinishedTutorial",
+	-- the Iron and Uranium side lessons, each done on its own (2026-11-10)
+	HAS_FINISHED_IRON_TUTORIAL = "HasFinishedIronTutorial",
+	HAS_FINISHED_URANIUM_TUTORIAL = "HasFinishedUraniumTutorial",
+	-- the lobby's Supply Crate lesson, done at the first crate paid for
+	HAS_FINISHED_SUPPLY_CRATE_TUTORIAL = "HasFinishedSupplyCrateTutorial",
 	CLASS_PROGRESS = "ClassProgress",
 	OWNED_COSMETICS = "OwnedCosmetics",
 	-- CurrentPlayer (private): true when PolicyService says the player may

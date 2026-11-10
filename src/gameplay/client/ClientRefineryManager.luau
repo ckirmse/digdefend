@@ -306,6 +306,14 @@ function ClientRefineryManager:stepHeldValue(resource: number, delta: number)
 	self:render(resource)
 end
 
+-- true while a payout's icons are still flying to this resource's row, so
+-- the shown count has not caught up with the balance yet (the tutorial
+-- holds its Gold Bars lines on it, 2026-11-10)
+function ClientRefineryManager:isPayoutInFlight(resource: number): boolean
+	local row = self.rowByResource[resource]
+	return row ~= nil and row.flightsInProgress > 0
+end
+
 -- what a row shows before a payout: the attribute already includes it
 function ClientRefineryManager:valueBeforePayout(resource: number, amount: number): number
 	if resource == Enums.RefinedResource.IRON_BAR then

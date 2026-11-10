@@ -62,10 +62,13 @@ local FIREBALL = "Fireball"
 
 return {
 	BY_KIND = {
-		-- basic unit, simply walks and attacks; meant to spawn in large numbers
+		-- basic unit, simply walks and attacks; meant to spawn in large numbers.
+		-- All three tiers at half their price and 60% of their HP since
+		-- 2026-11-10 (designer; 2 / 4 / 6 and 100 / 200 / 300 before): a
+		-- night's budget buys twice as many, each a little softer
 		[Enums.MonsterKind.ZOMBIE_1] = {
-			DIFFICULTY_VALUE = 2,
-			MAX_HP = 100,
+			DIFFICULTY_VALUE = 1,
+			MAX_HP = 60,
 			DAMAGE = 10,
 			SPEED_STUDS_PER_SEC = 10,
 			TARGET_PRIORITIES = { PLAYERS },
@@ -82,8 +85,8 @@ return {
 			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
 		},
 		[Enums.MonsterKind.ZOMBIE_2] = {
-			DIFFICULTY_VALUE = 4,
-			MAX_HP = 200,
+			DIFFICULTY_VALUE = 2,
+			MAX_HP = 120,
 			DAMAGE = 15,
 			SPEED_STUDS_PER_SEC = 10,
 			TARGET_PRIORITIES = { PLAYERS },
@@ -100,8 +103,8 @@ return {
 			DEATH_ANIMATION_ID = DEATH_ANIMATION_ID,
 		},
 		[Enums.MonsterKind.ZOMBIE_3] = {
-			DIFFICULTY_VALUE = 6,
-			MAX_HP = 300,
+			DIFFICULTY_VALUE = 3,
+			MAX_HP = 180,
 			DAMAGE = 20,
 			SPEED_STUDS_PER_SEC = 10,
 			TARGET_PRIORITIES = { PLAYERS },

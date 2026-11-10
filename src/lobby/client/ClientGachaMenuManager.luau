@@ -1407,6 +1407,27 @@ function ClientGachaMenuManager:returnToMenu()
 	)
 end
 
+-- the price of a crate in Diamonds; nil before the config is published
+function ClientGachaMenuManager:getRollPrice(): number?
+	local config = self:getConfig()
+	return if config then config.rollPriceDiamonds else nil
+end
+
+function ClientGachaMenuManager:getIsOpen(): boolean
+	return self.isOpen
+end
+
+-- the OPEN CRATE button while it can be pressed: the menu up on its
+-- first screen, no roll in flight (the lobby tutorial points its arrow
+-- at it)
+function ClientGachaMenuManager:getReadyRollButton(): GuiObject?
+	local view = self.view
+	if not view or not self.isOpen or self.isRolling or self.stage ~= Stage.MENU or not view.rollButton.Visible then
+		return nil
+	end
+	return view.rollButton
+end
+
 function ClientGachaMenuManager:requestRoll()
 	local view = self.view
 	local config = self:getConfig()

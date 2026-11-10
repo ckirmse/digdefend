@@ -95,13 +95,14 @@ TutorialScript.MORNING = {
 	{ text = "Good luck and godspeed!" },
 } :: Sequence
 
--- the first Iron Ore in the backpack; plays after whatever is up
+-- Iron Ore mined; never queued: plays only when no other line is up,
+-- else the next Iron mined asks again (designer, 2026-11-10)
 TutorialScript.IRON = {
 	{ text = "You found some Iron Ore!" },
 	{ text = "Once it's refined, you can use Iron Bars to upgrade your weapons and defenses in the Defend Store." },
 } :: Sequence
 
--- the first Uranium Ore in the backpack; plays after whatever is up
+-- Uranium Ore mined; the same rule as the Iron lines
 TutorialScript.URANIUM = {
 	{ text = "You found Uranium!" },
 	{ text = "That's why we're all here." },

@@ -33,6 +33,9 @@ export type Snapshot = {
 	dailyRewardLastClaimedDay: number?,
 	dailyRewardNextClaimTime: number?,
 	hasFinishedTutorial: boolean?,
+	hasFinishedIronTutorial: boolean?,
+	hasFinishedUraniumTutorial: boolean?,
+	hasFinishedSupplyCrateTutorial: boolean?,
 }
 
 type AttributeMap = { [string]: any }
@@ -85,6 +88,9 @@ function PlayerPublicSchema.buildCurrentPlayerAttributes(snapshot: Snapshot): At
 		[Attributes.DIAMONDS] = snapshot.diamonds or 0,
 		[Attributes.IS_ADMIN] = snapshot.isAdmin or false,
 		[Attributes.HAS_FINISHED_TUTORIAL] = snapshot.hasFinishedTutorial or false,
+		[Attributes.HAS_FINISHED_IRON_TUTORIAL] = snapshot.hasFinishedIronTutorial or false,
+		[Attributes.HAS_FINISHED_URANIUM_TUTORIAL] = snapshot.hasFinishedUraniumTutorial or false,
+		[Attributes.HAS_FINISHED_SUPPLY_CRATE_TUTORIAL] = snapshot.hasFinishedSupplyCrateTutorial or false,
 		[Attributes.DAILY_REWARD_LAST_CLAIMED_DAY] = snapshot.dailyRewardLastClaimedDay or 0,
 		[Attributes.DAILY_REWARD_NEXT_CLAIM_TIME] = snapshot.dailyRewardNextClaimTime or 0,
 	}

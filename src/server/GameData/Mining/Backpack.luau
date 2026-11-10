@@ -8,8 +8,10 @@ return {
 	-- each level triples the last and costs three times as much
 	-- (2026-09-28, the simulator curve; ore per rock climbs to match)
 	-- level 1 is 16 since 2026-10-08 (designer): a full pack of 2-ore rocks
-	-- divides evenly, eight rocks a trip
-	CAPACITY_BY_LEVEL = { 16, 45, 135, 400, 1200 },
+	-- divides evenly, eight rocks a trip; 20 since 2026-11-10 (designer):
+	-- one full pack of Gold is the first pick axe (20 Gold), so the
+	-- tutorial's first trip to the Refinery buys it
+	CAPACITY_BY_LEVEL = { 20, 45, 135, 400, 1200 },
 	-- ore that did not fit lands on the ground near the broken block and is
 	-- collected by any player walking within this distance with room
 	PICKUP_RADIUS_STUDS = 5,

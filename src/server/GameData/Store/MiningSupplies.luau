@@ -25,8 +25,9 @@ return {
 		-- level 6 (2026-10-06): the ladder's next step, the Gold sink a run
 		-- past day 10 was missing. Every first rung 5 Gold down on 2026-10-23
 		-- (pick 25, boots, backpack, and jet pack 35) now the combat classes
-		-- pay a quarter more on them
-		[Enums.StoreItem.PICK_AXE] = { priceByLevel = { 0, 25, 100, 270, 800, 2400 } },
+		-- pay a quarter more on them. The pick's first rung 20 since
+		-- 2026-11-10 (designer): one full level 1 backpack of Gold
+		[Enums.StoreItem.PICK_AXE] = { priceByLevel = { 0, 20, 100, 270, 800, 2400 } },
 		-- boots and backpack first rungs 40 (2026-10-07; 20, then 25 earlier that
 		-- day): day 1 gold is capped by the 15-ore pack times about 5 trips, near
 		-- 75, so pick 30 + backpack 40 is a full excellent day and the three first

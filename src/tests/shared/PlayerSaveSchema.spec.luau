@@ -39,6 +39,9 @@ local function makeValidSave()
 		keys = 3,
 		ownedCosmetics = { HARD_HAT = true, LAMP = true },
 		hasFinishedTutorial = true,
+		hasFinishedIronTutorial = true,
+		hasFinishedUraniumTutorial = false,
+		hasFinishedSupplyCrateTutorial = true,
 	}
 end
 
@@ -268,7 +271,10 @@ describe(
 				expect(validated.ownedCosmetics).toEqual({})
 				expect(validated.cosmetics).toEqual({})
 				expect(validated.hasFinishedTutorial).toBe(false)
-				expect(#repairs).toBe(12)
+				expect(validated.hasFinishedIronTutorial).toBe(false)
+				expect(validated.hasFinishedUraniumTutorial).toBe(false)
+				expect(validated.hasFinishedSupplyCrateTutorial).toBe(false)
+				expect(#repairs).toBe(15)
 			end
 		)
 		it(

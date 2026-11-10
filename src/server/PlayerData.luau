@@ -42,6 +42,9 @@ export type PlayerData = typeof(setmetatable(
 		keys: number,
 		ownedCosmetics: { [string]: boolean },
 		hasFinishedTutorial: boolean,
+		hasFinishedIronTutorial: boolean,
+		hasFinishedUraniumTutorial: boolean,
+		hasFinishedSupplyCrateTutorial: boolean,
 	},
 	PlayerData
 ))
@@ -62,6 +65,17 @@ local SAVE_FIELDS = {
 	"keys",
 	"ownedCosmetics",
 	"hasFinishedTutorial",
+	"hasFinishedIronTutorial",
+	"hasFinishedUraniumTutorial",
+	"hasFinishedSupplyCrateTutorial",
+}
+
+-- the save field behind each part of the tutorial
+local TUTORIAL_FIELD_BY_PART = {
+	[Enums.TutorialPart.MAIN] = "hasFinishedTutorial",
+	[Enums.TutorialPart.IRON] = "hasFinishedIronTutorial",
+	[Enums.TutorialPart.URANIUM] = "hasFinishedUraniumTutorial",
+	[Enums.TutorialPart.SUPPLY_CRATE] = "hasFinishedSupplyCrateTutorial",
 }
 
 local function buildValidSkillIds(): { [string]: boolean }
@@ -340,13 +354,20 @@ function PlayerData:getKeys(): number
 end
 
 -- the first-run walkthrough (M76); the gameplay TutorialManager is the
--- one writer, at the dawn after the first night or on a skip
-function PlayerData:getHasFinishedTutorial(): boolean
-	return self.hasFinishedTutorial == true
+-- one writer. Three parts, each finished on its own (2026-11-10): the
+-- walkthrough and the Iron and Uranium side lessons
+function PlayerData:getHasFinishedTutorialPart(part: number): boolean
+	local field = TUTORIAL_FIELD_BY_PART[part]
+	return field ~= nil and (self :: any)[field] == true
 end
 
-function PlayerData:setHasFinishedTutorial(isFinished: boolean)
-	self.hasFinishedTutorial = isFinished
+function PlayerData:setHasFinishedTutorialPart(part: number, isFinished: boolean)
+	local field = TUTORIAL_FIELD_BY_PART[part]
+	if not field then
+		warn(`PlayerData: no tutorial part {part}`)
+		return
+	end
+	(self :: any)[field] = isFinished
 end
 
 function PlayerData:addKeys(amount: number)

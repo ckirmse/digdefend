@@ -78,6 +78,7 @@ GachaManager.GRANT_CLASS_STEP_COMMAND = "grantClassStep"
 GachaManager.SET_RESTRICTED_COMMAND = "setPaidRandomRestricted"
 GachaManager.CLEAR_CLASS_PROGRESS_COMMAND = "clearClassProgress"
 GachaManager.CLEAR_COSMETICS_COMMAND = "clearCosmetics"
+GachaManager.RESET_CRATE_TUTORIAL_COMMAND = "resetCrateTutorial"
 
 local FEEDBACK_RESTRICTED = "Rolling is not available on this account"
 local FEEDBACK_NOT_RESTRICTED = "Classes are rolled on this account"
@@ -207,6 +208,12 @@ function GachaManager:roll(player: Player, isFree: boolean, forcedDraw: GachaRul
 			return
 		end
 		SplendidReplicationManager:replicateDiamonds(player)
+		-- the first crate paid for ends the lobby's Supply Crate lesson
+		-- (2026-11-10); grant() below saves it with the prize
+		if not playerData:getHasFinishedTutorialPart(Enums.TutorialPart.SUPPLY_CRATE) then
+			playerData:setHasFinishedTutorialPart(Enums.TutorialPart.SUPPLY_CRATE, true)
+			SplendidReplicationManager:replicateTutorial(player)
+		end
 	end
 	local result = GachaRules.resolve(draw, playerData:getClassProgress(), playerData:getOwnedCosmetics(), self:getConfig())
 	self:grant(player, playerData, result)
@@ -366,6 +373,20 @@ function GachaManager:registerDevCommands()
 			SplendidReplicationManager:replicateGacha(player)
 			playerData:saveNow()
 			PlayerFeedbackManager:give(player, "Cosmetics cleared")
+		end
+	)
+	-- the Supply Crate lesson unlearnt, so the guide leads to the stall again
+	DevTools:registerPlaceCommand(
+		GachaManager.RESET_CRATE_TUTORIAL_COMMAND,
+		function(player: Player, _args: { [string]: any })
+			local playerData = GameController:getPlayerData(player)
+			if not playerData then
+				return
+			end
+			playerData:setHasFinishedTutorialPart(Enums.TutorialPart.SUPPLY_CRATE, false)
+			SplendidReplicationManager:replicateTutorial(player)
+			playerData:saveNow()
+			PlayerFeedbackManager:give(player, "Supply Crate tutorial reset")
 		end
 	)
 	DevTools:registerPlaceCommand(

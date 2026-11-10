@@ -218,6 +218,10 @@ Constants.REFINERY_URANIUM_GLOW_LIGHT = "UraniumGlow"
 -- display model; the folder keeps them apart from the building (2026-10-01)
 Constants.CAMP_MINING_STORE_MODEL = "MiningStore"
 Constants.MINING_STORE_STANDS_FOLDER = "Stands"
+-- the designer's invisible part at the store's doorway: the tutorial's
+-- guide beam bends through it so it does not cut through the wall
+-- (2026-11-10); a map without one gets the straight beam
+Constants.MINING_STORE_WAYPOINT_PART = "Waypoint"
 Constants.STAND_BASE_PART = "Base"
 Constants.STAND_ITEM_SPAWN_PART = "ItemSpawn"
 Constants.STAND_GUI = "SurfaceGui"

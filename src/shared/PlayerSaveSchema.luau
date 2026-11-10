@@ -58,10 +58,18 @@ export type SaveData = {
 	-- cosmetic id -> true for every cosmetic the account owns; the defaults
 	-- every character starts in are always present
 	ownedCosmetics: { [string]: boolean },
-	-- the first-run walkthrough is done (M76, 2026-11-09): set at the dawn
-	-- after a tutorial player's first night, or by the Skip button; a
-	-- player with it false is talked through day 1 of their next run
+	-- the first-run walkthrough is done (M76): set when its last line
+	-- ends on the player's client (2026-11-10; at the dawn after the first
+	-- night before); a player with it false gets the whole walkthrough
+	-- again on their next run
 	hasFinishedTutorial: boolean,
+	-- the Iron and Uranium side lessons, each set when its own last line
+	-- ends, so a rerun of the walkthrough does not repeat a lesson learnt
+	hasFinishedIronTutorial: boolean,
+	hasFinishedUraniumTutorial: boolean,
+	-- the lobby's Supply Crate lesson (2026-11-10): set by the server at
+	-- the first crate paid for with Diamonds
+	hasFinishedSupplyCrateTutorial: boolean,
 }
 
 export type Defaults = {
@@ -133,6 +141,9 @@ function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 		keys = 0,
 		ownedCosmetics = PlayerSaveSchema.getDefaultOwnedCosmetics(defaults),
 		hasFinishedTutorial = false,
+		hasFinishedIronTutorial = false,
+		hasFinishedUraniumTutorial = false,
+		hasFinishedSupplyCrateTutorial = false,
 	}
 end
 
@@ -413,6 +424,18 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 	if typeof(data.hasFinishedTutorial) ~= "boolean" then
 		data.hasFinishedTutorial = false
 		table.insert(repairs, "hasFinishedTutorial reset")
+	end
+	if typeof(data.hasFinishedIronTutorial) ~= "boolean" then
+		data.hasFinishedIronTutorial = false
+		table.insert(repairs, "hasFinishedIronTutorial reset")
+	end
+	if typeof(data.hasFinishedUraniumTutorial) ~= "boolean" then
+		data.hasFinishedUraniumTutorial = false
+		table.insert(repairs, "hasFinishedUraniumTutorial reset")
+	end
+	if typeof(data.hasFinishedSupplyCrateTutorial) ~= "boolean" then
+		data.hasFinishedSupplyCrateTutorial = false
+		table.insert(repairs, "hasFinishedSupplyCrateTutorial reset")
 	end
 	-- after the progress: the active class must be an owned one
 	validateActiveClassKind(data, defaults, repairs)
