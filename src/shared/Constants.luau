@@ -666,6 +666,25 @@ Constants.COMPASS_ARROW_DOWN = "ArrowDown"
 -- round dial to the right of the day clock, shown in mining mode. The raw
 -- uranium icon sits in the middle of three rings, Ring1 (inner) to Ring3
 -- (outer); the client shows as many as GeigerRules says are lit
+-- the Tutorial ScreenGui (M76, 2026-11-09; scripts/studio/build_tutorial_gui.luau):
+-- the guide's dialogue box (the head in a ViewportFrame, the line, and the
+-- read bar that drains while a line auto-advances; no NEXT and no SKIP,
+-- designer 2026-11-09) and
+-- the one HUD arrow ClientTutorialManager parks beside what a line points at
+Constants.TUTORIAL_GUI_NAME = "Tutorial"
+Constants.TUTORIAL_DIALOG_FRAME = "Dialog"
+Constants.TUTORIAL_PORTRAIT_VIEWPORT = "Portrait"
+Constants.TUTORIAL_MESSAGE_LABEL = "Message"
+Constants.TUTORIAL_READ_BAR = "ReadBar"
+Constants.TUTORIAL_ARROW = "Arrow"
+-- the Tasks panel (designer, 2026-11-09): the goal a waiting step sets, top right
+Constants.TUTORIAL_TASKS_FRAME = "Tasks"
+Constants.TUTORIAL_TASK_LABEL = "Task"
+-- the guide's head under GameAssets (scripts/studio/build_tutorial_guide_head.luau)
+Constants.TUTORIAL_ASSETS_FOLDER = "Tutorial"
+Constants.TUTORIAL_GUIDE_HEAD_MODEL = "GuideHead"
+-- the guide beam the client clones (designer-tuned in the Explorer, 2026-11-09)
+Constants.TUTORIAL_GUIDE_BEAM_TEMPLATE = "GuideBeam"
 Constants.GEIGER_COUNTER_GUI_NAME = "GeigerCounter"
 Constants.GEIGER_COUNTER_ROOT_FRAME = "Root"
 Constants.GEIGER_COUNTER_DIAL = "Dial"

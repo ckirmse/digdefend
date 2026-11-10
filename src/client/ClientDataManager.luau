@@ -259,6 +259,15 @@ function ClientDataManager:getPlayerPublicData(userId: number): PublicData?
 	return readPublicData(folder)
 end
 
+-- one attribute off a player's AllPlayers entry (a run-state flag a
+-- gameplay manager published with setPublicAttribute, such as the jet
+-- pack burning); nil for a player not Ready here
+function ClientDataManager:getPublicAttribute(userId: number, key: string): any
+	local allPlayers = self.allPlayers
+	local folder = if allPlayers then allPlayers:FindFirstChild(tostring(userId)) else nil
+	return if folder then folder:GetAttribute(key) else nil
+end
+
 function ClientDataManager:subscribeCurrentPlayerAttribute(key: string, callback: (value: any) -> ()): Disconnect
 	local currentPlayer = self.currentPlayer :: Instance
 	local connection = currentPlayer:GetAttributeChangedSignal(key):Connect(

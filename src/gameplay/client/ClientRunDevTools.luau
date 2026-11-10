@@ -11,6 +11,7 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientDevTools = require(script.Parent.Parent.Client.ClientDevTools)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local Iris = require(script.Parent.Parent.Client.Iris)
+local ClientTutorialManager = require(script.Parent.ClientTutorialManager)
 
 local ClientRunDevTools = {}
 ClientRunDevTools.__index = ClientRunDevTools
@@ -55,6 +56,8 @@ local KILL_ME_COMMAND = "killMe"
 local REVIVE_FREE_COMMAND = "reviveFree"
 local RESET_TEAM_REVIVE_COMMAND = "resetTeamRevive"
 local ADD_REVIVE_CREDIT_COMMAND = "addReviveCredit"
+-- must match TutorialManager.RESET_COMMAND on the server
+local RESET_TUTORIAL_COMMAND = "resetTutorial"
 
 local function enumKeyOptions(enumTable: Enums.EnumTable): { string }
 	local options = {}
@@ -129,6 +132,15 @@ function ClientRunDevTools:renderSection()
 	end
 	if Iris.Button({ "Add a Revive credit" }).clicked() then
 		self:send(ADD_REVIVE_CREDIT_COMMAND, { reviveKind = Enums.ReviveKind.SELF })
+	end
+	if Iris.Button({ "Reset the tutorial (save flag; replays at the next day card)" }).clicked() then
+		self:send(RESET_TUTORIAL_COMMAND, {} :: { [string]: any })
+	end
+	if Iris.Button({ "Start the tutorial now (this client)" }).clicked() then
+		ClientTutorialManager:startNow()
+	end
+	if Iris.Button({ "Stop the tutorial (this client)" }).clicked() then
+		ClientTutorialManager:stopNow()
 	end
 	Iris.InputNum({ "Day", 1, 1, 99 }, { number = self.dayInput })
 	if Iris.Button({ "Set day (by day only)" }).clicked() then

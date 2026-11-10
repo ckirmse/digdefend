@@ -90,6 +90,8 @@ local sfx = {
 	-- the player's own hit (2026-10-26): 2D, theirs alone, on every drop
 	-- in their health
 	PLAYER_HURT = "PlayerHurt",
+	-- a tutorial line or task appearing (M76; designer's asset, 2026-11-09)
+	TUTORIAL_PROMPT = "TutorialPrompt",
 	-- the Remote Charge's detonator beeping as its button goes down
 	-- (2026-10-20), the user's own
 	REMOTE_CHARGE_DETONATE = "RemoteChargeDetonate",

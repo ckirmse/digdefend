@@ -21,6 +21,8 @@ local TRANSPARENCY_PROPERTIES_BY_CLASS: { [string]: { string } } = {
 	TextBox = { "BackgroundTransparency", "TextTransparency", "TextStrokeTransparency" },
 	ImageLabel = { "BackgroundTransparency", "ImageTransparency" },
 	ImageButton = { "BackgroundTransparency", "ImageTransparency" },
+	-- the tutorial's portrait fades with its box (2026-11-09)
+	ViewportFrame = { "BackgroundTransparency", "ImageTransparency" },
 	Frame = { "BackgroundTransparency" },
 	ScrollingFrame = { "BackgroundTransparency", "ScrollBarImageTransparency" },
 	CanvasGroup = { "GroupTransparency" },
@@ -94,6 +96,53 @@ function ClientGuiFade.fadeIn(root: Instance, fadeSec: number)
 		end
 		if next(goal) ~= nil then
 			TweenService:Create(descendant, TweenInfo.new(fadeSec, Enum.EasingStyle.Linear), goal):Play()
+		end
+	end
+end
+
+-- a panel that toggles often (the tutorial's box and Tasks panel,
+-- 2026-11-09): capture() records the authored transparencies once,
+-- without changing anything, and tweenShown() eases every recorded
+-- property to its authored value or to 1 from wherever it is, so a show
+-- cutting a hide short (or the reverse) never drifts the baseline the
+-- way fadeOut() then fadeIn() would (fadeIn reads the half-faded value
+-- as authored)
+function ClientGuiFade.capture(root: Instance): Hidden
+	local captured: Hidden = {}
+	for _, descendant in collectElements(root) do
+		local properties = TRANSPARENCY_PROPERTIES_BY_CLASS[descendant.ClassName]
+		if not properties then
+			continue
+		end
+		local authored = {}
+		for _, property in properties do
+			local value = (descendant :: any)[property]
+			if typeof(value) == "number" and value < 1 then
+				authored[property] = value
+			end
+		end
+		if next(authored) ~= nil then
+			captured[descendant] = authored
+		end
+	end
+	return captured
+end
+
+function ClientGuiFade.tweenShown(captured: Hidden, isShown: boolean, fadeSec: number)
+	for instance, authored in captured do
+		local goal = {}
+		for property, value in authored do
+			goal[property] = if isShown then value else 1
+		end
+		TweenService:Create(instance, TweenInfo.new(fadeSec, Enum.EasingStyle.Linear), goal):Play()
+	end
+end
+
+-- puts every recorded property at 1 at once, for a panel that starts hidden
+function ClientGuiFade.setHidden(captured: Hidden)
+	for instance, authored in captured do
+		for property in authored do
+			(instance :: any)[property] = 1
 		end
 	end
 end

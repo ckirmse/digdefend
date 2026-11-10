@@ -189,6 +189,8 @@ Icons.UI = {
 	CAMP_MAP_FACING_CONE = "rbxassetid://77909401635814",
 	-- the designer's rough-edged panel picture behind HUD boxes (2026-10-29)
 	PANEL_BACKING = "rbxassetid://99484338119365",
+	-- the tutorial's HUD arrow (M76, 2026-11-09): a white chevron with a dark edge, pointing down; ImageMagick
+	TUTORIAL_ARROW = "rbxassetid://75040607043356",
 	CLOCK_DAY = "rbxassetid://98516537326926",
 	CLOCK_DUSK = "rbxassetid://91444734897924",
 	CLOCK_NIGHT = "rbxassetid://72038436524050",

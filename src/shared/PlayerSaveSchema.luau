@@ -58,6 +58,10 @@ export type SaveData = {
 	-- cosmetic id -> true for every cosmetic the account owns; the defaults
 	-- every character starts in are always present
 	ownedCosmetics: { [string]: boolean },
+	-- the first-run walkthrough is done (M76, 2026-11-09): set at the dawn
+	-- after a tutorial player's first night, or by the Skip button; a
+	-- player with it false is talked through day 1 of their next run
+	hasFinishedTutorial: boolean,
 }
 
 export type Defaults = {
@@ -128,6 +132,7 @@ function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 		classProgress = PlayerSaveSchema.getDefaultClassProgress(defaults),
 		keys = 0,
 		ownedCosmetics = PlayerSaveSchema.getDefaultOwnedCosmetics(defaults),
+		hasFinishedTutorial = false,
 	}
 end
 
@@ -405,6 +410,10 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 		table.insert(repairs, "keys reset")
 	end
 	validateOwnedCosmetics(data, defaults, repairs)
+	if typeof(data.hasFinishedTutorial) ~= "boolean" then
+		data.hasFinishedTutorial = false
+		table.insert(repairs, "hasFinishedTutorial reset")
+	end
 	-- after the progress: the active class must be an owned one
 	validateActiveClassKind(data, defaults, repairs)
 

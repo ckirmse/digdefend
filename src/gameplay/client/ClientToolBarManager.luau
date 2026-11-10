@@ -356,6 +356,17 @@ end
 -- for a lost turret or a spent Stim Shot, the Remote Charge's cooldown
 -- left as a share of its length (the sheet is anchored to the slot's
 -- bottom, so it drains from the top down)
+-- the slot drawn for a tool, for a HUD arrow to point at (the tutorial,
+-- M76); nil while the bar holds no such tool
+function ClientToolBarManager:getSlotFrame(tool: number): GuiObject?
+	for _, view in self.slotViews do
+		if view.tool == tool then
+			return view.frame
+		end
+	end
+	return nil
+end
+
 function ClientToolBarManager:getLostShare(tool: number): number
 	if tool == Enums.ToolKind.GADGET and COOLDOWN_SEC_ATTRIBUTE_BY_GADGET[self.gadgetKind] then
 		return math.clamp(self:getGadgetSecondsLeft() / math.max(self.cooldownSecByGadget[self.gadgetKind] or 1, 1e-3), 0, 1)

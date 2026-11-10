@@ -123,6 +123,7 @@ describe(
 				expect(attributes[Attributes.DAILY_REWARD_LAST_CLAIMED_DAY]).toBe(3)
 				expect(attributes[Attributes.DAILY_REWARD_NEXT_CLAIM_TIME]).toBe(1700000000)
 				expect(attributes[Attributes.KEYS]).toBe(5)
+				expect(attributes[Attributes.HAS_FINISHED_TUTORIAL]).toBe(false)
 				expect(GachaRules.decodeProgress(attributes[Attributes.CLASS_PROGRESS])).toEqual(PROGRESS)
 				expect(GachaRules.decodeOwnedCosmetics(attributes[Attributes.OWNED_COSMETICS])).toEqual({ HARD_HAT = true })
 			end

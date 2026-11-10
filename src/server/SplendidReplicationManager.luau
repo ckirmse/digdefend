@@ -71,6 +71,7 @@ local function snapshot(player: Player, playerData: any): PlayerPublicSchema.Sna
 		ownedCosmetics = playerData:getOwnedCosmetics(),
 		dailyRewardLastClaimedDay = dailyReward.lastClaimedDay,
 		dailyRewardNextClaimTime = dailyReward.nextClaimTime,
+		hasFinishedTutorial = playerData:getHasFinishedTutorial(),
 	}
 end
 
@@ -298,6 +299,17 @@ function SplendidReplicationManager:replicateGacha(player: Player)
 		return
 	end
 	writeAttributes(currentPlayer, PlayerPublicSchema.buildGachaAttributes(snapshot(player, playerData)))
+end
+
+-- the tutorial flag (M76); the gameplay TutorialManager calls this after
+-- setting it
+function SplendidReplicationManager:replicateTutorial(player: Player)
+	local playerData = gameController:getPlayerData(player)
+	local currentPlayer = self:getCurrentPlayerFolder(player)
+	if not playerData or not currentPlayer then
+		return
+	end
+	currentPlayer:SetAttribute(Attributes.HAS_FINISHED_TUTORIAL, playerData:getHasFinishedTutorial())
 end
 
 function SplendidReplicationManager:replicateCompletions(player: Player)

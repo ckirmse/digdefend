@@ -38,6 +38,7 @@ local function makeValidSave()
 		classProgress = { RECRUIT = 0, GUNNER = 2 },
 		keys = 3,
 		ownedCosmetics = { HARD_HAT = true, LAMP = true },
+		hasFinishedTutorial = true,
 	}
 end
 
@@ -266,7 +267,8 @@ describe(
 				expect(validated.keys).toBe(0)
 				expect(validated.ownedCosmetics).toEqual({})
 				expect(validated.cosmetics).toEqual({})
-				expect(#repairs).toBe(11)
+				expect(validated.hasFinishedTutorial).toBe(false)
+				expect(#repairs).toBe(12)
 			end
 		)
 		it(

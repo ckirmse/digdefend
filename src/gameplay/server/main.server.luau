@@ -64,6 +64,7 @@ local StructureDevTools = require(script.Parent.StructureDevTools)
 local StructureManager = require(script.Parent.StructureManager)
 local ToolManager = require(script.Parent.ToolManager)
 local TorchManager = require(script.Parent.TorchManager)
+local TutorialManager = require(script.Parent.TutorialManager)
 local TowerBehaviorManager = require(script.Parent.TowerBehaviorManager)
 local TrapBehaviorManager = require(script.Parent.TrapBehaviorManager)
 local WeaponDevTools = require(script.Parent.WeaponDevTools)
@@ -373,6 +374,9 @@ ReviveManager:subscribeTeamRevived(
 SkillManager:init(RunCycleManager, RefineryManager, BackpackManager, BootsManager, JetPackManager, ReviveManager, MapManager, RunManager)
 -- Diamonds earned in the run: it listens for each dawn
 DiamondTapManager:init()
+-- the first-run walkthrough's flag (M76): it listens for the dawn after
+-- the first night
+TutorialManager:init()
 RunManager:subscribeRunStarted(
 	function(_map: number, _difficulty: number)
 		DiamondTapManager:onRunStarted()

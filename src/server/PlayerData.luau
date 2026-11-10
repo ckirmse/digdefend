@@ -41,6 +41,7 @@ export type PlayerData = typeof(setmetatable(
 		classProgress: { [string]: number },
 		keys: number,
 		ownedCosmetics: { [string]: boolean },
+		hasFinishedTutorial: boolean,
 	},
 	PlayerData
 ))
@@ -60,6 +61,7 @@ local SAVE_FIELDS = {
 	"classProgress",
 	"keys",
 	"ownedCosmetics",
+	"hasFinishedTutorial",
 }
 
 local function buildValidSkillIds(): { [string]: boolean }
@@ -335,6 +337,16 @@ end
 
 function PlayerData:getKeys(): number
 	return self.keys
+end
+
+-- the first-run walkthrough (M76); the gameplay TutorialManager is the
+-- one writer, at the dawn after the first night or on a skip
+function PlayerData:getHasFinishedTutorial(): boolean
+	return self.hasFinishedTutorial == true
+end
+
+function PlayerData:setHasFinishedTutorial(isFinished: boolean)
+	self.hasFinishedTutorial = isFinished
 end
 
 function PlayerData:addKeys(amount: number)

@@ -58,6 +58,9 @@ export type ClientRunCycleManager = typeof(setmetatable(
 		-- told when a card goes down (the rescue countdown waits on the
 		-- FINAL NIGHT card)
 		cardClosedCallbacks: { () -> () },
+		-- told the clock phase the HUD shows (day, dusk, night) as it
+		-- changes; the tutorial's sunset lines hang on it (M76)
+		phaseChangedCallbacks: { (phase: number) -> () },
 		-- the disc holding one picture and one gradient per phase
 		phaseIcon: GuiObject?,
 		fill: GuiObject?,
@@ -258,12 +261,23 @@ function ClientRunCycleManager:warnMissingChildOnce(childName: string)
 	warn(`ClientRunCycleManager: DayClock PhaseIcon has no {childName}; rebuild it with scripts/studio/build_day_clock_gui.luau`)
 end
 
+function ClientRunCycleManager:getPhase(): number?
+	return self.shownPhase
+end
+
+function ClientRunCycleManager:subscribePhaseChanged(callback: (phase: number) -> ())
+	table.insert(self.phaseChangedCallbacks, callback)
+end
+
 function ClientRunCycleManager:setPhase(phase: number)
 	if self.shownPhase == phase then
 		return
 	end
 	self.shownPhase = phase
 	self:refreshDay()
+	for _, callback in self.phaseChangedCallbacks do
+		callback(phase)
+	end
 	local icon = self.phaseIcon
 	if not icon then
 		return
@@ -660,6 +674,7 @@ function ClientRunCycleManager.new(): ClientRunCycleManager
 	self.numberLabel = nil
 	self.numberGeneration = 0
 	self.cardClosedCallbacks = {}
+	self.phaseChangedCallbacks = {}
 	self.isLocalPlayerDead = false
 	self.phaseIcon = nil
 	self.fill = nil

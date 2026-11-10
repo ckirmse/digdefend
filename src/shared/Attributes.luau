@@ -145,6 +145,9 @@ module = {
 	REFINE_DURATION_SEC = "RefineDurationSec",
 	-- GameMetadata: the radius a player refines inside of; the client draws it
 	REFINE_RADIUS_STUDS = "RefineRadiusStuds",
+	-- GameMetadata: Gold Bars per Gold Ore, so the tutorial can count the
+	-- ore a price needs (2026-11-09)
+	REFINE_GOLD_RATE = "RefineGoldRate",
 	-- on each ore pickup shadow part (Tags.ORE_PICKUP): what lies there
 	PICKUP_RESOURCE = "PickupResource",
 	PICKUP_AMOUNT = "PickupAmount",
@@ -214,6 +217,9 @@ module = {
 	-- means the class is owned), and a JSON list of owned cosmetic ids
 	-- (GachaRules codecs); written by replicateGacha
 	KEYS = "Keys",
+	-- CurrentPlayer: the first-run walkthrough is done (M76); the gameplay
+	-- client runs the tutorial while this is false
+	HAS_FINISHED_TUTORIAL = "HasFinishedTutorial",
 	CLASS_PROGRESS = "ClassProgress",
 	OWNED_COSMETICS = "OwnedCosmetics",
 	-- CurrentPlayer (private): true when PolicyService says the player may

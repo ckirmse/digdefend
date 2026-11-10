@@ -70,6 +70,7 @@ local ClientTorchManager = require(script.Parent.ClientTorchManager)
 local ClientTowerMenuManager = require(script.Parent.ClientTowerMenuManager)
 local ClientWorkbenchManager = require(script.Parent.ClientWorkbenchManager)
 local ClientTouchLayoutManager = require(script.Parent.ClientTouchLayoutManager)
+local ClientTutorialManager = require(script.Parent.ClientTutorialManager)
 local ClientWeaponDevTools = require(script.Parent.ClientWeaponDevTools)
 local ClientWeaponManager = require(script.Parent.ClientWeaponManager)
 local ClientWeaponUpgradeManager = require(script.Parent.ClientWeaponUpgradeManager)
@@ -160,6 +161,8 @@ ClientDrillRigManager:init()
 ClientOreScannerManager:init()
 -- the day clock reads GameMetadata the server set before anyone was Ready
 ClientRunCycleManager:init()
+-- the first-run walkthrough (M76): after the clock, the tool bar, and the mine it reads
+ClientTutorialManager:init()
 -- the Refinery HP bar that takes the clock's place at night
 ClientRefineryHpManager:init()
 -- the locator bar that hangs under the day clock

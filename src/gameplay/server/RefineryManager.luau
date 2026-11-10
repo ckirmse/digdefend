@@ -341,6 +341,7 @@ end
 function RefineryManager:init()
 	SplendidReplicationManager:setGameMetadata(Attributes.REFINE_DURATION_SEC, RefineryData.REFINE_DURATION_SEC)
 	SplendidReplicationManager:setGameMetadata(Attributes.REFINE_RADIUS_STUDS, RefineryData.REFINE_RADIUS_STUDS)
+	SplendidReplicationManager:setGameMetadata(Attributes.REFINE_GOLD_RATE, RefineryData.RATE_BY_RAW[Enums.RawResource.GOLD_ORE])
 	GameController:registerPlaceManager(self)
 	RunService.Heartbeat:Connect(
 		function(deltaSec: number)
