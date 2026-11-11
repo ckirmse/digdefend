@@ -160,6 +160,12 @@ function ClientDataManager:getOwnedCosmetics(): GachaRules.OwnedCosmetics
 	return GachaRules.decodeOwnedCosmetics(self:getCurrentPlayerAttribute(Attributes.OWNED_COSMETICS))
 end
 
+-- false until the server has PolicyService's answer; until then neither
+-- the crate nor the rotating store opens
+function ClientDataManager:isPaidRandomItemsPolicyKnown(): boolean
+	return self:getCurrentPlayerAttribute(Attributes.IS_PAID_RANDOM_ITEMS_POLICY_KNOWN) == true
+end
+
 function ClientDataManager:isPaidRandomItemsRestricted(): boolean
 	return self:getCurrentPlayerAttribute(Attributes.IS_PAID_RANDOM_ITEMS_RESTRICTED) == true
 end

@@ -41,9 +41,13 @@ export type GachaManager = typeof(setmetatable(
 	{} :: {
 		pool: GachaRules.Pool,
 		random: Random,
-		-- the policy answer per Ready player; absent until it arrives,
-		-- which counts as not restricted
+		-- the policy answer per Ready player. Until it has arrived
+		-- (isPolicyKnownByPlayer) the player may neither open a crate nor
+		-- shop in the rotating store: which of the two is theirs is not
+		-- known yet, so both stay shut (2026-11-10; an unanswered player
+		-- could roll before)
 		isRestrictedByPlayer: { [Player]: boolean },
+		isPolicyKnownByPlayer: { [Player]: boolean },
 		-- the rotating Gear Store's current set; nil until first asked for
 		dailyStore: DailyStoreRules.Store?,
 	},
@@ -88,6 +92,9 @@ GachaManager.RESET_FREE_REROLLS_COMMAND = "resetFreeRerolls"
 GachaManager.RESET_STORE_PURCHASES_COMMAND = "resetStorePurchases"
 
 local FEEDBACK_ALREADY_PURCHASED = "You already bought that card today"
+local FEEDBACK_POLICY_UNKNOWN = "The store is still loading. Try again in a moment"
+-- PolicyService is asked again this often until it answers
+local POLICY_RETRY_SEC = 5
 local FEEDBACK_RESTRICTED = "Rolling is not available on this account"
 local FEEDBACK_NOT_RESTRICTED = "Classes are rolled on this account"
 local FEEDBACK_CLASS_OWNED = "You already own that class"
@@ -166,9 +173,18 @@ function GachaManager:isRestricted(player: Player): boolean
 	return self.isRestrictedByPlayer[player] == true
 end
 
+function GachaManager:isPolicyKnown(player: Player): boolean
+	return self.isPolicyKnownByPlayer[player] == true
+end
+
+-- the answer, from PolicyService or the dev panel's checkbox; the flag
+-- goes out before the "known" mark, so a client never sees the policy
+-- as known with the old flag still showing
 function GachaManager:setRestricted(player: Player, isRestricted: boolean)
 	self.isRestrictedByPlayer[player] = isRestricted
+	self.isPolicyKnownByPlayer[player] = true
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.IS_PAID_RANDOM_ITEMS_RESTRICTED, isRestricted)
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.IS_PAID_RANDOM_ITEMS_POLICY_KNOWN, true)
 end
 
 function GachaManager:isClassInPool(classKind: number): boolean
@@ -209,6 +225,10 @@ end
 function GachaManager:roll(player: Player, isFree: boolean, forcedDraw: GachaRules.Draw?)
 	local playerData = GameController:getPlayerData(player)
 	if not playerData then
+		return
+	end
+	if not isFree and not self:isPolicyKnown(player) then
+		PlayerFeedbackManager:give(player, FEEDBACK_POLICY_UNKNOWN)
 		return
 	end
 	if not isFree and self:isRestricted(player) then
@@ -440,28 +460,33 @@ function GachaManager:grantClassStep(player: Player, classKind: number)
 end
 
 -- ready-sequence entry (registered through GameController:registerPlaceManager):
--- the policy is asked off the thread, and until it answers the player may
--- roll (the answer is false for almost everyone and never for long)
+-- the policy is asked off the thread, and asked again until it answers.
+-- Until then the player can neither roll nor shop (isPolicyKnown), so a
+-- restricted player never gets a crate in the gap and a failed call
+-- never opens one for them
 function GachaManager:onPlayerReady(player: Player)
 	self.isRestrictedByPlayer[player] = false
+	self.isPolicyKnownByPlayer[player] = false
+	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.IS_PAID_RANDOM_ITEMS_POLICY_KNOWN, false)
 	task.spawn(
 		function()
-			local isSuccess, policy = pcall(
-				function()
-					return PolicyService:GetPolicyInfoForPlayerAsync(player)
+			while true do
+				local isSuccess, policy = pcall(
+					function()
+						return PolicyService:GetPolicyInfoForPlayerAsync(player)
+					end
+				)
+				-- gone, reset, or answered by the dev panel meanwhile
+				if self.isPolicyKnownByPlayer[player] ~= false or not GameController:getPlayerData(player) then
+					return
 				end
-			)
-			if self.isRestrictedByPlayer[player] == nil or not GameController:getPlayerData(player) then
-				return
+				if isSuccess then
+					self:setRestricted(player, policy.ArePaidRandomItemsRestricted == true)
+					return
+				end
+				warn(`GachaManager: PolicyService failed for {player.Name}; crates and the store stay shut until it answers. {tostring(policy)}`)
+				task.wait(POLICY_RETRY_SEC)
 			end
-			if isSuccess then
-				self:setRestricted(player, policy.ArePaidRandomItemsRestricted == true)
-			else
-				warn(`GachaManager: PolicyService failed for {player.Name}; treating as not restricted. {tostring(policy)}`)
-			end
-			-- answered or failed, the flag is as final as it gets: the
-			-- client holds its loading screen until this shows (2026-11-10)
-			SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.IS_PAID_RANDOM_ITEMS_POLICY_KNOWN, true)
 		end
 	)
 end
@@ -469,6 +494,7 @@ end
 -- teardown entry; also the dev-tool reset, after which Ready asks again
 function GachaManager:onPlayerRemoved(player: Player)
 	self.isRestrictedByPlayer[player] = nil
+	self.isPolicyKnownByPlayer[player] = nil
 end
 
 function GachaManager:registerDevCommands()
@@ -641,6 +667,7 @@ function GachaManager.new(): GachaManager
 	self.pool = { classKinds = {}, cosmeticIds = {}, classWeight = 0, cosmeticWeight = 0, keysWeight = 0 }
 	self.random = Random.new()
 	self.isRestrictedByPlayer = {}
+	self.isPolicyKnownByPlayer = {}
 	return self
 end
 

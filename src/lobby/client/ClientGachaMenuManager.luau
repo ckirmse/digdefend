@@ -1458,8 +1458,9 @@ function ClientGachaMenuManager:requestRoll()
 	if not view or not config or self.isRolling or self.stage ~= Stage.MENU then
 		return
 	end
-	-- never sent for a restricted player; the server refuses it as well
-	if ClientDataManager:isPaidRandomItemsRestricted() then
+	-- never sent for a restricted player, or before the policy is known;
+	-- the server refuses both as well
+	if ClientDataManager:isPaidRandomItemsRestricted() or not ClientDataManager:isPaidRandomItemsPolicyKnown() then
 		return
 	end
 	local diamonds = ClientDataManager:getDiamonds()
@@ -1648,6 +1649,11 @@ function ClientGachaMenuManager:openMenu()
 	-- a player restricted from paid random items never sees the crate
 	-- (designer, 2026-11-10): every road here (the stall, the HUD's Store
 	-- button, the Class Menu) lands on the store that sells by name
+	-- which menu is this player's is not known until the policy answers
+	-- (the loading screen waits for it, so this is rarely met)
+	if not ClientDataManager:isPaidRandomItemsPolicyKnown() then
+		return
+	end
 	if ClientDataManager:isPaidRandomItemsRestricted() then
 		ClientRestrictedStoreManager:openMenu()
 		return
