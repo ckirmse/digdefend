@@ -22,6 +22,8 @@ local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientHeldToolManager = require(script.Parent.ClientHeldToolManager)
+local ClientTouchTap = require(script.Parent.ClientTouchTap)
+local ClientCameraView = require(script.Parent.ClientCameraView)
 
 local ClientTorchManager = {}
 ClientTorchManager.__index = ClientTorchManager
@@ -77,7 +79,9 @@ end
 
 -- the surface under the reticle: any solid part except the player and the
 -- client-only visual folders
-function ClientTorchManager:aim(): RaycastResult?
+-- pointerPosition: the tapped spot, which the torch goes on in third
+-- person; in first person the aim is the reticle on every device
+function ClientTorchManager:aim(pointerPosition: Vector2?): RaycastResult?
 	local camera = workspace.CurrentCamera
 	local character = Players.LocalPlayer.Character
 	if not camera then
@@ -93,14 +97,19 @@ function ClientTorchManager:aim(): RaycastResult?
 		table.insert(excluded, self.folder)
 	end
 	params.FilterDescendantsInstances = excluded
-	return workspace:Raycast(camera.CFrame.Position, camera.CFrame.LookVector * self.reachStuds, params)
+	local origin = camera.CFrame.Position
+	local direction = camera.CFrame.LookVector
+	if pointerPosition then
+		origin, direction = ClientCameraView:getPointerRay(pointerPosition)
+	end
+	return workspace:Raycast(origin, direction * self.reachStuds, params)
 end
 
-function ClientTorchManager:use()
+function ClientTorchManager:use(pointerPosition: Vector2?)
 	if not self.isActive or ClientOverlayManager:isOverlayActive() then
 		return
 	end
-	local result = self:aim()
+	local result = self:aim(pointerPosition)
 	if not result then
 		return
 	end
@@ -197,6 +206,12 @@ function ClientTorchManager:init()
 		Attributes.PICK_AXE_REACH_STUDS,
 		function()
 			self:readTuning()
+		end
+	)
+	-- touch: a tap on the world is the use (ClientTouchTap, 2026-11-11)
+	ClientTouchTap.connect(
+		function(position: Vector2)
+			self:use(position)
 		end
 	)
 	UserInputService.InputBegan:Connect(

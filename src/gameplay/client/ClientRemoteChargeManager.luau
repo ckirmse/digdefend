@@ -38,6 +38,7 @@ local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPl
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientGadgetGhost = require(script.Parent.ClientGadgetGhost)
 local ClientProjectileManager = require(script.Parent.ClientProjectileManager)
+local ClientTouchTap = require(script.Parent.ClientTouchTap)
 
 local ClientRemoteChargeManager = {}
 ClientRemoteChargeManager.__index = ClientRemoteChargeManager
@@ -92,7 +93,6 @@ end
 
 local function isUseInput(input: InputObject): boolean
 	return input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch
 		or input.KeyCode == Enum.KeyCode.ButtonR2
 end
 
@@ -316,6 +316,12 @@ function ClientRemoteChargeManager:init()
 			end
 		)
 	end
+	-- touch: a tap on the world is the use (ClientTouchTap, 2026-11-11)
+	ClientTouchTap.connect(
+		function(position: Vector2)
+			self:use()
+		end
+	)
 	UserInputService.InputBegan:Connect(
 		function(input: InputObject, isGameProcessed: boolean)
 			self:onInputBegan(input, isGameProcessed)

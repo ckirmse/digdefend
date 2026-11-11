@@ -560,7 +560,9 @@ local function fadeOutGui(gui: ScreenGui, dialog: Frame)
 		if descendant:IsA("ImageLabel") or descendant:IsA("ImageButton") then
 			fadeProperty(descendant, "ImageTransparency")
 		end
-		if descendant:IsA("UIStroke") then
+		-- a drop shadow is its own element: the Queue menu's stayed on
+		-- screen after the dialog had faded (2026-11-11)
+		if descendant:IsA("UIStroke") or descendant:IsA("UIShadow") then
 			fadeProperty(descendant, "Transparency")
 		end
 	end

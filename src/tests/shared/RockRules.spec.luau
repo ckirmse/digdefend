@@ -447,6 +447,7 @@ describe(
 				expect(RockRules.rawResourceForRock(RockName.STONE_2)).toBeNil()
 				expect(RockRules.rawResourceForRock(RockName.BEDROCK)).toBeNil()
 				expect(RockRules.rawResourceForRock(99)).toBeNil()
+				expect(RockRules.rawResourceForRock(0)).toBeNil()
 			end
 		)
 

@@ -39,6 +39,7 @@ local ClientHeldToolManager = require(script.Parent.ClientHeldToolManager)
 local ClientHoldInput = require(script.Parent.ClientHoldInput)
 local ClientMiningManager = require(script.Parent.ClientMiningManager)
 local ClientPlacementManager = require(script.Parent.ClientPlacementManager)
+local ClientCameraView = require(script.Parent.ClientCameraView)
 
 local ClientStructureManager = {}
 ClientStructureManager.__index = ClientStructureManager
@@ -814,6 +815,10 @@ function ClientStructureManager:init()
 		end,
 		swing = function(isFreshPress: boolean): boolean
 			return self:swing(isFreshPress)
+		end,
+		-- touch: a tap is one swing at what the reticle is on
+		isTapEnabled = function(): boolean
+			return ClientCameraView:isTouchScheme()
 		end,
 	})
 	holdInput:connect()

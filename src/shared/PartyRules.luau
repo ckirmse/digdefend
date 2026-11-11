@@ -88,7 +88,7 @@ PartyRules.FEEDBACK_FRIENDS_ONLY = "This party is friends only"
 PartyRules.FEEDBACK_CREATION_TIMED_OUT = "Party creation timed out"
 PartyRules.FEEDBACK_NOW_HOST = "You are now the party host"
 -- to the other members when the host presses Launch before the timer ends
-PartyRules.FEEDBACK_HOST_LEFT_EARLY = "The host chose to leave early"
+PartyRules.FEEDBACK_HOST_STARTED_GAME = "The host has started the game"
 PartyRules.FEEDBACK_TELEPORT_FAILED = "Teleport failed"
 PartyRules.ARRIVAL_REJECTION = "This server is reserved for a party"
 

@@ -12,6 +12,7 @@ local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
 local Icons = require(game.ReplicatedStorage.Shared.Icons)
 local UiStyle = require(game.ReplicatedStorage.Shared.UiStyle)
+local Attributes = require(game.ReplicatedStorage.Shared.Attributes)
 
 ChangeHistoryService:SetWaypoint("Before PostHud gui")
 
@@ -85,12 +86,16 @@ gui.Enabled = true
 
 -- above the jump button (bottom-right corner), clear of it
 local fireButton = makeButton("FireButton", "Fire", Vector2.new(1, 1), UDim2.fromScale(0.97, 0.6), UDim2.fromScale(0.13, 0.13), 1, Vector2.new(120, 120))
+-- a play control, not a menu button: no click (ClientButtonSoundManager)
+fireButton:SetAttribute(Attributes.BUTTON_SOUND, "")
 fireButton.Parent = gui
 
 -- touch only: stands where Roblox's jump button was (ClientPostManager
 -- hides the jump button and copies its exact rectangle while mounted);
 -- this scale placement is only the fallback when no jump button is found
 local exitButton = makeButton("ExitButton", "Exit", Vector2.new(1, 1), UDim2.fromScale(0.97, 0.9), UDim2.fromScale(0.1, 0.1), 1, Vector2.new(110, 110))
+-- a play control, not a menu button: no click (ClientButtonSoundManager)
+exitButton:SetAttribute(Attributes.BUTTON_SOUND, "")
 exitButton.Parent = gui
 
 local hint = Instance.new("TextLabel")
@@ -98,7 +103,7 @@ hint.Name = "ExitHint"
 hint.AnchorPoint = Vector2.new(0.5, 1)
 -- near the bottom edge: the tool bar is hidden while mounted, so the space
 -- is free (decided 2026-09-18); white and large enough to read at a glance
-hint.Position = UDim2.fromScale(0.5, 0.95)
+hint.Position = UDim2.fromScale(0.5, 0.995)
 hint.Size = UDim2.fromScale(0.3, 0.05)
 hint.BackgroundTransparency = 1
 hint.Text = UiStyle.formatTitle("Spacebar to exit")
@@ -215,8 +220,10 @@ statusBar.Parent = gui
 
 local statusLabel = Instance.new("TextLabel")
 statusLabel.Name = "StatusLabel"
-statusLabel.AnchorPoint = Vector2.new(0.5, 1)
-statusLabel.Position = UDim2.fromScale(0.5, 0.865)
+-- under the bar since 2026-11-11: above it the words sat on the Railgun's
+-- scope on a phone
+statusLabel.AnchorPoint = Vector2.new(0.5, 0)
+statusLabel.Position = UDim2.fromScale(0.5, 0.895)
 statusLabel.Size = UDim2.fromScale(0.3, 0.045)
 statusLabel.BackgroundTransparency = 1
 statusLabel.Text = UiStyle.formatTitle("Overheated")

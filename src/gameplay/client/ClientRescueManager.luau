@@ -19,6 +19,7 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local PostRules = require("@game/ReplicatedStorage/Shared/PostRules")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
@@ -36,6 +37,8 @@ ClientRescueManager.__index = ClientRescueManager
 export type ClientRescueManager = typeof(setmetatable(
 	{} :: {
 		billboard: BillboardGui?,
+		-- the billboard's own frame, hidden while this player mans a post
+		billboardRoot: GuiObject?,
 		uraniumLabel: TextLabel?,
 		statusLabel: TextLabel?,
 		-- the radio's screen, left as the designer set it until the quota is met
@@ -159,6 +162,19 @@ local function readNumber(value: any, default: number): number
 	return if typeof(value) == "number" then value else default
 end
 
+-- down a post's barrel the radio's billboard is clutter over the view
+-- (designer, 2026-11-11): its frame is hidden while this player mans a
+-- post, apart from the billboard's Enabled, which the run state and the
+-- call's fade own
+function ClientRescueManager:renderPostHidden()
+	local root = self.billboardRoot
+	if not root then
+		return
+	end
+	local mannedIndex = ClientDataManager:getCurrentPlayerAttribute(Attributes.MANNED_POST_INDEX)
+	root.Visible = typeof(mannedIndex) ~= "number" or mannedIndex == PostRules.NO_POST
+end
+
 function ClientRescueManager:attachBillboard()
 	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
 	local guiFolder = if gameAssets then gameAssets:FindFirstChild(Constants.GUI_TEMPLATES_FOLDER) else nil
@@ -186,6 +202,8 @@ function ClientRescueManager:attachBillboard()
 	self:findScreen(radio)
 	self.billboard = billboard
 	local root = billboard:FindFirstChild(Constants.RESCUE_RADIO_ROOT_FRAME)
+	self.billboardRoot = if root and root:IsA("GuiObject") then root else nil
+	self:renderPostHidden()
 	local row = if root then root:FindFirstChild(Constants.RESCUE_RADIO_URANIUM_ROW) else nil
 	local uranium = if row then row:FindFirstChild(Constants.RESCUE_RADIO_URANIUM_LABEL) else nil
 	local status = if root then root:FindFirstChild(Constants.RESCUE_RADIO_STATUS_LABEL) else nil
@@ -723,6 +741,12 @@ function ClientRescueManager:init()
 			self:onAnnouncement(payload)
 		end
 	)
+	ClientDataManager:subscribeCurrentPlayerAttribute(
+		Attributes.MANNED_POST_INDEX,
+		function()
+			self:renderPostHidden()
+		end
+	)
 	task.spawn(
 		function()
 			self:attachBillboard()
@@ -753,6 +777,7 @@ end
 function ClientRescueManager.new(): ClientRescueManager
 	local self = setmetatable({}, ClientRescueManager) :: ClientRescueManager
 	self.billboard = nil
+	self.billboardRoot = nil
 	self.uraniumLabel = nil
 	self.statusLabel = nil
 	self.screenBackground = nil

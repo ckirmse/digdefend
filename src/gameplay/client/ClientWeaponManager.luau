@@ -62,6 +62,8 @@ export type ClientWeaponManager = typeof(setmetatable(
 		ammoLabel: TextLabel?,
 		-- the secondary's cooldown bar above the ammo (2026-10-19)
 		secondaryBar: GuiObject?,
+		secondaryButton: GuiButton?,
+		secondaryButtonLabel: TextLabel?,
 		secondaryFill: GuiObject?,
 		-- rounds left as this client expects them: the server's count, less
 		-- shots sent since it last arrived, so a hold never outruns the magazine
@@ -96,6 +98,8 @@ export type ClientWeaponManager = typeof(setmetatable(
 ))
 
 local RETICLE_BORROWER = "WeaponMode"
+local SECONDARY_BUTTON_SCOPE_TEXT = "Scope"
+local SECONDARY_BUTTON_GRENADE_TEXT = "Grenade"
 -- the first-person view model is shared with the flare gun (ClientFlareManager)
 local VIEW_MODEL_OWNER = "Weapon"
 local DEFAULT_FIRE_INTERVAL_SEC = 0.2
@@ -690,7 +694,31 @@ end
 
 -- the secondary's bar: shown with the ammo for a weapon that has one,
 -- its Fill the share of the cooldown that has run (full when ready)
+-- touch has no second mouse button: the weapon's aim button (hold for the
+-- scope, press for the grenade) is an on-screen button above the jump
+-- button, where ClientTouchLayoutManager places it (designer, 2026-11-11)
+function ClientWeaponManager:renderSecondaryButton()
+	local button = self.secondaryButton
+	if not button then
+		return
+	end
+	local kindData = self:getOwnKindData()
+	local hasScope = kindData ~= nil and kindData.SCOPE ~= nil
+	local hasSecondary = kindData ~= nil and kindData.SECONDARY ~= nil
+	local isShown = ClientCameraView:isTouchScheme()
+		and self.isWeaponMode
+		and (hasScope or hasSecondary)
+		and not self.isOverlayActive
+		and not self:isManningPost()
+	button.Visible = isShown
+	local label = self.secondaryButtonLabel
+	if isShown and label then
+		label.Text = UiStyle.formatTitle(if hasScope then SECONDARY_BUTTON_SCOPE_TEXT else SECONDARY_BUTTON_GRENADE_TEXT)
+	end
+end
+
 function ClientWeaponManager:renderSecondaryBar()
+	self:renderSecondaryButton()
 	local bar = self.secondaryBar
 	if not bar then
 		return
@@ -808,6 +836,26 @@ function ClientWeaponManager:init()
 	else
 		warn("ClientWeaponManager: WeaponHud has no SecondaryBar; run scripts/studio/build_weapon_hud_gui.luau")
 	end
+	local secondaryButton = if gui then gui:FindFirstChild(Constants.WEAPON_HUD_SECONDARY_BUTTON) else nil
+	if secondaryButton and secondaryButton:IsA("GuiButton") then
+		self.secondaryButton = secondaryButton
+		local secondaryLabel = secondaryButton:FindFirstChild(Constants.WEAPON_HUD_SECONDARY_BUTTON_LABEL)
+		self.secondaryButtonLabel = if secondaryLabel and secondaryLabel:IsA("TextLabel") then secondaryLabel else nil
+		secondaryButton.Visible = false
+		secondaryButton.MouseButton1Down:Connect(
+			function()
+				self:onAimButton(true)
+			end
+		)
+		local function release()
+			self:onAimButton(false)
+		end
+		secondaryButton.MouseButton1Up:Connect(release)
+		-- a finger that slides off the button lets the scope go too
+		secondaryButton.MouseLeave:Connect(release)
+	else
+		warn("ClientWeaponManager: WeaponHud has no SecondaryButton; run scripts/studio/build_weapon_hud_gui.luau")
+	end
 	local button = if gui then gui:FindFirstChild(Constants.WEAPON_HUD_AMMO_BUTTON) else nil
 	if button and button:IsA("GuiButton") then
 		self.ammoButton = button
@@ -877,7 +925,7 @@ function ClientWeaponManager:init()
 			return self:fire(isFreshPress)
 		end,
 		isTapEnabled = function(): boolean
-			return ClientCameraView:isThirdPerson()
+			return ClientCameraView:isTapEnabled()
 		end,
 	})
 	holdInput:connect()
@@ -934,6 +982,8 @@ function ClientWeaponManager.new(): ClientWeaponManager
 	self.ammoButton = nil
 	self.ammoLabel = nil
 	self.secondaryBar = nil
+	self.secondaryButton = nil
+	self.secondaryButtonLabel = nil
 	self.secondaryFill = nil
 	self.predictedAmmo = 0
 	self.magazineSize = 0

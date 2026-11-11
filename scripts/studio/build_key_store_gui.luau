@@ -115,25 +115,6 @@ local function makePlateButton(name, text, color, slice, maxPx)
 	return button
 end
 
--- a wallet: an icon then the amount, the HUD wallet's look
-local function makeWallet(name, amountName, icon)
-	local wallet = makeFrame(name, UiStyle.BACKGROUND_COLOR)
-	addCorner(wallet)
-	local walletIcon = makeImage(Constants.HUD_BALANCE_ICON, icon)
-	walletIcon.AnchorPoint = Vector2.new(0, 0.5)
-	walletIcon.Position = UDim2.fromScale(0.05, 0.5)
-	walletIcon.Size = UDim2.fromScale(0.22, 0.76)
-	addAspect(walletIcon, 1)
-	walletIcon.Parent = wallet
-	local amount = makeLabel(amountName, "0", UiStyle.TITLE_FONT, UiStyle.TEXT_COLOR, 34)
-	amount.AnchorPoint = Vector2.new(0, 0.5)
-	amount.Position = UDim2.fromScale(0.32, 0.5)
-	amount.Size = UDim2.fromScale(0.64, 0.76)
-	amount.TextXAlignment = Enum.TextXAlignment.Left
-	amount.Parent = wallet
-	return wallet
-end
-
 local gui = Instance.new("ScreenGui")
 gui.Name = Constants.KEY_STORE_GUI_NAME
 gui.ResetOnSpawn = false
@@ -150,7 +131,8 @@ addMaxSize(dialog, DIALOG_MAX_SIZE)
 dialog.Parent = gui
 addCorner(dialog)
 
--- header: Back on the left, the title in the middle, the Keys wallet on the right
+-- header: Back on the left, the title in the middle; the balance is the
+-- HUD's Keys wallet, kept on screen by the menu's overlay
 local backButton = makePlateButton(Constants.KEY_STORE_BACK_BUTTON, "Back", UiStyle.TOGGLE_OFF_COLOR, TALL_PLATE_SLICE, 32)
 backButton.AnchorPoint = Vector2.new(0, 0)
 backButton.Position = UDim2.fromScale(0.03, 0.05)
@@ -162,13 +144,6 @@ title.AnchorPoint = Vector2.new(0.5, 0)
 title.Position = UDim2.fromScale(0.5, 0.05)
 title.Size = UDim2.fromScale(0.4, 0.11)
 title.Parent = dialog
-
-local keysWallet = makeWallet(Constants.KEY_STORE_WALLET, Constants.HUD_KEYS_AMOUNT_LABEL, Icons.UI.KEYS)
-keysWallet.AnchorPoint = Vector2.new(1, 0)
-keysWallet.Position = UDim2.fromScale(0.97, 0.05)
-keysWallet.Size = UDim2.fromScale(0.15, 0.11)
-addMaxSize(keysWallet, Vector2.new(180, 56))
-keysWallet.Parent = dialog
 
 -- the item grid on the left: a scrolling frame of cards, three to a row,
 -- each card the item's picture over its name

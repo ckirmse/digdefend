@@ -27,6 +27,8 @@ local TRANSPARENCY_PROPERTIES_BY_CLASS: { [string]: { string } } = {
 	ScrollingFrame = { "BackgroundTransparency", "ScrollBarImageTransparency" },
 	CanvasGroup = { "GroupTransparency" },
 	UIStroke = { "Transparency" },
+	-- a button's drop shadow outlived its faded menu (2026-11-11)
+	UIShadow = { "Transparency" },
 }
 
 -- fades root's elements out over fadeSec; onDone runs at the end, before

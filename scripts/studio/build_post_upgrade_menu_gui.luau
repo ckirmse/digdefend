@@ -47,8 +47,9 @@ local function addMaxSize(frame, maxSize)
 end
 
 local function addTouchTarget(button, maxSize)
+	-- a maximum only: a menu carries no pixel minimum, not even the touch
+	-- floor (GUI standard, 2026-11-03)
 	local constraint = Instance.new("UISizeConstraint")
-	constraint.MinSize = Vector2.new(UiStyle.TOUCH_TARGET_MIN_PX, UiStyle.TOUCH_TARGET_MIN_PX)
 	constraint.MaxSize = maxSize
 	constraint.Parent = button
 end

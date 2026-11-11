@@ -162,6 +162,11 @@ end
 -- is gold ore), so a client with no GameData can sort ore by kind (the
 -- Ore Scanner, 2026-10-22); nil for stone and bedrock
 function RockRules.rawResourceForRock(rock: number): number?
+	-- an empty cell (air) is no rock: asked for by every scan of the grid,
+	-- and getName warns on a value that is not in the enum
+	if not Enums.isValidValue(Enums.RockName, rock) then
+		return nil
+	end
 	local name = Enums.getName(Enums.RockName, rock)
 	if not name then
 		return nil

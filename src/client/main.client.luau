@@ -7,6 +7,7 @@ local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local ClientDataManager = require(script.Parent.ClientDataManager)
 local ClientDevTools = require(script.Parent.ClientDevTools)
+local ClientPerformanceDevTools = require(script.Parent.ClientPerformanceDevTools)
 local ClientHelicopterManager = require(script.Parent.ClientHelicopterManager)
 local ClientLoadingScreenManager = require(script.Parent.ClientLoadingScreenManager)
 local ClientNetManager = require(script.Parent.ClientNetManager)
@@ -52,6 +53,7 @@ ClientHelicopterManager:init()
 
 if ClientDataManager:getIsAdmin() then
 	ClientDevTools:init()
+	ClientPerformanceDevTools:init()
 end
 
 ClientLoadingScreenManager:hide()

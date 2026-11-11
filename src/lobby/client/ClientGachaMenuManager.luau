@@ -1689,7 +1689,11 @@ function ClientGachaMenuManager:openKeyStore()
 		return
 	end
 	self:closeMenu()
-	ClientKeyStoreManager:openMenu()
+	ClientKeyStoreManager:openMenu(
+		function()
+			self:openMenu()
+		end
+	)
 end
 
 function ClientGachaMenuManager:closeMenu()

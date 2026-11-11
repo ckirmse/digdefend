@@ -26,7 +26,7 @@ export type ClientPlayerFeedbackManager = typeof(setmetatable(
 	{} :: {
 		localEvent: BindableEvent?,
 		listeners: { FeedbackListener },
-		feedbackBox: Frame?,
+		feedbackBox: GuiObject?,
 		messageLabel: TextLabel?,
 		icon: ImageLabel?,
 		-- the label's authored position, which an icon shifts
@@ -196,7 +196,9 @@ function ClientPlayerFeedbackManager:findGui()
 	end
 	local feedbackBox = gui:FindFirstChild(Constants.PLAYER_FEEDBACK_BOX)
 	local messageLabel = if feedbackBox then feedbackBox:FindFirstChild(Constants.PLAYER_FEEDBACK_LABEL) else nil
-	if not feedbackBox or not feedbackBox:IsA("Frame") or not messageLabel or not messageLabel:IsA("TextLabel") then
+	-- any GuiObject: the lobby's box is the designer's picture itself (an
+	-- ImageLabel), the gameplay one a Frame holding the picture
+	if not feedbackBox or not feedbackBox:IsA("GuiObject") or not messageLabel or not messageLabel:IsA("TextLabel") then
 		warn(`ClientPlayerFeedbackManager: {gui:GetFullName()} is missing {Constants.PLAYER_FEEDBACK_BOX}.{Constants.PLAYER_FEEDBACK_LABEL}`)
 		return
 	end

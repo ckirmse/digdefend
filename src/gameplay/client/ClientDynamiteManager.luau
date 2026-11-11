@@ -24,6 +24,7 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientHeldToolManager = require(script.Parent.ClientHeldToolManager)
+local ClientTouchTap = require(script.Parent.ClientTouchTap)
 
 local ClientDynamiteManager = {}
 ClientDynamiteManager.__index = ClientDynamiteManager
@@ -216,6 +217,12 @@ function ClientDynamiteManager:onExploded(payload: any)
 end
 
 function ClientDynamiteManager:init()
+	-- touch: a tap on the world is the use (ClientTouchTap, 2026-11-11)
+	ClientTouchTap.connect(
+		function(position: Vector2)
+			self:use()
+		end
+	)
 	UserInputService.InputBegan:Connect(
 		function(input: InputObject, isGameProcessed: boolean)
 			self:onInputBegan(input, isGameProcessed)

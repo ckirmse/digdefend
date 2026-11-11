@@ -766,7 +766,7 @@ function PartyManager:handleTryLaunchParty(player: Player)
 	-- the crew is told the host cut the countdown short (designer, 2026-10-30)
 	for _, member in party.members do
 		if member ~= player and member.Parent == Players then
-			PlayerFeedbackManager:give(member, PartyRules.FEEDBACK_HOST_LEFT_EARLY)
+			PlayerFeedbackManager:give(member, PartyRules.FEEDBACK_HOST_STARTED_GAME)
 		end
 	end
 	self:launch(party)

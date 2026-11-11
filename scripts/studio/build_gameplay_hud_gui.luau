@@ -10,6 +10,7 @@ local StarterGui = game:GetService("StarterGui")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
 local UiStyle = require(game.ReplicatedStorage.Shared.UiStyle)
+local Attributes = require(game.ReplicatedStorage.Shared.Attributes)
 local Icons = require(game.ReplicatedStorage.Shared.Icons)
 local Enums = require(game.ReplicatedStorage.Shared.Enums)
 
@@ -261,84 +262,6 @@ jetFill.BackgroundColor3 = UiStyle.ACCENT_COLOR
 jetFill.BorderSizePixel = 0
 jetFill.Parent = jetTrack
 addCorner(jetFill)
-
--- touch-only jet pack button just above Roblox's jump button (bottom
--- right); this position is only the fallback, ClientTouchLayoutManager
--- re-places it against the live jump button. Keyboard and gamepad players
--- double-tap Jump instead
-local jetButton = Instance.new("TextButton")
-jetButton.Name = "JetPackButton"
-jetButton.AnchorPoint = Vector2.new(1, 1)
-jetButton.Position = UDim2.fromScale(0.98, 0.76)
-jetButton.Size = UDim2.fromScale(0.08, 0.08)
-local jetAspect = Instance.new("UIAspectRatioConstraint")
-jetAspect.AspectRatio = 1
-jetAspect.Parent = jetButton
--- the one minimum in this gui: a touch target never drops under 44 points
-local jetButtonSize = Instance.new("UISizeConstraint")
-jetButtonSize.MinSize = Vector2.new(UiStyle.TOUCH_TARGET_MIN_PX, UiStyle.TOUCH_TARGET_MIN_PX)
-jetButtonSize.MaxSize = Vector2.new(130, 130)
-jetButtonSize.Parent = jetButton
-jetButton.BackgroundColor3 = UiStyle.PANEL_COLOR
-jetButton.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
-jetButton.BorderSizePixel = 0
-jetButton.Text = "JET"
-jetButton.TextColor3 = UiStyle.TEXT_COLOR
-jetButton.TextScaled = true
-jetButton.FontFace = UiStyle.TITLE_FONT
-jetButton.AutoButtonColor = true
-jetButton.Visible = false
-addTextSizeBounds(jetButton, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.BODY_TEXT_MAX_PX)
-jetButton.Parent = gui
-local jetCorner = Instance.new("UICorner")
-jetCorner.CornerRadius = UDim.new(0.5, 0)
-jetCorner.Parent = jetButton
-
--- touch-only action button left of the jump button (fallback position;
--- ClientTouchLayoutManager re-places it against the live jump button): the
--- equipped tool's one action (swing, throw, place). Until tool icons exist
--- the label carries the tool name, like the tool bar slots
-local actionButton = Instance.new("TextButton")
-actionButton.Name = "ActionButton"
-actionButton.AnchorPoint = Vector2.new(1, 1)
-actionButton.Position = UDim2.fromScale(0.86, 0.9)
-actionButton.Size = UDim2.fromScale(0.11, 0.11)
-local actionAspect = Instance.new("UIAspectRatioConstraint")
-actionAspect.AspectRatio = 1
-actionAspect.Parent = actionButton
-local actionSize = Instance.new("UISizeConstraint")
-actionSize.MinSize = Vector2.new(UiStyle.TOUCH_TARGET_MIN_PX, UiStyle.TOUCH_TARGET_MIN_PX)
-actionSize.MaxSize = Vector2.new(130, 130)
-actionSize.Parent = actionButton
-actionButton.BackgroundColor3 = UiStyle.PANEL_COLOR
-actionButton.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
-actionButton.BorderSizePixel = 0
-actionButton.Text = ""
-actionButton.AutoButtonColor = true
-actionButton.Visible = false
-actionButton.Parent = gui
-local actionCorner = Instance.new("UICorner")
-actionCorner.CornerRadius = UDim.new(0.5, 0)
-actionCorner.Parent = actionButton
-local actionIcon = Instance.new("ImageLabel")
-actionIcon.Name = "Icon"
-actionIcon.Position = UDim2.fromScale(0.15, 0.15)
-actionIcon.Size = UDim2.fromScale(0.7, 0.7)
-actionIcon.BackgroundTransparency = 1
-actionIcon.Image = ""
-actionIcon.ScaleType = Enum.ScaleType.Fit
-actionIcon.Parent = actionButton
-local actionLabel = Instance.new("TextLabel")
-actionLabel.Name = "Label"
-actionLabel.Position = UDim2.fromScale(0.1, 0.3)
-actionLabel.Size = UDim2.fromScale(0.8, 0.4)
-actionLabel.BackgroundTransparency = 1
-actionLabel.Text = "PICK AXE"
-actionLabel.TextColor3 = UiStyle.TEXT_COLOR
-actionLabel.TextScaled = true
-actionLabel.FontFace = UiStyle.TITLE_FONT
-addTextSizeBounds(actionLabel, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.BODY_TEXT_MAX_PX)
-actionLabel.Parent = actionButton
 
 -- the layer flying icons cross; above everything else in this gui
 local flyLayer = Instance.new("Frame")

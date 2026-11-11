@@ -35,6 +35,7 @@ local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManage
 local ClientDamageableManager = require(script.Parent.ClientDamageableManager)
 local ClientGadgetGhost = require(script.Parent.ClientGadgetGhost)
 local ClientWeaponManager = require(script.Parent.ClientWeaponManager)
+local ClientTouchTap = require(script.Parent.ClientTouchTap)
 
 local ClientAutoTurretManager = {}
 ClientAutoTurretManager.__index = ClientAutoTurretManager
@@ -282,7 +283,7 @@ function ClientAutoTurretManager:setGhostVisible(isVisible: boolean)
 	self.ghost = ghost
 end
 
--- the use input (click, trigger, or the touch action button): place where
+-- the use input (click, trigger, or a tap on touch): place where
 -- the ghost stands, or say why not
 function ClientAutoTurretManager:use()
 	local ghost = self.ghost
@@ -385,6 +386,12 @@ function ClientAutoTurretManager:init()
 		Attributes.GADGET_KIND,
 		function(_value: any)
 			self:refreshActive()
+		end
+	)
+	-- touch: a tap on the world is the use (ClientTouchTap, 2026-11-11)
+	ClientTouchTap.connect(
+		function(position: Vector2)
+			self:use()
 		end
 	)
 	UserInputService.InputBegan:Connect(

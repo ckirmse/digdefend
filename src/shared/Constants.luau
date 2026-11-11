@@ -723,13 +723,11 @@ Constants.HUD_JET_PACK_BAR = "JetPackBar"
 Constants.HUD_JET_PACK_ICON = "Icon"
 Constants.HUD_JET_PACK_TRACK = "Track"
 Constants.HUD_JET_PACK_FILL = "Fill"
-Constants.HUD_JET_PACK_BUTTON = "JetPackButton"
--- touch-only action button beside the jump button: one button that does
--- whatever the equipped tool does (swing, throw, place), so moving the
--- camera never swings the pick axe (decided 2026-09-16)
-Constants.HUD_ACTION_BUTTON = "ActionButton"
-Constants.HUD_ACTION_ICON = "Icon"
-Constants.HUD_ACTION_LABEL = "Label"
+-- Roblox's own touch controls, built by its PlayerModule in PlayerGui: read
+-- to place our touch buttons round the jump button and to hear its presses
+Constants.TOUCH_GUI_NAME = "TouchGui"
+Constants.TOUCH_CONTROL_FRAME_NAME = "TouchControlFrame"
+Constants.TOUCH_JUMP_BUTTON_NAME = "JumpButton"
 -- balances (top left): one row per resource, Uranium as "total / target"
 Constants.HUD_BALANCES_FRAME = "Balances"
 Constants.HUD_BALANCE_IRON_ROW = "IronRow"
@@ -976,7 +974,6 @@ Constants.DIAMOND_STORE_PACK_PRICE_LABEL = "Price"
 -- BUY with the Keys price, which reads EQUIP once the item is owned
 Constants.KEY_STORE_GUI_NAME = "KeyStore"
 Constants.KEY_STORE_BACK_BUTTON = "BackButton"
-Constants.KEY_STORE_WALLET = "KeysWallet"
 Constants.KEY_STORE_ITEM_LIST = "ItemList"
 Constants.KEY_STORE_ITEM_TEMPLATE = "ItemTemplate"
 Constants.KEY_STORE_ITEM_ICON = "Icon"
@@ -1209,6 +1206,9 @@ Constants.WEAPON_HUD_SECONDARY_ICON = "Icon"
 Constants.WEAPON_HUD_SECONDARY_LABEL = "Label"
 Constants.WEAPON_HUD_SECONDARY_TRACK = "Track"
 Constants.WEAPON_HUD_SECONDARY_FILL = "Fill"
+-- touch only: the weapon's aim button (scope, grenade), above the jump button
+Constants.WEAPON_HUD_SECONDARY_BUTTON = "SecondaryButton"
+Constants.WEAPON_HUD_SECONDARY_BUTTON_LABEL = "Label"
 -- the scope view (scripts/studio/build_scope_hud_gui.luau, 2026-10-19):
 -- a full-screen gui shown while a scope kind's scope is raised, its
 -- Reticle picture set from Icons.WEAPON_SCOPE by weapon kind

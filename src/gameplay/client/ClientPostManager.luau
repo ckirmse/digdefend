@@ -182,6 +182,15 @@ export type ClientPostManager = typeof(setmetatable(
 ))
 
 local RETICLE_BORROWER = "PostMode"
+-- the touch Exit button against the Fire button: its size as a share of
+-- it, and the gap between the two as a share of the Fire button's height
+local EXIT_BUTTON_SIZE_SHARE = 0.75
+local EXIT_BUTTON_GAP_SHARE = 0.15
+-- where Exit sits round Fire, in degrees clockwise from straight up: 60 is
+-- two o'clock (designer, 2026-11-11; straight above before), and the least
+-- room kept to the screen's right edge, as a share of the Fire button
+local EXIT_BUTTON_CLOCK_DEGREES = 60
+local EXIT_BUTTON_EDGE_MARGIN_SHARE = 0.1
 -- the HUD that means nothing at a gun: balances, backpack, jet pack, the
 -- action button (GameplayHud) and the tool bar; hidden while mounted
 -- (decided 2026-09-18)
@@ -1565,17 +1574,46 @@ function ClientPostManager:setHudHidden(isHidden: boolean)
 	end
 end
 
--- the Exit button takes the jump button's exact spot, the one place the
--- GUI standard allows offsets read from Roblox's own GUI
+-- the Fire button takes the jump button's exact spot and size, and the
+-- Exit button sits at two o'clock of it (designer, 2026-11-11; Exit had the
+-- jump button's spot before, and the two overlapped on a phone); the one
+-- place the GUI standard allows offsets read from Roblox's own GUI
 function ClientPostManager:placeExitButton()
 	local exitButton = self.exitButton
+	local fireButton = self.fireButton
 	local jump = ClientTouchLayoutManager:getJumpButton()
-	if not exitButton or not jump then
+	if not exitButton or not fireButton or not jump then
 		return
 	end
+	-- AbsolutePosition is measured from under the top bar on every gui, and
+	-- PostHud starts at the screen's corner: its own AbsolutePosition is
+	-- the difference (left out before, which put Exit a top bar too high)
+	local gui = fireButton:FindFirstAncestorWhichIsA("ScreenGui")
+	local origin = if gui then gui.AbsolutePosition else Vector2.zero
+	local size = jump.AbsoluteSize
+	local position = jump.AbsolutePosition - origin
+	fireButton.AnchorPoint = Vector2.new(0, 0)
+	fireButton.Position = UDim2.fromOffset(position.X, position.Y)
+	fireButton.Size = UDim2.fromOffset(size.X, size.Y)
+	local exitSize = size * EXIT_BUTTON_SIZE_SHARE
 	exitButton.AnchorPoint = Vector2.new(0, 0)
-	exitButton.Position = UDim2.fromOffset(jump.AbsolutePosition.X, jump.AbsolutePosition.Y)
-	exitButton.Size = UDim2.fromOffset(jump.AbsoluteSize.X, jump.AbsoluteSize.Y)
+	exitButton.Size = UDim2.fromOffset(exitSize.X, exitSize.Y)
+	-- centre to centre along the clock direction, the two round buttons a
+	-- gap apart; where the screen's right edge is nearer than that, Exit
+	-- keeps the distance and rides up toward twelve instead of leaving
+	-- the screen or closing on Fire
+	local fireCentre = position + size / 2
+	local centreDistance = (size.X + exitSize.X) / 2 + size.Y * EXIT_BUTTON_GAP_SHARE
+	local offsetX = math.sin(math.rad(EXIT_BUTTON_CLOCK_DEGREES)) * centreDistance
+	if gui then
+		local rightLimit = gui.AbsoluteSize.X - size.X * EXIT_BUTTON_EDGE_MARGIN_SHARE - exitSize.X / 2
+		offsetX = math.clamp(rightLimit - fireCentre.X, 0, offsetX)
+	end
+	local offsetY = -math.sqrt(centreDistance * centreDistance - offsetX * offsetX)
+	exitButton.Position = UDim2.fromOffset(
+		fireCentre.X + offsetX - exitSize.X / 2,
+		fireCentre.Y + offsetY - exitSize.Y / 2
+	)
 end
 
 function ClientPostManager:enterMode()

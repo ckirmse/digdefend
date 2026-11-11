@@ -3,12 +3,13 @@
 -- Mining Mode (GDD "Mining Rock"), active while the local player holds the
 -- pick axe: a centre reticle, the block under it highlighted with its name
 -- and a health bar (no numbers, decided 2026-09-15) beside the reticle, and a swing per press or per interval while
--- held (mouse button, gamepad right trigger, the touch action button
--- through beginHold/endHold, or a touch hold). Touch follows Minecraft
--- Bedrock's split controls (researched 2026-09-16): a finger that rests
--- still in the free screen area for a short dwell starts a hold on whatever
--- the reticle points at, and dragging that finger afterwards turns the
--- camera while the hold keeps mining; a quick tap or swipe never swings.
+-- held (mouse button, gamepad right trigger, or a touch hold). Touch
+-- keeps the centre reticle and mines what it is on, wherever the finger is
+-- (designer, 2026-11-11; mining the block under the finger was tried that
+-- day and dropped, and the action button went the same day): a finger that
+-- rests anywhere in the free screen area for a short dwell mines for as
+-- long as it stays down (dragging it afterwards turns the camera), a quick
+-- tap is one swing, and a swipe is a look.
 -- After a break the hold waits until the reticle has rested on the next
 -- block for one interval, so every first hit is intended. Swings are only
 -- ever requests (TryHitRock); the crack state and the removal every client
@@ -287,7 +288,11 @@ end
 -- moving before the dwell is a look, and the touch stops being a candidate;
 -- moving after the hold began is a look that keeps mining
 function ClientMiningManager:onTouchMoved(touch: InputObject)
-	if touch ~= self.holdTouch or self.isHolding then
+	if touch ~= self.holdTouch then
+		return
+	end
+	if self.isHolding then
+		self.pointerPosition = Vector2.new(touch.Position.X, touch.Position.Y)
 		return
 	end
 	if (touch.Position - self.holdTouchStartPosition).Magnitude > TOUCH_HOLD_MAX_MOVE_PX then
@@ -296,8 +301,9 @@ function ClientMiningManager:onTouchMoved(touch: InputObject)
 	end
 end
 
--- a finger that lifts before the dwell is a tap: nothing in first person,
--- one swing at the tapped block in third person
+-- a finger that lifts before the dwell is a tap: one swing, at the block
+-- under the reticle on a touch-only device and at the tapped block in
+-- third person; nothing for a mouse player's touch screen in first person
 function ClientMiningManager:onTouchEnded(touch: InputObject)
 	if touch ~= self.holdTouch then
 		return
@@ -305,7 +311,7 @@ function ClientMiningManager:onTouchEnded(touch: InputObject)
 	self.holdTouch = nil
 	local wasHolding = self.isHolding
 	self:endHold()
-	if not wasHolding and ClientCameraView:isThirdPerson() and workspace:GetServerTimeNow() - self.holdTouchStartTime < TOUCH_HOLD_DWELL_SEC then
+	if not wasHolding and ClientCameraView:isTapEnabled() and workspace:GetServerTimeNow() - self.holdTouchStartTime < TOUCH_HOLD_DWELL_SEC then
 		self.pointerPosition = Vector2.new(touch.Position.X, touch.Position.Y)
 		self:aim()
 		self:beginHold()

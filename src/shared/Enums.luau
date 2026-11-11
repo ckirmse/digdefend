@@ -983,7 +983,9 @@ module = {
 				return key
 			end
 		end
-		warn("invalid enum to getName " .. tostring(value))
+		-- the caller is named, since the value alone never says which enum or who asked
+		local callerSource, callerLine = debug.info(2, "sl")
+		warn(`invalid enum to getName {tostring(value)} (from {callerSource}:{callerLine})`)
 		return nil
 	end,
 	getValueByName = function(tbl: EnumTable, name: string): number?

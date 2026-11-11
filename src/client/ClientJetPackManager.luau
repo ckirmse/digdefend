@@ -1,8 +1,11 @@
 --!strict
 
--- The jet pack on this client (GDD "Jet Pack"). One gesture: on keyboard and
--- gamepad, double-tap Jump and keep holding it; on touch, hold the Jet Pack
--- button above the jump button. Pressing asks the server to start burning,
+-- The jet pack on this client (GDD "Jet Pack"). One gesture on every
+-- device: jump, press Jump again, and keep holding it. Keyboard and gamepad
+-- judge the second press by time (a double tap); touch judges it by the
+-- character being in the air when Roblox's jump button is pressed (designer,
+-- 2026-11-11; a JET button above the jump button before). Pressing asks the
+-- server to start burning,
 -- releasing asks it to stop; the server owns the fuel and may cut out first.
 -- While the public burning flag is on for the local player, this client
 -- lifts its own character straight up (it owns its character's physics) at
@@ -40,13 +43,13 @@ export type ClientJetPackManager = typeof(setmetatable(
 		wornByUserId: { [number]: Worn },
 		isRequestingBurn: boolean,
 		lastJumpPressTime: number,
+		jumpTouch: InputObject?,
 		climbSpeed: number,
 		fuelSec: number,
 		fuelMaxSec: number,
 		isLocked: boolean,
 		bar: GuiObject?,
 		fill: GuiObject?,
-		button: GuiButton?,
 		thrustConnection: RBXScriptConnection?,
 		hasWarnedTemplate: boolean,
 	},
@@ -54,6 +57,7 @@ export type ClientJetPackManager = typeof(setmetatable(
 ))
 
 local DOUBLE_TAP_SEC = 0.35
+local JUMP_BUTTON_WAIT_SEC = 10
 local DEFAULT_CLIMB_SPEED = 22
 local WORN_MODEL_NAME = Constants.WORN_JET_PACK_MODEL
 
@@ -91,7 +95,74 @@ end
 function ClientJetPackManager:onInputEnded(input: InputObject)
 	if isJumpInput(input) then
 		self:requestStop()
+	elseif input == self.jumpTouch then
+		self.jumpTouch = nil
+		self:requestStop()
 	end
+end
+
+-- Jumping and Freefall only: a seated rider is off the floor too, and a tap
+-- there must not light the pack
+function ClientJetPackManager:isAirborne(): boolean
+	local character = Players.LocalPlayer.Character
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	if not humanoid then
+		return false
+	end
+	local state = humanoid:GetState()
+	return state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall
+end
+
+-- the press that starts a jump arrives while the character still stands, so
+-- only a press made in the air reaches the pack; the finger is remembered
+-- because it can lift anywhere on the screen, not only over the button
+function ClientJetPackManager:onJumpButtonPressed(input: InputObject)
+	if input.UserInputType ~= Enum.UserInputType.Touch or input.UserInputState ~= Enum.UserInputState.Begin then
+		return
+	end
+	if self.jumpTouch or ClientOverlayManager:isOverlayActive() or not self:isAirborne() then
+		return
+	end
+	self.jumpTouch = input
+	self:requestStart()
+end
+
+function ClientJetPackManager:connectJumpButton(button: Instance)
+	if button.Name ~= Constants.TOUCH_JUMP_BUTTON_NAME or not button:IsA("GuiObject") then
+		return
+	end
+	button.InputBegan:Connect(
+		function(input: InputObject)
+			self:onJumpButtonPressed(input)
+		end
+	)
+end
+
+function ClientJetPackManager:watchJumpButton()
+	if not UserInputService.TouchEnabled then
+		return
+	end
+	-- the touch gui is built by Roblox's PlayerModule shortly after spawn
+	task.spawn(
+		function()
+			local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+			local touchGui = playerGui:WaitForChild(Constants.TOUCH_GUI_NAME, JUMP_BUTTON_WAIT_SEC)
+			local frame = if touchGui then touchGui:WaitForChild(Constants.TOUCH_CONTROL_FRAME_NAME, JUMP_BUTTON_WAIT_SEC) else nil
+			if not frame then
+				warn("ClientJetPackManager: no TouchGui control frame found; the jet pack has no touch control")
+				return
+			end
+			-- Roblox may build the button late or build it again
+			frame.ChildAdded:Connect(
+				function(child: Instance)
+					self:connectJumpButton(child)
+				end
+			)
+			for _, child in frame:GetChildren() do
+				self:connectJumpButton(child)
+			end
+		end
+	)
 end
 
 -- own character only: hold the vertical speed at the climb speed while
@@ -236,7 +307,7 @@ end
 
 function ClientJetPackManager:findHud()
 	-- the pack works in both places since 2026-10-12: the gameplay HUD
-	-- carries the bar and button in a run, the lobby HUD in the lobby
+	-- carries the fuel bar in a run, the lobby HUD in the lobby
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local gui = playerGui:FindFirstChild(Constants.GAMEPLAY_HUD_GUI_NAME) or playerGui:WaitForChild(Constants.HUD_GUI_NAME, 10)
 	if not gui or not gui:IsA("ScreenGui") then
@@ -255,27 +326,6 @@ function ClientJetPackManager:findHud()
 	else
 		warn(`ClientJetPackManager: {gui.Name} is missing JetPackBar; rerun its build script`)
 	end
-	local button = gui:FindFirstChild(Constants.HUD_JET_PACK_BUTTON)
-	if button and button:IsA("GuiButton") then
-		self.button = button
-		-- touch only: keyboard and gamepad players double-tap Jump instead
-		button.Visible = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-		button.MouseButton1Down:Connect(
-			function()
-				self:requestStart()
-			end
-		)
-		button.MouseButton1Up:Connect(
-			function()
-				self:requestStop()
-			end
-		)
-		button.MouseLeave:Connect(
-			function()
-				self:requestStop()
-			end
-		)
-	end
 end
 
 function ClientJetPackManager:readTuning()
@@ -285,6 +335,7 @@ end
 
 function ClientJetPackManager:init()
 	self:findHud()
+	self:watchJumpButton()
 	self:readTuning()
 	ClientDataManager:subscribeGameMetadataAttribute(
 		Attributes.JET_PACK_CLIMB_SPEED,
@@ -341,13 +392,13 @@ function ClientJetPackManager.new(): ClientJetPackManager
 	self.wornByUserId = {}
 	self.isRequestingBurn = false
 	self.lastJumpPressTime = 0
+	self.jumpTouch = nil
 	self.climbSpeed = DEFAULT_CLIMB_SPEED
 	self.fuelSec = 0
 	self.fuelMaxSec = 0
 	self.isLocked = false
 	self.bar = nil
 	self.fill = nil
-	self.button = nil
 	self.thrustConnection = nil
 	self.hasWarnedTemplate = false
 	return self

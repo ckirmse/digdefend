@@ -224,28 +224,6 @@ jetFill.BorderSizePixel = 0
 jetFill.Parent = jetTrack
 addCorner(jetFill)
 
-local jetButton = Instance.new("TextButton")
-jetButton.Name = "JetPackButton"
-jetButton.AnchorPoint = Vector2.new(1, 1)
-jetButton.Position = UDim2.fromScale(0.98, 0.76)
-jetButton.Size = UDim2.fromScale(0.08, 0.08)
-addAspect(jetButton, 1)
-addTouchTarget(jetButton, Vector2.new(130, 130))
-jetButton.BackgroundColor3 = UiStyle.PANEL_COLOR
-jetButton.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
-jetButton.BorderSizePixel = 0
-jetButton.Text = "JET"
-jetButton.TextColor3 = UiStyle.TEXT_COLOR
-jetButton.TextScaled = true
-jetButton.FontFace = UiStyle.TITLE_FONT
-jetButton.AutoButtonColor = true
-jetButton.Visible = false
-addTextSizeBounds(jetButton, UiStyle.LABEL_TEXT_MIN_PX, UiStyle.BODY_TEXT_MAX_PX)
-jetButton.Parent = gui
-local jetCorner = Instance.new("UICorner")
-jetCorner.CornerRadius = UDim.new(0.5, 0)
-jetCorner.Parent = jetButton
-
 gui.Parent = StarterGui
 
 ChangeHistoryService:SetWaypoint("HUD gui")

@@ -6,7 +6,6 @@ local StarterGui = game:GetService("StarterGui")
 local ClientButtonSoundManager = require(script.Parent.Parent.Client.ClientButtonSoundManager)
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientDevConsoleManager = require(script.Parent.Parent.Client.ClientDevConsoleManager)
-local ClientActionButtonManager = require(script.Parent.ClientActionButtonManager)
 local ClientAimManager = require(script.Parent.ClientAimManager)
 local ClientAmbienceManager = require(script.Parent.ClientAmbienceManager)
 local ClientAutoTurretDevTools = require(script.Parent.ClientAutoTurretDevTools)
@@ -189,7 +188,6 @@ ClientTowerMenuManager:init()
 -- it opens, and the tool bar it hides
 ClientDefenseTableManager:init()
 -- after the tool managers it dispatches to
-ClientActionButtonManager:init()
 ClientJetPackManager:init()
 -- after both touch buttons exist; it places them around the jump button
 ClientTouchLayoutManager:init()

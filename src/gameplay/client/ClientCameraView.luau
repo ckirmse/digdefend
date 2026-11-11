@@ -6,7 +6,11 @@
 -- camera sits back from the character (the Classic camera the toggle sets,
 -- or any zoom past arm's length), the aim is instead the ray from the camera
 -- through the pointer: the mouse, or the finger that tapped. The pick axe and
--- the weapon ask here so both read the view the same way.
+-- the weapon ask here so both read the view the same way. A touch-only
+-- device aims through the centre reticle in first person like any other
+-- (designer, 2026-11-11: acting on the touched spot, Minecraft Bedrock's
+-- "Joystick & tap to interact", was tried that day and dropped); what it
+-- keeps from that scheme is the gesture: a tap acts once, a hold repeats.
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
@@ -19,6 +23,17 @@ local FIRST_PERSON_MAX_ZOOM_STUDS = 1.5
 function ClientCameraView:isThirdPerson(): boolean
 	local camera = workspace.CurrentCamera
 	return camera ~= nil and (camera.Focus.Position - camera.CFrame.Position).Magnitude > FIRST_PERSON_MAX_ZOOM_STUDS
+end
+
+-- a phone or a tablet with no keyboard: the device the tap scheme is for
+function ClientCameraView:isTouchScheme(): boolean
+	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+end
+
+-- a quick tap on the world is one act of the held tool: on a touch-only
+-- device, and wherever the aim is the tapped spot (third person)
+function ClientCameraView:isTapEnabled(): boolean
+	return self:isThirdPerson() or self:isTouchScheme()
 end
 
 -- the character's root position, which is what the server measures reach from
@@ -42,8 +57,15 @@ function ClientCameraView:getPointerRay(pointerPosition: Vector2?): (Vector3, Ve
 	if not self:isThirdPerson() then
 		return camera.CFrame.Position, camera.CFrame.LookVector
 	end
-	local position = pointerPosition or UserInputService:GetMouseLocation()
-	local ray = camera:ViewportPointToRay(position.X, position.Y)
+	-- a touch's position is measured from under the top bar, the mouse
+	-- location from the screen's corner: each has its own ray function
+	local ray: Ray
+	if pointerPosition then
+		ray = camera:ScreenPointToRay(pointerPosition.X, pointerPosition.Y)
+	else
+		local mouseLocation = UserInputService:GetMouseLocation()
+		ray = camera:ViewportPointToRay(mouseLocation.X, mouseLocation.Y)
+	end
 	return ray.Origin, ray.Direction.Unit
 end
 

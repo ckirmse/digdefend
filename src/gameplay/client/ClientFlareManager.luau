@@ -31,6 +31,8 @@ local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPl
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientGadgetGhost = require(script.Parent.ClientGadgetGhost)
 local ClientViewModelManager = require(script.Parent.ClientViewModelManager)
+local ClientTouchTap = require(script.Parent.ClientTouchTap)
+local ClientCameraView = require(script.Parent.ClientCameraView)
 
 local ClientFlareManager = {}
 ClientFlareManager.__index = ClientFlareManager
@@ -67,7 +69,6 @@ local FEEDBACK_DISPLAY_SEC = 2
 
 local function isUseInput(input: InputObject): boolean
 	return input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch
 		or input.KeyCode == Enum.KeyCode.ButtonR2
 end
 
@@ -205,7 +206,9 @@ function ClientFlareManager:playMuzzleEffects(muzzle: Attachment)
 	end
 end
 
-function ClientFlareManager:use()
+-- pointerPosition: the tapped spot, which the flare flies toward in third
+-- person; in first person the aim is the reticle on every device
+function ClientFlareManager:use(pointerPosition: Vector2?)
 	local cooldownLeft = self:getCooldownLeft()
 	if cooldownLeft > 0 then
 		ClientSoundManager:playSfx(SoundNames.Sfx.FAIL)
@@ -220,11 +223,16 @@ function ClientFlareManager:use()
 	-- the server allows the gun's distance from the head
 	local muzzle = self:findHeldMuzzle()
 	local origin = if muzzle then muzzle.WorldPosition else camera.CFrame.Position
+	local direction = camera.CFrame.LookVector
+	if pointerPosition then
+		local _rayOrigin, rayDirection = ClientCameraView:getPointerRay(pointerPosition)
+		direction = rayDirection
+	end
 	ClientNetManager:fireServer(
 		NetEventNames.TRY_FIRE_FLARE,
 		{
 			origin = origin,
-			direction = camera.CFrame.LookVector,
+			direction = direction,
 		}
 	)
 	if muzzle then
@@ -253,6 +261,15 @@ function ClientFlareManager:init()
 	CollectionService:GetInstanceRemovedSignal(Tags.FLARE):Connect(
 		function(shadow: Instance)
 			self:untrack(shadow)
+		end
+	)
+	-- touch: a tap on the world is the use (ClientTouchTap, 2026-11-11)
+	ClientTouchTap.connect(
+		function(position: Vector2)
+			if ClientOverlayManager:isOverlayActive() or not self:isActive() then
+				return
+			end
+			self:use(position)
 		end
 	)
 	UserInputService.InputBegan:Connect(

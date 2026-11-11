@@ -19,7 +19,6 @@ local Players = game:GetService("Players")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
-local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local KeyStoreRules = require("@game/ReplicatedStorage/Shared/KeyStoreRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
@@ -38,7 +37,6 @@ type View = {
 	gui: ScreenGui,
 	dialog: GuiObject,
 	backButton: GuiButton,
-	keysLabel: TextLabel,
 	itemList: GuiObject,
 	itemTemplate: GuiButton,
 	infoPanel: GuiObject,
@@ -58,6 +56,8 @@ export type ClientKeyStoreManager = typeof(setmetatable(
 		isOpen: boolean,
 		-- the item the info panel shows, nil before a pick
 		selectedId: string?,
+		-- how Back returns to the menu this one was opened from
+		onBack: (() -> ())?,
 		-- the card buttons' connections, dropped with the cards
 		cardConnections: { RBXScriptConnection },
 	},
@@ -233,7 +233,6 @@ function ClientKeyStoreManager:render()
 	if not view or not self.isOpen then
 		return
 	end
-	view.keysLabel.Text = utils.formatWithCommas(ClientDataManager:getKeys())
 	self:dropCardConnections()
 	clearCards(view.itemList, view.itemTemplate)
 	local catalogue = self:getCatalogue()
@@ -247,7 +246,9 @@ function ClientKeyStoreManager:render()
 	self:renderInfo()
 end
 
-function ClientKeyStoreManager:openMenu()
+-- the opener says how to get back to itself: this module cannot require
+-- the crate menu, which requires it
+function ClientKeyStoreManager:openMenu(onBack: (() -> ())?)
 	local view = self.view
 	local overlay = self.overlay
 	if not view or not overlay or self.isOpen then
@@ -259,6 +260,7 @@ function ClientKeyStoreManager:openMenu()
 	end
 	self.isOpen = true
 	self.selectedId = nil
+	self.onBack = onBack
 	view.gui.Enabled = true
 	self:render()
 	ClientOverlayManager:notifyBeginOverlay(overlay)
@@ -275,6 +277,16 @@ function ClientKeyStoreManager:closeMenu()
 	local overlay = self.overlay
 	if overlay then
 		ClientOverlayManager:notifyEndOverlay(overlay)
+	end
+end
+
+-- Back returns to the menu the store was opened from (designer,
+-- 2026-11-11; it closed to the lobby before); a tap outside still closes
+function ClientKeyStoreManager:goBack()
+	local onBack = self.onBack
+	self:closeMenu()
+	if onBack then
+		onBack()
 	end
 end
 
@@ -296,8 +308,6 @@ function ClientKeyStoreManager:findView(playerGui: PlayerGui): View?
 	end
 	local dialog = find(gui, Constants.MENU_DIALOG_FRAME)
 	local backButton = find(dialog, Constants.KEY_STORE_BACK_BUTTON)
-	local wallet = find(dialog, Constants.KEY_STORE_WALLET)
-	local keysLabel = find(wallet, Constants.HUD_KEYS_AMOUNT_LABEL)
 	local itemList = find(dialog, Constants.KEY_STORE_ITEM_LIST)
 	local itemTemplate = find(itemList, Constants.KEY_STORE_ITEM_TEMPLATE)
 	local infoPanel = find(dialog, Constants.KEY_STORE_INFO_PANEL)
@@ -311,7 +321,6 @@ function ClientKeyStoreManager:findView(playerGui: PlayerGui): View?
 	if
 		not dialog
 		or not backButton
-		or not keysLabel
 		or not itemList
 		or not itemTemplate
 		or not infoPanel
@@ -330,7 +339,6 @@ function ClientKeyStoreManager:findView(playerGui: PlayerGui): View?
 		gui = gui,
 		dialog = dialog :: GuiObject,
 		backButton = backButton :: GuiButton,
-		keysLabel = keysLabel :: TextLabel,
 		itemList = itemList :: GuiObject,
 		itemTemplate = itemTemplate :: GuiButton,
 		infoPanel = infoPanel :: GuiObject,
@@ -356,7 +364,7 @@ function ClientKeyStoreManager:init()
 
 	view.backButton.Activated:Connect(
 		function()
-			self:closeMenu()
+			self:goBack()
 		end
 	)
 	view.buyButton.Activated:Connect(
@@ -382,6 +390,11 @@ function ClientKeyStoreManager:init()
 		end,
 		notifyClickOutside = function(_overlay)
 			self:closeMenu()
+		end,
+		-- the HUD's Keys wallet stays up as the menu's balance, as in the
+		-- other store menus (designer, 2026-11-11; a wallet of its own before)
+		doesKeepHud = function(_overlay)
+			return true
 		end,
 	}
 	self.overlay = overlay
@@ -418,6 +431,7 @@ function ClientKeyStoreManager.new(): ClientKeyStoreManager
 	self.overlay = nil
 	self.isOpen = false
 	self.selectedId = nil
+	self.onBack = nil
 	self.cardConnections = {}
 	return self
 end

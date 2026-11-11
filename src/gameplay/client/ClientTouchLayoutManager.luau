@@ -2,11 +2,14 @@
 
 -- Places the touch buttons around Roblox's own jump button (decided
 -- 2026-09-16). Roblox builds its touch controls in PlayerGui.TouchGui, so
--- the live jump button's position and size are readable here; the jet pack
--- button goes directly above it and the action button directly to its
--- left, both the jump button's size, the backpack and fuel stack goes
--- above the jet pack button, and all three follow the jump button whenever
--- it moves or resizes (a rotation, a resolution change). The build
+-- the live jump button's position and size are readable here; the weapon's
+-- secondary button (scope, grenade) goes directly above it at the jump
+-- button's size, the backpack and fuel stack goes one button's height
+-- above it (the room the JET button
+-- took until 2026-11-11, when the jump button took the jet pack over; the
+-- stack keeps its height, designer the same day), and both follow
+-- the jump button whenever it moves or resizes (a rotation, a resolution
+-- change). The build
 -- script's own positions are only the fallback when there is no jump
 -- button. This is
 -- the one place offsets are computed from Roblox's GUI, and the reason is
@@ -22,16 +25,12 @@ ClientTouchLayoutManager.__index = ClientTouchLayoutManager
 export type ClientTouchLayoutManager = typeof(setmetatable(
 	{} :: {
 		jumpButton: GuiObject?,
-		jetButton: GuiObject?,
-		actionButton: GuiObject?,
+		secondaryButton: GuiObject?,
 		rightStack: GuiObject?,
 	},
 	ClientTouchLayoutManager
 ))
 
-local TOUCH_GUI_NAME = "TouchGui"
-local TOUCH_CONTROL_FRAME_NAME = "TouchControlFrame"
-local JUMP_BUTTON_NAME = "JumpButton"
 -- gap between our buttons and the jump button, as a fraction of its size
 local GAP_FRACTION = 0.15
 local JUMP_BUTTON_WAIT_SEC = 10
@@ -46,24 +45,18 @@ function ClientTouchLayoutManager:layout()
 	local gap = size.X * GAP_FRACTION
 	-- AbsolutePosition is measured from the same origin for both guis
 	-- (neither ignores the top bar inset), so no inset arithmetic here
-	local jetTop = position.Y - size.Y - gap
-	local jet = self.jetButton
-	if jet then
-		jet.AnchorPoint = Vector2.new(0, 0)
-		jet.Size = UDim2.fromOffset(size.X, size.Y)
-		jet.Position = UDim2.fromOffset(position.X, jetTop)
+	local secondary = self.secondaryButton
+	if secondary then
+		secondary.AnchorPoint = Vector2.new(0, 0)
+		secondary.Size = UDim2.fromOffset(size.X, size.Y)
+		secondary.Position = UDim2.fromOffset(position.X, position.Y - size.Y - gap)
 	end
-	local action = self.actionButton
-	if action then
-		action.AnchorPoint = Vector2.new(0, 0)
-		action.Size = UDim2.fromOffset(size.X, size.Y)
-		action.Position = UDim2.fromOffset(position.X - size.X - gap, position.Y)
-	end
-	-- the stack keeps its scale size; only its bottom edge is pinned above the jet button
+	-- the stack keeps its scale size; only its bottom edge is pinned, a
+	-- button's height and two gaps above the jump button
 	local stack = self.rightStack
 	if stack then
 		stack.AnchorPoint = Vector2.new(1, 1)
-		stack.Position = UDim2.fromOffset(position.X + size.X, jetTop - gap)
+		stack.Position = UDim2.fromOffset(position.X + size.X, position.Y - size.Y - gap * 2)
 	end
 end
 
@@ -104,18 +97,17 @@ function ClientTouchLayoutManager:init()
 	if not gui then
 		return
 	end
-	local jet = gui:FindFirstChild(Constants.HUD_JET_PACK_BUTTON)
-	local action = gui:FindFirstChild(Constants.HUD_ACTION_BUTTON)
 	local stack = gui:FindFirstChild(Constants.HUD_RIGHT_STACK)
-	self.jetButton = if jet and jet:IsA("GuiObject") then jet else nil
-	self.actionButton = if action and action:IsA("GuiObject") then action else nil
+	local weaponGui = playerGui:WaitForChild(Constants.WEAPON_HUD_GUI_NAME, 10)
+	local secondary = if weaponGui then weaponGui:FindFirstChild(Constants.WEAPON_HUD_SECONDARY_BUTTON) else nil
+	self.secondaryButton = if secondary and secondary:IsA("GuiObject") then secondary else nil
 	self.rightStack = if stack and stack:IsA("GuiObject") then stack else nil
 	-- the touch gui is built by Roblox's PlayerModule shortly after spawn
 	task.spawn(
 		function()
-			local touchGui = playerGui:WaitForChild(TOUCH_GUI_NAME, JUMP_BUTTON_WAIT_SEC)
-			local frame = if touchGui then touchGui:WaitForChild(TOUCH_CONTROL_FRAME_NAME, JUMP_BUTTON_WAIT_SEC) else nil
-			local jump = if frame then frame:WaitForChild(JUMP_BUTTON_NAME, JUMP_BUTTON_WAIT_SEC) else nil
+			local touchGui = playerGui:WaitForChild(Constants.TOUCH_GUI_NAME, JUMP_BUTTON_WAIT_SEC)
+			local frame = if touchGui then touchGui:WaitForChild(Constants.TOUCH_CONTROL_FRAME_NAME, JUMP_BUTTON_WAIT_SEC) else nil
+			local jump = if frame then frame:WaitForChild(Constants.TOUCH_JUMP_BUTTON_NAME, JUMP_BUTTON_WAIT_SEC) else nil
 			if jump and jump:IsA("GuiObject") then
 				self:watchJumpButton(jump)
 			else
@@ -128,8 +120,7 @@ end
 function ClientTouchLayoutManager.new(): ClientTouchLayoutManager
 	local self = setmetatable({}, ClientTouchLayoutManager) :: ClientTouchLayoutManager
 	self.jumpButton = nil
-	self.jetButton = nil
-	self.actionButton = nil
+	self.secondaryButton = nil
 	self.rightStack = nil
 	return self
 end

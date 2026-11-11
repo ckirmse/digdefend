@@ -84,7 +84,7 @@ end
 -- low on the screen where the eye rests on the action, its bottom edge
 -- clear of the tool bar's top (the tool bar's Slots end at 0.93 and are
 -- 0.098 tall)
-makeBox("FeedbackBox", Vector2.new(0.5, 1), UDim2.fromScale(0.5, 0.81), UiStyle.PANEL_COLOR)
+makeBox("FeedbackBox", Vector2.new(0.5, 1), UDim2.fromScale(0.5, 0.78), UiStyle.PANEL_COLOR)
 
 gui.Parent = StarterGui
 

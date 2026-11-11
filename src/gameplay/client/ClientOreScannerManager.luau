@@ -34,6 +34,7 @@ local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayMa
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientMineManager = require(script.Parent.ClientMineManager)
+local ClientTouchTap = require(script.Parent.ClientTouchTap)
 
 local ClientOreScannerManager = {}
 ClientOreScannerManager.__index = ClientOreScannerManager
@@ -78,7 +79,6 @@ local FEEDBACK_DISPLAY_SEC = 2
 
 local function isUseInput(input: InputObject): boolean
 	return input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch
 		or input.KeyCode == Enum.KeyCode.ButtonR2
 end
 
@@ -297,6 +297,15 @@ function ClientOreScannerManager:init()
 		NetEventNames.NOTIFY_ORE_SCAN,
 		function(payload: any)
 			self:onScan(payload)
+		end
+	)
+	-- touch: a tap on the world is the use (ClientTouchTap, 2026-11-11)
+	ClientTouchTap.connect(
+		function(position: Vector2)
+			if ClientOverlayManager:isOverlayActive() or not self:isActive() then
+				return
+			end
+			self:use()
 		end
 	)
 	UserInputService.InputBegan:Connect(

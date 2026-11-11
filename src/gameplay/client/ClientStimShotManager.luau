@@ -24,6 +24,7 @@ local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
+local ClientTouchTap = require(script.Parent.ClientTouchTap)
 
 local ClientStimShotManager = {}
 ClientStimShotManager.__index = ClientStimShotManager
@@ -55,7 +56,6 @@ local GLOW_OUT_SEC = 1
 
 local function isUseInput(input: InputObject): boolean
 	return input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch
 		or input.KeyCode == Enum.KeyCode.ButtonR2
 end
 
@@ -155,6 +155,15 @@ function ClientStimShotManager:init()
 		NetEventNames.NOTIFY_STIM_SHOT_USED,
 		function(payload: any)
 			self:onUsed(payload)
+		end
+	)
+	-- touch: a tap on the world is the use (ClientTouchTap, 2026-11-11)
+	ClientTouchTap.connect(
+		function(position: Vector2)
+			if ClientOverlayManager:isOverlayActive() or not self:isActive() then
+				return
+			end
+			self:use()
 		end
 	)
 	UserInputService.InputBegan:Connect(

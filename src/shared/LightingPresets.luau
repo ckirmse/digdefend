@@ -32,31 +32,20 @@ export type MapPresets = {
 
 LightingPresets.PRESET_NAMES = { "DAY_START", "DAY_END", "NIGHT_START", "NIGHT_END" }
 
-LightingPresets.CHILD_NAMES = { "Atmosphere", "Bloom", "ColorCorrection", "DepthOfField", "Sky", "SunRays" }
+LightingPresets.CHILD_NAMES = { "Atmosphere", "ColorCorrection", "Sky", "SunRays" }
 LightingPresets.DEFAULT_MAP = Enums.Map.DEADMANS_CANYON
 
 -- the parts of a look that do not change between morning and night on
--- the canyon; each map's presets spell everything out regardless
+-- the canyon; each map's presets spell everything out regardless. Bloom
+-- and DepthOfField left the game on 2026-11-11 (designer, the phone
+-- performance pass): the instances are deleted, so no look names them
 local CANYON_COMMON_CHILDREN = {
-	Bloom = {
-		Enabled = true,
-		Intensity = 1,
-		Size = 24,
-		Threshold = 2,
-	},
 	ColorCorrection = {
 		Enabled = true,
 		Brightness = 0,
 		Contrast = 0,
 		Saturation = 0.2,
 		TintColor = Color3.fromRGB(255, 255, 255),
-	},
-	DepthOfField = {
-		Enabled = false,
-		FarIntensity = 0.1,
-		FocusDistance = 0.05,
-		InFocusRadius = 30,
-		NearIntensity = 0.75,
 	},
 	Sky = {
 		CelestialBodiesShown = true,

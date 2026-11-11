@@ -11,6 +11,7 @@ local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
 local Icons = require(game.ReplicatedStorage.Shared.Icons)
 local UiStyle = require(game.ReplicatedStorage.Shared.UiStyle)
+local Attributes = require(game.ReplicatedStorage.Shared.Attributes)
 
 ChangeHistoryService:SetWaypoint("Before WeaponHud gui")
 
@@ -28,10 +29,14 @@ gui.Enabled = true
 
 local button = Instance.new("TextButton")
 button.Name = "AmmoButton"
+-- a play control, not a menu button: no click (ClientButtonSoundManager)
+button:SetAttribute(Attributes.BUTTON_SOUND, "")
 button.AnchorPoint = Vector2.new(0.5, 1)
 -- the tool bar's slots now end at 0.93 with a caption under each, so their
 -- top edge is near 0.83 (2026-09-25); the button sits just above it
-button.Position = UDim2.fromScale(0.5, 0.815)
+-- 0.78 since 2026-11-11: on a phone the slots' 44 px floor makes them
+-- taller than their frame and their top reaches 0.79
+button.Position = UDim2.fromScale(0.5, 0.78)
 button.Size = UDim2.fromScale(0.16, 0.05)
 button.BackgroundColor3 = UiStyle.PANEL_COLOR
 button.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
@@ -138,6 +143,48 @@ secondaryFill.Parent = secondaryTrack
 local fillCorner = Instance.new("UICorner")
 fillCorner.CornerRadius = UDim.new(0.5, 0)
 fillCorner.Parent = secondaryFill
+
+-- touch-only secondary button (scope, grenade): this position is only the
+-- fallback, ClientTouchLayoutManager places it above the live jump button
+local secondaryButton = Instance.new("TextButton")
+secondaryButton.Name = "SecondaryButton"
+-- a play control, not a menu button: no click (ClientButtonSoundManager)
+secondaryButton:SetAttribute(Attributes.BUTTON_SOUND, "")
+secondaryButton.AnchorPoint = Vector2.new(1, 1)
+secondaryButton.Position = UDim2.fromScale(0.97, 0.7)
+secondaryButton.Size = UDim2.fromScale(0.13, 0.13)
+secondaryButton.BackgroundColor3 = UiStyle.PANEL_COLOR
+secondaryButton.BackgroundTransparency = UiStyle.PANEL_TRANSPARENCY
+secondaryButton.BorderSizePixel = 0
+secondaryButton.Text = ""
+secondaryButton.AutoButtonColor = true
+secondaryButton.Visible = false
+secondaryButton.Parent = gui
+local secondaryButtonAspect = Instance.new("UIAspectRatioConstraint")
+secondaryButtonAspect.AspectRatio = 1
+secondaryButtonAspect.Parent = secondaryButton
+local secondaryButtonSize = Instance.new("UISizeConstraint")
+secondaryButtonSize.MinSize = Vector2.new(UiStyle.TOUCH_TARGET_MIN_PX, UiStyle.TOUCH_TARGET_MIN_PX)
+secondaryButtonSize.MaxSize = Vector2.new(120, 120)
+secondaryButtonSize.Parent = secondaryButton
+local secondaryButtonCorner = Instance.new("UICorner")
+secondaryButtonCorner.CornerRadius = UDim.new(0.5, 0)
+secondaryButtonCorner.Parent = secondaryButton
+local secondaryButtonLabel = Instance.new("TextLabel")
+secondaryButtonLabel.Name = "Label"
+secondaryButtonLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+secondaryButtonLabel.Position = UDim2.fromScale(0.5, 0.5)
+secondaryButtonLabel.Size = UDim2.fromScale(0.8, 0.5)
+secondaryButtonLabel.BackgroundTransparency = 1
+secondaryButtonLabel.Text = "GRENADE"
+secondaryButtonLabel.TextColor3 = UiStyle.TEXT_COLOR
+secondaryButtonLabel.TextScaled = true
+secondaryButtonLabel.FontFace = UiStyle.TITLE_FONT
+secondaryButtonLabel.Parent = secondaryButton
+local secondaryButtonTextSize = Instance.new("UITextSizeConstraint")
+secondaryButtonTextSize.MinTextSize = UiStyle.LABEL_TEXT_MIN_PX
+secondaryButtonTextSize.MaxTextSize = UiStyle.BODY_TEXT_MAX_PX
+secondaryButtonTextSize.Parent = secondaryButtonLabel
 
 gui.Parent = StarterGui
 ChangeHistoryService:SetWaypoint("After WeaponHud gui")
