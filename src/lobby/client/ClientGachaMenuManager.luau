@@ -252,7 +252,14 @@ local CAMERA_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_CAMERA_TWEEN_SEC, Enum.Eas
 local LID_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_LID_OPEN_SEC, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local LID_CLOSE_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_LID_OPEN_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 local FADE_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_WORLD_FADE_SEC, Enum.EasingStyle.Linear)
-local TAP_HINT_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_TAP_HINT_FADE_SEC, Enum.EasingStyle.Linear)
+-- the open step's line per input, and the controller button that opens
+-- the crate (A, or Cross on a PlayStation controller: the same KeyCode)
+local TAP_HINT_XBOX = "Press A to open"
+local TAP_HINT_PLAYSTATION = "Press X to open"
+local TAP_HINT_MOUSE = "Click to open"
+local TAP_HINT_TOUCH = "Tap to open"
+local GAMEPAD_OPEN_BUTTON = Enum.KeyCode.ButtonA
+local TAP_HINT_TWEEN_INFO =TweenInfo.new(UiStyle.GACHA_TAP_HINT_FADE_SEC, Enum.EasingStyle.Linear)
 local CARD_FLY_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_CARD_FLY_SEC, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local CARD_RISE_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_CARD_RISE_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local KEY_RISE_TWEEN_INFO = TweenInfo.new(UiStyle.GACHA_KEY_RISE_SEC, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -549,16 +556,52 @@ local function collectVisualParts(root: Instance, targets: { Instance })
 	end
 end
 
+-- a fade still running on an instance, and the transparency it was
+-- authored with. Both are needed because a fade can be reversed mid-way
+-- (the menu opened and shut in quick presses, 2026-11-11): the running
+-- tween must be stopped or it carries on to clear after the value was put
+-- back, and the next fade out must remember the authored value, not the
+-- half-faded one it finds. Weak keys, so a destroyed character is dropped
+local runningFadeByInstance: { [Instance]: Tween } = setmetatable({}, { __mode = "k" }) :: any
+local authoredTransparencyByInstance: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any
+
+local function stopRunningFade(instance: Instance)
+	local tween = runningFadeByInstance[instance]
+	if tween then
+		runningFadeByInstance[instance] = nil
+		tween:Cancel()
+	end
+end
+
+local function playFade(instance: Instance, transparency: number, isBack: boolean)
+	stopRunningFade(instance)
+	local tween = TweenService:Create(instance, FADE_TWEEN_INFO, { Transparency = transparency })
+	runningFadeByInstance[instance] = tween
+	tween.Completed:Connect(
+		function(playbackState: Enum.PlaybackState)
+			if runningFadeByInstance[instance] ~= tween then
+				return
+			end
+			runningFadeByInstance[instance] = nil
+			if isBack and playbackState == Enum.PlaybackState.Completed then
+				authoredTransparencyByInstance[instance] = nil
+			end
+		end
+	)
+	tween:Play()
+end
+
 -- fades targets to clear and remembers what they were in faded; an
 -- already clear part is left alone
 local function fadeOut(targets: { Instance }, faded: { Faded })
 	for _, target in targets do
-		local value = (target :: any).Transparency
+		local value = authoredTransparencyByInstance[target] or (target :: any).Transparency
 		if typeof(value) ~= "number" or value >= 1 then
 			continue
 		end
+		authoredTransparencyByInstance[target] = value
 		table.insert(faded, { instance = target, value = value })
-		TweenService:Create(target, FADE_TWEEN_INFO, { Transparency = 1 }):Play()
+		playFade(target, 1, false)
 	end
 end
 
@@ -570,9 +613,11 @@ local function fadeBack(faded: { Faded }, isInstant: boolean?)
 			continue
 		end
 		if isInstant then
+			stopRunningFade(entry.instance)
+			authoredTransparencyByInstance[entry.instance] = nil;
 			(entry.instance :: any).Transparency = entry.value
 		else
-			TweenService:Create(entry.instance, FADE_TWEEN_INFO, { Transparency = entry.value }):Play()
+			playFade(entry.instance, entry.value, true)
 		end
 	end
 	table.clear(faded)
@@ -653,7 +698,25 @@ local function setLineShown(label: TextLabel, isShown: boolean, authoredText: nu
 	tween:Play()
 end
 
+-- the open step's line names what this player's input does (designer,
+-- 2026-11-11), judged by the last input used
+local function tapHintText(): string
+	local lastInputType = UserInputService:GetLastInputType()
+	if string.find(lastInputType.Name, "^Gamepad") then
+		-- Roblox names the bottom face button for the connected controller
+		local isPlayStation = string.find(UserInputService:GetStringForKeyCode(GAMEPAD_OPEN_BUTTON), "Cross") ~= nil
+		return if isPlayStation then TAP_HINT_PLAYSTATION else TAP_HINT_XBOX
+	end
+	if lastInputType == Enum.UserInputType.Touch or (UserInputService.TouchEnabled and not UserInputService.MouseEnabled) then
+		return TAP_HINT_TOUCH
+	end
+	return TAP_HINT_MOUSE
+end
+
 function ClientGachaMenuManager:setTapHintShown(view: View, isShown: boolean)
+	if isShown then
+		view.tapHint.Text = UiStyle.formatTitle(tapHintText())
+	end
 	setLineShown(view.tapHint, isShown, self.tapHintAuthoredTextTransparency, self.tapHintAuthoredStrokeTransparency)
 end
 
@@ -1593,6 +1656,27 @@ end
 -- a click or a touch while the crate waits: a ray from the camera through
 -- the input, and only the crate's own parts count
 function ClientGachaMenuManager:onInputBegan(input: InputObject, isGameProcessed: boolean)
+	-- a controller has no pointer to put on the crate: its button opens it
+	-- from anywhere. Asked before the processed check, because the menu's
+	-- movement sink takes A (jump) and marks the press as processed
+	if input.KeyCode == GAMEPAD_OPEN_BUTTON then
+		if self.stage == Stage.TAP and self.pendingResult ~= nil then
+			self:openCrate()
+			return
+		end
+		-- the same button presses Claim, Sell, or Exchange once it is up.
+		-- The button hides itself as it is pressed, so a press that also
+		-- reaches it through the cursor cannot act twice
+		local view = self.view
+		if view and view.claimButton.Visible then
+			if self.stage == Stage.CLAIM then
+				self:returnToMenu()
+			elseif self.stage == Stage.SELL then
+				self:sellCard()
+			end
+		end
+		return
+	end
 	if isGameProcessed or self.stage ~= Stage.TAP or self.pendingResult == nil then
 		return
 	end
@@ -1979,6 +2063,13 @@ function ClientGachaMenuManager:init()
 		end,
 		-- Back is the way out: a click on the crate must never close it
 		notifyClickOutside = function(_overlay) end,
+		-- a controller's B is the X button: it shuts the menu from its
+		-- first screen, never a crate opening in progress
+		notifyBack = function(_overlay)
+			if self.stage == Stage.MENU and not self.isRolling and not self.isPurchaseReveal then
+				self:closeMenu()
+			end
+		end,
 		-- the crate is the picture: no blur, no FOV nudge, and no backdrop
 		-- in the way of the tap
 		doesWantBlur = function(_overlay)

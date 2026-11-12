@@ -15,6 +15,7 @@
 -- moving. (Roblox's PlayerModule is engine-side now, so there is no
 -- Controls object to call Disable on.)
 local ContextActionService = game:GetService("ContextActionService")
+local GamepadService = game:GetService("GamepadService")
 local GuiService = game:GetService("GuiService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -30,6 +31,9 @@ export type Overlay = {
 	getGuiRoot: (self: Overlay) -> GuiObject?,
 	notifyForceEnd: (self: Overlay) -> (),
 	notifyClickOutside: (self: Overlay) -> (),
+	-- a controller's B (Circle) with the menu up; a menu without it gets
+	-- notifyClickOutside, so one that a stray click closes also closes on B
+	notifyBack: ((self: Overlay) -> ())?,
 	doesWantBlur: ((self: Overlay) -> boolean)?,
 	doZoomCamera: ((self: Overlay) -> boolean)?,
 	doAllowPlayerWorldActions: ((self: Overlay) -> boolean)?,
@@ -59,6 +63,8 @@ export type ClientOverlayManager = typeof(setmetatable(
 		blurTween: Tween?,
 		backdropGui: ScreenGui?,
 		isControlsDisabled: boolean,
+		isGamepadCursorOn: boolean,
+		idleGamepadButtonHandlers: { (keyCode: Enum.KeyCode) -> () },
 	},
 	ClientOverlayManager
 ))
@@ -74,7 +80,8 @@ local DEFAULT_FOV = 70
 
 -- the sink's action name and the inputs the default controls move and
 -- jump from (touch is hidden through ModalEnabled instead)
-local MOVEMENT_SINK_ACTION = "OverlayMovementSink"
+local BACK_BUTTON = Enum.KeyCode.ButtonB
+local MOVEMENT_SINK_ACTION ="OverlayMovementSink"
 local MOVEMENT_INPUTS = {
 	Enum.KeyCode.W,
 	Enum.KeyCode.A,
@@ -134,6 +141,11 @@ end
 
 function ClientOverlayManager:addOverlayNotifier(overlayNotifier: OverlayNotifier)
 	table.insert(self.notifiers, overlayNotifier)
+end
+
+-- a controller button pressed while no menu is open
+function ClientOverlayManager:subscribeIdleGamepadButton(handler: (keyCode: Enum.KeyCode) -> ())
+	table.insert(self.idleGamepadButtonHandlers, handler)
 end
 
 function ClientOverlayManager:closeOverlayIfExists()
@@ -221,9 +233,13 @@ function ClientOverlayManager:notifyBeginOverlay(overlay: Overlay, blurFadeInSec
 
 	local lastInput = UserInputService:GetLastInputType()
 	if lastInput == Enum.UserInputType.Gamepad1 or lastInput == Enum.UserInputType.Gamepad2 then
-		if guiRoot then
-			GuiService:Select(guiRoot)
-		end
+		-- every menu gets Roblox's gamepad cursor (left stick moves, A
+		-- clicks) on a controller (designer, 2026-11-11; the highlight
+		-- stepped from button to button before, and felt worse). nil
+		-- starts it at the screen's centre; the API types ask for an
+		-- Instance, hence the cast
+		self.isGamepadCursorOn = true
+		GamepadService:EnableGamepadCursor(nil :: any)
 	end
 end
 
@@ -239,6 +255,15 @@ function ClientOverlayManager:endOverlayEffects(overlay: Overlay)
 	end
 
 	self:setControlsEnabled(true)
+
+	-- a gamepad's selection highlight belongs to the menu: left set, the
+	-- sticks keep steering it round the HUD instead of the character
+	-- (designer, 2026-11-11). The cursor comes down with every menu,
+	-- whether or not this manager believes it put one up (a controller
+	-- picked up mid-menu); Build Mode puts its own back the next frame
+	self.isGamepadCursorOn = false
+	GamepadService:DisableGamepadCursor()
+	GuiService.SelectedObject = nil
 
 	tweenCameraFov(DEFAULT_FOV)
 
@@ -262,7 +287,29 @@ function ClientOverlayManager:notifyEndOverlay(overlay: Overlay)
 end
 
 function ClientOverlayManager:onInputBegan(input: InputObject, isGameProcessed: boolean)
+	-- B backs out of the open menu (designer, 2026-11-11). Asked before
+	-- the processed check: with a button highlighted Roblox may count the
+	-- press as its own
+	local backOverlay = self.overlay
+	if input.KeyCode == BACK_BUTTON and backOverlay then
+		local notifyBack = backOverlay.notifyBack
+		if notifyBack then
+			notifyBack(backOverlay)
+		else
+			backOverlay:notifyClickOutside()
+		end
+		return
+	end
 	if isGameProcessed then
+		return
+	end
+	-- with no menu up a controller's buttons are shortcuts (the lobby
+	-- HUD's menus). Handed out from here, after the back press above, so
+	-- the B that closes a menu can never also be the B that opens one
+	if not backOverlay and not self.isDeferring and string.find(input.UserInputType.Name, "^Gamepad") then
+		for _, handler in self.idleGamepadButtonHandlers do
+			handler(input.KeyCode)
+		end
 		return
 	end
 	if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
@@ -342,6 +389,8 @@ function ClientOverlayManager.new(): ClientOverlayManager
 	self.blurTween = nil
 	self.backdropGui = nil
 	self.isControlsDisabled = false
+	self.isGamepadCursorOn = false
+	self.idleGamepadButtonHandlers = {}
 	return self
 end
 

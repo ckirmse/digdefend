@@ -275,7 +275,7 @@ equippedTag.Parent = item
 addCorner(equippedTag, UiStyle.CORNER_RADIUS_PX // 2)
 
 -- a lock over the picture of a card not owned
-local lockIcon = makeImage(Constants.GEAR_MENU_ITEM_LOCK_ICON, Icons.LOCK_MARKER)
+local lockIcon = makeImage(Constants.GEAR_MENU_ITEM_LOCK_ICON, Icons.UI.LOCK)
 lockIcon.AnchorPoint = Vector2.new(0.5, 0.5)
 lockIcon.Position = UDim2.fromScale(0.5, 0.36)
 lockIcon.Size = UDim2.fromScale(0.3, 0.3)

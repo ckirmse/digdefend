@@ -30,6 +30,10 @@ UiStyle.POSITIVE_COLOR = Color3.fromRGB(90, 230, 100)
 -- the loading screen's bar fill, from the designer's Loading mock-up (2026-10-28)
 UiStyle.LOADING_FILL_COLOR = Color3.fromRGB(182, 251, 93)
 UiStyle.NEGATIVE_COLOR = Color3.fromRGB(240, 80, 70)
+-- the day clock's bar by the time of day (designer, 2026-11-11): its
+-- authored colour in the morning, this orange at midday, this red at sunset
+UiStyle.DAY_CLOCK_MIDDAY_COLOR = Color3.fromRGB(245, 140, 50)
+UiStyle.DAY_CLOCK_SUNSET_COLOR = Color3.fromRGB(235, 65, 50)
 -- a switch toggle's track, off and on (the Create Party menu's Friends
 -- Only switch, designer 2026-10-30)
 UiStyle.TOGGLE_OFF_COLOR = Color3.fromRGB(255, 89, 89)

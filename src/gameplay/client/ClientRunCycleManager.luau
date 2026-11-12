@@ -64,6 +64,10 @@ export type ClientRunCycleManager = typeof(setmetatable(
 		-- the disc holding one picture and one gradient per phase
 		phaseIcon: GuiObject?,
 		fill: GuiObject?,
+		-- the fill's authored colour is the morning's; the last one written
+		-- is kept so the colour is only set when it changes
+		fillMorningColor: Color3?,
+		shownFillColor: Color3?,
 		fillMask: UIGradient?,
 		dayLabel: TextLabel?,
 		shownPhase: number?,
@@ -187,6 +191,7 @@ function ClientRunCycleManager:findGui()
 	local bar = if root then root:FindFirstChild(Constants.DAY_CLOCK_BAR) else nil
 	local fill = if bar then bar:FindFirstChild(Constants.DAY_CLOCK_FILL) else nil
 	self.fill = if fill and fill:IsA("GuiObject") then fill else nil
+	self.fillMorningColor = if fill and fill:IsA("ImageLabel") then fill.ImageColor3 else nil
 	local fillMask = if fill then fill:FindFirstChild(Constants.DAY_CLOCK_FILL_MASK) else nil
 	self.fillMask = if fillMask and fillMask:IsA("UIGradient") then fillMask else nil
 	local dayLabel = if root then root:FindFirstChild(Constants.DAY_CLOCK_DAY_LABEL) else nil
@@ -318,6 +323,27 @@ function ClientRunCycleManager:setFillShare(share: number)
 			NumberSequenceKeypoint.new(edge, 1),
 			NumberSequenceKeypoint.new(1, 1),
 		})
+	end
+end
+
+-- the bar tells the time by colour as well as length (designer,
+-- 2026-11-11): the authored colour in the morning, orange from midday, red
+-- from sunset, each at once (RunCycleRules.dayBarStage; the colours in
+-- UiStyle)
+function ClientRunCycleManager:setFillColor(shareLeft: number, duskShare: number)
+	local fill = self.fill
+	local morningColor = self.fillMorningColor
+	if not fill or not morningColor or not fill:IsA("ImageLabel") then
+		return
+	end
+	local stage = RunCycleRules.dayBarStage(shareLeft, duskShare)
+	local color = if stage == RunCycleRules.DAY_BAR_STAGE_SUNSET
+		then UiStyle.DAY_CLOCK_SUNSET_COLOR
+		elseif stage == RunCycleRules.DAY_BAR_STAGE_MIDDAY then UiStyle.DAY_CLOCK_MIDDAY_COLOR
+		else morningColor
+	if color ~= self.shownFillColor then
+		self.shownFillColor = color
+		fill.ImageColor3 = color
 	end
 end
 
@@ -508,6 +534,7 @@ function ClientRunCycleManager:step()
 		-- (its width shrank before 2026-10-29); the spent part is hidden by its
 		-- Mask gradient; a fill authored without one stays whole
 		self:setFillShare(shareLeft)
+		self:setFillColor(shareLeft, duskShare)
 	end
 	self:setPhase(RunCycleRules.clockPhase(runState, shareLeft, duskShare))
 	self:setClockShown(runState == Enums.RunState.DAY or runState == Enums.RunState.WAITING)
@@ -678,6 +705,8 @@ function ClientRunCycleManager.new(): ClientRunCycleManager
 	self.isLocalPlayerDead = false
 	self.phaseIcon = nil
 	self.fill = nil
+	self.fillMorningColor = nil
+	self.shownFillColor = nil
 	self.fillMask = nil
 	self.dayLabel = nil
 	self.shownPhase = nil

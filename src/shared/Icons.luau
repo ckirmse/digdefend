@@ -160,6 +160,19 @@ Icons.COSMETIC_SKIN = {
 	TEST_JET_PACK = Icons.COSMETIC_DEFAULT_SKIN[Enums.CosmeticSlot.JET_PACK],
 }
 
+-- the designer's controller button pictures (M72, 2026-11-11): the confirm
+-- face buttons of each controller family
+Icons.GAMEPAD = {
+	XBOX_A = "rbxassetid://103422802557483",
+	XBOX_B = "rbxassetid://122294829709383",
+	XBOX_X = "rbxassetid://79041783517892",
+	XBOX_Y = "rbxassetid://114161231687213",
+	PLAYSTATION_SQUARE = "rbxassetid://88020642409607",
+	PLAYSTATION_TRIANGLE = "rbxassetid://98631096120942",
+	PLAYSTATION_CROSS = "rbxassetid://82419408093803",
+	PLAYSTATION_CIRCLE = "rbxassetid://97949685878894",
+}
+
 Icons.UI = {
 	-- the first-person cursor in a run (ClientCursorManager, 2026-10-13): a
 	-- 16 px white dot with a dark edge, so an aim point always shows

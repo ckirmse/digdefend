@@ -63,6 +63,8 @@ Constants.HUD_GEAR_BUTTON = "GearButton"
 -- and on the Class button the equipped class's own icon, which
 -- ClientHudManager keeps current (designer, 2026-11-09)
 Constants.HUD_MENU_BUTTON_ICON = "Icon"
+-- the hidden controller button picture to the left of each menu button (M72)
+Constants.HUD_MENU_BUTTON_GAMEPAD_GLYPH = "GamepadGlyph"
 -- SoundService layout (designer-authored in both places): AudioPlayers under
 -- these folders, each wired to the AudioDeviceOutput; see SoundNames
 -- how long a client manager waits for a Studio-authored instance (a
@@ -330,6 +332,13 @@ Constants.BUILD_BAR_PLACE_PANEL = "PlacePanel"
 -- a kind that cannot turn
 Constants.BUILD_BAR_PLACE_PANEL_PC = "PlacePanelPC"
 Constants.BUILD_BAR_PLACE_PANEL_PC_ROTATE_ROW = "Rotate"
+-- the key card's other rows and what a controller swaps in them (M72): the
+-- Place row's picture, each key box (a Frame holding the key's letter), and
+-- the Cancel row's hidden controller button picture
+Constants.BUILD_BAR_PLACE_PANEL_PC_PLACE_ROW = "Place"
+Constants.BUILD_BAR_PLACE_PANEL_PC_CANCEL_ROW = "Cancel"
+Constants.BUILD_BAR_PLACE_PANEL_PC_KEY_BOX = "Frame"
+Constants.BUILD_BAR_PLACE_PANEL_PC_GAMEPAD_GLYPH = "GamepadGlyph"
 Constants.BUILD_BAR_PLACE_BUTTON = "PlaceButton"
 Constants.BUILD_BAR_CANCEL_BUTTON = "CancelButton"
 Constants.BUILD_BAR_ROTATE_BUTTON = "RotateButton"

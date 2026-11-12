@@ -10,6 +10,7 @@
 -- later milestones; until then the buttons give "coming soon" feedback.
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
@@ -234,6 +235,54 @@ function ClientHudManager:wireButton(parent: Instance, name: string, onActivated
 	)
 end
 
+-- a controller opens the HUD's menus by button while no menu is up
+-- (designer, 2026-11-11), and each menu button shows that button's picture
+-- to its left while a controller is the input in use. ClientOverlayManager
+-- hands the presses out, so B closing a menu never reopens one
+function ClientHudManager:wireGamepadShortcuts(menuButtons: Instance)
+	local openByKeyCode: { [Enum.KeyCode]: () -> () } = {
+		-- the gacha menu hands a restricted player on to the rotating store
+		[Enum.KeyCode.ButtonY] = function()
+			ClientGachaMenuManager:openMenu()
+		end,
+		[Enum.KeyCode.ButtonX] = function()
+			ClientClassMenuManager:openMenu()
+		end,
+		[Enum.KeyCode.ButtonB] = function()
+			ClientGearMenuManager:openMenu()
+		end,
+	}
+	ClientOverlayManager:subscribeIdleGamepadButton(
+		function(keyCode: Enum.KeyCode)
+			local open = openByKeyCode[keyCode]
+			if open then
+				open()
+			end
+		end
+	)
+	local glyphsByButtonName = {
+		[Constants.HUD_STORE_BUTTON] = { xbox = Icons.GAMEPAD.XBOX_Y, playStation = Icons.GAMEPAD.PLAYSTATION_TRIANGLE },
+		[Constants.HUD_ROTATING_STORE_BUTTON] = { xbox = Icons.GAMEPAD.XBOX_Y, playStation = Icons.GAMEPAD.PLAYSTATION_TRIANGLE },
+		[Constants.HUD_CLASSES_BUTTON] = { xbox = Icons.GAMEPAD.XBOX_X, playStation = Icons.GAMEPAD.PLAYSTATION_SQUARE },
+		[Constants.HUD_GEAR_BUTTON] = { xbox = Icons.GAMEPAD.XBOX_B, playStation = Icons.GAMEPAD.PLAYSTATION_CIRCLE },
+	}
+	local function renderGlyphs()
+		local isGamepad = string.find(UserInputService:GetLastInputType().Name, "^Gamepad") ~= nil
+		-- Roblox names the bottom face button for the connected controller
+		local isPlayStation = isGamepad and string.find(UserInputService:GetStringForKeyCode(Enum.KeyCode.ButtonA), "Cross") ~= nil
+		for buttonName, images in glyphsByButtonName do
+			local button = menuButtons:FindFirstChild(buttonName)
+			local glyph = if button then button:FindFirstChild(Constants.HUD_MENU_BUTTON_GAMEPAD_GLYPH) else nil
+			if glyph and glyph:IsA("ImageLabel") then
+				glyph.Image = if isPlayStation then images.playStation else images.xbox
+				glyph.Visible = isGamepad
+			end
+		end
+	end
+	renderGlyphs()
+	UserInputService.LastInputTypeChanged:Connect(renderGlyphs)
+end
+
 -- the Class button's picture is the equipped class's icon (designer,
 -- 2026-11-09); a class with no picture yet keeps whatever the designer
 -- authored on the label
@@ -334,6 +383,7 @@ function ClientHudManager:init()
 	end
 	renderStoreButton()
 	ClientDataManager:subscribeCurrentPlayerAttribute(Attributes.IS_PAID_RANDOM_ITEMS_RESTRICTED, renderStoreButton)
+	self:wireGamepadShortcuts(menuButtons)
 	self:renderClassIcon(menuButtons)
 	ClientDataManager:subscribeClasses(
 		function()

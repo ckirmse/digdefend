@@ -260,14 +260,23 @@ function ClientToolBarManager:toggleSlotIndex(index: number)
 	end
 end
 
--- bumpers step through the bar; past either end unequips
+-- bumpers step through the bar as a ring with one unseen stop, empty
+-- hands, between its ends (designer, 2026-11-11): past either end
+-- unequips, and the next press the same way takes the far end's slot
 function ClientToolBarManager:cycle(direction: number)
 	local count = #self.slots
 	if count == 0 then
 		return
 	end
-	local current = table.find(self.slots, self.equipped) or 0
-	local next = current + direction
+	local current = table.find(self.slots, self.equipped)
+	-- from empty hands the walk starts just outside the end it enters by
+	local next = if current then current + direction elseif direction > 0 then 1 else count
+	-- a slot that cannot be equipped now (a gadget lost or used, no
+	-- dynamite) is stepped over: the server would refuse it and the bar
+	-- would stick there (designer, 2026-11-11)
+	while next >= 1 and next <= count and self:isGadgetSpent(self.slots[next]) do
+		next += direction
+	end
 	if next < 1 or next > count then
 		self:requestEquip(MiningRules.NO_TOOL)
 		return

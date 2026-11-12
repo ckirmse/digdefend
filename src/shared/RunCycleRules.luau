@@ -41,6 +41,26 @@ function RunCycleRules.clockPhase(runState: number, dayShareLeft: number, duskSh
 	return Enums.ClockPhase.DAY
 end
 
+-- the day bar's colour (designer, 2026-11-11): its morning colour until
+-- half the day is left, the midday one from there, the sunset one from the
+-- moment dusk begins. Each changes at once (a blend across the day was
+-- tried and dropped the same day). A dusk longer than half the day goes
+-- straight to sunset
+RunCycleRules.DAY_BAR_STAGE_MORNING = 1
+RunCycleRules.DAY_BAR_STAGE_MIDDAY = 2
+RunCycleRules.DAY_BAR_STAGE_SUNSET = 3
+RunCycleRules.DAY_BAR_MIDDAY_SHARE_LEFT = 0.5
+
+function RunCycleRules.dayBarStage(dayShareLeft: number, duskShare: number): number
+	if dayShareLeft <= duskShare then
+		return RunCycleRules.DAY_BAR_STAGE_SUNSET
+	end
+	if dayShareLeft <= RunCycleRules.DAY_BAR_MIDDAY_SHARE_LEFT then
+		return RunCycleRules.DAY_BAR_STAGE_MIDDAY
+	end
+	return RunCycleRules.DAY_BAR_STAGE_MORNING
+end
+
 -- the crew size that scales the run: the live count, capped by the last
 -- sample so it only ever goes down, and never below one
 function RunCycleRules.sampleScalingCount(previousCount: number?, liveCount: number, maxCount: number): number

@@ -34,6 +34,19 @@ describe(
 				expect(RunCycleRules.shownDay(3)).toBe(3)
 			end
 		)
+		it(
+			"colours the bar for the morning, then midday at the half, then sunset at dusk",
+			function()
+				expect(RunCycleRules.dayBarStage(1, 0.2)).toBe(RunCycleRules.DAY_BAR_STAGE_MORNING)
+				expect(RunCycleRules.dayBarStage(0.51, 0.2)).toBe(RunCycleRules.DAY_BAR_STAGE_MORNING)
+				expect(RunCycleRules.dayBarStage(0.5, 0.2)).toBe(RunCycleRules.DAY_BAR_STAGE_MIDDAY)
+				expect(RunCycleRules.dayBarStage(0.21, 0.2)).toBe(RunCycleRules.DAY_BAR_STAGE_MIDDAY)
+				expect(RunCycleRules.dayBarStage(0.2, 0.2)).toBe(RunCycleRules.DAY_BAR_STAGE_SUNSET)
+				expect(RunCycleRules.dayBarStage(0, 0.2)).toBe(RunCycleRules.DAY_BAR_STAGE_SUNSET)
+				-- a dusk longer than half the day: no midday colour at all
+				expect(RunCycleRules.dayBarStage(0.55, 0.6)).toBe(RunCycleRules.DAY_BAR_STAGE_SUNSET)
+			end
+		)
 	end
 )
 

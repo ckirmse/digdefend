@@ -33,6 +33,7 @@
 -- CAMERA_TRANSITION_SEC and comes back down the same way on exit
 -- (2026-10-02), the character staying put until it lands.
 local CollectionService = game:GetService("CollectionService")
+local GamepadService = game:GetService("GamepadService")
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
@@ -119,6 +120,16 @@ export type ClientDefenseTableManager = typeof(setmetatable(
 		placePanel: GuiObject?,
 		placePanelPC: GuiObject?,
 		placePanelPCRotateRow: GuiObject?,
+		-- the key card's authored mouse picture and R, put back when the
+		-- player leaves the controller for the mouse
+		authoredPlaceImage: string?,
+		-- whether this manager has Roblox's gamepad cursor up; the service's
+		-- own GamepadCursorEnabled did not report it (the cursor outlived
+		-- Build Mode, 2026-11-11)
+		isGamepadCursorOn: boolean,
+		-- where the controller's left stick has pushed the ghost, kept
+		-- unsnapped so a small push still adds up to the next cell
+		gamepadGhostPoint: Vector3?,
 		placeButton: GuiButton?,
 		placePriceLabel: TextLabel?,
 		rotateButton: GuiButton?,
@@ -181,6 +192,7 @@ local HINT_PLACING = "Tap the grid or drag the defense to move"
 -- the mouse scheme's line with a ghost out: the key card beside the ghost
 -- names the click, R, and Q, so the hint names the camera instead
 local HINT_PLACING_MOUSE = "Hold RMB to pan, mouse wheel to zoom"
+local HINT_PLACING_GAMEPAD = "Left stick to move, right stick to pan, triggers to zoom"
 local HINT_MOVING = "Tap the grid or drag the defense to move"
 local PLACE_TEXT = "Place"
 local HINT_CANNOT_PLACE = "Can't place here"
@@ -208,6 +220,18 @@ local RANGE_FOLDER_NAME = "TowerRanges"
 local ROTATE_KEY = Enum.KeyCode.R
 -- puts the ghost away on the mouse scheme (designer, 2026-10-29)
 local CANCEL_KEY = Enum.KeyCode.Q
+-- a controller's Build Mode buttons (designer, 2026-11-11): A places and B
+-- cancels (Cross and Circle on a PlayStation controller, the same KeyCodes);
+-- Y (Triangle) turns the ghost, the triggers zoom, and the bumpers step
+-- through the bar's items the way they step through the tool bar
+local GAMEPAD_PLACE_BUTTON = Enum.KeyCode.ButtonA
+local GAMEPAD_CANCEL_BUTTON = Enum.KeyCode.ButtonB
+local GAMEPAD_ROTATE_BUTTON = Enum.KeyCode.ButtonY
+local GAMEPAD_ZOOM_IN_BUTTON = Enum.KeyCode.ButtonR2
+local GAMEPAD_ZOOM_OUT_BUTTON = Enum.KeyCode.ButtonL2
+local GAMEPAD_NEXT_ENTRY_BUTTON = Enum.KeyCode.ButtonR1
+local GAMEPAD_PREVIOUS_ENTRY_BUTTON = Enum.KeyCode.ButtonL1
+local GAMEPAD_STICK_DEADZONE = 0.2
 -- a press that moves less than this is a tap
 local DRAG_THRESHOLD_PX = 8
 -- each wheel click closes or opens the view by this share
@@ -248,6 +272,23 @@ local PAN_KEYS: { [Enum.KeyCode]: Vector2 } = {
 	[Enum.KeyCode.A] = Vector2.new(-1, 0),
 	[Enum.KeyCode.Left] = Vector2.new(-1, 0),
 }
+
+-- a stick's push, from whichever connected controller is pushing it
+local function readStick(keyCode: Enum.KeyCode): Vector2
+	for _, gamepad in UserInputService:GetConnectedGamepads() do
+		for _, input in UserInputService:GetGamepadState(gamepad) do
+			if input.KeyCode == keyCode and input.Position.Magnitude > GAMEPAD_STICK_DEADZONE then
+				return Vector2.new(input.Position.X, input.Position.Y)
+			end
+		end
+	end
+	return Vector2.zero
+end
+
+-- Roblox names the bottom face button for the connected controller
+local function isPlayStationGamepad(): boolean
+	return string.find(UserInputService:GetStringForKeyCode(Enum.KeyCode.ButtonA), "Cross") ~= nil
+end
 
 local function readNumber(value: any, default: number): number
 	return if typeof(value) == "number" then value else default
@@ -455,11 +496,13 @@ function ClientDefenseTableManager:renderPanel()
 	local catalog = self.catalog
 	local hintLabel = self.hintLabel
 	if hintLabel then
-		local hint = if self:usesMouseScheme() then HINT_IDLE_MOUSE else HINT_IDLE
+		local hint = if self:usesCursorScheme() then HINT_IDLE_MOUSE else HINT_IDLE
 		if not self.cameraZone then
 			hint = HINT_LOADING
 		elseif selection and not self.canPlaceHere then
 			hint = HINT_CANNOT_PLACE
+		elseif selection and self:usesGamepadScheme() then
+			hint = HINT_PLACING_GAMEPAD
 		elseif selection and self:usesMouseScheme() then
 			hint = HINT_PLACING_MOUSE
 		elseif selection then
@@ -468,8 +511,10 @@ function ClientDefenseTableManager:renderPanel()
 		hintLabel.Text = UiStyle.formatTitle(hint)
 	end
 	-- the mouse scheme floats the designer's key card (no buttons: the click,
-	-- R, and Q do the work) where touch and gamepad get the button panel
-	local isMouseScheme = self:usesMouseScheme()
+	-- R, and Q do the work) where touch gets the button panel; a controller
+	-- gets the same card with its own buttons pictured
+	local isMouseScheme = self:usesCursorScheme()
+	self:renderKeyCard()
 	local placePanel = self.placePanel
 	if placePanel then
 		placePanel.Visible = selection ~= nil and (not isMouseScheme or self.placePanelPC == nil)
@@ -515,6 +560,51 @@ function ClientDefenseTableManager:renderPanel()
 	if priceLabel then
 		priceLabel.Text = tostring(self:getBuildPrice(selection.placementKind, selection.typeKind))
 	end
+end
+
+-- a key card row with a key box (the letter) and a hidden controller
+-- button picture: one or the other shows. A row without the picture keeps
+-- its key box rather than show nothing
+function ClientDefenseTableManager:renderKeyCardRow(row: Instance?, glyphImage: string, isGamepad: boolean)
+	local keyBox = if row then row:FindFirstChild(Constants.BUILD_BAR_PLACE_PANEL_PC_KEY_BOX) else nil
+	local glyph = if row then row:FindFirstChild(Constants.BUILD_BAR_PLACE_PANEL_PC_GAMEPAD_GLYPH) else nil
+	local hasGlyph = false
+	if glyph and glyph:IsA("ImageLabel") then
+		hasGlyph = true
+		glyph.Image = glyphImage
+		glyph.Visible = isGamepad
+	end
+	if keyBox and keyBox:IsA("GuiObject") then
+		keyBox.Visible = not (isGamepad and hasGlyph)
+	end
+end
+
+-- the key card's pictures for the input in use: the mouse click, R, and Q
+-- as authored, or a controller's place, turn, and cancel buttons
+function ClientDefenseTableManager:renderKeyCard()
+	local placePanelPC = self.placePanelPC
+	if not placePanelPC then
+		return
+	end
+	local isGamepad = self:usesGamepadScheme()
+	local isPlayStation = isGamepad and isPlayStationGamepad()
+	local placeRow = placePanelPC:FindFirstChild(Constants.BUILD_BAR_PLACE_PANEL_PC_PLACE_ROW)
+	local placeImage = if placeRow then placeRow:FindFirstChildWhichIsA("ImageLabel") else nil
+	if placeImage then
+		local authored = self.authoredPlaceImage or placeImage.Image
+		self.authoredPlaceImage = authored
+		if not isGamepad then
+			placeImage.Image = authored
+		else
+			placeImage.Image = if isPlayStation then Icons.GAMEPAD.PLAYSTATION_CROSS else Icons.GAMEPAD.XBOX_A
+		end
+	end
+	self:renderKeyCardRow(self.placePanelPCRotateRow, if isPlayStation then Icons.GAMEPAD.PLAYSTATION_TRIANGLE else Icons.GAMEPAD.XBOX_Y, isGamepad)
+	self:renderKeyCardRow(
+		placePanelPC:FindFirstChild(Constants.BUILD_BAR_PLACE_PANEL_PC_CANCEL_ROW),
+		if isPlayStation then Icons.GAMEPAD.PLAYSTATION_CIRCLE else Icons.GAMEPAD.XBOX_B,
+		isGamepad
+	)
 end
 
 function ClientDefenseTableManager:renderAffordability()
@@ -902,6 +992,7 @@ function ClientDefenseTableManager:cancel()
 		self:drawTowerRanges()
 	end
 	self.isAdvancePending = false
+	self.gamepadGhostPoint = nil
 	self:renderAffordability()
 end
 
@@ -1111,7 +1202,7 @@ function ClientDefenseTableManager:place()
 	})
 	-- the touch ghost steps aside once the build lands; the mouse ghost stays
 	-- under the cursor, which is where the player will point next
-	self.isAdvancePending = not self:usesMouseScheme()
+	self.isAdvancePending = not self:usesCursorScheme()
 end
 
 function ClientDefenseTableManager:closeSellPanel()
@@ -1212,6 +1303,47 @@ function ClientDefenseTableManager:usesMouseScheme(): boolean
 		return false
 	end
 	return UserInputService.MouseEnabled and UserInputService.KeyboardEnabled
+end
+
+-- a controller is the input in use (designer, 2026-11-11): the mouse
+-- scheme with the left stick as the pointer. Roblox's gamepad cursor picks
+-- an item off the bar; from then on the ghost itself is what the stick
+-- moves, because that cursor's position cannot be read and it cannot click
+-- the ground
+function ClientDefenseTableManager:usesGamepadScheme(): boolean
+	return string.find(UserInputService:GetLastInputType().Name, "^Gamepad") ~= nil
+end
+
+-- mouse or controller: the ghost follows a pointer, a press puts it down,
+-- it stays out for the next one, and the key card floats beside it
+function ClientDefenseTableManager:usesCursorScheme(): boolean
+	return self:usesMouseScheme() or self:usesGamepadScheme()
+end
+
+-- the left stick walks the ghost across the ground at the camera's pan
+-- speed, along the screen's own right and up
+function ClientDefenseTableManager:followStickIfNeeded(deltaSec: number)
+	local selection = self.selection
+	local zone = self.cameraZone
+	local camera = workspace.CurrentCamera
+	if not selection or not zone or not camera or not self:usesGamepadScheme() or ClientOverlayManager:isOverlayActive() then
+		return
+	end
+	local point = self.gamepadGhostPoint
+	if not point then
+		local targetZone = self.targetZone
+		local targetCell = self.targetCell
+		point = if targetZone and targetCell then self:ghostCFrame(selection, targetZone, targetCell).Position else self.focus
+	end
+	local stick = readStick(Enum.KeyCode.Thumbstick1)
+	if stick.Magnitude > 0 then
+		local across = self:getStudsPerPixel()
+		local screensPerSec = readNumber(ClientDataManager:getGameMetadata(Attributes.BUILD_CAMERA_PAN_SCREENS_PER_SEC), DEFAULT_CAMERA_PAN_SCREENS_PER_SEC)
+		local studs = across * camera.ViewportSize.Y * screensPerSec * deltaSec
+		point = BuildCameraRules.clampFocus(zone.grid, BuildCameraRules.panFocus(point, self.forwardX, self.forwardZ, stick.X * studs, stick.Y * studs))
+		self:moveGhost(point)
+	end
+	self.gamepadGhostPoint = point
 end
 
 -- on the mouse scheme the ghost rides the cursor while it is over the world
@@ -1361,6 +1493,32 @@ function ClientDefenseTableManager:onInputBegan(input: InputObject, isGameProces
 	if isGameProcessed or not self.isBuildMode or ClientOverlayManager:isOverlayActive() then
 		return
 	end
+	if input.KeyCode == GAMEPAD_ZOOM_IN_BUTTON then
+		self:zoom(1)
+		return
+	elseif input.KeyCode == GAMEPAD_ZOOM_OUT_BUTTON then
+		self:zoom(-1)
+		return
+	elseif input.KeyCode == GAMEPAD_ROTATE_BUTTON then
+		self:rotate()
+		return
+	elseif input.KeyCode == GAMEPAD_NEXT_ENTRY_BUTTON then
+		self:cycleEntry(1)
+		return
+	elseif input.KeyCode == GAMEPAD_PREVIOUS_ENTRY_BUTTON then
+		self:cycleEntry(-1)
+		return
+	elseif input.KeyCode == GAMEPAD_CANCEL_BUTTON then
+		if self.selection then
+			self:cancel()
+		end
+		return
+	elseif input.KeyCode == GAMEPAD_PLACE_BUTTON then
+		if self.selection then
+			self:place()
+		end
+		return
+	end
 	if input.UserInputType == Enum.UserInputType.Keyboard then
 		if input.KeyCode == ROTATE_KEY then
 			self:rotate()
@@ -1448,11 +1606,14 @@ function ClientDefenseTableManager:step(deltaSec: number)
 				pan += direction
 			end
 		end
+		-- a controller pans on the right stick, the left being the pointer
+		pan += readStick(Enum.KeyCode.Thumbstick2)
 		if pan.Magnitude > 0 then
 			local across = self:getStudsPerPixel()
 			local screensPerSec = readNumber(ClientDataManager:getGameMetadata(Attributes.BUILD_CAMERA_PAN_SCREENS_PER_SEC), DEFAULT_CAMERA_PAN_SCREENS_PER_SEC)
 			local studs = across * camera.ViewportSize.Y * screensPerSec * deltaSec
-			self.focus = BuildCameraRules.panFocus(self.focus, self.forwardX, self.forwardZ, pan.Unit.X * studs, pan.Unit.Y * studs)
+			local push = if pan.Magnitude > 1 then pan.Unit else pan
+			self.focus = BuildCameraRules.panFocus(self.focus, self.forwardX, self.forwardZ, push.X * studs, push.Y * studs)
 		end
 	end
 	self.focus = BuildCameraRules.clampFocus(zone.grid, self.focus)
@@ -1474,11 +1635,13 @@ function ClientDefenseTableManager:step(deltaSec: number)
 	camera.CFrame = overhead
 	camera.Focus = CFrame.new(self.focus)
 	self:followCursorIfNeeded()
+	self:followStickIfNeeded(deltaSec)
+	self:refreshGamepadCursor()
 
 	local selection = self.selection
 	local targetZone = self.targetZone
 	local targetCell = self.targetCell
-	local placePanel = if self:usesMouseScheme() and self.placePanelPC then self.placePanelPC else self.placePanel
+	local placePanel = if self:usesCursorScheme() and self.placePanelPC then self.placePanelPC else self.placePanel
 	if selection and placePanel and targetZone and targetCell then
 		local cellSize = targetZone.grid.cellSizeStuds
 		self:floatPanel(placePanel, self:ghostCFrame(selection, targetZone, targetCell), selection.footprint[1] * cellSize / 2, selection.footprint[2] * cellSize / 2)
@@ -1538,6 +1701,71 @@ function ClientDefenseTableManager:beginExitTween(camera: Camera?)
 	tween:Play()
 end
 
+-- Build Mode is a pointer screen, so a controller gets Roblox's own
+-- gamepad cursor (designer, 2026-11-11): the left stick moves it and A
+-- clicks the bar. It is up while a controller is the input in use and no
+-- ghost is out (the stick moves the ghost then), and goes away with the mode
+function ClientDefenseTableManager:refreshGamepadCursor()
+	-- a menu over Build Mode (the Tower menu) has the cursor while it is
+	-- up and takes it down as it closes: forgetting this manager's own
+	-- puts it back up the frame after
+	if self.isBuildMode and ClientOverlayManager:isOverlayActive() then
+		self.isGamepadCursorOn = false
+		return
+	end
+	local isWanted = self.isBuildMode and self.selection == nil and self:usesGamepadScheme()
+	-- leaving Build Mode always switches it off, whatever this manager
+	-- believes, so the cursor can never outlive the mode
+	if self.isGamepadCursorOn == isWanted and self.isBuildMode then
+		return
+	end
+	self.isGamepadCursorOn = isWanted
+	if isWanted then
+		-- nil starts the cursor at the screen's centre; the API types ask
+		-- for an Instance, hence the cast
+		GamepadService:EnableGamepadCursor(nil :: any)
+	else
+		GamepadService:DisableGamepadCursor()
+		-- the cursor leaves the button it last sat on selected: A would
+		-- press that button instead of placing, and after Build Mode the
+		-- stick would steer the highlight instead of the character
+		GuiService.SelectedObject = nil
+	end
+end
+
+-- the bumpers step through the bar's items as they do the tool bar's:
+-- past either end puts the ghost away (the cursor comes back), and the
+-- next press the same way takes the far end's item. The new ghost comes
+-- out where the last one stood
+function ClientDefenseTableManager:cycleEntry(direction: number)
+	local count = #self.entries
+	if count == 0 then
+		return
+	end
+	local selection = self.selection
+	local current: number? = nil
+	if selection then
+		for index, entry in self.entries do
+			if entry.placementKind == selection.placementKind and entry.typeKind == selection.typeKind then
+				current = index
+				break
+			end
+		end
+	end
+	local next = if current then current + direction elseif direction > 0 then 1 else count
+	if next < 1 or next > count then
+		self:cancel()
+		return
+	end
+	local point = self.gamepadGhostPoint
+	local entry = self.entries[next]
+	self:select(entry.placementKind, entry.typeKind)
+	if point and self.selection then
+		self.gamepadGhostPoint = point
+		self:moveGhost(point)
+	end
+end
+
 function ClientDefenseTableManager:setBuildMode(isBuildMode: boolean)
 	if self.isBuildMode == isBuildMode then
 		return
@@ -1592,6 +1820,7 @@ function ClientDefenseTableManager:setBuildMode(isBuildMode: boolean)
 	-- does not move, so its prompts and touch controls step aside
 	ProximityPromptService.Enabled = not isBuildMode
 	GuiService.TouchControlsEnabled = not isBuildMode
+	self:refreshGamepadCursor()
 	if self.gui then
 		self.gui.Enabled = isBuildMode
 	end
@@ -1917,6 +2146,9 @@ function ClientDefenseTableManager.new(): ClientDefenseTableManager
 	self.placePanel = nil
 	self.placePanelPC = nil
 	self.placePanelPCRotateRow = nil
+	self.authoredPlaceImage = nil
+	self.isGamepadCursorOn = false
+	self.gamepadGhostPoint = nil
 	self.placeButton = nil
 	self.placePriceLabel = nil
 	self.rotateButton = nil
