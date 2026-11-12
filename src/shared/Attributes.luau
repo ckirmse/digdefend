@@ -237,6 +237,14 @@ module = {
 	-- CurrentPlayer (private): the class cards this player bought from
 	-- the rotating store's current set, as DailyStoreRules JSON
 	STORE_PURCHASES = "StorePurchases",
+	-- CurrentPlayer (private), the group reward (M78): the reward has
+	-- been claimed (the save, written by replicateGroupReward), and the
+	-- server's latest answer to "is this player in the group" (lobby
+	-- GroupRewardManager, asked at Ready and when a store menu opens)
+	HAS_CLAIMED_GROUP_REWARD = "HasClaimedGroupReward",
+	IS_IN_REWARD_GROUP = "IsInRewardGroup",
+	-- GameMetadata (lobby): the Diamonds the group reward pays
+	GROUP_REWARD_DIAMONDS = "GroupRewardDiamonds",
 	-- CurrentPlayer (private): true when PolicyService says the player may
 	-- not buy paid random items, so the menu offers the direct class buy
 	-- instead of the roll (M70)

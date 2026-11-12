@@ -74,6 +74,10 @@ export type SaveData = {
 	-- the class cards bought from the rotating store's current set
 	-- (2026-11-10): one card per class per day
 	storePurchases: DailyStoreRules.Purchases,
+	-- the group reward has been claimed (M78): set by the lobby
+	-- GroupRewardManager with the Diamonds, never cleared, so it pays
+	-- once per account
+	hasClaimedGroupReward: boolean,
 }
 
 export type Defaults = {
@@ -149,6 +153,7 @@ function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 		hasFinishedUraniumTutorial = false,
 		hasFinishedSupplyCrateTutorial = false,
 		storePurchases = DailyStoreRules.getDefaultPurchases(),
+		hasClaimedGroupReward = false,
 	}
 end
 
@@ -467,6 +472,10 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 		table.insert(repairs, "hasFinishedSupplyCrateTutorial reset")
 	end
 	validateStorePurchases(data, repairs)
+	if typeof(data.hasClaimedGroupReward) ~= "boolean" then
+		data.hasClaimedGroupReward = false
+		table.insert(repairs, "hasClaimedGroupReward reset")
+	end
 	-- after the progress: the active class must be an owned one
 	validateActiveClassKind(data, defaults, repairs)
 

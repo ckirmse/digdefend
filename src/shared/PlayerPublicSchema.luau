@@ -33,6 +33,7 @@ export type Snapshot = {
 	ownedCosmetics: GachaRules.OwnedCosmetics?,
 	-- the class cards bought from the rotating store's current set
 	storePurchases: DailyStoreRules.Purchases?,
+	hasClaimedGroupReward: boolean?,
 	dailyRewardLastClaimedDay: number?,
 	dailyRewardNextClaimTime: number?,
 	hasFinishedTutorial: boolean?,
@@ -95,6 +96,7 @@ function PlayerPublicSchema.buildCurrentPlayerAttributes(snapshot: Snapshot): At
 		[Attributes.HAS_FINISHED_IRON_TUTORIAL] = snapshot.hasFinishedIronTutorial or false,
 		[Attributes.HAS_FINISHED_URANIUM_TUTORIAL] = snapshot.hasFinishedUraniumTutorial or false,
 		[Attributes.HAS_FINISHED_SUPPLY_CRATE_TUTORIAL] = snapshot.hasFinishedSupplyCrateTutorial or false,
+		[Attributes.HAS_CLAIMED_GROUP_REWARD] = snapshot.hasClaimedGroupReward or false,
 		[Attributes.DAILY_REWARD_LAST_CLAIMED_DAY] = snapshot.dailyRewardLastClaimedDay or 0,
 		[Attributes.DAILY_REWARD_NEXT_CLAIM_TIME] = snapshot.dailyRewardNextClaimTime or 0,
 	}

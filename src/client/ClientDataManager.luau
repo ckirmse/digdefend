@@ -156,6 +156,16 @@ function ClientDataManager:getStorePurchases(): DailyStoreRules.Purchases
 	return DailyStoreRules.decodePurchases(self:getCurrentPlayerAttribute(Attributes.STORE_PURCHASES))
 end
 
+-- the group reward (M78): whether the server has seen this player in
+-- the group, and whether the reward is already claimed
+function ClientDataManager:isInRewardGroup(): boolean
+	return self:getCurrentPlayerAttribute(Attributes.IS_IN_REWARD_GROUP) == true
+end
+
+function ClientDataManager:hasClaimedGroupReward(): boolean
+	return self:getCurrentPlayerAttribute(Attributes.HAS_CLAIMED_GROUP_REWARD) == true
+end
+
 function ClientDataManager:getOwnedCosmetics(): GachaRules.OwnedCosmetics
 	return GachaRules.decodeOwnedCosmetics(self:getCurrentPlayerAttribute(Attributes.OWNED_COSMETICS))
 end

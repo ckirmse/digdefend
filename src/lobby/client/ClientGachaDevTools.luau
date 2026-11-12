@@ -43,6 +43,7 @@ local CLEAR_COSMETICS_COMMAND = "clearCosmetics"
 local RESET_CRATE_TUTORIAL_COMMAND = "resetCrateTutorial"
 local RESET_FREE_REROLLS_COMMAND = "resetFreeRerolls"
 local RESET_STORE_PURCHASES_COMMAND = "resetStorePurchases"
+local RESET_GROUP_REWARD_COMMAND = "resetGroupReward"
 
 local function sendDevTool(command: string, args: { [string]: any })
 	ClientNetManager:fireServer(
@@ -124,6 +125,9 @@ function ClientGachaDevTools:renderSection()
 	end
 	if Iris.Button({ "Clear cosmetics" }).clicked() then
 		sendDevTool(CLEAR_COSMETICS_COMMAND, {})
+	end
+	if Iris.Button({ "Reset the group reward" }).clicked() then
+		sendDevTool(RESET_GROUP_REWARD_COMMAND, {})
 	end
 	if Iris.Button({ "Reset the Supply Crate tutorial" }).clicked() then
 		sendDevTool(RESET_CRATE_TUTORIAL_COMMAND, {})

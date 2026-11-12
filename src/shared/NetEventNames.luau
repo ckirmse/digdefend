@@ -28,6 +28,13 @@ module = {
 	-- a player restricted from paid random items; and equipping an owned
 	-- class (ClassManager, ownership checked)
 	TRY_ROLL_GACHA = "TryRollGacha",
+	-- the group reward (M78, lobby GroupRewardManager): a store menu
+	-- opened for a player not yet seen in the group, so the server asks
+	-- Roblox again ({}), the answer coming back as the IsInRewardGroup
+	-- CurrentPlayer attribute; and the claim menu's button ({}), which
+	-- pays the Diamonds once
+	TRY_REFRESH_GROUP_REWARD = "TryRefreshGroupReward",
+	TRY_CLAIM_GROUP_REWARD = "TryClaimGroupReward",
 	TRY_BUY_CLASS = "TryBuyClass",
 	-- the restricted player's rotating store (2026-11-10), the one place
 	-- they buy by name: one thing on sale today, a class card

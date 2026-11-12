@@ -4,6 +4,7 @@
 -- ServerScriptService/Server/main; this script wires the lobby's own managers.
 local DiamondStoreManager = require(script.Parent.DiamondStoreManager)
 local GachaManager = require(script.Parent.GachaManager)
+local GroupRewardManager = require(script.Parent.GroupRewardManager)
 local KeyStoreManager = require(script.Parent.KeyStoreManager)
 local LobbyCharacterManager = require(script.Parent.LobbyCharacterManager)
 local LobbyMapManager = require(script.Parent.LobbyMapManager)
@@ -24,3 +25,5 @@ GachaManager:init()
 -- the stall's second menu: Keys buy cosmetics by name (M61)
 KeyStoreManager:init()
 DiamondStoreManager:init()
+-- Diamonds once per account for a member of the group (M78)
+GroupRewardManager:init()

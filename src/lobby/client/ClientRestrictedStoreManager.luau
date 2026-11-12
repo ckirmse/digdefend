@@ -53,6 +53,7 @@ local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientTicker = require(script.Parent.Parent.Client.ClientTicker)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
+local ClientGroupRewardManager = require(script.Parent.ClientGroupRewardManager)
 
 local ClientRestrictedStoreManager = {}
 ClientRestrictedStoreManager.__index = ClientRestrictedStoreManager
@@ -407,6 +408,7 @@ function ClientRestrictedStoreManager:openMenu(): boolean
 	self.isOpen = true
 	view.gui.Enabled = true
 	self:render()
+	ClientGroupRewardManager:requestRefreshIfNeeded()
 	ClientOverlayManager:notifyBeginOverlay(overlay)
 	return true
 end
@@ -440,8 +442,11 @@ function ClientRestrictedStoreManager:findView(playerGui: PlayerGui): View?
 		return if parent then parent:FindFirstChild(name) else nil
 	end
 	local dialog = find(gui, Constants.MENU_DIALOG_FRAME)
-	local backButton = find(dialog, Constants.KEY_STORE_BACK_BUTTON)
 	local storePage = find(dialog, Constants.RESTRICTED_STORE_STORE_PAGE)
+	-- the Header and the close button sit inside StorePage since
+	-- 2026-11-12 (the designer's move); the dialog is where an older
+	-- copy of the gui keeps the button
+	local backButton = find(storePage, Constants.KEY_STORE_BACK_BUTTON) or find(dialog, Constants.KEY_STORE_BACK_BUTTON)
 	local refreshTimer = find(storePage, Constants.RESTRICTED_STORE_REFRESH_TIMER)
 	local itemList = find(storePage, Constants.KEY_STORE_ITEM_LIST)
 	local itemTemplate = find(itemList, Constants.KEY_STORE_ITEM_TEMPLATE)
@@ -468,6 +473,9 @@ function ClientRestrictedStoreManager:init()
 	self.view = view
 	view.itemTemplate.Visible = false
 	view.gui.Enabled = false
+	-- the group reward's banner (M78): its line and its going once
+	-- claimed are ClientGroupRewardManager's from here on
+	ClientGroupRewardManager:bindBanner(view.gui)
 	view.backButton.Activated:Connect(
 		function()
 			self:closeMenu()

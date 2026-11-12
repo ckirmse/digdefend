@@ -31,8 +31,8 @@ Twenty-five Roblox badges awarded through `BadgeService` for one-time achievemen
 **M39 — Daily Rewards**
 Daily Rewards Menu ported from lights with configurable day count and rewards, restyled to this project's UI standards.
 
-**M40 — Lobby Store, dev products, and Robux purchase handling** (needs fleshing out)
-Takes in M35 and M36 (folded 2026-10-26: both were written when the store sold weapons, posts, and placements, which a class kit now brings). What the lobby sells is the Robux and Diamonds offers only: Diamonds packs, the 2x Diamonds and fourth-skill-option gamepasses, the Revive product, the cosmetic box (M61), the one-time starter pack (Diamonds and, if M70 picks a bought path, a class), and class unlocks if M70 picks a bought path. A `StoreConfig` GameData file drives one Store Menu (sections, prices, product ids) and `PurchaseManager` grows handlers for each product (`ProcessReceipt` is built, M32: idempotent granting through saved purchase ids). Insufficient Diamonds routes to the smallest sufficient pack. A 3D showcase in the lobby is only worth building for the cosmetics box and is decided with M61. Prices undecided; a season pass is post launch (M60). 2026-10-27: the character slot is gone with characters.
+**M79 — Starter pack** (added 2026-11-12, split from M40)
+The one-time Robux starter pack M40 listed and did not build: a single purchase per account, offered to a new player and gone once bought. A product in `GameData/Store`, a handler in `PurchaseManager` (the receipt path and saved purchase ids are built, M32), a saved bought flag in `PlayerSaveSchema`, and the offer in the lobby (a HUD button or a card in the Diamond Store, to be decided). Needs the contents decided first (Diamonds, Keys, a class, a skin), the price, how long the offer stands, and what a restricted player's pack holds if the contents are anything random.
 
 ## Phase 8: Content Breadth
 
@@ -55,12 +55,6 @@ Replace placeholder enemy, weapon, post, defense, trap, and structure models wit
 **M48 — Lobby art and helicopters**
 Lobby environment, helicopter models and takeoff animation, 3D store showcases, loading screen art. The rescue escape sequence moved to M75 (2026-10-27).
 
-**M49 — Audio**
-Sound effects across mining, combat, UI, and camp; ambient and music per place; volume options. Needs the empty "Audio" section filled first.
-
-**M50 — UI polish pass**
-Every menu checked against the UI standards from M10. Mobile layout verification on small screens.
-
 **M77 — Cosmetic skins: six Jet Packs and six Pick Axes** (added 2026-11-10, split from M61)
 The launch skin list and nothing else: six Jet Pack skins and six Pick Axe skins, replacing the two test placeholders (`TEST_PICK_AXE`, `TEST_JET_PACK`). Each is a template under `GameAssets/Cosmetics/<SLOT>/<TEMPLATE>` (`scripts/studio/build_cosmetic_templates.luau`), an entry in `GameData/Cosmetics/Catalogue` with its name, `RARITY`, and `PRICE_KEYS`, and an icon in `Icons.COSMETIC_SKIN`. The systems they plug into are built (M61): the Supply Crate pool, the Key Store, the Gear Locker, and the restricted player's rotating store all read the catalogue, so a new entry appears in each with no code change. Needs the twelve names and rarities decided, the art, and a check that each reads on the worn jet pack and the held pick axe in first and third person. With twelve skins the rotating store's cosmetic shelf starts rotating (it shows both placeholders at every refresh today).
 
@@ -77,6 +71,9 @@ Run funnel events (queue, run start, day reached, win/loss, purchases) for post-
 
 **M54 — Balance pass and soft launch**
 Full balance pass on Deadman's Canyon and three difficulties using playtest and telemetry data. Launch checklist: place permissions, group gating, dev products live, event area sign in place.
+
+**M80 — Move live development from the QA group to the live community** (added 2026-11-12)
+The game is developed under a QA group today; this moves it to the community group players will join. To work out first: whether the two places move to the live group or are published fresh under it (a new universe starts with empty DataStores, new place ids, and new dev product and badge ids). Then everything that names the old group or its ids follows: `Constants.ADMIN_GROUP_ID` and the rank the dev tools gate on, the place ids in `Constants`, `lobby.project.json`, and `gameplay.project.json` (`servePlaceIds`), the product ids in `GameData/Store`, the badge ids (M69), the group the join reward checks (M78, `GameData/Store/GroupReward.GROUP_ID`), the Studio MCP and `docs/setup.md` steps, and team access for the developers. Ends with a full run played on the live places: lobby to rescue, a purchase, and a save that survives a rejoin.
 
 # Post launch
 
@@ -323,3 +320,19 @@ Finished 2026-11-11 (the designer closed it after playing on an iPhone 13 Pro). 
 **M72 — Gamepad pass** ✅
 The same pass on a controller: every menu navigable with `GuiService` selection, glyph hints per input type, aim assist or sensitivity for weapons and posts, the tool bar on bumpers, Build Mode placement on the sticks, and the dev panel reachable. Input-specific hints toggled per input type, never left visible everywhere.
 Finished 2026-11-11 (the designer closed it after playing on a controller; most of the game already worked). What changed: every menu brings up Roblox's gamepad cursor in place of button-to-button selection, which the designer tried and dropped, and the cursor and highlight go away when the menu closes; B / Circle closes the open menu; the tool bar's bumpers run a ring with an empty-handed stop between the ends and skip a slot on cooldown; Build Mode copies the mouse scheme (cursor to pick, left stick moves the ghost, right stick pans, triggers zoom, A / Cross places, Y / Triangle turns, B / Circle cancels, bumpers step the bar) with the controller's button pictures on the key card; in the lobby Y / Triangle opens the Supply Crate or the rotating store, X / Square the Class Menu, and B / Circle the Gear Locker, each HUD button showing its button picture on a controller; the crate's opening line names the input (PRESS A, PRESS X, CLICK, TAP) and A / Cross opens the crate and presses Claim, Sell, and Exchange. Fixed on the way: a mashed crate button could leave the character invisible, and the Gear Locker's locked cards showed a reticle for a padlock. The day clock's bar colours by phase, waiting from before, went in with this commit. Not done here: aim assist and stick sensitivity, opening a standing Tower or Trap in Build Mode, the dev panel on a controller, B on the Party menu, and the post and Binoculars hints still judging by a connected controller.
+
+**M40 — Lobby Store, dev products, and Robux purchase handling** ✅
+Takes in M35 and M36 (folded 2026-10-26: both were written when the store sold weapons, posts, and placements, which a class kit now brings). What the lobby sells is the Robux and Diamonds offers only: Diamonds packs, the 2x Diamonds and fourth-skill-option gamepasses, the Revive product, the cosmetic box (M61), the one-time starter pack (Diamonds and, if M70 picks a bought path, a class), and class unlocks if M70 picks a bought path. A `StoreConfig` GameData file drives one Store Menu (sections, prices, product ids) and `PurchaseManager` grows handlers for each product (`ProcessReceipt` is built, M32: idempotent granting through saved purchase ids). Insufficient Diamonds routes to the smallest sufficient pack. A 3D showcase in the lobby is only worth building for the cosmetics box and is decided with M61. Prices undecided; a season pass is post launch (M60). 2026-10-27: the character slot is gone with characters.
+Finished 2026-11-12 (the designer closed it). The one-time starter pack in the brief above was not part of it and is now its own milestone, M79.
+
+**M49 — Audio** ✅
+Sound effects across mining, combat, UI, and camp; ambient and music per place; volume options. Needs the empty "Audio" section filled first.
+Finished 2026-11-12 (the designer closed it).
+
+**M50 — UI polish pass** ✅
+Every menu checked against the UI standards from M10. Mobile layout verification on small screens.
+Finished 2026-11-12 (the designer closed it).
+
+**M78 — Group join rewards** ✅
+A reward for joining the Roblox group, and for liking the game if that can be done (added 2026-11-12; the first brief was a free Supply Crate).
+Finished 2026-11-12 (the designer closed it after playing it). What was built: 50 Diamonds once per account for a member of the group (`GameData/Store/GroupReward`; Diamonds so a player restricted from paid random items gets the same reward, a free crate having been built first and replaced the same day). The lobby `GroupRewardManager` asks Roblox about the group at arrival and when a store menu opens, and pays on `TryClaimGroupReward` in one step that cannot pay twice; the save's `hasClaimedGroupReward` is the record. The designer's `GroupReward` banner in the Supply Crate menu, the rotating store, and the Diamond Store asks for a like and a join until the reward is claimed; the designer's `GroupRewardClaim` menu comes up for a member one second after the loading screen has gone, with no way out but its Claim button. Only membership is rewarded: a like cannot be read by a game. The group is the QA group's until M80. Dev panel: Reset the group reward.

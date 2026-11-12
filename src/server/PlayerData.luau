@@ -47,6 +47,7 @@ export type PlayerData = typeof(setmetatable(
 		hasFinishedUraniumTutorial: boolean,
 		hasFinishedSupplyCrateTutorial: boolean,
 		storePurchases: DailyStoreRules.Purchases,
+		hasClaimedGroupReward: boolean,
 	},
 	PlayerData
 ))
@@ -71,6 +72,7 @@ local SAVE_FIELDS = {
 	"hasFinishedUraniumTutorial",
 	"hasFinishedSupplyCrateTutorial",
 	"storePurchases",
+	"hasClaimedGroupReward",
 }
 
 -- the save field behind each part of the tutorial
@@ -362,6 +364,16 @@ end
 -- every card buyable again, for the dev tool
 function PlayerData:resetStorePurchases()
 	self.storePurchases = DailyStoreRules.getDefaultPurchases()
+end
+
+-- the group reward (M78); the lobby GroupRewardManager is the one
+-- writer, and only its dev tool ever sets it back to false
+function PlayerData:getHasClaimedGroupReward(): boolean
+	return self.hasClaimedGroupReward == true
+end
+
+function PlayerData:setHasClaimedGroupReward(hasClaimed: boolean)
+	self.hasClaimedGroupReward = hasClaimed
 end
 
 function PlayerData:getKeys(): number

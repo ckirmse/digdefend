@@ -157,6 +157,11 @@ function ClientOverlayManager:closeOverlayIfExists()
 	end
 end
 
+-- true from startup until the arrival loading screen has slid away
+function ClientOverlayManager:getIsDeferringOverlays(): boolean
+	return self.isDeferring
+end
+
 -- while the loading screen is up, menus that open during startup are held
 -- back and replayed (in order, so the last one wins as usual) once it hides
 function ClientOverlayManager:setDeferOverlays(isDeferring: boolean)

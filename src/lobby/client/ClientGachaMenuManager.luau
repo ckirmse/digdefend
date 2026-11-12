@@ -53,6 +53,7 @@ local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
+local ClientGroupRewardManager = require(script.Parent.ClientGroupRewardManager)
 local ClientRestrictedStoreManager = require(script.Parent.ClientRestrictedStoreManager)
 local ClientKeyStoreManager = require(script.Parent.ClientKeyStoreManager)
 local ClientPadBillboardManager = require(script.Parent.ClientPadBillboardManager)
@@ -69,6 +70,9 @@ type View = {
 	classRowTemplate: GuiObject,
 	rollButton: TextButton,
 	rollPriceLabel: TextLabel,
+	-- the group reward's banner (M78), kept by ClientGroupRewardManager;
+	-- an older copy of the gui has none
+	groupRewardBanner: ClientGroupRewardManager.Banner?,
 	-- the designer's KEY STORE plate under OPEN CRATE (2026-11-06); an
 	-- older copy of the gui has none
 	keyStoreButton: GuiButton?,
@@ -483,6 +487,15 @@ function ClientGachaMenuManager:render()
 	end
 	self:fitRowsToWindow(view)
 	self:renderRollButton(view, config, isRestricted)
+	self:renderGroupReward(view)
+end
+
+-- the group reward's banner sits beside the dialog, not inside it, so it
+-- is put away here whenever the panel is not the thing on screen (a
+-- crate opening, a purchase's reveal); what it says, and its going for
+-- good once claimed, are ClientGroupRewardManager's
+function ClientGachaMenuManager:renderGroupReward(view: View)
+	ClientGroupRewardManager:setBannerHidden(view.groupRewardBanner, self.stage ~= Stage.MENU or self.isPurchaseReveal)
 end
 
 -- the camera: Scriptable for as long as the menu is up, eased between the
@@ -861,6 +874,7 @@ function ClientGachaMenuManager:startSequence()
 	local serial = self.sequenceSerial
 	self.stage = Stage.PANNING
 	view.dialog.Visible = false
+	self:renderGroupReward(view)
 	self:fadeWorld(crate, true)
 	-- the balances leave with the world and come back after the claim
 	self:notifyWalletsFaded(true, UiStyle.GACHA_WORLD_FADE_SEC)
@@ -1588,6 +1602,7 @@ function ClientGachaMenuManager:playPurchaseReveal(payload: { [string]: any }, o
 	self.purchaseRevealDone = onDone
 	view.gui.Enabled = true
 	view.dialog.Visible = false
+	self:renderGroupReward(view)
 	ClientOverlayManager:notifyBeginOverlay(overlay)
 	self.savedCameraCFrame = camera.CFrame
 	self:fadeSelf(true)
@@ -1754,6 +1769,7 @@ function ClientGachaMenuManager:openMenu()
 	self:resetSequence()
 	view.gui.Enabled = true
 	self:render()
+	ClientGroupRewardManager:requestRefreshIfNeeded()
 	ClientOverlayManager:notifyBeginOverlay(overlay)
 	local crate = self.crate
 	local camera = workspace.CurrentCamera
@@ -1972,6 +1988,7 @@ function ClientGachaMenuManager:findView(playerGui: PlayerGui): View?
 		classRowTemplate = classRowTemplate :: GuiObject,
 		rollButton = rollButton :: TextButton,
 		rollPriceLabel = rollPriceLabel :: TextLabel,
+		groupRewardBanner = ClientGroupRewardManager:bindBanner(gui),
 		keyStoreButton = if keyStoreButton and keyStoreButton:IsA("GuiButton") then keyStoreButton else nil,
 		tapHint = tapHint :: TextLabel,
 		revealTitle = revealTitle :: ImageLabel,

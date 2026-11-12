@@ -25,6 +25,7 @@ local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientPlayerFeedbackManager = require(script.Parent.Parent.Client.ClientPlayerFeedbackManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
+local ClientGroupRewardManager = require(script.Parent.ClientGroupRewardManager)
 
 local ClientDiamondStoreManager = {}
 ClientDiamondStoreManager.__index = ClientDiamondStoreManager
@@ -191,6 +192,7 @@ function ClientDiamondStoreManager:openMenu()
 	self.isOpen = true
 	view.gui.Enabled = true
 	self:render()
+	ClientGroupRewardManager:requestRefreshIfNeeded()
 	ClientOverlayManager:notifyBeginOverlay(overlay)
 end
 
@@ -247,6 +249,9 @@ function ClientDiamondStoreManager:init()
 	self.view = view
 	view.packTemplate.Visible = false
 	view.gui.Enabled = false
+	-- the group reward's banner (M78): its line and its going once
+	-- claimed are ClientGroupRewardManager's from here on
+	ClientGroupRewardManager:bindBanner(view.gui)
 
 	view.backButton.Activated:Connect(
 		function()

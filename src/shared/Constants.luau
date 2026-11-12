@@ -944,6 +944,15 @@ Constants.GACHA_CLASS_ROW_PROGRESS_LABEL = "Progress"
 Constants.GACHA_CLASS_ROW_BUY_BUTTON = "BuyButton"
 Constants.GACHA_ROLL_BUTTON = "RollButton"
 Constants.GACHA_ROLL_PRICE_LABEL = "Price"
+-- the group reward (M78, the designer's instances of 2026-11-12): the
+-- banner in the Supply Crate menu, the rotating store, and the Diamond
+-- Store with its line; and the claim menu, whose button carries the
+-- amount (ClientGroupRewardManager)
+Constants.GROUP_REWARD_BANNER = "GroupReward"
+Constants.GROUP_REWARD_BANNER_MESSAGE = "Message"
+Constants.GROUP_REWARD_CLAIM_GUI_NAME = "GroupRewardClaim"
+Constants.GROUP_REWARD_CLAIM_BUTTON = "ClaimButton"
+Constants.GROUP_REWARD_CLAIM_AMOUNT_LABEL = "RewardAmount"
 -- the designer's KEY STORE plate under OPEN CRATE (2026-11-06): closes the crate menu and opens the Key Store
 Constants.GACHA_KEY_STORE_BUTTON = "KeyStoreButton"
 Constants.GACHA_TAP_HINT = "TapHint"

@@ -71,6 +71,7 @@ local function snapshot(player: Player, playerData: any): PlayerPublicSchema.Sna
 		keys = playerData:getKeys(),
 		ownedCosmetics = playerData:getOwnedCosmetics(),
 		storePurchases = playerData:getStorePurchases(),
+		hasClaimedGroupReward = playerData:getHasClaimedGroupReward(),
 		dailyRewardLastClaimedDay = dailyReward.lastClaimedDay,
 		dailyRewardNextClaimTime = dailyReward.nextClaimTime,
 		hasFinishedTutorial = playerData:getHasFinishedTutorialPart(Enums.TutorialPart.MAIN),
@@ -304,6 +305,17 @@ function SplendidReplicationManager:replicateGacha(player: Player)
 		return
 	end
 	writeAttributes(currentPlayer, PlayerPublicSchema.buildGachaAttributes(snapshot(player, playerData)))
+end
+
+-- the group reward's claimed flag (M78); the lobby GroupRewardManager
+-- calls this after setting it
+function SplendidReplicationManager:replicateGroupReward(player: Player)
+	local playerData = gameController:getPlayerData(player)
+	local currentPlayer = self:getCurrentPlayerFolder(player)
+	if not playerData or not currentPlayer then
+		return
+	end
+	currentPlayer:SetAttribute(Attributes.HAS_CLAIMED_GROUP_REWARD, playerData:getHasClaimedGroupReward())
 end
 
 -- the tutorial flag (M76); the gameplay TutorialManager calls this after

@@ -12,6 +12,7 @@ local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManage
 local ClientRestrictedStoreManager = require(script.Parent.ClientRestrictedStoreManager)
 local ClientGachaMenuManager = require(script.Parent.ClientGachaMenuManager)
 local ClientGearMenuManager = require(script.Parent.ClientGearMenuManager)
+local ClientGroupRewardManager = require(script.Parent.ClientGroupRewardManager)
 local ClientHudManager = require(script.Parent.ClientHudManager)
 local ClientKeyStoreManager = require(script.Parent.ClientKeyStoreManager)
 local ClientJetPackManager = require(script.Parent.Parent.Client.ClientJetPackManager)
@@ -26,6 +27,8 @@ ClientDataManager:awaitReady()
 ClientButtonSoundManager:init()
 ClientDevConsoleManager:init()
 
+-- before the store menus, each of which hands it a banner (M78)
+ClientGroupRewardManager:init()
 -- the menus before the HUD, whose Classes and Store buttons open them
 ClientClassMenuManager:init()
 ClientGachaMenuManager:init()
