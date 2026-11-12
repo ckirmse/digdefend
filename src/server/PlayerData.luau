@@ -48,6 +48,7 @@ export type PlayerData = typeof(setmetatable(
 		hasFinishedSupplyCrateTutorial: boolean,
 		storePurchases: DailyStoreRules.Purchases,
 		hasClaimedGroupReward: boolean,
+		hasClaimedStarterPack: boolean,
 	},
 	PlayerData
 ))
@@ -73,6 +74,7 @@ local SAVE_FIELDS = {
 	"hasFinishedSupplyCrateTutorial",
 	"storePurchases",
 	"hasClaimedGroupReward",
+	"hasClaimedStarterPack",
 }
 
 -- the save field behind each part of the tutorial
@@ -374,6 +376,16 @@ end
 
 function PlayerData:setHasClaimedGroupReward(hasClaimed: boolean)
 	self.hasClaimedGroupReward = hasClaimed
+end
+
+-- the Starter Pack's payout (M79); the lobby StarterPackManager is the
+-- one writer
+function PlayerData:getHasClaimedStarterPack(): boolean
+	return self.hasClaimedStarterPack == true
+end
+
+function PlayerData:setHasClaimedStarterPack(hasClaimed: boolean)
+	self.hasClaimedStarterPack = hasClaimed
 end
 
 function PlayerData:getKeys(): number

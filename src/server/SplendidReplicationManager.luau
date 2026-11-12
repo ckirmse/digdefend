@@ -72,6 +72,7 @@ local function snapshot(player: Player, playerData: any): PlayerPublicSchema.Sna
 		ownedCosmetics = playerData:getOwnedCosmetics(),
 		storePurchases = playerData:getStorePurchases(),
 		hasClaimedGroupReward = playerData:getHasClaimedGroupReward(),
+		hasClaimedStarterPack = playerData:getHasClaimedStarterPack(),
 		dailyRewardLastClaimedDay = dailyReward.lastClaimedDay,
 		dailyRewardNextClaimTime = dailyReward.nextClaimTime,
 		hasFinishedTutorial = playerData:getHasFinishedTutorialPart(Enums.TutorialPart.MAIN),
@@ -316,6 +317,17 @@ function SplendidReplicationManager:replicateGroupReward(player: Player)
 		return
 	end
 	currentPlayer:SetAttribute(Attributes.HAS_CLAIMED_GROUP_REWARD, playerData:getHasClaimedGroupReward())
+end
+
+-- the Starter Pack's paid flag (M79); the lobby StarterPackManager calls
+-- this after setting it
+function SplendidReplicationManager:replicateStarterPack(player: Player)
+	local playerData = gameController:getPlayerData(player)
+	local currentPlayer = self:getCurrentPlayerFolder(player)
+	if not playerData or not currentPlayer then
+		return
+	end
+	currentPlayer:SetAttribute(Attributes.HAS_CLAIMED_STARTER_PACK, playerData:getHasClaimedStarterPack())
 end
 
 -- the tutorial flag (M76); the gameplay TutorialManager calls this after

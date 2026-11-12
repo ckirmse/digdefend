@@ -49,6 +49,12 @@ module = {
 	-- Enums.DailyRewardKind: what actually landed), for the sound and line
 	TRY_CLAIM_DAILY_REWARD = "TryClaimDailyReward",
 	NOTIFY_DAILY_REWARD_CLAIMED = "NotifyDailyRewardClaimed",
+	-- the Starter Pack (M79, StarterPackManager in the lobby): ask for
+	-- the game pass's purchase prompt ({}); to the buyer once the
+	-- contents are paid ({ diamonds, keys }, keys from duplicates), for
+	-- the sound and the line
+	TRY_BUY_STARTER_PACK = "TryBuyStarterPack",
+	NOTIFY_STARTER_PACK_GRANTED = "NotifyStarterPackGranted",
 	-- the Diamond Store (M40, DiamondStoreManager in the lobby): ask for
 	-- the Robux prompt of one pack ({ packIndex }); to the buyer once the
 	-- receipt granted it ({ diamonds }), for the sound

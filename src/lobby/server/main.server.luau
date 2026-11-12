@@ -10,6 +10,7 @@ local KeyStoreManager = require(script.Parent.KeyStoreManager)
 local LobbyCharacterManager = require(script.Parent.LobbyCharacterManager)
 local LobbyMapManager = require(script.Parent.LobbyMapManager)
 local PartyManager = require(script.Parent.PartyManager)
+local StarterPackManager = require(script.Parent.StarterPackManager)
 local HelicopterManager = require(script.Parent.Parent.Server.HelicopterManager)
 local JetPackManager = require(script.Parent.Parent.Server.JetPackManager)
 
@@ -26,6 +27,9 @@ GachaManager:init()
 -- the stall's second menu: Keys buy cosmetics by name (M61)
 KeyStoreManager:init()
 DiamondStoreManager:init()
+-- the one-time game pass: a class card, Diamonds, and a skin (M79);
+-- after the gacha, whose rules pay the card
+StarterPackManager:init()
 -- a reward a day, claimed from the lobby's Daily Rewards menu (M39)
 DailyRewardManager:init()
 -- Diamonds once per account for a member of the group (M78)

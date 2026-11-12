@@ -166,6 +166,11 @@ function ClientDataManager:hasClaimedGroupReward(): boolean
 	return self:getCurrentPlayerAttribute(Attributes.HAS_CLAIMED_GROUP_REWARD) == true
 end
 
+-- the Starter Pack (M79): its contents have been paid to this account
+function ClientDataManager:hasClaimedStarterPack(): boolean
+	return self:getCurrentPlayerAttribute(Attributes.HAS_CLAIMED_STARTER_PACK) == true
+end
+
 function ClientDataManager:getOwnedCosmetics(): GachaRules.OwnedCosmetics
 	return GachaRules.decodeOwnedCosmetics(self:getCurrentPlayerAttribute(Attributes.OWNED_COSMETICS))
 end

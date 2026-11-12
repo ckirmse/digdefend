@@ -243,6 +243,12 @@ module = {
 	-- GroupRewardManager, asked at Ready and when a store menu opens)
 	HAS_CLAIMED_GROUP_REWARD = "HasClaimedGroupReward",
 	IS_IN_REWARD_GROUP = "IsInRewardGroup",
+	-- the Starter Pack (M79): CurrentPlayer (private), its contents have
+	-- been paid (the save, written by replicateStarterPack); and
+	-- GameMetadata (lobby), the offer as StarterPackRules JSON,
+	-- republished when the pass's Robux price arrives
+	HAS_CLAIMED_STARTER_PACK = "HasClaimedStarterPack",
+	STARTER_PACK = "StarterPack",
 	-- GameMetadata (lobby): the Diamonds the group reward pays
 	GROUP_REWARD_DIAMONDS = "GroupRewardDiamonds",
 	-- CurrentPlayer (private): true when PolicyService says the player may

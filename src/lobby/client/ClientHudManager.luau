@@ -23,6 +23,7 @@ local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayMa
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientClassMenuManager = require(script.Parent.ClientClassMenuManager)
 local ClientDailyRewardManager = require(script.Parent.ClientDailyRewardManager)
+local ClientStarterPackManager = require(script.Parent.ClientStarterPackManager)
 local ClientLabelFlash = require(script.Parent.Parent.Client.ClientLabelFlash)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
 local ClientGuiFade = require(script.Parent.Parent.Client.ClientGuiFade)
@@ -346,6 +347,15 @@ function ClientHudManager:init()
 			Constants.HUD_DAILY_REWARDS_BUTTON,
 			function()
 				ClientDailyRewardManager:openMenu()
+			end
+		)
+		-- under it, until the pack is bought (M79); showing and hiding it
+		-- is ClientStarterPackManager's
+		self:wireButton(
+			leftButtons,
+			Constants.HUD_STARTER_PACK_BUTTON,
+			function()
+				ClientStarterPackManager:openMenu()
 			end
 		)
 	else

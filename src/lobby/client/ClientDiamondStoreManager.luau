@@ -16,6 +16,7 @@ local Players = game:GetService("Players")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local DiamondStoreRules = require("@game/ReplicatedStorage/Shared/DiamondStoreRules")
+local Icons = require("@game/ReplicatedStorage/Shared/Icons")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local SoundNames = require("@game/ReplicatedStorage/Shared/SoundNames")
 local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
@@ -116,6 +117,13 @@ function ClientDiamondStoreManager:renderCard(view: View, pack: DiamondStoreRule
 	card.Name = pack.id
 	card.LayoutOrder = pack.index
 	card.Visible = true
+
+	-- a bigger pack has its own picture; without one the template's stays
+	local icon = card:FindFirstChild(Constants.DIAMOND_STORE_PACK_ICON)
+	local iconId = Icons.DIAMOND_PACK[pack.index]
+	if iconId and icon and icon:IsA("ImageLabel") then
+		icon.Image = iconId
+	end
 
 	local amountLabel = card:FindFirstChild(Constants.DIAMOND_STORE_PACK_AMOUNT_LABEL)
 	if amountLabel and amountLabel:IsA("TextLabel") then

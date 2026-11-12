@@ -78,6 +78,10 @@ export type SaveData = {
 	-- GroupRewardManager with the Diamonds, never cleared, so it pays
 	-- once per account
 	hasClaimedGroupReward: boolean,
+	-- the Starter Pack's contents have been paid (M79): set by the lobby
+	-- StarterPackManager with the payout. The game pass says the account
+	-- owns the pack; this says the items were handed over
+	hasClaimedStarterPack: boolean,
 }
 
 export type Defaults = {
@@ -154,6 +158,7 @@ function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 		hasFinishedSupplyCrateTutorial = false,
 		storePurchases = DailyStoreRules.getDefaultPurchases(),
 		hasClaimedGroupReward = false,
+		hasClaimedStarterPack = false,
 	}
 end
 
@@ -475,6 +480,10 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 	if typeof(data.hasClaimedGroupReward) ~= "boolean" then
 		data.hasClaimedGroupReward = false
 		table.insert(repairs, "hasClaimedGroupReward reset")
+	end
+	if typeof(data.hasClaimedStarterPack) ~= "boolean" then
+		data.hasClaimedStarterPack = false
+		table.insert(repairs, "hasClaimedStarterPack reset")
 	end
 	-- after the progress: the active class must be an owned one
 	validateActiveClassKind(data, defaults, repairs)

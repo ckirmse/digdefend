@@ -45,6 +45,8 @@ local RESET_FREE_REROLLS_COMMAND = "resetFreeRerolls"
 local RESET_STORE_PURCHASES_COMMAND = "resetStorePurchases"
 local RESET_GROUP_REWARD_COMMAND = "resetGroupReward"
 local ADVANCE_DAILY_REWARD_COMMAND = "advanceDailyReward"
+local GRANT_STARTER_PACK_COMMAND = "grantStarterPack"
+local RESET_STARTER_PACK_COMMAND = "resetStarterPack"
 local RESET_DAILY_REWARD_COMMAND = "resetDailyReward"
 
 local function sendDevTool(command: string, args: { [string]: any })
@@ -133,6 +135,12 @@ function ClientGachaDevTools:renderSection()
 	end
 	if Iris.Button({ "Daily rewards: reset to day 1" }).clicked() then
 		sendDevTool(RESET_DAILY_REWARD_COMMAND, {})
+	end
+	if Iris.Button({ "Starter Pack: pay the contents (no purchase)" }).clicked() then
+		sendDevTool(GRANT_STARTER_PACK_COMMAND, {})
+	end
+	if Iris.Button({ "Starter Pack: reset" }).clicked() then
+		sendDevTool(RESET_STARTER_PACK_COMMAND, {})
 	end
 	if Iris.Button({ "Reset the group reward" }).clicked() then
 		sendDevTool(RESET_GROUP_REWARD_COMMAND, {})

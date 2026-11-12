@@ -224,6 +224,17 @@ Icons.UI = {
 	SUPPLY_CRATE = "rbxassetid://84556835168975",
 }
 
+-- the Diamond Store's pack pictures, by the pack's place in the list
+-- (GameData/Store/DiamondPacks, smallest first; designer's art,
+-- 2026-11-12). A pack with no entry keeps the picture authored on the
+-- gui's PackTemplate
+Icons.DIAMOND_PACK = {
+	[1] = "rbxassetid://116986413085371",
+	[2] = "rbxassetid://80418233826190",
+	[3] = "rbxassetid://127742036371131",
+	[4] = "rbxassetid://122502130840031",
+}
+
 function Icons.isPlaceholder(id: string?): boolean
 	return id == nil or id == Icons.PLACEHOLDER
 end

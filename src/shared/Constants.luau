@@ -967,6 +967,22 @@ Constants.DAILY_REWARDS_TILE_ICON = "Icon"
 Constants.DAILY_REWARDS_TILE_AMOUNT_LABEL = "Amount"
 Constants.DAILY_REWARDS_TILE_CLAIM_BUTTON = "ClaimButton"
 Constants.DAILY_REWARDS_NEXT_REWARD_LABEL = "NextReward"
+-- the Starter Pack (M79, scripts/studio/build_starter_pack_gui.luau): the
+-- menu's three item cards, each a picture and a line, the buy button
+-- with the struck-through worth and the real price, and the HUD button
+-- under Daily Rewards
+Constants.STARTER_PACK_GUI_NAME = "StarterPack"
+Constants.STARTER_PACK_BACK_BUTTON = "BackButton"
+Constants.STARTER_PACK_ITEMS = "Items"
+Constants.STARTER_PACK_ITEM_CLASS = "ClassItem"
+Constants.STARTER_PACK_ITEM_DIAMONDS = "DiamondsItem"
+Constants.STARTER_PACK_ITEM_COSMETIC = "CosmeticItem"
+Constants.STARTER_PACK_ITEM_ICON = "Icon"
+Constants.STARTER_PACK_ITEM_LABEL = "Amount"
+Constants.STARTER_PACK_BUY_BUTTON = "BuyButton"
+Constants.STARTER_PACK_VALUE_LABEL = "Value"
+Constants.STARTER_PACK_PRICE_LABEL = "Price"
+Constants.HUD_STARTER_PACK_BUTTON = "StarterPackButton"
 Constants.HUD_LEFT_BUTTONS = "LeftButtons"
 Constants.HUD_DAILY_REWARDS_BUTTON = "DailyRewardsButton"
 Constants.HUD_BUTTON_ALERT = "Alert"
