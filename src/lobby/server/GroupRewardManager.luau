@@ -126,6 +126,18 @@ function GroupRewardManager:claim(player: Player)
 	if not playerData or playerData:getHasClaimedGroupReward() then
 		return
 	end
+	-- no answer held (the reset-player dev tool tears this manager's state
+	-- down and Ready is not replayed): ask now. This yields, so the save
+	-- is read again after it, and the flag is still set with nothing in
+	-- between; a second press meanwhile finds the question out and no
+	-- answer, and is refused
+	if self.isInGroupByPlayer[player] == nil then
+		self:refreshMembership(player)
+		playerData = GameController:getPlayerData(player)
+		if not playerData or playerData:getHasClaimedGroupReward() then
+			return
+		end
+	end
 	if not GroupRewardRules.canClaim(self:isInGroup(player), false) then
 		PlayerFeedbackManager:give(player, FEEDBACK_NOT_IN_GROUP)
 		return

@@ -884,6 +884,13 @@ module = {
 			ROBUX = "Robux",
 		},
 	},
+	-- what a Daily Rewards tile pays (M39, GameData/Store/DailyRewards): a
+	-- Diamonds or Keys amount, or a named cosmetic
+	DailyRewardKind = {
+		DIAMONDS = 1,
+		KEYS = 2,
+		COSMETIC = 3,
+	},
 	-- what one gacha roll turned into once resolved against the player's
 	-- progress (GDD "Class Unlock System", M70): a class the player did not
 	-- own, the next skill slot of one they did, a cosmetic, or Keys (a

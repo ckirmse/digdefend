@@ -953,6 +953,23 @@ Constants.GROUP_REWARD_BANNER_MESSAGE = "Message"
 Constants.GROUP_REWARD_CLAIM_GUI_NAME = "GroupRewardClaim"
 Constants.GROUP_REWARD_CLAIM_BUTTON = "ClaimButton"
 Constants.GROUP_REWARD_CLAIM_AMOUNT_LABEL = "RewardAmount"
+-- Daily Rewards (M39, scripts/studio/build_daily_rewards_gui.luau): the
+-- menu, its grid of tiles cloned from one template per state, and the
+-- lobby HUD's left-hand stack with the button that opens it
+Constants.DAILY_REWARDS_GUI_NAME = "DailyRewards"
+Constants.DAILY_REWARDS_BACK_BUTTON = "BackButton"
+Constants.DAILY_REWARDS_TILE_GRID = "TileGrid"
+Constants.DAILY_REWARDS_TILE_TEMPLATE_LOCKED = "TileTemplate"
+Constants.DAILY_REWARDS_TILE_TEMPLATE_READY = "TileTemplateReady"
+Constants.DAILY_REWARDS_TILE_TEMPLATE_CLAIMED = "TileTemplateClaimed"
+Constants.DAILY_REWARDS_TILE_DAY_LABEL = "DayLabel"
+Constants.DAILY_REWARDS_TILE_ICON = "Icon"
+Constants.DAILY_REWARDS_TILE_AMOUNT_LABEL = "Amount"
+Constants.DAILY_REWARDS_TILE_CLAIM_BUTTON = "ClaimButton"
+Constants.DAILY_REWARDS_NEXT_REWARD_LABEL = "NextReward"
+Constants.HUD_LEFT_BUTTONS = "LeftButtons"
+Constants.HUD_DAILY_REWARDS_BUTTON = "DailyRewardsButton"
+Constants.HUD_BUTTON_ALERT = "Alert"
 -- the designer's KEY STORE plate under OPEN CRATE (2026-11-06): closes the crate menu and opens the Key Store
 Constants.GACHA_KEY_STORE_BUTTON = "KeyStoreButton"
 Constants.GACHA_TAP_HINT = "TapHint"

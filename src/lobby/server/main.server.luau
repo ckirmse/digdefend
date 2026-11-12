@@ -2,6 +2,7 @@
 
 -- Lobby-only server startup. The shared GameController starts from
 -- ServerScriptService/Server/main; this script wires the lobby's own managers.
+local DailyRewardManager = require(script.Parent.DailyRewardManager)
 local DiamondStoreManager = require(script.Parent.DiamondStoreManager)
 local GachaManager = require(script.Parent.GachaManager)
 local GroupRewardManager = require(script.Parent.GroupRewardManager)
@@ -25,5 +26,7 @@ GachaManager:init()
 -- the stall's second menu: Keys buy cosmetics by name (M61)
 KeyStoreManager:init()
 DiamondStoreManager:init()
+-- a reward a day, claimed from the lobby's Daily Rewards menu (M39)
+DailyRewardManager:init()
 -- Diamonds once per account for a member of the group (M78)
 GroupRewardManager:init()

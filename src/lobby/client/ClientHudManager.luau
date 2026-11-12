@@ -22,6 +22,7 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientClassMenuManager = require(script.Parent.ClientClassMenuManager)
+local ClientDailyRewardManager = require(script.Parent.ClientDailyRewardManager)
 local ClientLabelFlash = require(script.Parent.Parent.Client.ClientLabelFlash)
 local ClientDiamondStoreManager = require(script.Parent.ClientDiamondStoreManager)
 local ClientGuiFade = require(script.Parent.Parent.Client.ClientGuiFade)
@@ -334,6 +335,21 @@ function ClientHudManager:init()
 	local jetPackBar = gui:FindFirstChild(Constants.HUD_JET_PACK_BAR)
 	if jetPackBar and jetPackBar:IsA("GuiObject") then
 		self:addGroup(jetPackBar, UDim2.new(1.5, 0, jetPackBar.Position.Y.Scale, 0))
+	end
+	-- the left-hand stack (designer, 2026-11-12): Daily Rewards, sliding
+	-- off the left edge for a menu. Its mark is ClientDailyRewardManager's
+	local leftButtons = gui:FindFirstChild(Constants.HUD_LEFT_BUTTONS)
+	if leftButtons and leftButtons:IsA("GuiObject") then
+		self:addGroup(leftButtons, UDim2.new(-0.5, 0, leftButtons.Position.Y.Scale, 0))
+		self:wireButton(
+			leftButtons,
+			Constants.HUD_DAILY_REWARDS_BUTTON,
+			function()
+				ClientDailyRewardManager:openMenu()
+			end
+		)
+	else
+		warn(`ClientHudManager: the HUD has no {Constants.HUD_LEFT_BUTTONS}; run build_daily_rewards_gui`)
 	end
 	self:wireButton(
 		menuButtons,

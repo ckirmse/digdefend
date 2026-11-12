@@ -276,6 +276,10 @@ module = {
 	-- GameMetadata: JSON of the cosmetics catalogue (CosmeticRules codec),
 	-- the skins made from the game's own templates (M61 first pass, 2026-11-04)
 	COSMETIC_CATALOGUE = "CosmeticCatalogue",
+	-- GameMetadata (lobby): the Daily Rewards tiles as JSON
+	-- (DailyRewardRules codec, M39); the two below are the player's own
+	-- record on CurrentPlayer, written by replicateDailyReward
+	DAILY_REWARD_CATALOGUE = "DailyRewardCatalogue",
 	DAILY_REWARD_LAST_CLAIMED_DAY = "DailyRewardLastClaimedDay",
 	DAILY_REWARD_NEXT_CLAIM_TIME = "DailyRewardNextClaimTime",
 	-- on each structure shadow part (StructureManager, M23): what it is and

@@ -44,6 +44,8 @@ local RESET_CRATE_TUTORIAL_COMMAND = "resetCrateTutorial"
 local RESET_FREE_REROLLS_COMMAND = "resetFreeRerolls"
 local RESET_STORE_PURCHASES_COMMAND = "resetStorePurchases"
 local RESET_GROUP_REWARD_COMMAND = "resetGroupReward"
+local ADVANCE_DAILY_REWARD_COMMAND = "advanceDailyReward"
+local RESET_DAILY_REWARD_COMMAND = "resetDailyReward"
 
 local function sendDevTool(command: string, args: { [string]: any })
 	ClientNetManager:fireServer(
@@ -125,6 +127,12 @@ function ClientGachaDevTools:renderSection()
 	end
 	if Iris.Button({ "Clear cosmetics" }).clicked() then
 		sendDevTool(CLEAR_COSMETICS_COMMAND, {})
+	end
+	if Iris.Button({ "Daily rewards: make the next day ready" }).clicked() then
+		sendDevTool(ADVANCE_DAILY_REWARD_COMMAND, {})
+	end
+	if Iris.Button({ "Daily rewards: reset to day 1" }).clicked() then
+		sendDevTool(RESET_DAILY_REWARD_COMMAND, {})
 	end
 	if Iris.Button({ "Reset the group reward" }).clicked() then
 		sendDevTool(RESET_GROUP_REWARD_COMMAND, {})

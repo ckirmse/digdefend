@@ -43,6 +43,12 @@ module = {
 	TRY_BUY_STORE_ITEM = "TryBuyStoreItem",
 	TRY_SELECT_CLASS = "TrySelectClass",
 	NOTIFY_GACHA_RESULT = "NotifyGachaResult",
+	-- Daily Rewards (M39, DailyRewardManager in the lobby): claim the
+	-- ready tile ({ tileIndex }); to the claimer once it is paid
+	-- ({ tileIndex, kind, amount, cosmeticId?, isDuplicate? }, kind an
+	-- Enums.DailyRewardKind: what actually landed), for the sound and line
+	TRY_CLAIM_DAILY_REWARD = "TryClaimDailyReward",
+	NOTIFY_DAILY_REWARD_CLAIMED = "NotifyDailyRewardClaimed",
 	-- the Diamond Store (M40, DiamondStoreManager in the lobby): ask for
 	-- the Robux prompt of one pack ({ packIndex }); to the buyer once the
 	-- receipt granted it ({ diamonds }), for the sound
