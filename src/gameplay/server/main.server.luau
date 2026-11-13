@@ -58,6 +58,8 @@ local RunManager = require(script.Parent.RunManager)
 local RunReportDevTools = require(script.Parent.RunReportDevTools)
 local RunReportManager = require(script.Parent.RunReportManager)
 local RunRecordManager = require(script.Parent.RunRecordManager)
+local BadgeManager = require(script.Parent.Parent.Server.BadgeManager)
+local BadgeTrackerManager = require(script.Parent.BadgeTrackerManager)
 local RunStatsManager = require(script.Parent.RunStatsManager)
 local SkillManager = require(script.Parent.SkillManager)
 local StructureDevTools = require(script.Parent.StructureDevTools)
@@ -399,6 +401,11 @@ RunManager:subscribeRunStarted(
 		RunRecordManager:onRunStarted(map, difficulty)
 	end
 )
+
+-- badges (M69): the common award path, then the tracker, after every
+-- manager whose hooks it listens to
+BadgeManager:init()
+BadgeTrackerManager:init()
 
 RunDevTools:init()
 RunCycleDevTools:init()

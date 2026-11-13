@@ -22,6 +22,7 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientSoundManager = require(script.Parent.Parent.Client.ClientSoundManager)
 local ClientClassMenuManager = require(script.Parent.ClientClassMenuManager)
+local ClientBadgeMenuManager = require(script.Parent.ClientBadgeMenuManager)
 local ClientDailyRewardManager = require(script.Parent.ClientDailyRewardManager)
 local ClientStarterPackManager = require(script.Parent.ClientStarterPackManager)
 local ClientLabelFlash = require(script.Parent.Parent.Client.ClientLabelFlash)
@@ -337,11 +338,14 @@ function ClientHudManager:init()
 	if jetPackBar and jetPackBar:IsA("GuiObject") then
 		self:addGroup(jetPackBar, UDim2.new(1.5, 0, jetPackBar.Position.Y.Scale, 0))
 	end
-	-- the left-hand stack (designer, 2026-11-12): Daily Rewards, sliding
-	-- off the left edge for a menu. Its mark is ClientDailyRewardManager's
+	-- the rewards stack (designer, 2026-11-12): Daily Rewards, Badges, the
+	-- Starter Pack. It was authored on the left edge and keeps that name;
+	-- since the same evening it stands in the menu buttons' spot on the
+	-- right, so it slides off whichever edge it is authored nearer to
 	local leftButtons = gui:FindFirstChild(Constants.HUD_LEFT_BUTTONS)
 	if leftButtons and leftButtons:IsA("GuiObject") then
-		self:addGroup(leftButtons, UDim2.new(-0.5, 0, leftButtons.Position.Y.Scale, 0))
+		local offscreenX = if leftButtons.Position.X.Scale > 0.5 then 1.5 else -0.5
+		self:addGroup(leftButtons, UDim2.new(offscreenX, 0, leftButtons.Position.Y.Scale, 0))
 		self:wireButton(
 			leftButtons,
 			Constants.HUD_DAILY_REWARDS_BUTTON,
@@ -356,6 +360,14 @@ function ClientHudManager:init()
 			Constants.HUD_STARTER_PACK_BUTTON,
 			function()
 				ClientStarterPackManager:openMenu()
+			end
+		)
+		-- the Badges menu (M69); its mark is ClientBadgeMenuManager's
+		self:wireButton(
+			leftButtons,
+			Constants.HUD_BADGES_BUTTON,
+			function()
+				ClientBadgeMenuManager:openMenu()
 			end
 		)
 	else
@@ -409,7 +421,13 @@ function ClientHudManager:init()
 	end
 	renderStoreButton()
 	ClientDataManager:subscribeCurrentPlayerAttribute(Attributes.IS_PAID_RANDOM_ITEMS_RESTRICTED, renderStoreButton)
-	self:wireGamepadShortcuts(menuButtons)
+	-- the menu buttons are switched off in the Explorer for now (designer,
+	-- 2026-11-12: too much on the HUD; the lobby's stalls open the menus),
+	-- and a shortcut with no button to show it would open menus by surprise.
+	-- Making the frame visible again brings the shortcuts back with it
+	if menuButtons.Visible then
+		self:wireGamepadShortcuts(menuButtons)
+	end
 	self:renderClassIcon(menuButtons)
 	ClientDataManager:subscribeClasses(
 		function()

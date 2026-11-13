@@ -44,6 +44,9 @@ local ToolManager = require(script.Parent.ToolManager)
 local WeaponManager = {}
 WeaponManager.__index = WeaponManager
 
+-- subscribeFired's listeners
+local firedHandlers: { (player: Player) -> () } = {}
+
 type WeaponState = {
 	weaponKind: number,
 	ammo: number,
@@ -197,6 +200,12 @@ function WeaponManager:getWorldDistance(origin: Vector3, unitDirection: Vector3,
 	return if result then result.Distance else rangeStuds
 end
 
+-- told each time a player's handheld weapon fires, primary or secondary
+-- (the badge tracker's Architect, M69)
+function WeaponManager:subscribeFired(handler: (player: Player) -> ())
+	table.insert(firedHandlers, handler)
+end
+
 function WeaponManager:fire(player: Player, origin: Vector3, direction: Vector3)
 	local state = self.stateByPlayer[player]
 	local data = if state then self:getWeaponData(state.weaponKind) else nil
@@ -223,6 +232,9 @@ function WeaponManager:fire(player: Player, origin: Vector3, direction: Vector3)
 	local unitDirection = direction.Unit
 	state.lastFireTime = now
 	state.ammo -= 1
+	for _, handler in firedHandlers do
+		handler(player)
+	end
 
 	-- the class's handheld damage scales every shot (M64), the skills' on top
 	local damageScale: number = ClassManager:getModifier(player, Enums.ClassModifier.HANDHELD_DAMAGE) * self:getSkillDamageScale(player)
@@ -307,6 +319,9 @@ function WeaponManager:fireSecondary(player: Player, origin: Vector3, direction:
 	end
 	state.secondaryReadyTime = now + secondary.COOLDOWN_SEC
 	self:replicate(player)
+	for _, handler in firedHandlers do
+		handler(player)
+	end
 	local damageScale: number = ClassManager:getModifier(player, Enums.ClassModifier.HANDHELD_DAMAGE) * self:getSkillDamageScale(player)
 	local damage = secondary.DAMAGE * damageScale
 	local weaponKind = state.weaponKind

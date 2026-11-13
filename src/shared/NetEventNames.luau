@@ -49,6 +49,13 @@ module = {
 	-- Enums.DailyRewardKind: what actually landed), for the sound and line
 	TRY_CLAIM_DAILY_REWARD = "TryClaimDailyReward",
 	NOTIFY_DAILY_REWARD_CLAIMED = "NotifyDailyRewardClaimed",
+	-- badges (M69, the common BadgeManager): to the player who just earned
+	-- one ({ badgeKind }), for the toast; and the claim of an earned
+	-- badge's Diamonds from the lobby's Badges menu ({ badgeKind }),
+	-- answered with what was paid ({ badgeKind, diamonds })
+	NOTIFY_BADGE_EARNED = "NotifyBadgeEarned",
+	TRY_CLAIM_BADGE_REWARD = "TryClaimBadgeReward",
+	NOTIFY_BADGE_REWARD_CLAIMED = "NotifyBadgeRewardClaimed",
 	-- the Starter Pack (M79, StarterPackManager in the lobby): ask for
 	-- the game pass's purchase prompt ({}); to the buyer once the
 	-- contents are paid ({ diamonds, keys }, keys from duplicates), for

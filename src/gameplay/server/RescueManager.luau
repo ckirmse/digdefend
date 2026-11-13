@@ -56,6 +56,9 @@ local RunPauseManager = require(script.Parent.RunPauseManager)
 local RescueManager = {}
 RescueManager.__index = RescueManager
 
+-- subscribeRescued's listeners
+local rescuedHandlers: { (player: Player) -> () } = {}
+
 export type RescueManager = typeof(setmetatable(
 	{} :: {
 		radioPrompt: ProximityPrompt?,
@@ -426,6 +429,12 @@ function RescueManager:liftOff()
 	HelicopterManager:retire(helicopter, RescueData.DEPARTED_HELICOPTER_LIFETIME_SEC)
 end
 
+-- told once per player aboard as the helicopter leaves with them (the
+-- badge tracker, M69)
+function RescueManager:subscribeRescued(handler: (player: Player) -> ())
+	table.insert(rescuedHandlers, handler)
+end
+
 -- everyone aboard wins and the run is over
 function RescueManager:depart()
 	local aboardNames = {}
@@ -433,6 +442,9 @@ function RescueManager:depart()
 		table.insert(aboardNames, player.DisplayName)
 		self:recordCompletion(player)
 		DiamondTapManager:payRescue(player)
+		for _, handler in rescuedHandlers do
+			handler(player)
+		end
 	end
 	table.sort(aboardNames)
 	-- the sky turns back to a sunset as it leaves (designer, 2026-10-27)

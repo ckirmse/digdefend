@@ -30,6 +30,7 @@ local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local StarterPackRules = require("@game/ReplicatedStorage/Shared/StarterPackRules")
 local GachaManager = require(script.Parent.GachaManager)
+local BadgeManager = require(script.Parent.Parent.Server.BadgeManager)
 local DevTools = require(script.Parent.Parent.Server.DevTools)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
@@ -149,6 +150,8 @@ function StarterPackManager:grantIfNeeded(player: Player): boolean
 	SplendidReplicationManager:replicateClasses(player)
 	SplendidReplicationManager:replicateStarterPack(player)
 	playerData:saveNow()
+	-- the class card may be the one Class Act or Collector needed (M69)
+	BadgeManager:checkClassBadges(player)
 	NetManager:notifyClient(
 		player,
 		NetEventNames.NOTIFY_STARTER_PACK_GRANTED,

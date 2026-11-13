@@ -40,6 +40,9 @@ local ReviveManager = require(script.Parent.ReviveManager)
 local ChaseManager = {}
 ChaseManager.__index = ChaseManager
 
+-- subscribeEscaped's listeners
+local escapedHandlers: { (player: Player) -> () } = {}
+
 type Cell = ChaseRules.Cell
 
 type ChasePocket = {
@@ -405,6 +408,12 @@ function ChaseManager:followPath(monster: MonsterManager.Monster, chase: Chase, 
 	return true
 end
 
+-- told when a Chase gives up because its victim got out of the mine
+-- alive (the badge tracker's Escape the Ghost Miner, M69)
+function ChaseManager:subscribeEscaped(handler: (player: Player) -> ())
+	table.insert(escapedHandlers, handler)
+end
+
 function ChaseManager:stepChase(monster: MonsterManager.Monster, now: number, deltaSec: number)
 	local chase = self.chaseById[monster.id]
 	if not chase then
@@ -440,6 +449,13 @@ function ChaseManager:stepChase(monster: MonsterManager.Monster, now: number, de
 	-- rather than hanging at the mouth (designer, 2026-10-26)
 	if not self:isInsideMine(root.Position) then
 		self:retire(monster, chase, false)
+		-- only a chase that had begun: one still hanging at its wake has
+		-- not been escaped
+		if now >= chase.chaseStartTime then
+			for _, handler in escapedHandlers do
+				handler(victim)
+			end
+		end
 		return
 	end
 	local grid = MineManager:getGrid()

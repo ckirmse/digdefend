@@ -11,6 +11,7 @@ local ClassSchema = require("@game/ReplicatedStorage/Shared/ClassSchema")
 local CosmeticLoadoutSchema = require("@game/ReplicatedStorage/Shared/CosmeticLoadoutSchema")
 local DailyStoreRules = require("@game/ReplicatedStorage/Shared/DailyStoreRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local BadgeRules = require("@game/ReplicatedStorage/Shared/BadgeRules")
 local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
 local SkillEffectRules = require("@game/ReplicatedStorage/Shared/SkillEffectRules")
 
@@ -169,6 +170,15 @@ end
 -- the Starter Pack (M79): its contents have been paid to this account
 function ClientDataManager:hasClaimedStarterPack(): boolean
 	return self:getCurrentPlayerAttribute(Attributes.HAS_CLAIMED_STARTER_PACK) == true
+end
+
+-- badges (M69): the ones earned, and the ones whose reward is claimed
+function ClientDataManager:getBadges(): BadgeRules.KindSet
+	return BadgeRules.decodeKinds(self:getCurrentPlayerAttribute(Attributes.BADGES))
+end
+
+function ClientDataManager:getClaimedBadges(): BadgeRules.KindSet
+	return BadgeRules.decodeKinds(self:getCurrentPlayerAttribute(Attributes.BADGES_CLAIMED))
 end
 
 function ClientDataManager:getOwnedCosmetics(): GachaRules.OwnedCosmetics

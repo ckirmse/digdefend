@@ -32,6 +32,8 @@ export type PostWeaponSfx = {
 local sfx = {
 	COINS_ADDED = "CoinsAdded",
 	SALE_SUCCESS = "SaleSuccess",
+	-- a badge earned (M69), in both places
+	BADGE_EARNED = "BadgeEarned",
 	ROCK_HIT = "RockHit",
 	RESOURCE_HIT = "ResourceHit",
 	ROCK_BREAK = "RockBreak",
@@ -361,6 +363,7 @@ local music = {
 local lobbySfxNames: { string } = {
 	sfx.COINS_ADDED,
 	sfx.SALE_SUCCESS,
+	sfx.BADGE_EARNED,
 	sfx.HELICOPTER,
 	sfx.HELICOPTER_LIFTOFF,
 	sfx.BUTTON_CLICK,

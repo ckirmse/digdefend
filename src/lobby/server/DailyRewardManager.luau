@@ -19,6 +19,8 @@ local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local DailyRewardRules = require("@game/ReplicatedStorage/Shared/DailyRewardRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
+local BadgesData = require("@game/ServerScriptService/GameData/Run/Badges")
+local BadgeManager = require(script.Parent.Parent.Server.BadgeManager)
 local DevTools = require(script.Parent.Parent.Server.DevTools)
 local GameController = require(script.Parent.Parent.Server.GameController)
 local NetManager = require(script.Parent.Parent.Server.NetManager)
@@ -102,6 +104,11 @@ function DailyRewardManager:claim(player: Player, tileIndex: number)
 	result.tileIndex = tileIndex
 	NetManager:notifyClient(player, NetEventNames.NOTIFY_DAILY_REWARD_CLAIMED, result)
 	print(`[DailyRewardManager] {player.Name} claimed day {claimed.lastClaimedDay} (tile {tileIndex})`)
+	-- Lucky 7 (M69): the seventh day claimed, or any after it for an
+	-- account that was past it before badges existed
+	if claimed.lastClaimedDay >= BadgesData.RULES.LUCKY_7_DAY then
+		BadgeManager:award(player, Enums.BadgeKind.LUCKY_7)
+	end
 end
 
 function DailyRewardManager:registerDevCommands()

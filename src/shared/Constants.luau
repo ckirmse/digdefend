@@ -986,6 +986,31 @@ Constants.HUD_STARTER_PACK_BUTTON = "StarterPackButton"
 Constants.HUD_LEFT_BUTTONS = "LeftButtons"
 Constants.HUD_DAILY_REWARDS_BUTTON = "DailyRewardsButton"
 Constants.HUD_BUTTON_ALERT = "Alert"
+-- the Badges menu (M69, scripts/studio/build_badges_gui.luau): the grid
+-- of badge tiles on the left, cloned from one template (picture, stars,
+-- the CLAIM! banner, the claimed check), the info panel on the right
+-- (title, picture, stars, description, and the claim button or the
+-- reward line in one spot), and the HUD button in the left stack
+Constants.BADGES_GUI_NAME = "Badges"
+Constants.BADGES_BACK_BUTTON = "BackButton"
+Constants.BADGES_LIST = "BadgeList"
+Constants.BADGES_TILE_TEMPLATE = "BadgeTemplate"
+Constants.BADGES_TILE_ICON = "Icon"
+Constants.BADGES_TILE_CLAIM_BANNER = "ClaimBanner"
+Constants.BADGES_TILE_CHECK = "Check"
+Constants.BADGES_TILE_SELECTED = "Selected"
+Constants.BADGES_STARS = "Stars"
+Constants.BADGES_STAR_FORMAT = "Star%d"
+Constants.BADGES_INFO_PANEL = "InfoPanel"
+Constants.BADGES_INFO_TITLE = "Title"
+Constants.BADGES_INFO_ICON = "Icon"
+Constants.BADGES_INFO_DESCRIPTION = "Description"
+Constants.BADGES_INFO_CLAIM_BUTTON = "ClaimButton"
+Constants.BADGES_INFO_CLAIM_AMOUNT_LABEL = "RewardAmount"
+Constants.BADGES_INFO_REWARD_TEXT = "RewardText"
+Constants.BADGES_INFO_REWARD_LABEL = "Label"
+Constants.BADGES_INFO_REWARD_ICON = "DiamondIcon"
+Constants.HUD_BADGES_BUTTON = "BadgesButton"
 -- the designer's KEY STORE plate under OPEN CRATE (2026-11-06): closes the crate menu and opens the Key Store
 Constants.GACHA_KEY_STORE_BUTTON = "KeyStoreButton"
 Constants.GACHA_TAP_HINT = "TapHint"

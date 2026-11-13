@@ -31,6 +31,9 @@ local SplendidReplicationManager = require(script.Parent.Parent.Server.SplendidR
 local ToolManager = {}
 ToolManager.__index = ToolManager
 
+-- subscribePickAxeLevelChanged's listeners
+local pickAxeLevelHandlers: { (player: Player, level: number) -> () } = {}
+
 type ToolState = {
 	slots: { number },
 	equipped: number,
@@ -97,6 +100,12 @@ function ToolManager:getToolCount(player: Player, tool: number): number
 	return if state then state.countByTool[tool] or 0 else 0
 end
 
+-- told when a player's pick axe level is set (the badge tracker's Holy
+-- Pick Axe, M69)
+function ToolManager:subscribePickAxeLevelChanged(handler: (player: Player, level: number) -> ())
+	table.insert(pickAxeLevelHandlers, handler)
+end
+
 -- the store raised the level; the pick axe model every client shows follows
 -- the public attribute
 function ToolManager:setPickAxeLevel(player: Player, level: number)
@@ -107,6 +116,9 @@ function ToolManager:setPickAxeLevel(player: Player, level: number)
 	end
 	state.pickAxeLevel = level
 	self:replicate(player)
+	for _, handler in pickAxeLevelHandlers do
+		handler(player, level)
+	end
 end
 
 function ToolManager:getWeaponKind(player: Player): number

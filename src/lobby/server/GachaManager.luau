@@ -26,6 +26,7 @@ local Enums = require("@game/ReplicatedStorage/Shared/Enums")
 local GachaRules = require("@game/ReplicatedStorage/Shared/GachaRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
+local BadgeManager = require(script.Parent.Parent.Server.BadgeManager)
 local ClassManager = require(script.Parent.Parent.Server.ClassManager)
 local DevTools = require(script.Parent.Parent.Server.DevTools)
 local GameController = require(script.Parent.Parent.Server.GameController)
@@ -201,6 +202,8 @@ function GachaManager:grant(player: Player, playerData: PlayerData.PlayerData, r
 	SplendidReplicationManager:replicateGacha(player)
 	if result.kind == Enums.GachaResultKind.CLASS or result.kind == Enums.GachaResultKind.SKILL_SLOT then
 		SplendidReplicationManager:replicateClasses(player)
+		-- a class or a tier may be the one Class Act or Collector needed (M69)
+		BadgeManager:checkClassBadges(player)
 	end
 	playerData:saveNow()
 	NetManager:notifyClient(

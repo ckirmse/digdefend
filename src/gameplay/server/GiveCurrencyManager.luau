@@ -26,6 +26,9 @@ local ReviveManager = require(script.Parent.ReviveManager)
 local GiveCurrencyManager = {}
 GiveCurrencyManager.__index = GiveCurrencyManager
 
+-- subscribeGiven's listeners
+local givenHandlers: { (sender: Player) -> () } = {}
+
 export type GiveCurrencyManager = typeof(setmetatable({} :: {}, GiveCurrencyManager))
 
 -- a user id is any whole number: Studio's local test players have
@@ -41,6 +44,12 @@ local REJECTION_FEEDBACK: { [string]: string } = {
 	[GiveCurrencyRules.REJECT_NOTHING] = GiveCurrencyData.NOTHING_FEEDBACK,
 	[GiveCurrencyRules.REJECT_BALANCE] = GiveCurrencyData.BALANCE_FEEDBACK,
 }
+
+-- told when a player has given Gold or Iron to a crewmate (the badge
+-- tracker's Team Player, M69)
+function GiveCurrencyManager:subscribeGiven(handler: (sender: Player) -> ())
+	table.insert(givenHandlers, handler)
+end
 
 function GiveCurrencyManager:handleTryGiveCurrency(sender: Player, payload: { [string]: any })
 	local target = Players:GetPlayerByUserId(payload.targetUserId)
@@ -67,6 +76,9 @@ function GiveCurrencyManager:handleTryGiveCurrency(sender: Player, payload: { [s
 		Enums.getPublicName(Enums.RefinedResource, Enums.RefinedResource.IRON_BAR) or "Iron Bar"
 	)
 	print(`[GiveCurrencyManager] {sender.Name} sent {amounts} to {target.Name}`)
+	for _, handler in givenHandlers do
+		handler(sender)
+	end
 	-- everyone sees the bars fly from one player to the other
 	NetManager:notifyAllClients(NetEventNames.NOTIFY_CURRENCY_GIVEN, {
 		senderUserId = sender.UserId,

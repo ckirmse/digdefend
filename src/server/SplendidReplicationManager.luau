@@ -79,6 +79,8 @@ local function snapshot(player: Player, playerData: any): PlayerPublicSchema.Sna
 		hasFinishedIronTutorial = playerData:getHasFinishedTutorialPart(Enums.TutorialPart.IRON),
 		hasFinishedUraniumTutorial = playerData:getHasFinishedTutorialPart(Enums.TutorialPart.URANIUM),
 		hasFinishedSupplyCrateTutorial = playerData:getHasFinishedTutorialPart(Enums.TutorialPart.SUPPLY_CRATE),
+		badges = playerData:getBadges(),
+		badgesClaimed = playerData:getClaimedBadges(),
 	}
 end
 
@@ -317,6 +319,17 @@ function SplendidReplicationManager:replicateGroupReward(player: Player)
 		return
 	end
 	currentPlayer:SetAttribute(Attributes.HAS_CLAIMED_GROUP_REWARD, playerData:getHasClaimedGroupReward())
+end
+
+-- the badges earned and claimed (M69); the common BadgeManager calls this
+-- after changing either set
+function SplendidReplicationManager:replicateBadges(player: Player)
+	local playerData = gameController:getPlayerData(player)
+	local currentPlayer = self:getCurrentPlayerFolder(player)
+	if not playerData or not currentPlayer then
+		return
+	end
+	writeAttributes(currentPlayer, PlayerPublicSchema.buildBadgeAttributes(snapshot(player, playerData)))
 end
 
 -- the Starter Pack's paid flag (M79); the lobby StarterPackManager calls

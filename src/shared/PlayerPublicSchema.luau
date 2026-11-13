@@ -5,6 +5,7 @@
 -- and the private CurrentPlayer folder only that player sees. Pure so the
 -- public/private split is unit tested.
 local Attributes = require(script.Parent.Attributes)
+local BadgeRules = require(script.Parent.BadgeRules)
 local ClassSchema = require(script.Parent.ClassSchema)
 local CosmeticLoadoutSchema = require(script.Parent.CosmeticLoadoutSchema)
 local DailyStoreRules = require(script.Parent.DailyStoreRules)
@@ -41,6 +42,9 @@ export type Snapshot = {
 	hasFinishedIronTutorial: boolean?,
 	hasFinishedUraniumTutorial: boolean?,
 	hasFinishedSupplyCrateTutorial: boolean?,
+	-- the save's badge sets (M69), enum key name -> true
+	badges: { [string]: boolean }?,
+	badgesClaimed: { [string]: boolean }?,
 }
 
 type AttributeMap = { [string]: any }
@@ -86,6 +90,15 @@ function PlayerPublicSchema.buildGachaAttributes(snapshot: Snapshot): AttributeM
 	}
 end
 
+-- the badges earned and the ones whose reward is claimed (M69), each a
+-- JSON list of enum values (BadgeRules codec), private to the player
+function PlayerPublicSchema.buildBadgeAttributes(snapshot: Snapshot): AttributeMap
+	return {
+		[Attributes.BADGES] = BadgeRules.encodeKinds(snapshot.badges or {}),
+		[Attributes.BADGES_CLAIMED] = BadgeRules.encodeKinds(snapshot.badgesClaimed or {}),
+	}
+end
+
 -- private per-player state (CurrentPlayer attributes); marker-folder sets
 -- (completions) are children, not attributes
 function PlayerPublicSchema.buildCurrentPlayerAttributes(snapshot: Snapshot): AttributeMap
@@ -103,6 +116,9 @@ function PlayerPublicSchema.buildCurrentPlayerAttributes(snapshot: Snapshot): At
 		[Attributes.DAILY_REWARD_NEXT_CLAIM_TIME] = snapshot.dailyRewardNextClaimTime or 0,
 	}
 	for name, value in PlayerPublicSchema.buildGachaAttributes(snapshot) do
+		attributes[name] = value
+	end
+	for name, value in PlayerPublicSchema.buildBadgeAttributes(snapshot) do
 		attributes[name] = value
 	end
 	for name, value in PlayerPublicSchema.buildClassAttributes(snapshot.classRecords, snapshot.activeClassKind, snapshot.maxSkillSlots) do

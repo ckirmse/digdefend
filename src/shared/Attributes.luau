@@ -288,6 +288,13 @@ module = {
 	DAILY_REWARD_CATALOGUE = "DailyRewardCatalogue",
 	DAILY_REWARD_LAST_CLAIMED_DAY = "DailyRewardLastClaimedDay",
 	DAILY_REWARD_NEXT_CLAIM_TIME = "DailyRewardNextClaimTime",
+	-- badges (M69). GameMetadata: every badge as JSON (BadgeRules
+	-- codec), for the lobby's Badges menu. CurrentPlayer: the badges
+	-- earned and the ones whose reward is claimed, each a JSON list of
+	-- Enums.BadgeKind values, written by replicateBadges
+	BADGE_CATALOGUE = "BadgeCatalogue",
+	BADGES = "Badges",
+	BADGES_CLAIMED = "BadgesClaimed",
 	-- on each structure shadow part (StructureManager, M23): what it is and
 	-- its health
 	STRUCTURE_ID = "StructureId",

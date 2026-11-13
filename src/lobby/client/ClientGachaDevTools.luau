@@ -44,6 +44,7 @@ local RESET_CRATE_TUTORIAL_COMMAND = "resetCrateTutorial"
 local RESET_FREE_REROLLS_COMMAND = "resetFreeRerolls"
 local RESET_STORE_PURCHASES_COMMAND = "resetStorePurchases"
 local RESET_GROUP_REWARD_COMMAND = "resetGroupReward"
+local CLEAR_BADGES_COMMAND = "clearBadges"
 local ADVANCE_DAILY_REWARD_COMMAND = "advanceDailyReward"
 local GRANT_STARTER_PACK_COMMAND = "grantStarterPack"
 local RESET_STARTER_PACK_COMMAND = "resetStarterPack"
@@ -141,6 +142,9 @@ function ClientGachaDevTools:renderSection()
 	end
 	if Iris.Button({ "Starter Pack: reset" }).clicked() then
 		sendDevTool(RESET_STARTER_PACK_COMMAND, {})
+	end
+	if Iris.Button({ "Badges: clear all (the save only)" }).clicked() then
+		sendDevTool(CLEAR_BADGES_COMMAND, {})
 	end
 	if Iris.Button({ "Reset the group reward" }).clicked() then
 		sendDevTool(RESET_GROUP_REWARD_COMMAND, {})

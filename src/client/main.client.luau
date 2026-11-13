@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local ClientBadgeManager = require(script.Parent.ClientBadgeManager)
 local ClientDataManager = require(script.Parent.ClientDataManager)
 local ClientDevTools = require(script.Parent.ClientDevTools)
 local ClientPerformanceDevTools = require(script.Parent.ClientPerformanceDevTools)
@@ -49,6 +50,8 @@ ClientOverlayManager:setDeferOverlays(true)
 ClientSoundManager:init()
 ClientNetManager:init()
 ClientPlayerFeedbackManager:init()
+-- the badge toast (M69), in the feedback box
+ClientBadgeManager:init()
 ClientHelicopterManager:init()
 
 if ClientDataManager:getIsAdmin() then

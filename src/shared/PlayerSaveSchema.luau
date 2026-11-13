@@ -82,6 +82,15 @@ export type SaveData = {
 	-- StarterPackManager with the payout. The game pass says the account
 	-- owns the pack; this says the items were handed over
 	hasClaimedStarterPack: boolean,
+	-- the badges earned (M69): Enums.BadgeKind key name -> true. The
+	-- common BadgeManager is the one writer
+	badges: { [string]: boolean },
+	-- the earned badges whose Diamonds have been claimed in the lobby's
+	-- Badges menu, by the same key
+	badgesClaimed: { [string]: boolean },
+	-- the lifetime numbers the counter badges are judged by:
+	-- Enums.BadgeCounter key name -> count
+	badgeCounters: { [string]: number },
 }
 
 export type Defaults = {
@@ -159,6 +168,9 @@ function PlayerSaveSchema.getDefault(defaults: Defaults): SaveData
 		storePurchases = DailyStoreRules.getDefaultPurchases(),
 		hasClaimedGroupReward = false,
 		hasClaimedStarterPack = false,
+		badges = {},
+		badgesClaimed = {},
+		badgeCounters = {},
 	}
 end
 
@@ -254,6 +266,43 @@ local function validateCompletions(data: any, repairs: { Repair })
 		if not CompletionKeys.isValid(key) or value ~= true then
 			data.completions[key] = nil
 			table.insert(repairs, "completions dropped entry " .. tostring(key))
+		end
+	end
+end
+
+-- the badge set and the counters: an entry whose key is not a current
+-- enum name, or whose value is not what the field holds, is dropped
+local function validateBadges(data: any, repairs: { Repair })
+	if typeof(data.badges) ~= "table" then
+		data.badges = {}
+		table.insert(repairs, "badges reset")
+	end
+	for key, value in data.badges do
+		if typeof(key) ~= "string" or Enums.getValueByName(Enums.BadgeKind, key) == nil or value ~= true then
+			data.badges[key] = nil
+			table.insert(repairs, "badges dropped entry " .. tostring(key))
+		end
+	end
+	if typeof(data.badgesClaimed) ~= "table" then
+		data.badgesClaimed = {}
+		table.insert(repairs, "badgesClaimed reset")
+	end
+	for key, value in data.badgesClaimed do
+		-- a reward is only ever paid for an earned badge
+		if typeof(key) ~= "string" or data.badges[key] ~= true or value ~= true then
+			data.badgesClaimed[key] = nil
+			table.insert(repairs, "badgesClaimed dropped entry " .. tostring(key))
+		end
+	end
+	if typeof(data.badgeCounters) ~= "table" then
+		data.badgeCounters = {}
+		table.insert(repairs, "badgeCounters reset")
+	end
+	for key, value in data.badgeCounters do
+		local isCount = typeof(value) == "number" and value >= 0 and value == math.floor(value)
+		if typeof(key) ~= "string" or Enums.getValueByName(Enums.BadgeCounter, key) == nil or not isCount then
+			data.badgeCounters[key] = nil
+			table.insert(repairs, "badgeCounters dropped entry " .. tostring(key))
 		end
 	end
 end
@@ -485,6 +534,7 @@ function PlayerSaveSchema.validate(data: any, defaults: Defaults): (SaveData, { 
 		data.hasClaimedStarterPack = false
 		table.insert(repairs, "hasClaimedStarterPack reset")
 	end
+	validateBadges(data, repairs)
 	-- after the progress: the active class must be an owned one
 	validateActiveClassKind(data, defaults, repairs)
 

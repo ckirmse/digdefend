@@ -49,6 +49,9 @@ export type PlayerData = typeof(setmetatable(
 		storePurchases: DailyStoreRules.Purchases,
 		hasClaimedGroupReward: boolean,
 		hasClaimedStarterPack: boolean,
+		badges: { [string]: boolean },
+		badgesClaimed: { [string]: boolean },
+		badgeCounters: { [string]: number },
 	},
 	PlayerData
 ))
@@ -75,6 +78,9 @@ local SAVE_FIELDS = {
 	"storePurchases",
 	"hasClaimedGroupReward",
 	"hasClaimedStarterPack",
+	"badges",
+	"badgesClaimed",
+	"badgeCounters",
 }
 
 -- the save field behind each part of the tutorial
@@ -376,6 +382,65 @@ end
 
 function PlayerData:setHasClaimedGroupReward(hasClaimed: boolean)
 	self.hasClaimedGroupReward = hasClaimed
+end
+
+-- badges (M69); the common BadgeManager is the one writer. Both are
+-- keyed by the enum's key name, so a save reads the same after an enum
+-- is renumbered
+function PlayerData:hasBadge(badgeKind: number): boolean
+	local name = Enums.getName(Enums.BadgeKind, badgeKind)
+	return name ~= nil and self.badges[name] == true
+end
+
+function PlayerData:addBadge(badgeKind: number)
+	local name = Enums.getName(Enums.BadgeKind, badgeKind)
+	if name then
+		self.badges[name] = true
+	end
+end
+
+function PlayerData:getBadges(): { [string]: boolean }
+	return self.badges
+end
+
+-- the badge's Diamonds have been claimed
+function PlayerData:hasClaimedBadge(badgeKind: number): boolean
+	local name = Enums.getName(Enums.BadgeKind, badgeKind)
+	return name ~= nil and self.badgesClaimed[name] == true
+end
+
+function PlayerData:addClaimedBadge(badgeKind: number)
+	local name = Enums.getName(Enums.BadgeKind, badgeKind)
+	if name then
+		self.badgesClaimed[name] = true
+	end
+end
+
+function PlayerData:getClaimedBadges(): { [string]: boolean }
+	return self.badgesClaimed
+end
+
+function PlayerData:getBadgeCounter(counter: number): number
+	local name = Enums.getName(Enums.BadgeCounter, counter)
+	return if name then self.badgeCounters[name] or 0 else 0
+end
+
+-- the counter's new value
+function PlayerData:addBadgeCounter(counter: number, amount: number): number
+	local name = Enums.getName(Enums.BadgeCounter, counter)
+	if not name then
+		return 0
+	end
+	local value = (self.badgeCounters[name] or 0) + math.max(0, math.floor(amount))
+	self.badgeCounters[name] = value
+	return value
+end
+
+-- every badge and counter forgotten, for the dev tool
+function PlayerData:resetBadges()
+	self.badges = {}
+	self.badgesClaimed = {}
+	self.badgeCounters = {}
 end
 
 -- the Starter Pack's payout (M79); the lobby StarterPackManager is the

@@ -45,6 +45,9 @@ local function makeValidSave()
 		storePurchases = { day = 20000, classIds = { "GUNNER" } },
 		hasClaimedGroupReward = true,
 		hasClaimedStarterPack = true,
+		badges = { WELCOME = true, RESCUED = true },
+		badgesClaimed = { WELCOME = true },
+		badgeCounters = { BLOCKS_BROKEN = 120, RESCUES = 2 },
 	}
 end
 
@@ -280,7 +283,10 @@ describe(
 				expect(validated.storePurchases).toEqual({ day = 0, classIds = {} })
 				expect(validated.hasClaimedGroupReward).toBe(false)
 				expect(validated.hasClaimedStarterPack).toBe(false)
-				expect(#repairs).toBe(18)
+				expect(validated.badges).toEqual({})
+				expect(validated.badgesClaimed).toEqual({})
+				expect(validated.badgeCounters).toEqual({})
+				expect(#repairs).toBe(21)
 			end
 		)
 		it(

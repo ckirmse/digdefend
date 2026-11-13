@@ -67,6 +67,9 @@ local WeaponManager = require(script.Parent.WeaponManager)
 local PostManager = {}
 PostManager.__index = PostManager
 
+-- subscribeFired's listeners
+local firedHandlers: { (player: Player) -> () } = {}
+
 -- MonsterManager requires ReviveManager, which requires this module
 local monsterManager: any -- prevent circular reference by not initializing here
 
@@ -1303,6 +1306,12 @@ function PostManager:tryBeginShot(post: Post, data: PostRules.KindData, stats: P
 	return true, chargeProgress
 end
 
+-- told each time a player fires the post they man (the badge tracker's
+-- Architect, M69)
+function PostManager:subscribeFired(handler: (player: Player) -> ())
+	table.insert(firedHandlers, handler)
+end
+
 function PostManager:fire(player: Player, origin: Vector3, direction: Vector3, aimPosition: Vector3?)
 	local post = self:getMannedPost(player)
 	local stats = if post then self:getStats(post) else nil
@@ -1340,6 +1349,9 @@ function PostManager:fire(player: Player, origin: Vector3, direction: Vector3, a
 			partStats.pierceCount = PostRules.chargePierceCount(chargeProgress, pierceCount)
 		end
 		stats = partStats
+	end
+	for _, handler in firedHandlers do
+		handler(player)
 	end
 	self:fireShot(post, player, origin, direction.Unit, stats, data, aimPosition, chargeProgress)
 end
