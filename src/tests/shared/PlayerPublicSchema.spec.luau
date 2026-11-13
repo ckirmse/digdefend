@@ -47,13 +47,14 @@ describe(
 	"PlayerPublicSchema.buildPublicAttributes",
 	function()
 		it(
-			"exposes only identity and readiness",
+			"exposes only identity, readiness, and the class in play",
 			function()
 				local attributes = PlayerPublicSchema.buildPublicAttributes(makeSnapshot())
 				expect(attributes).toEqual({
 					[Attributes.USER_ID] = 123,
 					[Attributes.DISPLAY_NAME] = "Ada",
 					[Attributes.IS_READY] = true,
+					[Attributes.ACTIVE_CLASS_KIND] = Enums.ClassKind.GUNNER,
 				})
 			end
 		)

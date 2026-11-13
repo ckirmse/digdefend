@@ -279,6 +279,22 @@ function ClientPostUpgradeManager:requestUpgrade(attribute: number)
 	ClientNetManager:fireServer(NetEventNames.TRY_UPGRADE_POST, { attribute = attribute })
 end
 
+-- a display is only to look at: every part is anchored and out of the
+-- physics. A post weapon's template keeps some parts unanchored (the pieces
+-- that turn and recoil on a real post are held by joints), and on the table
+-- those dropped off the model whenever a joint did not survive the copy and
+-- the rescale (2026-11-13)
+local function freezeDisplay(model: Model)
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = true
+			descendant.CanCollide = false
+			descendant.CanQuery = false
+			descendant.CanTouch = false
+		end
+	end
+end
+
 function ClientPostUpgradeManager:findTemplate(folderName: string, templateName: string): Model?
 	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
 	local folder = if gameAssets then gameAssets:FindFirstChild(folderName) else nil
@@ -317,6 +333,7 @@ function ClientPostUpgradeManager:renderDisplay()
 	-- ScaleTo is absolute, and a template may already carry a scale of its own
 	post:ScaleTo(post:GetScale() * self.displayScale)
 	post:PivotTo(pivot)
+	freezeDisplay(post)
 	post.Parent = parent
 	self.displayPost = post
 
@@ -337,6 +354,7 @@ function ClientPostUpgradeManager:renderDisplay()
 	end
 	weapon:ScaleTo(weapon:GetScale() * self.displayScale)
 	weapon:PivotTo(spawn.CFrame)
+	freezeDisplay(weapon)
 	spawn.Transparency = 1
 	weapon.Parent = parent
 	self.displayWeapon = weapon

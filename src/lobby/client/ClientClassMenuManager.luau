@@ -145,9 +145,10 @@ export type ClientClassMenuManager = typeof(setmetatable(
 
 local KIT_SLOTS: { KitSlot } = {
 	{ key = "post", label = "Post Weapon", icons = Icons.POST_WEAPON, enum = Enums.PostWeaponKind },
-	{ key = "weapon", label = "Weapon", icons = Icons.WEAPON, enum = Enums.WeaponKind },
+	-- the rendered gun; the tool bar keeps the flat Icons.WEAPON art (2026-11-13)
+	{ key = "weapon", label = "Weapon", icons = Icons.WEAPON_KIND, enum = Enums.WeaponKind },
 	{ key = "tower", label = "Tower", icons = Icons.TOWER_KIND, enum = Enums.TowerKind },
-	{ key = "gadget", label = "Gadget", icons = Icons.GADGET, enum = Enums.GadgetKind, emptyKind = Enums.GadgetKind.NONE },
+	{ key = "gadget", label = "Gadget", icons = Icons.GADGET_KIND, enum = Enums.GadgetKind, emptyKind = Enums.GadgetKind.NONE },
 }
 
 local EMPTY_PERK_TEXT = "Empty slot"

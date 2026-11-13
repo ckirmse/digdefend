@@ -286,6 +286,8 @@ function SplendidReplicationManager:replicateClasses(player: Player)
 	end
 	local maxSkillSlots = PlayerData.getClassDefaults().maxSkillSlots
 	writeAttributes(currentPlayer, PlayerPublicSchema.buildClassAttributes(playerData:getClassRecords(), playerData:getActiveClassKind(), maxSkillSlots))
+	-- the class in play is public too (the icon beside an overhead name)
+	self:updateAllPlayersEntry(player)
 end
 
 -- the account's cosmetic loadout on CurrentPlayer (2026-11-04);

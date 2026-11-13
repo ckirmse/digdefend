@@ -11,7 +11,7 @@
 -- lifts its own character straight up (it owns its character's physics) at
 -- the climb speed from GameMetadata. The fuel bar sits under the backpack
 -- button and is always shown (decided 2026-09-15). Every character wears
--- the pack model on its back with the flame lit while its flag is on.
+-- the pack model on its back with its exhaust effects on while its flag is on.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -34,12 +34,15 @@ ClientJetPackManager.__index = ClientJetPackManager
 
 type Worn = {
 	model: Model,
-	flame: BasePart?,
+	-- the exhaust: every effect and light under the pack's attachments
+	effects: { Instance },
+	level: number,
 }
 
 export type ClientJetPackManager = typeof(setmetatable(
 	{} :: {
 		isBurningByUserId: { [number]: boolean },
+		levelByUserId: { [number]: number },
 		wornByUserId: { [number]: Worn },
 		isRequestingBurn: boolean,
 		lastJumpPressTime: number,
@@ -60,9 +63,34 @@ local DOUBLE_TAP_SEC = 0.35
 local JUMP_BUTTON_WAIT_SEC = 10
 local DEFAULT_CLIMB_SPEED = 22
 local WORN_MODEL_NAME = Constants.WORN_JET_PACK_MODEL
+local BASE_LEVEL = 1
 
 local function isJumpInput(input: InputObject): boolean
 	return input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA
+end
+
+local function isExhaustEffect(instance: Instance): boolean
+	return instance:IsA("ParticleEmitter")
+		or instance:IsA("Light")
+		or instance:IsA("Beam")
+		or instance:IsA("Trail")
+		or instance:IsA("Fire")
+		or instance:IsA("Smoke")
+		or instance:IsA("Sparkles")
+end
+
+-- the artist hangs the exhaust (particles, smoke, a light) from attachments
+-- on the pack's mesh (2026-11-13; a neon Flame part before); anything
+-- under any attachment of the pack is switched with the burn, so a new
+-- effect needs no code
+local function findExhaustEffects(model: Model): { Instance }
+	local effects: { Instance } = {}
+	for _, descendant in model:GetDescendants() do
+		if isExhaustEffect(descendant) and descendant:FindFirstAncestorWhichIsA("Attachment") then
+			table.insert(effects, descendant)
+		end
+	end
+	return effects
 end
 
 function ClientJetPackManager:requestStart()
@@ -217,16 +245,20 @@ function ClientJetPackManager:readFuel()
 	self:renderBar()
 end
 
-function ClientJetPackManager:getTemplate(): Model?
+-- the pack of this level, else the base pack, so a level with no art yet
+-- still shows something
+function ClientJetPackManager:getTemplate(level: number): Model?
 	local gameAssets = ReplicatedStorage:FindFirstChild(Constants.GAME_ASSETS_FOLDER)
 	local wearables = if gameAssets then gameAssets:FindFirstChild(Constants.WEARABLE_TEMPLATES_FOLDER) else nil
-	local template = if wearables then wearables:FindFirstChild(Constants.JET_PACK_TEMPLATE) else nil
-	if template and template:IsA("Model") and template:FindFirstChild(Constants.TOOL_HANDLE_PART) then
-		return template
+	for _, candidateLevel in { level, BASE_LEVEL } do
+		local template = if wearables then wearables:FindFirstChild(Wearables.jetPackTemplateName(candidateLevel)) else nil
+		if template and template:IsA("Model") and template:FindFirstChild(Constants.TOOL_HANDLE_PART) then
+			return template
+		end
 	end
 	if not self.hasWarnedTemplate then
 		self.hasWarnedTemplate = true
-		warn(`ClientJetPackManager: no Model with a {Constants.TOOL_HANDLE_PART} at GameAssets.{Constants.WEARABLE_TEMPLATES_FOLDER}.{Constants.JET_PACK_TEMPLATE}; run scripts/studio/build_wearable_templates.luau`)
+		warn(`ClientJetPackManager: no Model with a {Constants.TOOL_HANDLE_PART} at GameAssets.{Constants.WEARABLE_TEMPLATES_FOLDER}.{Wearables.jetPackTemplateName(BASE_LEVEL)}; run scripts/studio/build_wearable_templates.luau`)
 	end
 	return nil
 end
@@ -240,7 +272,8 @@ function ClientJetPackManager:removeWorn(userId: number)
 end
 
 function ClientJetPackManager:wear(userId: number, character: Model)
-	local template = self:getTemplate()
+	local level = self.levelByUserId[userId] or BASE_LEVEL
+	local template = self:getTemplate(level)
 	if not template then
 		return
 	end
@@ -252,26 +285,23 @@ function ClientJetPackManager:wear(userId: number, character: Model)
 	if not model then
 		return
 	end
-	local flame = model:FindFirstChild(Constants.JET_PACK_FLAME_PART)
 	self.wornByUserId[userId] = {
 		model = model,
-		flame = if flame and flame:IsA("BasePart") then flame else nil,
+		effects = findExhaustEffects(model),
+		level = level,
 	}
-	self:renderFlame(userId)
+	self:renderExhaust(userId)
 end
 
-function ClientJetPackManager:renderFlame(userId: number)
+function ClientJetPackManager:renderExhaust(userId: number)
 	local worn = self.wornByUserId[userId]
-	local flame = if worn then worn.flame else nil
-	if flame then
-		local isBurning = self.isBurningByUserId[userId] == true
-		flame.Transparency = if isBurning then 0 else 1
-		-- the flame's light goes with it, or the pack glows all day
-		for _, light in flame:GetChildren() do
-			if light:IsA("Light") then
-				light.Enabled = isBurning
-			end
-		end
+	if not worn then
+		return
+	end
+	local isBurning = self.isBurningByUserId[userId] == true
+	for _, effect in worn.effects do
+		-- every class isExhaustEffect lets through has Enabled
+		(effect :: any).Enabled = isBurning
 	end
 end
 
@@ -279,14 +309,16 @@ function ClientJetPackManager:refresh(userId: number)
 	local player = Players:GetPlayerByUserId(userId)
 	local character = if player then player.Character else nil
 	local worn = self.wornByUserId[userId]
-	if worn and worn.model.Parent ~= character then
+	-- a new character, or an upgrade bought at the store: the old pack comes off
+	local level = self.levelByUserId[userId] or BASE_LEVEL
+	if worn and (worn.model.Parent ~= character or worn.level ~= level) then
 		self:removeWorn(userId)
 		worn = nil
 	end
 	if character and not worn then
 		self:wear(userId, character)
 	end
-	self:renderFlame(userId)
+	self:renderExhaust(userId)
 	if userId == Players.LocalPlayer.UserId then
 		self:setThrusting(self.isBurningByUserId[userId] == true)
 	end
@@ -373,14 +405,17 @@ function ClientJetPackManager:init()
 	ClientDataManager:subscribeAllPlayers({
 		onAdded = function(userId: number, data: ClientDataManager.PublicData)
 			self.isBurningByUserId[userId] = data.isJetPackBurning
+			self.levelByUserId[userId] = data.jetPackLevel
 			self:refresh(userId)
 		end,
 		onChanged = function(userId: number, data: ClientDataManager.PublicData)
 			self.isBurningByUserId[userId] = data.isJetPackBurning
+			self.levelByUserId[userId] = data.jetPackLevel
 			self:refresh(userId)
 		end,
 		onRemoved = function(userId: number)
 			self.isBurningByUserId[userId] = nil
+			self.levelByUserId[userId] = nil
 			self:removeWorn(userId)
 		end,
 	})
@@ -389,6 +424,7 @@ end
 function ClientJetPackManager.new(): ClientJetPackManager
 	local self = setmetatable({}, ClientJetPackManager) :: ClientJetPackManager
 	self.isBurningByUserId = {}
+	self.levelByUserId = {}
 	self.wornByUserId = {}
 	self.isRequestingBurn = false
 	self.lastJumpPressTime = 0

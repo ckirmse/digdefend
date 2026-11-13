@@ -72,6 +72,25 @@ Icons.GADGET = {
 -- to the mine's picture after the detonation
 Icons.GADGET_DETONATOR = "rbxassetid://110586066527047"
 
+-- the rendered gadgets (captured 2026-11-13 from the tool each gadget puts
+-- in the hand, GameAssets/Tools/GADGET_<KIND> and DYNAMITE; the Auto Turret,
+-- which is placed rather than held, from GameAssets/Gadgets/AUTO_TURRET).
+-- The Class Menu shows these; the tool bar keeps the flat art in GADGET
+-- above, as it does for weapons. The Binoculars are never held (they are
+-- the Sniper's post), so their picture is the designer's
+-- SM_Item_Binoculars_01 mesh, shot on its own
+Icons.GADGET_KIND = {
+	[Enums.GadgetKind.AUTO_TURRET] = "rbxassetid://76258520272828",
+	[Enums.GadgetKind.BINOCULARS] = "rbxassetid://74505434057692",
+	[Enums.GadgetKind.STIM_SHOT] = "rbxassetid://97840001157193",
+	[Enums.GadgetKind.REMOTE_CHARGE] = "rbxassetid://101065754918572",
+	[Enums.GadgetKind.FLARE] = "rbxassetid://98615152714364",
+	[Enums.GadgetKind.ORE_SCANNER] = "rbxassetid://109344395494328",
+	[Enums.GadgetKind.DYNAMITE] = "rbxassetid://135465844202828",
+}
+-- the Remote Charge's detonator, rendered the same day; nothing shows it yet
+Icons.GADGET_KIND_DETONATOR = "rbxassetid://75449417766211"
+
 -- the Binoculars' tag callout over a tagged monster (2026-10-19): the
 -- Sniper's reticle stands in until the Binoculars' own art lands
 Icons.TAG_RETICLE = "rbxassetid://75294207181536"
@@ -99,21 +118,44 @@ Icons.POST_WEAPON_SCOPE = {
 -- places. WEAPON_KIND is the rendered gun; WEAPON above stays the tool
 -- bar's own art
 Icons.TOWER_KIND = {
-	[Enums.TowerKind.SENTRY_GUN] = "rbxassetid://123552008549366",
-	[Enums.TowerKind.FLAMETHROWER] = "rbxassetid://138549055728375",
-	[Enums.TowerKind.AA_TURRET] = "rbxassetid://113913681124008",
-	[Enums.TowerKind.FROST_TOWER] = "rbxassetid://122186464277976",
-	[Enums.TowerKind.TESLA_COIL] = "rbxassetid://118033678404166",
-	[Enums.TowerKind.SNIPER_TOWER] = "rbxassetid://117170402065913",
+	-- recaptured 2026-11-13 from the artist's new tower models (the Drill
+	-- Rig for the first time), scripted three-quarter framing, gun to the right
+	[Enums.TowerKind.SENTRY_GUN] = "rbxassetid://109185566084174",
+	[Enums.TowerKind.FLAMETHROWER] = "rbxassetid://77144634327941",
+	[Enums.TowerKind.AA_TURRET] = "rbxassetid://99194874916530",
+	[Enums.TowerKind.FROST_TOWER] = "rbxassetid://139839969761722",
+	[Enums.TowerKind.TESLA_COIL] = "rbxassetid://128340781065326",
+	[Enums.TowerKind.SNIPER_TOWER] = "rbxassetid://103113712455359",
+	[Enums.TowerKind.DRILL_RIG] = "rbxassetid://71758892975670",
 }
 
+-- recaptured 2026-11-13, each post weapon on its base in the Tower icons'
+-- three-quarter view, gun to the right
 Icons.POST_WEAPON = {
-	[Enums.PostWeaponKind.MACHINE_GUN] = "rbxassetid://88160356446112",
-	[Enums.PostWeaponKind.ROCKET_LAUNCHER] = "rbxassetid://72633570515796",
+	[Enums.PostWeaponKind.MACHINE_GUN] = "rbxassetid://88749638902681",
+	[Enums.PostWeaponKind.ROCKET_LAUNCHER] = "rbxassetid://116216196981101",
+	[Enums.PostWeaponKind.MINI_GUN] = "rbxassetid://96702994524246",
+	[Enums.PostWeaponKind.RAIL_GUN] = "rbxassetid://100471916577837",
+	[Enums.PostWeaponKind.MORTAR] = "rbxassetid://133695519580460",
+	[Enums.PostWeaponKind.AA_LAUNCHER] = "rbxassetid://101061437072705",
+	[Enums.PostWeaponKind.MACHINE_GUN_AUTOMATED] = "rbxassetid://125810922874606",
+	[Enums.PostWeaponKind.MINE_LAYER] = "rbxassetid://84575483817920",
+	[Enums.PostWeaponKind.TESLA_ARC] = "rbxassetid://78234002219305",
+	[Enums.PostWeaponKind.DRILL_GUN] = "rbxassetid://79273868844772",
+	[Enums.PostWeaponKind.SAW_GUN] = "rbxassetid://110970707655532",
+	[Enums.PostWeaponKind.MAGNET_GUN] = "rbxassetid://111342638990235",
 }
 
+-- the rendered handheld weapons, recaptured 2026-11-13: seen from the
+-- side and tilted so the muzzle points to the upper right, which fills a
+-- square picture best (designer). The Class Menu shows these; the tool bar
+-- keeps the flat 2D art in WEAPON above (designer, 2026-11-13)
 Icons.WEAPON_KIND = {
-	[Enums.WeaponKind.RIFLE] = "rbxassetid://126641049266938",
+	[Enums.WeaponKind.RIFLE] = "rbxassetid://81867973171484",
+	[Enums.WeaponKind.PISTOL] = "rbxassetid://115672511240042",
+	[Enums.WeaponKind.SNIPER] = "rbxassetid://75374580741816",
+	[Enums.WeaponKind.FLAMETHROWER] = "rbxassetid://133472316134039",
+	[Enums.WeaponKind.ASSAULT_RIFLE] = "rbxassetid://115801832018497",
 }
 
 -- the designer's class pictures (2026-11-04): the gacha's 3D class card;
@@ -145,11 +187,12 @@ Icons.COSMETIC_SLOT = {
 
 -- the one skin each slot offers so far, the game's existing
 -- asset: renders of GameAssets/Tools/PICK_AXE_1 and
--- GameAssets/Wearables/JET_PACK captured on 2026-10-13 (placeholders
--- until the skin art lands; the type box keeps its white glyph above)
+-- GameAssets/Wearables/JET_PACK_1, recaptured 2026-11-13 from the artist's
+-- models (the grey placeholders' renders of 2026-10-13 before); the type
+-- box keeps its white glyph above
 Icons.COSMETIC_DEFAULT_SKIN = {
-	[Enums.CosmeticSlot.PICK_AXE] = "rbxassetid://140057314922013",
-	[Enums.CosmeticSlot.JET_PACK] = "rbxassetid://74237324800322",
+	[Enums.CosmeticSlot.PICK_AXE] = "rbxassetid://101565820881436",
+	[Enums.CosmeticSlot.JET_PACK] = "rbxassetid://140636993252022",
 }
 
 -- the Key Store's picture of each skin by catalogue id (M61, 2026-11-05):

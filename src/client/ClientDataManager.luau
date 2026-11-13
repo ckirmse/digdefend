@@ -25,11 +25,15 @@ export type PublicData = {
 	userId: number,
 	displayName: string,
 	isReady: boolean,
+	-- Enums.ClassKind in play, 0 before the server says
+	activeClassKind: number,
 	-- Enums.ToolKind, 0 when nothing is held
 	equippedTool: number,
 	-- run state every client may show (gameplay place)
 	pickAxeLevel: number,
 	isJetPackBurning: boolean,
+	-- the level of the pack worn on the back, 1 before the server says
+	jetPackLevel: number,
 	-- Enums.WeaponKind carried this run, 0 before it is handed out
 	weaponKind: number,
 	-- how far up (+) or down (-) the player is looking (AimManager)
@@ -84,7 +88,9 @@ local function readPublicData(folder: Instance): PublicData
 		isReady = folder:GetAttribute(Attributes.IS_READY) == true,
 		equippedTool = (folder:GetAttribute(Attributes.EQUIPPED_TOOL) :: number?) or 0,
 		pickAxeLevel = (folder:GetAttribute(Attributes.PICK_AXE_LEVEL) :: number?) or 1,
+		activeClassKind = (folder:GetAttribute(Attributes.ACTIVE_CLASS_KIND) :: number?) or 0,
 		isJetPackBurning = folder:GetAttribute(Attributes.IS_JET_PACK_BURNING) == true,
+		jetPackLevel = (folder:GetAttribute(Attributes.JET_PACK_LEVEL) :: number?) or 1,
 		weaponKind = (folder:GetAttribute(Attributes.WEAPON_KIND) :: number?) or 0,
 		aimPitchDegrees = (folder:GetAttribute(Attributes.AIM_PITCH_DEGREES) :: number?) or 0,
 		postIndex = (folder:GetAttribute(Attributes.POST_INDEX) :: number?) or 0,

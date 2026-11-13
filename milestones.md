@@ -49,6 +49,14 @@ Lobby environment, helicopter models and takeoff animation, 3D store showcases, 
 **M77 — Cosmetic skins: six Jet Packs and six Pick Axes** (added 2026-11-10, split from M61)
 The launch skin list and nothing else: six Jet Pack skins and six Pick Axe skins, replacing the two test placeholders (`TEST_PICK_AXE`, `TEST_JET_PACK`). Each is a template under `GameAssets/Cosmetics/<SLOT>/<TEMPLATE>` (`scripts/studio/build_cosmetic_templates.luau`), an entry in `GameData/Cosmetics/Catalogue` with its name, `RARITY`, and `PRICE_KEYS`, and an icon in `Icons.COSMETIC_SKIN`. The systems they plug into are built (M61): the Supply Crate pool, the Key Store, the Gear Locker, and the restricted player's rotating store all read the catalogue, so a new entry appears in each with no code change. Needs the twelve names and rarities decided, the art, and a check that each reads on the worn jet pack and the held pick axe in first and third person. With twelve skins the rotating store's cosmetic shelf starts rotating (it shows both placeholders at every refresh today).
 
+### Polish list (started 2026-11-13)
+
+Small items with no milestone of their own, done between milestones. Tick one off when it is built and checked in Play.
+
+- [ ] Build Mode placement UX fixes (footprint + coloration)
+- [ ] Gunner Auto Turret rename
+- [ ] Repair tutorial
+
 ## Phase 10: Performance, Stability, and Launch Prep
 
 **M51 — Low-end device performance**

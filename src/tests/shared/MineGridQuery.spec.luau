@@ -65,3 +65,41 @@ describe(
 		)
 	end
 )
+
+describe(
+	"MineGridQuery.isInsideRock",
+	function()
+		it(
+			"calls a solid cell rock and an air cell free",
+			function()
+				local grid = makeGrid()
+				expect(MineGridQuery.isInsideRock(grid, 1, 1, 1)).toBe(true)
+				expect(MineGridQuery.isInsideRock(grid, 2, 2, 2)).toBe(false)
+			end
+		)
+
+		it(
+			"calls everything under the grid rock, behind the face only",
+			function()
+				local grid = makeGrid()
+				expect(MineGridQuery.isInsideRock(grid, 2, -1, 2)).toBe(true)
+				-- fallen past the side of the grid as well
+				expect(MineGridQuery.isInsideRock(grid, 2, -3, 9)).toBe(true)
+				-- the camp, in front of the face, at any height
+				expect(MineGridQuery.isInsideRock(grid, -1, -1, 2)).toBe(false)
+				expect(MineGridQuery.isInsideRock(grid, -1, 2, 2)).toBe(false)
+			end
+		)
+
+		it(
+			"leaves the mountain's top, sides, and far end alone",
+			function()
+				local grid = makeGrid()
+				expect(MineGridQuery.isInsideRock(grid, 2, 5, 2)).toBe(false)
+				expect(MineGridQuery.isInsideRock(grid, 2, 2, 5)).toBe(false)
+				expect(MineGridQuery.isInsideRock(grid, 2, 2, -1)).toBe(false)
+				expect(MineGridQuery.isInsideRock(grid, 5, 2, 2)).toBe(false)
+			end
+		)
+	end
+)

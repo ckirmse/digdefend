@@ -39,6 +39,25 @@ function MineGridQuery.getCellOrAir(grid: MineGenerator.MineGrid, depth: number,
 	return MineGenerator.getCell(grid, depth, height, width)
 end
 
+-- whether a cell is somewhere nothing loose may be: a solid cell of the
+-- grid, or anywhere under the grid behind the mountain's face. Clients
+-- render only the exposed shell, so a body that gets past it (a thrown
+-- stick, a character) meets no block again and falls out of the world;
+-- this is the question the guards ask (2026-11-13). The mountain's top,
+-- sides, and far end are left out: a map may have ground there
+function MineGridQuery.isInsideRock(grid: MineGenerator.MineGrid, depth: number, height: number, width: number): boolean
+	if depth < 0 then
+		return false
+	end
+	if height < 0 then
+		return true
+	end
+	if not MineGridQuery.isInBounds(grid, depth, height, width) then
+		return false
+	end
+	return MineGenerator.getCell(grid, depth, height, width) ~= MineGenerator.AIR
+end
+
 -- a solid cell with at least one air face is the only kind worth rendering;
 -- everything buried behind it is invisible until digging exposes it
 function MineGridQuery.isExposed(grid: MineGenerator.MineGrid, depth: number, height: number, width: number): boolean

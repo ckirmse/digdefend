@@ -12,6 +12,11 @@ local Wearables = {}
 -- the fallback seat of a worn model when the rig has no back attachment
 local DEFAULT_BACK_OFFSET = CFrame.new(0, 0, 0.6)
 
+-- the worn jet pack has one template per level, as the pick axe does
+function Wearables.jetPackTemplateName(level: number): string
+	return `{Constants.JET_PACK_TEMPLATE}_{level}`
+end
+
 local function getTorso(character: Model): BasePart?
 	local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
 	return if torso and torso:IsA("BasePart") then torso else nil
@@ -65,7 +70,8 @@ local function findRigAttachment(character: Model, name: string): Attachment?
 	for _, descendant in character:GetDescendants() do
 		if descendant:IsA("Attachment") and descendant.Name == name then
 			local parent = descendant.Parent
-			if parent and parent:IsA("BasePart") and not parent.Parent:IsA("Accessory") then
+			local owner = if parent then parent.Parent else nil
+			if parent and parent:IsA("BasePart") and not (owner and owner:IsA("Accessory")) then
 				return descendant
 			end
 		end

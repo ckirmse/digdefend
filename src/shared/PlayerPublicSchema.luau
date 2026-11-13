@@ -50,12 +50,15 @@ export type Snapshot = {
 type AttributeMap = { [string]: any }
 
 -- public state every client sees for a player (one AllPlayers entry); balances
--- and flags stay private by decision
+-- and flags stay private by decision. The class in play is public since
+-- 2026-11-13 (designer: its icon sits beside a crewmate's overhead name);
+-- the class records stay private
 function PlayerPublicSchema.buildPublicAttributes(snapshot: Snapshot): AttributeMap
 	return {
 		[Attributes.USER_ID] = snapshot.userId,
 		[Attributes.DISPLAY_NAME] = snapshot.displayName,
 		[Attributes.IS_READY] = snapshot.isReady,
+		[Attributes.ACTIVE_CLASS_KIND] = snapshot.activeClassKind or 0,
 	}
 end
 

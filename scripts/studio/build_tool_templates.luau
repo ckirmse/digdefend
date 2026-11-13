@@ -12,6 +12,15 @@
 -- upright by its middle. Run in the gameplay place from the command bar or the MCP
 -- execute_luau tool; it replaces any existing copy. Real art replaces the
 -- placeholders at M46.
+--
+-- The pick axes and the hammer are the artist's meshes since 2026-11 and
+-- this script still builds the old placeholder blocks for them, so do not
+-- rerun it over those without porting the live templates in first. What a
+-- held template must have, whoever makes it: a part named Handle set as the
+-- PrimaryPart, every other part a direct child of the Model and welded to
+-- the Handle (the pick axes arrived without a Handle, with a joint to
+-- nothing and a part nested under another, and did not show in the hand,
+-- 2026-11-13).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 

@@ -337,14 +337,19 @@ function ToolManager:syncHeldTool(player: Player)
 	end
 	tool:SetAttribute(Attributes.TOOL_TEMPLATE, wantedName)
 	local model = template:Clone()
-	for _, child in model:GetChildren() do
-		if child:IsA("BasePart") then
-			child.Anchored = false
-			child.CanCollide = false
-			child.CanQuery = false
-			child.CanTouch = false
-			child.Massless = true
+	-- every part, however deep the artist nested it: one piece left anchored
+	-- under another pins the whole Tool where the template stood, and the
+	-- hand is empty (the pick axes, 2026-11-13)
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = false
+			descendant.CanCollide = false
+			descendant.CanQuery = false
+			descendant.CanTouch = false
+			descendant.Massless = true
 		end
+	end
+	for _, child in model:GetChildren() do
 		child.Parent = tool
 	end
 	model:Destroy()

@@ -81,6 +81,8 @@ function JetPackManager:replicate(player: Player, now: number)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.JET_PACK_FUEL_SEC, state.tank.fuelSec)
 	SplendidReplicationManager:setCurrentPlayerAttribute(player, Attributes.IS_JET_PACK_LOCKED, state.tank.isLocked)
 	SplendidReplicationManager:setPublicAttribute(player, Attributes.IS_JET_PACK_BURNING, state.tank.isBurning)
+	-- public too: every client draws the pack of this level on the player's back
+	SplendidReplicationManager:setPublicAttribute(player, Attributes.JET_PACK_LEVEL, state.level)
 	state.lastReplicatedFuelSec = state.tank.fuelSec
 	state.lastReplicateTime = now
 end

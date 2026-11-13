@@ -2,6 +2,7 @@
 
 -- Lobby-only client startup. The shared client starts from
 -- StarterPlayerScripts/Client/main; this script wires the lobby's own managers.
+local UiStyle = require("@game/ReplicatedStorage/Shared/UiStyle")
 local ClientButtonSoundManager = require(script.Parent.Parent.Client.ClientButtonSoundManager)
 local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientDevConsoleManager = require(script.Parent.Parent.Client.ClientDevConsoleManager)
@@ -19,6 +20,7 @@ local ClientHudManager = require(script.Parent.ClientHudManager)
 local ClientKeyStoreManager = require(script.Parent.ClientKeyStoreManager)
 local ClientJetPackManager = require(script.Parent.Parent.Client.ClientJetPackManager)
 local ClientPadBillboardManager = require(script.Parent.ClientPadBillboardManager)
+local ClientPlayerNameManager = require(script.Parent.Parent.Client.ClientPlayerNameManager)
 local ClientLobbyMusicManager = require(script.Parent.ClientLobbyMusicManager)
 local ClientLobbyNpcManager = require(script.Parent.ClientLobbyNpcManager)
 local ClientStarterPackManager = require(script.Parent.ClientStarterPackManager)
@@ -49,6 +51,10 @@ ClientHudManager:init()
 -- after the HUD, whose jet pack bar and touch button it drives
 ClientJetPackManager:init()
 ClientPadBillboardManager:init()
+-- every player's overhead name with their class picture, the local
+-- player's own included: the lobby is third person, and every name is
+-- white, since there is no compass to match a colour to (2026-11-13)
+ClientPlayerNameManager:init(true, UiStyle.TEXT_COLOR)
 ClientPartyMenuManager:init()
 -- after the party menu, whose launch it listens for
 ClientLobbyMusicManager:init()

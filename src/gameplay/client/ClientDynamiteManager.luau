@@ -17,6 +17,8 @@ local UserInputService = game:GetService("UserInputService")
 local Attributes = require("@game/ReplicatedStorage/Shared/Attributes")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local MineGridQuery = require("@game/ReplicatedStorage/Shared/MineGridQuery")
+local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
 local Tags = require("@game/ReplicatedStorage/Shared/Tags")
 local Validate = require("@game/ReplicatedStorage/Shared/Validate")
@@ -24,6 +26,7 @@ local ClientDataManager = require(script.Parent.Parent.Client.ClientDataManager)
 local ClientNetManager = require(script.Parent.Parent.Client.ClientNetManager)
 local ClientOverlayManager = require(script.Parent.Parent.Client.ClientOverlayManager)
 local ClientHeldToolManager = require(script.Parent.ClientHeldToolManager)
+local ClientMineManager = require(script.Parent.ClientMineManager)
 local ClientTouchTap = require(script.Parent.ClientTouchTap)
 
 local ClientDynamiteManager = {}
@@ -116,26 +119,62 @@ function ClientDynamiteManager:dressStick(stick: BasePart)
 	mesh.Parent = stick
 end
 
--- the thrower's own stick leaves at the launch velocity the server
--- stamped on it, set from here for the first few frames, since this
--- client simulates the stick and the server's own set can be lost in the
--- handover (2026-10-20)
-function ClientDynamiteManager:launchOwnStick(stick: BasePart)
-	local launchVelocity = stick:GetAttribute(Attributes.DYNAMITE_LAUNCH_VELOCITY)
-	if typeof(launchVelocity) ~= "Vector3" then
-		return
+-- whether a position is somewhere a stick cannot rest: inside the mine's
+-- solid rock or under the mine (this client's own copy of the grid)
+function ClientDynamiteManager:isInsideRock(position: Vector3): boolean
+	local grid = ClientMineManager:getGrid()
+	local space = ClientMineManager:getSpace()
+	if not grid or not space then
+		return false
 	end
-	local endTime = workspace:GetServerTimeNow() + LAUNCH_HOLD_SEC
+	local depth, height, width = MineSpace.worldToCell(space, position)
+	return MineGridQuery.isInsideRock(grid, depth, height, width)
+end
+
+-- the thrower's own stick, which this client simulates for as long as it
+-- flies. Two jobs, both by frame:
+-- it leaves at the launch velocity the server stamped on it, set from here
+-- for the first few frames, since the server's own set can be lost in the
+-- handover (2026-10-20);
+-- and it is kept out of the rock (2026-11-13). Only the mine's exposed
+-- shell is rendered, so a stick that gets behind a face (thrown with the
+-- chest against a wall, or flown through one on the server, which has no
+-- blocks, before this client took it over) met nothing again and fell out
+-- of the bottom of the mine. A stick found inside rock goes back to the
+-- last free spot it was seen at, or to the thrower when it never had one,
+-- and drops from there
+function ClientDynamiteManager:simulateOwnStick(stick: BasePart)
+	local launchVelocity = stick:GetAttribute(Attributes.DYNAMITE_LAUNCH_VELOCITY)
+	local launchEndTime = workspace:GetServerTimeNow() + LAUNCH_HOLD_SEC
+	local isLaunching = typeof(launchVelocity) == "Vector3"
+	local lastFreeCFrame: CFrame? = nil
 	local connection: RBXScriptConnection? = nil
 	connection = RunService.Heartbeat:Connect(
 		function()
-			if not stick.Parent or workspace:GetServerTimeNow() >= endTime then
+			if not stick.Parent then
 				if connection then
 					connection:Disconnect()
 				end
 				return
 			end
-			stick.AssemblyLinearVelocity = launchVelocity
+			if self:isInsideRock(stick.Position) then
+				local character = Players.LocalPlayer.Character
+				local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+				local fallback = if root and root:IsA("BasePart") then root.CFrame else nil
+				local safeCFrame = lastFreeCFrame or fallback
+				if safeCFrame then
+					stick.CFrame = safeCFrame
+					stick.AssemblyLinearVelocity = Vector3.zero
+					stick.AssemblyAngularVelocity = Vector3.zero
+				end
+				-- pressing the throw on would only drive it back in
+				isLaunching = false
+				return
+			end
+			lastFreeCFrame = stick.CFrame
+			if isLaunching and workspace:GetServerTimeNow() < launchEndTime then
+				stick.AssemblyLinearVelocity = launchVelocity :: Vector3
+			end
 		end
 	)
 end
@@ -147,7 +186,7 @@ function ClientDynamiteManager:onStickAdded(stick: Instance)
 	end
 	self:dressStick(stick)
 	if stick:GetAttribute(Attributes.DYNAMITE_THROWER_USER_ID) == Players.LocalPlayer.UserId then
-		self:launchOwnStick(stick)
+		self:simulateOwnStick(stick)
 	end
 	local sparks = Instance.new("ParticleEmitter")
 	sparks.Name = "FuseSparks"

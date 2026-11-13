@@ -2,6 +2,8 @@
 # Turns a Studio window capture with a chroma-green backdrop into a 512x512
 # transparent icon PNG (icon capture pipeline, see docs/icon-capture.md).
 # Usage: scripts/process_icon.sh <studio_capture.png> <out_final.png>
+# ICON_AREA_THRESHOLD (default 30000 px) is the smallest piece kept; lower it
+# for a thin subject such as a rifle, whose whole silhouette is smaller.
 set -euo pipefail
 
 INPUT="$1"
@@ -25,7 +27,7 @@ magick "$WORK/viewport.png" -fill "$GREEN" -draw "rectangle $((WIDTH - 230)),0 $
 
 # keep only large opaque components; stray gizmo/handle lines survive keying otherwise
 magick "$WORK/keyed.png" \( +clone -alpha extract \
-	-define connected-components:area-threshold=30000 \
+	-define connected-components:area-threshold="${ICON_AREA_THRESHOLD:-30000}" \
 	-define connected-components:mean-color=true -connected-components 8 -threshold 50% \) \
 	-compose CopyOpacity -composite "$WORK/clean.png"
 magick "$WORK/clean.png" -trim +repage "$WORK/trimmed.png"

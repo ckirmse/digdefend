@@ -26,6 +26,7 @@ local BackpackRules = require("@game/ReplicatedStorage/Shared/BackpackRules")
 local Constants = require("@game/ReplicatedStorage/Shared/Constants")
 local DynamiteRules = require("@game/ReplicatedStorage/Shared/DynamiteRules")
 local Enums = require("@game/ReplicatedStorage/Shared/Enums")
+local MineGridQuery = require("@game/ReplicatedStorage/Shared/MineGridQuery")
 local MineSpace = require("@game/ReplicatedStorage/Shared/MineSpace")
 local MiningRules = require("@game/ReplicatedStorage/Shared/MiningRules")
 local NetEventNames = require("@game/ReplicatedStorage/Shared/NetEventNames")
@@ -189,6 +190,17 @@ function DynamiteManager:explode(stick: BasePart, position: Vector3, thrower: Pl
 	end
 end
 
+-- inside the mine's solid rock, or under the mine: nowhere a stick can rest
+function DynamiteManager:isInsideRock(position: Vector3): boolean
+	local space = MineManager:getSpace()
+	local grid = MineManager:getGrid()
+	if not space or not grid then
+		return false
+	end
+	local depth, height, width = MineSpace.worldToCell(space, position)
+	return MineGridQuery.isInsideRock(grid, depth, height, width)
+end
+
 function DynamiteManager:handleThrow(player: Player)
 	if ToolManager:getEquippedTool(player) ~= Enums.ToolKind.DYNAMITE then
 		return
@@ -237,12 +249,19 @@ function DynamiteManager:handleThrow(player: Player)
 	SpatialSoundManager:attach(stick, SoundNames.Sfx.DYNAMITE_FUSE, true)
 
 	local throwOrigin = root.Position
-	local lastPosition = stick.Position
+	-- the last place the stick was seen outside the rock: the thrower's
+	-- client keeps it out (ClientDynamiteManager), and this is the server's
+	-- own net under that, so a stick that still ends up inside the rock or
+	-- under the mine blasts where it last flew free, the thrower's spot
+	-- when it never did (2026-11-13: sticks fell through the floor and
+	-- their blast was lost)
+	local lastPosition = if self:isInsideRock(stick.Position) then throwOrigin else stick.Position
 	task.spawn(
 		function()
-			-- the last sampled position stands in if the stick falls out of the world
 			while stick.Parent do
-				lastPosition = stick.Position
+				if not self:isInsideRock(stick.Position) then
+					lastPosition = stick.Position
+				end
 				task.wait(TRACK_INTERVAL_SEC)
 			end
 		end
@@ -250,7 +269,7 @@ function DynamiteManager:handleThrow(player: Player)
 	task.delay(
 		DynamiteData.FUSE_SEC,
 		function()
-			local position = if stick.Parent then stick.Position else lastPosition
+			local position = if stick.Parent and not self:isInsideRock(stick.Position) then stick.Position else lastPosition
 			if (position - throwOrigin).Magnitude > DynamiteData.MAX_BLAST_DISTANCE_STUDS then
 				warn(`DynamiteManager: {player.Name}'s dynamite ended up too far from the throw; no blast`)
 				stick:Destroy()

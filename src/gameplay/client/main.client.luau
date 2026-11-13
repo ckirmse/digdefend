@@ -29,12 +29,14 @@ local ClientGeigerCounterManager = require(script.Parent.ClientGeigerCounterMana
 local ClientGiveCurrencyManager = require(script.Parent.ClientGiveCurrencyManager)
 local ClientHeadshotManager = require(script.Parent.ClientHeadshotManager)
 local ClientChaseVignetteManager = require(script.Parent.ClientChaseVignetteManager)
+local ClientClearanceManager = require(script.Parent.ClientClearanceManager)
 local ClientHurtManager = require(script.Parent.ClientHurtManager)
 local ClientIconFlightManager = require(script.Parent.ClientIconFlightManager)
 local ClientImpactManager = require(script.Parent.ClientImpactManager)
 local ClientJetPackManager = require(script.Parent.Parent.Client.ClientJetPackManager)
 local ClientMineDevTools = require(script.Parent.ClientMineDevTools)
 local ClientMineManager = require(script.Parent.ClientMineManager)
+local ClientMineRescueManager = require(script.Parent.ClientMineRescueManager)
 local ClientMoonManager = require(script.Parent.ClientMoonManager)
 local ClientNightLightManager = require(script.Parent.ClientNightLightManager)
 local ClientOreScannerManager = require(script.Parent.ClientOreScannerManager)
@@ -43,7 +45,7 @@ local ClientMiningStoreManager = require(script.Parent.ClientMiningStoreManager)
 local ClientMonsterDevTools = require(script.Parent.ClientMonsterDevTools)
 local ClientMonsterManager = require(script.Parent.ClientMonsterManager)
 local ClientOrePickupManager = require(script.Parent.ClientOrePickupManager)
-local ClientPlayerNameManager = require(script.Parent.ClientPlayerNameManager)
+local ClientPlayerNameManager = require(script.Parent.Parent.Client.ClientPlayerNameManager)
 local ClientPlacementDevTools = require(script.Parent.ClientPlacementDevTools)
 local ClientPlacementManager = require(script.Parent.ClientPlacementManager)
 local ClientRescueCameraManager = require(script.Parent.ClientRescueCameraManager)
@@ -59,6 +61,7 @@ local ClientPostManager = require(script.Parent.ClientPostManager)
 local ClientProjectileManager = require(script.Parent.ClientProjectileManager)
 local ClientFaultLineManager = require(script.Parent.ClientFaultLineManager)
 local ClientPostUpgradeManager = require(script.Parent.ClientPostUpgradeManager)
+local ClientTowerTableManager = require(script.Parent.ClientTowerTableManager)
 local ClientRefineryHpManager = require(script.Parent.ClientRefineryHpManager)
 local ClientRefineryManager = require(script.Parent.ClientRefineryManager)
 local ClientRunDevTools = require(script.Parent.ClientRunDevTools)
@@ -72,6 +75,7 @@ local ClientTouchLayoutManager = require(script.Parent.ClientTouchLayoutManager)
 local ClientTutorialManager = require(script.Parent.ClientTutorialManager)
 local ClientWeaponDevTools = require(script.Parent.ClientWeaponDevTools)
 local ClientWeaponManager = require(script.Parent.ClientWeaponManager)
+local ClientWeaponTableManager = require(script.Parent.ClientWeaponTableManager)
 local ClientWeaponUpgradeManager = require(script.Parent.ClientWeaponUpgradeManager)
 
 ClientDataManager:awaitReady()
@@ -126,7 +130,11 @@ ClientProjectileManager:init()
 ClientFaultLineManager:init()
 ClientPostManager:init()
 ClientPostUpgradeManager:init()
+-- the local player's class Tower on the Tower table's map tokens
+ClientTowerTableManager:init()
 ClientWeaponUpgradeManager:init()
+-- the local player's own handheld weapon lying on the Weapon Upgrade table
+ClientWeaponTableManager:init()
 -- after the targets and the posts: it registers with the first as the
 -- monsters' body provider and borrows the second's blast effect
 ClientMonsterManager:init()
@@ -146,6 +154,10 @@ ClientBinocularsManager:init()
 -- post manager that names the locks and the monster manager that draws the bodies
 ClientLockMarkerManager:init()
 ClientStimShotManager:init()
+-- the head collider catching on rock never knocks the character over
+ClientClearanceManager:init()
+-- a character that gets inside the mine's rock is put back where it last stood
+ClientMineRescueManager:init()
 -- the red edges and the hit sound on every drop in the player's health
 ClientHurtManager:init()
 -- the black edges that close in as the Chase nears, read from the drawn monsters
@@ -171,8 +183,9 @@ ClientCompassManager:init()
 ClientCampMapManager:init()
 -- the uranium dial beside the day clock; it asks the mine manager for distances
 ClientGeigerCounterManager:init()
--- crewmates' overhead names, in their compass dot colours
-ClientPlayerNameManager:init()
+-- crewmates' overhead names, in their compass dot colours; none for the
+-- local player, who is first person
+ClientPlayerNameManager:init(false, nil)
 ClientRescueManager:init()
 -- death and revives (M32): the Results Menu, Spectate Mode (which it
 -- starts, and which points the mine renderer at the watched player), and

@@ -261,6 +261,10 @@ Constants.WALLS_TABLE_WALL_MODEL = "WallModel"
 -- sets the display's spot and size; each client redraws it locally as the
 -- current tier's post with its own loadout post weapon on top, display only
 Constants.POST_UPGRADE_TABLE_DISPLAY_POST = "DisplayPost"
+-- inside TowerTable: the designer's marker parts on the map (MapToken1,
+-- MapToken2, ...); each client stands a small copy of its own class's Tower
+-- on every one (ClientTowerTableManager, 2026-11-13)
+Constants.TOWER_TABLE_TOKEN_PATTERN = "^MapToken%d+$"
 -- Camp.DefensiveZones (M26): one anchored BasePart per Defensive Zone; its
 -- top face is the build surface and its size and rotation define the grid
 -- (PlacementRules.measureZone). PlacementManager numbers them by name
@@ -560,8 +564,10 @@ Constants.CHARACTER_CLEARANCE_PART = "Clearance"
 -- the pick axe has one model per level, "PICK_AXE_<level>"
 Constants.TOOL_TEMPLATES_FOLDER = "Tools"
 Constants.TOOL_HANDLE_PART = "Handle"
--- the jet pack worn on the back (GameAssets/Wearables/JET_PACK) and the
--- attachment its Handle welds to; its Flame part is shown while burning
+-- the jet pack worn on the back, one model per level
+-- (GameAssets/Wearables/JET_PACK_<level>, Wearables.jetPackTemplateName;
+-- the artist's models since 2026-11-13) and the attachment its Handle
+-- welds to; the effects under its attachments run while burning
 Constants.WEARABLE_TEMPLATES_FOLDER = "Wearables"
 -- cosmetic skins (M61 first pass, 2026-11-04): GameAssets/Cosmetics/<SLOT
 -- name>/<template>, built by scripts/studio/build_cosmetic_templates.luau
@@ -570,7 +576,6 @@ Constants.JET_PACK_TEMPLATE = "JET_PACK"
 -- the name the worn copy carries on a character (ClientJetPackManager,
 -- LobbyCharacterManager), so a menu avatar can take it off
 Constants.WORN_JET_PACK_MODEL = "WornJetPack"
-Constants.JET_PACK_FLAME_PART = "Flame"
 -- the attachments on the pack's tanks where the stowed pick axe and hammer
 -- skins mount (designer, 2026-10-12; used from M61)
 Constants.JET_PACK_PICK_AXE_ATTACHMENT = "PickAxeMount"
@@ -713,6 +718,8 @@ Constants.GEIGER_COUNTER_DIRECTION_LABEL = "Direction"
 -- (GameAssets/Gui/PlayerName, scripts/studio/build_player_name_billboard.luau)
 Constants.PLAYER_NAME_BILLBOARD = "PlayerName"
 Constants.PLAYER_NAME_LABEL = "NameLabel"
+-- the crewmate's class picture beside the name (2026-11-13)
+Constants.PLAYER_NAME_CLASS_ICON = "ClassIcon"
 -- the "DAY N" / "NIGHT N" card shown for a moment at every dawn and dusk
 -- (designer-authored ScreenGui, M28)
 Constants.DAY_NIGHT_NUMBER_GUI_NAME = "DayNightNumber"
